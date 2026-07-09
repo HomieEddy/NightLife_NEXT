@@ -1,0 +1,380 @@
+/**
+ * NightLifeNext domain types.
+ *
+ * These types define the contract between the UI and the (future) backend.
+ * TODO(backend): mirror these as Prisma models / API DTOs when wiring PostgreSQL.
+ */
+
+// ---------- Venue ----------
+
+/** One configurable per-order charge — a tax, service charge or flat fee. */
+export interface ServiceFee {
+  id: string;
+  name: string; // e.g. "Service", "TPS", "TVQ"
+  type: "percentage" | "flat";
+  value: number; // % of subtotal, or $ amount when flat
+}
+
+export interface Venue {
+  id: string;
+  name: string;
+  slug: string;
+  address: string;
+  city: string;
+  timezone: string;
+  currency: "CAD" | "EUR" | "USD" | "GBP";
+  openingHours: { day: string; open: string; close: string }[];
+  serviceFees: ServiceFee[]; // applied in order to every guest order
+  /** Floor-map canvas proportions (abstract units — controls the aspect ratio). */
+  floorMap: { width: number; height: number };
+  autoApproveGuests: boolean;
+  logoInitials: string;
+}
+
+export interface Zone {
+  id: string;
+  venueId: string;
+  name: string;
+  description: string;
+  color: string; // tailwind-friendly hue token, e.g. "violet"
+  tableCount: number;
+}
+
+export type TableStatus = "open" | "occupied" | "reserved" | "closed";
+
+export interface VenueTable {
+  id: string;
+  zoneId: string;
+  code: string; // printed on the QR, e.g. "VIP-01"
+  label: string;
+  seats: number;
+  minimumSpend: number | null;
+  status: TableStatus;
+  qrSlug: string; // /g/<qrSlug>
+  /** Floor-map position as % of canvas (2–98). Defaults are auto-laid-out per zone. */
+  mapX?: number;
+  mapY?: number;
+}
+
+// ---------- Staff ----------
+
+export type StaffRole = "manager" | "host" | "bartender" | "runner" | "security";
+
+/** Roles a manager can assign when creating/editing staff ("security" is legacy). */
+export const ASSIGNABLE_ROLES = ["manager", "host", "bartender", "runner"] as const;
+
+export type StaffAccountStatus = "active" | "invited" | "suspended";
+
+export interface StaffMember {
+  id: string;
+  venueId: string;
+  name: string;
+  role: StaffRole;
+  phone: string;
+  email: string;
+  accountStatus: StaffAccountStatus;
+  assignedZoneIds: string[];
+  isOnShift: boolean;
+  avatarInitials: string;
+}
+
+/** One recurring weekly shift block. TODO(backend): becomes a shifts table with real dates. */
+export interface StaffShift {
+  id: string;
+  staffId: string;
+  dayOfWeek: number; // 0 = Sunday
+  startTime: string; // "22:00"
+  endTime: string;
+  zoneId: string | null; // optional zone the shift covers
+}
+
+// ---------- Menu ----------
+
+export interface MenuCategory {
+  id: string;
+  venueId: string;
+  name: string;
+  description: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface ModifierOption {
+  id: string;
+  name: string;
+  priceDelta: number;
+}
+
+export interface ModifierGroup {
+  id: string;
+  name: string;
+  required: boolean;
+  maxSelections: number; // 1 = single choice
+  options: ModifierOption[];
+}
+
+/** Icon keys rendered by <BottleIcon> — no raw emoji strings anywhere. */
+export type BottleIconKey =
+  | "champagne"
+  | "tequila"
+  | "vodka"
+  | "cognac"
+  | "rum"
+  | "whisky"
+  | "gin"
+  | "washer"
+  | "package";
+
+export interface MenuItem {
+  id: string;
+  categoryId: string;
+  name: string;
+  description: string;
+  price: number;
+  icon: BottleIconKey;
+  tags: ("popular" | "new" | "premium" | "limited")[];
+  isAvailable: boolean; // manual 86 switch
+  inventory: number; // bottles left tonight; 0 = sold out regardless of isAvailable
+  modifierGroups: ModifierGroup[];
+}
+
+// ---------- Inventory ----------
+
+export type StockMovementType = "restock" | "sale" | "adjustment";
+
+/**
+ * Every inventory change is a movement — restocks, sales and manual
+ * corrections. The item's `inventory` field is the running balance.
+ * TODO(backend): becomes an append-only stock_movements ledger table.
+ */
+export interface StockMovement {
+  id: string;
+  menuItemId: string;
+  itemName: string; // denormalized for display
+  type: StockMovementType;
+  delta: number; // positive = stock in, negative = stock out
+  note?: string;
+  createdAt: string;
+}
+
+// ---------- Bottle packages ----------
+
+export interface PackageComponent {
+  menuItemId: string;
+  quantity: number;
+}
+
+/**
+ * A curated bundle of bottles (e.g. "Mr Ace" = 5× Ace of Spades + washers).
+ * Priced by the manager; value/savings and availability are derived from the
+ * component items' prices and inventory.
+ */
+export interface BottlePackage {
+  id: string;
+  venueId: string;
+  name: string;
+  description: string;
+  price: number;
+  components: PackageComponent[];
+  isActive: boolean;
+}
+
+export interface HappyHourRule {
+  id: string;
+  venueId: string;
+  name: string;
+  daysOfWeek: number[]; // 0 = Sunday
+  startTime: string; // "22:00"
+  endTime: string;
+  discountPct: number;
+  appliesToCategoryIds: string[];
+  isActive: boolean;
+}
+
+// ---------- Guests & sessions ----------
+
+export type GuestSessionStatus =
+  | "pending"
+  | "approved"
+  | "denied"
+  | "closure-requested" // guest asked to close the tab (all orders delivered)
+  | "closed";
+
+export interface GuestSession {
+  id: string;
+  tableId: string;
+  tableCode: string;
+  zoneName: string;
+  displayName: string;
+  partySize: number;
+  status: GuestSessionStatus;
+  createdAt: string; // ISO
+}
+
+// ---------- Orders ----------
+
+export type OrderStatus =
+  | "pending" // submitted, waiting for staff acceptance
+  | "accepted"
+  | "preparing"
+  | "ready"
+  | "delivered"
+  | "cancelled";
+
+export interface OrderItemModifier {
+  groupName: string;
+  optionName: string;
+  priceDelta: number;
+}
+
+export interface OrderItem {
+  id: string;
+  menuItemId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  modifiers: OrderItemModifier[];
+  note?: string;
+}
+
+export interface Order {
+  id: string;
+  code: string; // short human code, e.g. "A-042"
+  venueId: string;
+  tableId: string;
+  tableCode: string;
+  zoneId: string;
+  zoneName: string;
+  guestName: string;
+  items: OrderItem[];
+  subtotal: number;
+  serviceFee: number;
+  tip: number;
+  total: number;
+  status: OrderStatus;
+  placedAt: string; // ISO
+  updatedAt: string;
+}
+
+// ---------- Help requests ----------
+
+export type HelpRequestType = "call-waiter" | "refill-ice" | "clean-table" | "security" | "bill";
+export type HelpRequestStatus = "open" | "acknowledged" | "resolved";
+
+export interface HelpRequest {
+  id: string;
+  tableCode: string;
+  zoneName: string;
+  guestName: string;
+  type: HelpRequestType;
+  status: HelpRequestStatus;
+  createdAt: string;
+}
+
+// ---------- Cart (guest client state) ----------
+
+export interface CartLine {
+  lineId: string;
+  menuItem: MenuItem;
+  quantity: number;
+  modifiers: OrderItemModifier[];
+  note?: string;
+}
+
+// ---------- Chat ----------
+
+export interface ChatMessage {
+  id: string;
+  channel: "floor" | "bar" | "security";
+  authorId: string;
+  authorName: string;
+  authorRole: StaffRole;
+  body: string;
+  sentAt: string;
+}
+
+// ---------- Analytics ----------
+
+export interface RevenuePoint {
+  label: string; // e.g. "22:00" or "Fri"
+  revenue: number;
+  orders: number;
+}
+
+export interface StaffPerformancePoint {
+  staffId: string;
+  name: string;
+  role: StaffRole;
+  ordersDelivered: number;
+  avgDeliveryMinutes: number;
+  revenueServed: number;
+}
+
+export interface CategoryDepletionPoint {
+  categoryId: string;
+  categoryName: string;
+  unitsSold: number;
+  unitsInStock: number;
+}
+
+export interface AnalyticsSummary {
+  revenueTonight: number;
+  revenueDeltaPct: number;
+  ordersTonight: number;
+  ordersDeltaPct: number;
+  avgOrderValue: number;
+  avgOrderDeltaPct: number;
+  activeTables: number;
+  totalTables: number;
+  avgFulfillmentMinutes: number;
+  topItems: { name: string; count: number; revenue: number; categoryId?: string }[];
+  revenueByHour: RevenuePoint[];
+  revenueByDay: RevenuePoint[];
+  revenueByZone: { zoneId: string; zoneName: string; revenue: number }[];
+  staffPerformance: StaffPerformancePoint[];
+  categoryDepletion: CategoryDepletionPoint[];
+}
+
+// ---------- Platform admin ----------
+
+export type LeadStatus = "new" | "contacted" | "demo" | "negotiating" | "won" | "lost";
+
+export type LeadSource = "landing-page" | "referral" | "outbound" | "event";
+
+/** Timestamped touchpoint on a lead — calls, emails, demos, stage moves. */
+export interface LeadActivity {
+  id: string;
+  at: string; // ISO
+  text: string;
+}
+
+export interface Lead {
+  id: string;
+  venueName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  city: string;
+  status: LeadStatus;
+  source: LeadSource;
+  /** Estimated annual contract value. */
+  dealValue: number;
+  notes: string;
+  activity: LeadActivity[];
+  createdAt: string;
+}
+
+export type TenantPlan = "starter" | "pro" | "enterprise";
+export type TenantStatus = "active" | "trial" | "suspended";
+
+export interface Tenant {
+  id: string;
+  venueName: string;
+  slug: string;
+  plan: TenantPlan;
+  status: TenantStatus;
+  city: string;
+  tableCount: number;
+  monthlyRevenue: number;
+  createdAt: string;
+}
