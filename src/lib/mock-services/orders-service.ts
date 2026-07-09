@@ -55,6 +55,7 @@ export const mockOrdersService = {
     zoneId: string;
     zoneName: string;
     guestName: string;
+    sessionId?: string;
     lines: CartLine[];
     tip: number;
   }): Promise<Order> {
@@ -70,6 +71,7 @@ export const mockOrdersService = {
       id: uid("ord"),
       code: `A-${String(orderCounter++).padStart(3, "0")}`,
       venueId: mockVenue.id,
+      sessionId: input.sessionId,
       tableId: input.tableId,
       tableCode: input.tableCode,
       zoneId: input.zoneId,
@@ -98,6 +100,11 @@ export const mockOrdersService = {
       order.items.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
     );
     return clone(order);
+  },
+
+  async listOrdersBySession(sessionId: string): Promise<Order[]> {
+    await delay();
+    return clone(orders.filter((o) => o.sessionId === sessionId));
   },
 
   async advanceOrder(orderId: string): Promise<Order | null> {
