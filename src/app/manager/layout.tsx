@@ -1,0 +1,136 @@
+"use client";
+
+import { useEffect } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  BarChart3,
+  Boxes,
+  Clock,
+  CreditCard,
+  FileText,
+  LayoutDashboard,
+  Map,
+  MapPin,
+  Martini,
+  QrCode,
+  Receipt,
+  Settings,
+  Table2,
+  Users,
+} from "lucide-react";
+import { BrandLogo } from "@/components/shared/brand-logo";
+import { isManagerOnboarded } from "@/lib/onboarding";
+import { RoleBadge } from "@/components/shared/role-badge";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { cn } from "@/lib/utils";
+
+const NAV = [
+  { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/manager/orders", label: "Orders", icon: Receipt },
+  { href: "/manager/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/manager/reports", label: "Reports", icon: FileText },
+  { href: "/manager/menu", label: "Menu", icon: Martini },
+  { href: "/manager/inventory", label: "Inventory", icon: Boxes },
+  { href: "/manager/floor-map", label: "Floor map", icon: Map },
+  { href: "/manager/zones", label: "Zones", icon: MapPin },
+  { href: "/manager/tables", label: "Tables", icon: Table2 },
+  { href: "/manager/staff", label: "Staff", icon: Users },
+  { href: "/manager/happy-hour", label: "Happy hour", icon: Clock },
+  { href: "/manager/qr", label: "QR codes", icon: QrCode },
+  { href: "/manager/subscription", label: "Subscription", icon: CreditCard },
+  { href: "/manager/settings", label: "Settings", icon: Settings },
+];
+
+export default function ManagerLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const onOnboarding = pathname.startsWith("/manager/onboarding");
+  const isActive = (href: string) =>
+    href === "/manager" ? pathname === "/manager" : pathname.startsWith(href);
+
+  // First run: the demo starts with the onboarding wizard.
+  useEffect(() => {
+    if (!onOnboarding && !isManagerOnboarded()) router.replace("/manager/onboarding");
+  }, [onOnboarding, pathname, router]);
+
+  // The wizard gets a clean, chrome-free canvas.
+  if (onOnboarding) {
+    return (
+      <div className="min-h-dvh">
+        <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-lg">
+          <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
+            <BrandLogo href="/manager/onboarding" />
+            <ThemeToggle />
+          </div>
+        </header>
+        <main className="mx-auto w-full max-w-5xl p-4 sm:p-6">{children}</main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-dvh">
+      {/* Desktop sidebar */}
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r bg-sidebar md:flex print:md:hidden">
+        <div className="flex h-14 items-center justify-between border-b px-4">
+          <BrandLogo href="/manager" />
+          <ThemeToggle />
+        </div>
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+          {NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive(item.href)
+                  ? "bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              <item.icon className="size-4" />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+        <div className="border-t p-4 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">LUXE Noir</p>
+          <p>Amara Diallo · <RoleBadge role="manager" className="px-1.5 py-0 text-[10px]" /></p>
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile header + scrolling nav */}
+        <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-lg md:hidden print:hidden">
+          <div className="flex h-12 items-center justify-between px-4">
+            <BrandLogo href="/manager" />
+            <div className="flex items-center gap-1">
+              <RoleBadge role="manager" />
+              <ThemeToggle />
+            </div>
+          </div>
+          <nav className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">
+            {NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                  isActive(item.href)
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "text-muted-foreground",
+                )}
+              >
+                <item.icon className="size-3.5" />
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </header>
+
+        <main className="mx-auto w-full max-w-5xl flex-1 p-4 sm:p-6">{children}</main>
+      </div>
+    </div>
+  );
+}
