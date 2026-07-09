@@ -16,6 +16,8 @@ import { useGuest } from "@/context/guest-context";
 import { mockOrdersService } from "@/lib/mock-services/orders-service";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import { mockVenue } from "@/lib/mock-data/venue";
+import { mockPackages } from "@/lib/mock-data/menu";
+import { mockMenuItems } from "@/lib/mock-data/menu";
 import type { Order } from "@/lib/types";
 
 function OrderLines({ order }: { order: Order }) {
@@ -177,7 +179,32 @@ function NightReceipt() {
                 <span>{formatTime(order.placedAt)}</span>
               </div>
               {order.items.map((item) => {
+                const pkg = mockPackages.find((p) => p.id === item.menuItemId);
                 const modTotal = item.modifiers.reduce((s, m) => s + m.priceDelta, 0);
+                if (pkg) {
+                  return (
+                    <div key={item.id} className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="truncate">
+                          {item.quantity}× {pkg.name}
+                        </span>
+                        <span className="whitespace-nowrap tabular-nums">
+                          {formatMoney((item.unitPrice + modTotal) * item.quantity)}
+                        </span>
+                      </div>
+                      <ul className="pl-3 space-y-0.5 text-[11px] text-zinc-500">
+                        {pkg.components.map((comp) => {
+                          const menu = mockMenuItems.find((m) => m.id === comp.menuItemId);
+                          return (
+                            <li key={comp.menuItemId} className="flex justify-between">
+                              <span>• {comp.quantity}× {menu?.name ?? comp.menuItemId}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                }
                 return (
                   <div key={item.id} className="flex justify-between gap-2">
                     <span className="truncate">
