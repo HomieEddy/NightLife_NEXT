@@ -26,6 +26,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
   const {
     table,
     guestName,
+    sessionId,
     cart,
     cartSubtotal,
     updateQuantity,
@@ -58,6 +59,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
         zoneId: table.zoneId,
         zoneName: table.zoneName,
         guestName,
+        sessionId: sessionId ?? undefined,
         lines: cart,
         tip,
       });

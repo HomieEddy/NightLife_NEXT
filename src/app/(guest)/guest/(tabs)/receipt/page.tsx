@@ -3,16 +3,18 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Moon, ReceiptText } from "lucide-react";
+import { CheckCircle2, Mail, Moon, ReceiptText } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { CountUp } from "@/components/fx/count-up";
 import { useGuest } from "@/context/guest-context";
 import { mockOrdersService } from "@/lib/mock-services/orders-service";
-import { formatMoney, formatTime } from "@/lib/format";
+import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import { mockVenue } from "@/lib/mock-data/venue";
 import type { Order } from "@/lib/types";
 
@@ -91,18 +93,27 @@ function VenueHeader({ tableCode, zoneName }: { tableCode?: string; zoneName?: s
 
 /** Full-night receipt shown after the host approves the tab closure. */
 function NightReceipt() {
-  const { guestName, table } = useGuest();
+  const { guestName, table, sessionId } = useGuest();
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    mockOrdersService.listGuestOrders(guestName).then((result) => {
+    const load = sessionId
+      ? mockOrdersService.listOrdersBySession(sessionId)
+      : mockOrdersService.listGuestOrders(guestName);
+    load.then((result) => {
       if (!cancelled) setOrders(result.filter((o) => o.status === "delivered"));
     });
     return () => {
       cancelled = true;
     };
-  }, [guestName]);
+  }, [guestName, sessionId]);
+
+  function sendEmail() {
+    if (!email.trim()) return toast.error("Enter an email address.");
+    toast.success(`Receipt sent to ${email.trim()} (demo)`);
+  }
 
   if (orders === null) return <ListSkeleton rows={1} rowHeight="h-96" />;
 
@@ -110,6 +121,7 @@ function NightReceipt() {
   const serviceFee = orders.reduce((s, o) => s + o.serviceFee, 0);
   const tip = orders.reduce((s, o) => s + o.tip, 0);
   const total = orders.reduce((s, o) => s + o.total, 0);
+  const firstAt = orders[0]?.placedAt;
 
   return (
     <div className="space-y-4">
@@ -123,43 +135,106 @@ function NightReceipt() {
         </p>
       </div>
 
-      <Card className="animate-fade-up">
-        <CardContent className="space-y-4">
-          <VenueHeader tableCode={table?.tableCode} zoneName={table?.zoneName} />
-          <Separator />
-
-          {orders.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground">
-              No delivered orders on this tab.
+      {/* Paper receipt */}
+      <div className="mx-auto w-full max-w-sm rounded-lg bg-zinc-50 text-zinc-900 shadow-xl">
+        <div className="space-y-2 p-5 font-mono text-xs leading-relaxed">
+          <div className="text-center">
+            <p className="text-sm font-bold tracking-[0.2em]">{mockVenue.name.toUpperCase()}</p>
+            <p>
+              {mockVenue.address}, {mockVenue.city}
             </p>
-          ) : (
-            <div className="space-y-4 stagger-children">
-              {orders.map((order) => (
-                <div key={order.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="font-mono text-xs font-semibold text-primary">
-                      {order.code} · {formatTime(order.placedAt)}
-                    </p>
-                    <p className="text-xs tabular-nums text-muted-foreground">
-                      {formatMoney(order.total)}
-                    </p>
-                  </div>
-                  <OrderLines order={order} />
-                  <Separator />
-                </div>
-              ))}
+            <div className="my-2 border-y border-dashed border-zinc-400 py-1 font-semibold tracking-widest">
+              GUEST RECEIPT
+            </div>
+          </div>
+
+          <div className="flex justify-between">
+            <span>TABLE</span>
+            <span>
+              {table?.tableCode ?? "—"}
+              {table?.zoneName ? ` · ${table.zoneName}` : ""}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span>GUEST</span>
+            <span>{guestName}</span>
+          </div>
+          {firstAt && (
+            <div className="flex justify-between">
+              <span>DATE</span>
+              <span>
+                {formatDate(firstAt)} {formatTime(firstAt)}
+              </span>
             </div>
           )}
 
-          <Totals subtotal={subtotal} serviceFee={serviceFee} tip={tip} total={total} />
+          <div className="border-t border-dashed border-zinc-400" />
 
-          <Separator />
-          <p className="text-center text-xs text-muted-foreground">
-            {/* TODO(backend): settle payment (Stripe) + email the receipt on closure. */}
-            Demo receipt — no payment was processed.
-          </p>
-        </CardContent>
-      </Card>
+          {orders.map((order) => (
+            <div key={order.id} className="space-y-1">
+              <div className="flex justify-between font-semibold">
+                <span>{order.code}</span>
+                <span>{formatTime(order.placedAt)}</span>
+              </div>
+              {order.items.map((item) => {
+                const modTotal = item.modifiers.reduce((s, m) => s + m.priceDelta, 0);
+                return (
+                  <div key={item.id} className="flex justify-between gap-2">
+                    <span className="truncate">
+                      {item.quantity}× {item.name}
+                      {item.modifiers.length > 0 &&
+                        ` (${item.modifiers.map((m) => m.optionName).join(", ")})`}
+                    </span>
+                    <span className="whitespace-nowrap tabular-nums">
+                      {formatMoney((item.unitPrice + modTotal) * item.quantity)}
+                    </span>
+                  </div>
+                );
+              })}
+              <div className="flex justify-between text-[10px] text-zinc-500">
+                <span>served</span>
+                <span className="tabular-nums">{formatMoney(order.total)}</span>
+              </div>
+              <div className="border-t border-dashed border-zinc-300" />
+            </div>
+          ))}
+
+          <div className="space-y-0.5 pt-1">
+            <div className="flex justify-between">
+              <span>SUBTOTAL</span>
+              <span className="tabular-nums">{formatMoney(subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>SERVICE</span>
+              <span className="tabular-nums">{formatMoney(serviceFee)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>TIP</span>
+              <span className="tabular-nums">{formatMoney(tip)}</span>
+            </div>
+            <div className="flex justify-between border-t border-dashed border-zinc-400 pt-1 text-sm font-bold">
+              <span>TOTAL</span>
+              <span className="tabular-nums">{formatMoney(total)}</span>
+            </div>
+          </div>
+
+          <p className="text-center text-[10px] text-zinc-500">DEMO RECEIPT · NO PAYMENT PROCESSED</p>
+          <p className="text-center text-[10px] text-zinc-500">THANK YOU · COME AGAIN</p>
+        </div>
+      </div>
+
+      {/* Dummy email-the-receipt action */}
+      <div className="space-y-2">
+        <Input
+          type="email"
+          placeholder="guest@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <Button onClick={sendEmail} className="w-full">
+          <Mail className="size-4" /> Email receipt
+        </Button>
+      </div>
 
       <Button variant="outline" className="w-full animate-fade-up" asChild>
         <Link href="/g/demo-table">Start a new session</Link>
