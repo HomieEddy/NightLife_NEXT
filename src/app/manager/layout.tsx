@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   Boxes,
+  CalendarDays,
   Clock,
   CreditCard,
   FileText,
@@ -13,16 +14,19 @@ import {
   Map,
   MapPin,
   Martini,
+  PartyPopper,
   QrCode,
   Receipt,
   Settings,
   Table2,
+  Tag,
   Users,
 } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { isManagerOnboarded } from "@/lib/onboarding";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { AuthBanner } from "@/components/shared/auth-banner";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -37,6 +41,9 @@ const NAV = [
   { href: "/manager/tables", label: "Tables", icon: Table2 },
   { href: "/manager/staff", label: "Staff", icon: Users },
   { href: "/manager/happy-hour", label: "Happy hour", icon: Clock },
+  { href: "/manager/reservations", label: "Reservations", icon: CalendarDays },
+  { href: "/manager/events", label: "Events", icon: PartyPopper },
+  { href: "/manager/promotions", label: "Promotions", icon: Tag },
   { href: "/manager/qr", label: "QR codes", icon: QrCode },
   { href: "/manager/subscription", label: "Subscription", icon: CreditCard },
   { href: "/manager/settings", label: "Settings", icon: Settings },
@@ -96,7 +103,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
         </nav>
         <div className="border-t p-4 text-xs text-muted-foreground">
           <p className="font-medium text-foreground">LUXE Noir</p>
-          <p>Amara Diallo · <RoleBadge role="manager" className="px-1.5 py-0 text-[10px]" /></p>
+          <AuthBanner className="mt-1" />
         </div>
       </aside>
 
@@ -107,6 +114,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
             <BrandLogo href="/manager" />
             <div className="flex items-center gap-1">
               <RoleBadge role="manager" />
+              <AuthBanner />
               <ThemeToggle />
             </div>
           </div>

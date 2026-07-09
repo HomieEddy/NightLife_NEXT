@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { AuthBanner } from "@/components/shared/auth-banner";
 import { MobileBottomNav } from "@/components/shared/mobile-bottom-nav";
 import { mockStaffService } from "@/lib/mock-services/staff-service";
 import type { StaffMember } from "@/lib/types";
@@ -37,6 +38,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
           </div>
           <div className="flex items-center gap-1">
             {me && <RoleBadge role={me.role} />}
+            <AuthBanner />
             <ThemeToggle />
           </div>
         </div>

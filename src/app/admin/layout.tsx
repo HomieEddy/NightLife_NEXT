@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Building2, Filter, LayoutDashboard, Rocket, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { AuthBanner } from "@/components/shared/auth-banner";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -29,7 +30,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <ShieldCheck className="size-3" /> Platform admin
             </span>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <AuthBanner />
+            <ThemeToggle />
+          </div>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">
           {NAV.map((item) => (
