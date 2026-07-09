@@ -1,0 +1,276 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { CalendarPlus, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { RoleBadge } from "@/components/shared/role-badge";
+import { mockStaffService } from "@/lib/mock-services/staff-service";
+import { cn } from "@/lib/utils";
+import type { StaffMember, StaffShift, Zone } from "@/lib/types";
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Nightclub week: render Thursday→Sunday first, quiet days last.
+const DAY_ORDER = [4, 5, 6, 0, 1, 2, 3];
+
+interface ShiftDraft {
+  staffId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  zoneId: string; // "none" = unassigned
+}
+
+/** Weekly recurring schedule: shifts grouped by night, add/remove per staff. */
+export function ScheduleTab({ staff, zones }: { staff: StaffMember[]; zones: Zone[] }) {
+  const [shifts, setShifts] = useState<StaffShift[] | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [draft, setDraft] = useState<ShiftDraft>({
+    staffId: "",
+    dayOfWeek: 5,
+    startTime: "22:00",
+    endTime: "04:00",
+    zoneId: "none",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setShifts(await mockStaffService.listShifts());
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const staffName = (id: string) => staff.find((s) => s.id === id)?.name ?? "—";
+  const staffRole = (id: string) => staff.find((s) => s.id === id)?.role;
+  const zoneName = (id: string | null) =>
+    id === null ? null : zones.find((z) => z.id === id)?.name ?? null;
+
+  function openAdd(day?: number) {
+    setDraft({
+      staffId: staff[0]?.id ?? "",
+      dayOfWeek: day ?? 5,
+      startTime: "22:00",
+      endTime: "04:00",
+      zoneId: "none",
+    });
+    setDialogOpen(true);
+  }
+
+  async function save() {
+    if (!draft.staffId) {
+      toast.error("Pick a team member.");
+      return;
+    }
+    setSaving(true);
+    await mockStaffService.addShift({
+      staffId: draft.staffId,
+      dayOfWeek: draft.dayOfWeek,
+      startTime: draft.startTime,
+      endTime: draft.endTime,
+      zoneId: draft.zoneId === "none" ? null : draft.zoneId,
+    });
+    setSaving(false);
+    setDialogOpen(false);
+    toast.success(`${staffName(draft.staffId)} scheduled for ${DAY_LABELS[draft.dayOfWeek]}`);
+    await refresh();
+  }
+
+  async function remove(shift: StaffShift) {
+    await mockStaffService.removeShift(shift.id);
+    toast.info(`${staffName(shift.staffId)} unscheduled from ${DAY_LABELS[shift.dayOfWeek]}`);
+    await refresh();
+  }
+
+  if (shifts === null) return <ListSkeleton rows={4} rowHeight="h-28" />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button onClick={() => openAdd()}>
+          <CalendarPlus className="size-4" /> Add shift
+        </Button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {DAY_ORDER.map((day) => {
+          const dayShifts = shifts
+            .filter((sh) => sh.dayOfWeek === day)
+            .sort((a, b) => a.startTime.localeCompare(b.startTime));
+          const isWeekend = [4, 5, 6].includes(day);
+          return (
+            <Card key={day} className={cn("py-4", !isWeekend && dayShifts.length === 0 && "opacity-60")}>
+              <CardContent className="space-y-2 px-4">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">{DAY_LABELS[day]}</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() => openAdd(day)}
+                  >
+                    <CalendarPlus className="size-3.5" /> Add
+                  </Button>
+                </div>
+                {dayShifts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No one scheduled.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {dayShifts.map((shift) => {
+                      const role = staffRole(shift.staffId);
+                      return (
+                        <li
+                          key={shift.id}
+                          className="flex items-center gap-2 rounded-lg border p-2 text-sm"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate font-medium">
+                                {staffName(shift.staffId)}
+                              </span>
+                              {role && <RoleBadge role={role} className="px-1.5 py-0 text-[10px]" />}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {shift.startTime} – {shift.endTime}
+                              {zoneName(shift.zoneId) && ` · ${zoneName(shift.zoneId)}`}
+                            </p>
+                          </div>
+                          <ConfirmDialog
+                            trigger={
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 shrink-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+                                aria-label="Remove shift"
+                              >
+                                <X className="size-3.5" />
+                              </Button>
+                            }
+                            title={`Unschedule ${staffName(shift.staffId)}?`}
+                            description={`Removes their ${DAY_LABELS[shift.dayOfWeek]} ${shift.startTime}–${shift.endTime} shift.`}
+                            confirmLabel="Remove shift"
+                            destructive
+                            onConfirm={() => remove(shift)}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* ---------- Add shift dialog ---------- */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add a shift</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Team member</Label>
+              <Select
+                value={draft.staffId}
+                onValueChange={(staffId) => setDraft({ ...draft, staffId })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pick someone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staff.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.name} · {member.role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Night</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {DAY_ORDER.map((day) => (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => setDraft({ ...draft, dayOfWeek: day })}
+                    className={cn(
+                      "rounded-md border px-2.5 py-1 text-xs transition-colors",
+                      draft.dayOfWeek === day
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {DAY_LABELS[day]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="shift-start">Start</Label>
+                <Input
+                  id="shift-start"
+                  type="time"
+                  value={draft.startTime}
+                  onChange={(e) => setDraft({ ...draft, startTime: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="shift-end">End</Label>
+                <Input
+                  id="shift-end"
+                  type="time"
+                  value={draft.endTime}
+                  onChange={(e) => setDraft({ ...draft, endTime: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Zone (optional)</Label>
+              <Select
+                value={draft.zoneId}
+                onValueChange={(zoneId) => setDraft({ ...draft, zoneId })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No specific zone</SelectItem>
+                  {zones.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>
+                      {zone.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={save} disabled={saving}>
+              {saving && <Loader2 className="size-4 animate-spin" />}
+              {saving ? "Saving…" : "Add shift"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
