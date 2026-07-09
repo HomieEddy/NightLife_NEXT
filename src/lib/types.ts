@@ -241,6 +241,8 @@ export interface Order {
   id: string;
   code: string; // short human code, e.g. "A-042"
   venueId: string;
+  /** Guest session this order belongs to (drives the per-table session overview). */
+  sessionId?: string;
   tableId: string;
   tableCode: string;
   zoneId: string;
