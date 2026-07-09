@@ -16,11 +16,13 @@ import { PageHeader } from "@/components/shared/page-header";
 import { mockMenuService } from "@/lib/mock-services/menu-service";
 import { mockOrdersService } from "@/lib/mock-services/orders-service";
 import { mockStaffService } from "@/lib/mock-services/staff-service";
+import { mockGuestsService } from "@/lib/mock-services/guests-service";
 import { mockVenueService } from "@/lib/mock-services/venue-service";
 import { formatMoney } from "@/lib/format";
+import { SessionOverview } from "@/components/shared/session-overview";
 import { cn } from "@/lib/utils";
 import type {
-  MenuCategory, MenuItem, Order, OrderStatus, StaffMember, VenueTable, Zone,
+  GuestSession, MenuCategory, MenuItem, Order, OrderStatus, StaffMember, VenueTable, Zone,
 } from "@/lib/types";
 
 const STATUS_FILTERS: { id: "all" | "active" | OrderStatus; label: string }[] = [
@@ -40,6 +42,8 @@ export default function ManagerOrdersPage() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [view, setView] = useState<"orders" | "sessions">("orders");
+  const [sessions, setSessions] = useState<GuestSession[] | null>(null);
 
   // Filters
   const [query, setQuery] = useState("");
@@ -60,6 +64,7 @@ export default function ManagerOrdersPage() {
     mockStaffService.listStaff().then(setStaff);
     mockMenuService.listItems().then(setItems);
     mockMenuService.listCategories(true).then(setCategories);
+    mockGuestsService.listSessions().then(setSessions);
     // TODO(backend): WebSocket push instead of polling.
     const interval = setInterval(refresh, 10000);
     return () => clearInterval(interval);
@@ -147,8 +152,27 @@ export default function ManagerOrdersPage() {
         }
       />
 
+      {/* ---------- View toggle ---------- */}
+      <div className="flex gap-1.5">
+        {(["orders", "sessions"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-sm font-medium capitalize transition-colors",
+              view === v ? "border-primary bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {v === "orders" ? "Order feed" : "Sessions"}
+          </button>
+        ))}
+      </div>
+
       {/* ---------- Queue ---------- */}
-      {orders === null ? (
+      {view === "orders" ? (
+        <>
+          {orders === null ? (
         <ListSkeleton rows={4} rowHeight="h-36" />
       ) : visible.length === 0 ? (
         <EmptyState
@@ -283,6 +307,14 @@ export default function ManagerOrdersPage() {
           </p>
         </CardContent>
       </Card>
+        </>
+      ) : (
+        sessions === null ? (
+          <ListSkeleton rows={4} rowHeight="h-32" />
+        ) : (
+          <SessionOverview sessions={sessions} orders={orders ?? []} />
+        )
+      )}
     </div>
   );
 }

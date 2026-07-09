@@ -16,11 +16,13 @@ import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { mockOrdersService } from "@/lib/mock-services/orders-service";
+import { mockGuestsService } from "@/lib/mock-services/guests-service";
 import { mockVenueService } from "@/lib/mock-services/venue-service";
 import { ZONE_SWATCH } from "@/lib/zone-colors";
 import { formatMoney } from "@/lib/format";
+import { SessionOverview } from "@/components/shared/session-overview";
 import { cn } from "@/lib/utils";
-import type { Order, TableStatus, Venue, VenueTable, Zone } from "@/lib/types";
+import type { GuestSession, Order, TableStatus, Venue, VenueTable, Zone } from "@/lib/types";
 
 const STATUS_NODE: Record<TableStatus, string> = {
   open: "bg-emerald-500/20 border-emerald-500/60 text-emerald-700 dark:text-emerald-300",
@@ -45,6 +47,7 @@ export default function ManagerFloorMapPage() {
   const [editMode, setEditMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tableOrders, setTableOrders] = useState<Order[] | null>(null); // null = panel closed
+  const [tableSessions, setTableSessions] = useState<GuestSession[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
@@ -125,8 +128,12 @@ export default function ManagerFloorMapPage() {
 
   async function showOrders(table: VenueTable) {
     setOrdersLoading(true);
-    const all = await mockOrdersService.listOrders();
+    const [all, allSessions] = await Promise.all([
+      mockOrdersService.listOrders(),
+      mockGuestsService.listSessions(),
+    ]);
     setTableOrders(all.filter((o) => o.tableId === table.id));
+    setTableSessions(allSessions.filter((s) => s.tableId === table.id));
     setOrdersLoading(false);
   }
 
@@ -405,19 +412,21 @@ export default function ManagerFloorMapPage() {
               <X className="size-3.5" /> Close
             </Button>
           </div>
-          {tableOrders.length === 0 ? (
-            <EmptyState
-              icon={Inbox}
-              title="No orders from this table tonight"
-              description="Orders appear here the moment a guest submits one."
-            />
-          ) : (
-            <div className="grid gap-3 md:grid-cols-2">
-              {tableOrders.map((order) => (
-                <OrderCard key={order.id} order={order} />
-              ))}
-            </div>
-          )}
+            {tableSessions.length > 0 ? (
+              <SessionOverview sessions={tableSessions} orders={tableOrders} />
+            ) : tableOrders.length === 0 ? (
+              <EmptyState
+                icon={Inbox}
+                title="No orders from this table tonight"
+                description="Orders appear here the moment a guest submits one."
+              />
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {tableOrders.map((order) => (
+                  <OrderCard key={order.id} order={order} />
+                ))}
+              </div>
+            )}
         </section>
       )}
     </div>
