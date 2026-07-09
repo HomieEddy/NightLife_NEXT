@@ -5,7 +5,7 @@
 import type { CartLine, Order, OrderStatus } from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
-import { computeServiceFee } from "@/lib/fees";
+import { computeFeeLines, computeServiceFee } from "@/lib/fees";
 import { mockMenuService } from "./menu-service";
 import { mockVenueService } from "./venue-service";
 import { clone, delay, uid } from "./delay";
@@ -65,7 +65,9 @@ export const mockOrdersService = {
       return sum + (line.menuItem.price + modTotal) * line.quantity;
     }, 0);
     // Live settings, so fee edits in /manager/settings apply to new orders.
-    const serviceFee = computeServiceFee(subtotal, mockVenueService.getVenueSnapshot());
+    const venue = mockVenueService.getVenueSnapshot();
+    const feeBreakdown = computeFeeLines(subtotal, venue);
+    const serviceFee = feeBreakdown.reduce((sum, l) => sum + l.amount, 0);
     const now = new Date().toISOString();
     const order: Order = {
       id: uid("ord"),
@@ -88,6 +90,7 @@ export const mockOrdersService = {
       })),
       subtotal,
       serviceFee,
+      feeBreakdown,
       tip: input.tip,
       total: Math.round((subtotal + serviceFee + input.tip) * 100) / 100,
       status: "pending",

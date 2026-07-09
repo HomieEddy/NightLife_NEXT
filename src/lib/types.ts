@@ -251,6 +251,7 @@ export interface Order {
   items: OrderItem[];
   subtotal: number;
   serviceFee: number;
+  feeBreakdown?: { fee: ServiceFee; amount: number }[];
   tip: number;
   total: number;
   status: OrderStatus;

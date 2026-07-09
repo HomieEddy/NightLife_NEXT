@@ -35,12 +35,16 @@ function OrderLines({ order }: { order: Order }) {
                 {formatMoney((item.unitPrice + modTotal) * item.quantity)}
               </span>
             </div>
-            {item.modifiers.map((mod) => (
-              <p key={mod.optionName} className="pl-4 text-xs text-muted-foreground">
-                + {mod.optionName}
-                {mod.priceDelta > 0 && ` (${formatMoney(mod.priceDelta)})`}
-              </p>
-            ))}
+            {item.modifiers.length > 0 && (
+              <ul className="pl-4 space-y-0.5 text-xs text-muted-foreground">
+                {item.modifiers.map((mod, i) => (
+                  <li key={i} className="flex justify-between">
+                    <span>• {mod.optionName}</span>
+                    {mod.priceDelta > 0 && <span className="tabular-nums">{formatMoney(mod.priceDelta * item.quantity)}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
           </li>
         );
       })}
@@ -48,9 +52,9 @@ function OrderLines({ order }: { order: Order }) {
   );
 }
 
-function Totals({ subtotal, serviceFee, tip, total }: {
+function Totals({ subtotal, feeBreakdown, tip, total }: {
   subtotal: number;
-  serviceFee: number;
+  feeBreakdown?: { fee: { name: string; type: "percentage" | "flat"; value: number }; amount: number }[];
   tip: number;
   total: number;
 }) {
@@ -60,10 +64,12 @@ function Totals({ subtotal, serviceFee, tip, total }: {
         <span>Subtotal</span>
         <span className="tabular-nums">{formatMoney(subtotal)}</span>
       </div>
-      <div className="flex justify-between text-muted-foreground">
-        <span>Service fee</span>
-        <span className="tabular-nums">{formatMoney(serviceFee)}</span>
-      </div>
+      {(feeBreakdown ?? []).map((line) => (
+        <div key={line.fee.name} className="flex justify-between text-muted-foreground">
+          <span>{line.fee.name} {line.fee.type === "percentage" ? `(${line.fee.value}%)` : ""}</span>
+          <span className="tabular-nums">{formatMoney(line.amount)}</span>
+        </div>
+      ))}
       <div className="flex justify-between text-muted-foreground">
         <span>Tips</span>
         <span className="tabular-nums">{formatMoney(tip)}</span>
@@ -120,10 +126,24 @@ function NightReceipt() {
   if (orders === null) return <ListSkeleton rows={1} rowHeight="h-96" />;
 
   const subtotal = orders.reduce((s, o) => s + o.subtotal, 0);
-  const serviceFee = orders.reduce((s, o) => s + o.serviceFee, 0);
   const tip = orders.reduce((s, o) => s + o.tip, 0);
   const total = orders.reduce((s, o) => s + o.total, 0);
   const firstAt = orders[0]?.placedAt;
+
+  // Merge fee breakdowns across all orders
+  const feeMap = new Map<string, { name: string; type: "percentage" | "flat"; value: number; amount: number }>();
+  for (const order of orders) {
+    for (const line of order.feeBreakdown ?? []) {
+      const existing = feeMap.get(line.fee.id);
+      if (existing) {
+        existing.amount += line.amount;
+      } else {
+        feeMap.set(line.fee.id, { name: line.fee.name, type: line.fee.type, value: line.fee.value, amount: line.amount });
+      }
+    }
+  }
+  const feeLines = Array.from(feeMap.values());
+  const serviceFee = feeLines.reduce((s, l) => s + l.amount, 0);
 
   return (
     <div className="space-y-4">
@@ -206,15 +226,25 @@ function NightReceipt() {
                   );
                 }
                 return (
-                  <div key={item.id} className="flex justify-between gap-2">
-                    <span className="truncate">
-                      {item.quantity}× {item.name}
-                      {item.modifiers.length > 0 &&
-                        ` (${item.modifiers.map((m) => m.optionName).join(", ")})`}
-                    </span>
-                    <span className="whitespace-nowrap tabular-nums">
-                      {formatMoney((item.unitPrice + modTotal) * item.quantity)}
-                    </span>
+                  <div key={item.id} className="space-y-0.5">
+                    <div className="flex justify-between gap-2">
+                      <span className="truncate">
+                        {item.quantity}× {item.name}
+                      </span>
+                      <span className="whitespace-nowrap tabular-nums">
+                        {formatMoney((item.unitPrice + modTotal) * item.quantity)}
+                      </span>
+                    </div>
+                    {item.modifiers.length > 0 && (
+                      <ul className="pl-3 space-y-0.5 text-[11px] text-zinc-500">
+                        {item.modifiers.map((m, i) => (
+                          <li key={i} className="flex justify-between">
+                            <span>• {m.optionName}</span>
+                            {m.priceDelta > 0 && <span className="tabular-nums">{formatMoney(m.priceDelta * item.quantity)}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 );
               })}
@@ -231,10 +261,12 @@ function NightReceipt() {
               <span>SUBTOTAL</span>
               <span className="tabular-nums">{formatMoney(subtotal)}</span>
             </div>
-            <div className="flex justify-between">
-              <span>SERVICE</span>
-              <span className="tabular-nums">{formatMoney(serviceFee)}</span>
-            </div>
+            {feeLines.map((line) => (
+              <div key={line.name} className="flex justify-between text-zinc-600">
+                <span>{line.name.toUpperCase()} {line.type === "percentage" ? `(${line.value}%)` : "(flat)"}</span>
+                <span className="tabular-nums">{formatMoney(line.amount)}</span>
+              </div>
+            ))}
             <div className="flex justify-between">
               <span>TIP</span>
               <span className="tabular-nums">{formatMoney(tip)}</span>
@@ -323,7 +355,7 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
           <Separator />
           <Totals
             subtotal={order.subtotal}
-            serviceFee={order.serviceFee}
+            feeBreakdown={order.feeBreakdown}
             tip={order.tip}
             total={order.total}
           />
