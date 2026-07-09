@@ -369,12 +369,98 @@ export type TenantStatus = "active" | "trial" | "suspended";
 
 export interface Tenant {
   id: string;
-  venueName: string;
   slug: string;
+  venueName: string;
   plan: TenantPlan;
   status: TenantStatus;
   city: string;
   tableCount: number;
   monthlyRevenue: number;
   createdAt: string;
+}
+
+// ---------- Auth (demo) ----------
+
+export type AuthRole = "manager" | "staff" | "admin";
+
+/** Demo identity the shared /login screen signs in as. No real auth yet. */
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: AuthRole;
+  venueId?: string;
+}
+
+export interface SignInInput {
+  email: string;
+  pin: string;
+  role: AuthRole;
+}
+
+// ---------- Reservations ----------
+
+export type ReservationStatus =
+  | "requested"
+  | "confirmed"
+  | "seated"
+  | "cancelled"
+  | "completed";
+
+export interface Reservation {
+  id: string;
+  venueId: string;
+  tableId?: string;
+  zoneId?: string;
+  guestName: string;
+  partySize: number;
+  startsAt: string; // ISO
+  endsAt?: string; // ISO
+  status: ReservationStatus;
+  note?: string;
+  source: "manager" | "public";
+  createdAt: string; // ISO
+}
+
+// ---------- Events & promotions ----------
+
+export type EventStatus = "draft" | "published" | "live" | "ended";
+
+export interface VenueEvent {
+  id: string;
+  venueId: string;
+  name: string;
+  description: string;
+  startsAt: string; // ISO
+  endsAt: string; // ISO
+  zoneId?: string;
+  capacity: number;
+  status: EventStatus;
+  guestlistEnabled: boolean;
+}
+
+/** Event-scoped attendee name — not a stored customer/profile. */
+export interface EventGuest {
+  id: string;
+  eventId: string;
+  name: string;
+  partySize: number;
+  status: "invited" | "confirmed" | "checked-in";
+}
+
+export type PromotionType = "percentage" | "flat";
+export type PromotionStatus = "active" | "scheduled" | "expired";
+
+export interface Promotion {
+  id: string;
+  venueId: string;
+  code: string; // e.g. "WELCOME10"
+  name: string;
+  type: PromotionType;
+  value: number; // % or $ amount
+  appliesToCategoryIds: string[]; // empty = all categories
+  startsAt: string; // ISO
+  endsAt: string; // ISO
+  status: PromotionStatus;
+  redemptionCount: number;
 }
