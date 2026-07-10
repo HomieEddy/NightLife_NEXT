@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { GlassWater, Hand, ReceiptEuro, Shield, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { Gift, GlassWater, Hand, ReceiptEuro, Shield, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
@@ -92,6 +93,22 @@ export default function GuestHelpPage() {
           />
         ))}
       </div>
+
+      <Link
+        href="/guest/gift"
+        className="flex items-center gap-4 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left transition-colors hover:border-primary/50"
+      >
+        <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+          <Gift className="size-5" />
+        </div>
+        <div>
+          <p className="font-medium">Send a bottle to another table</p>
+          <p className="text-xs text-muted-foreground">
+            Surprise someone — it's on your tab, they just get the delivery
+          </p>
+        </div>
+      </Link>
+
       <p className="text-center text-xs text-muted-foreground">
         Requests appear instantly on the staff panel.
       </p>

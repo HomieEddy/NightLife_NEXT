@@ -277,6 +277,10 @@ export interface Order {
   /** Runner/bartender who tapped "Claim" — prevents two staff working the same order. */
   claimedByStaffId?: string;
   claimedByStaffName?: string;
+  /** Set when this is a "send a bottle" gift — billed to tableId/tableCode above, delivered here instead. */
+  giftToTableId?: string;
+  giftToTableCode?: string;
+  giftNote?: string;
 }
 
 // ---------- Help requests ----------

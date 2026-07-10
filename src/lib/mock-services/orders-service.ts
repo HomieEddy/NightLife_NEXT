@@ -2,7 +2,7 @@
  * mockOrdersService — future backend boundary for order lifecycle.
  * TODO(backend): replace with API routes backed by PostgreSQL + WebSocket pushes.
  */
-import type { CartLine, Order, OrderStatus } from "@/lib/types";
+import type { CartLine, MenuItem, Order, OrderStatus } from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
@@ -102,6 +102,65 @@ export const mockOrdersService = {
     await mockMenuService.recordSale(
       order.items.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
     );
+    return clone(order);
+  },
+
+  /**
+   * "Send a bottle": billed to the sender's own table/tab, but flagged for
+   * delivery to a different table. Staff see the delivery target on the card.
+   */
+  async sendGift(input: {
+    fromTableId: string;
+    fromTableCode: string;
+    fromZoneId: string;
+    fromZoneName: string;
+    guestName: string;
+    sessionId?: string;
+    menuItem: MenuItem;
+    toTableId: string;
+    toTableCode: string;
+    note?: string;
+  }): Promise<Order> {
+    await delay(700);
+    const subtotal = input.menuItem.price;
+    const venue = mockVenueService.getVenueSnapshot();
+    const feeBreakdown = computeFeeLines(subtotal, venue);
+    const serviceFee = feeBreakdown.reduce((sum, l) => sum + l.amount, 0);
+    const now = new Date().toISOString();
+    const order: Order = {
+      id: uid("ord"),
+      code: `A-${String(orderCounter++).padStart(3, "0")}`,
+      venueId: mockVenue.id,
+      sessionId: input.sessionId,
+      tableId: input.fromTableId,
+      tableCode: input.fromTableCode,
+      zoneId: input.fromZoneId,
+      zoneName: input.fromZoneName,
+      guestName: input.guestName,
+      items: [
+        {
+          id: uid("oi"),
+          menuItemId: input.menuItem.id,
+          name: input.menuItem.name,
+          quantity: 1,
+          unitPrice: input.menuItem.price,
+          modifiers: [],
+        },
+      ],
+      subtotal,
+      serviceFee,
+      feeBreakdown,
+      tip: 0,
+      total: Math.round((subtotal + serviceFee) * 100) / 100,
+      status: "pending",
+      placedAt: now,
+      updatedAt: now,
+      giftToTableId: input.toTableId,
+      giftToTableCode: input.toTableCode,
+      giftNote: input.note,
+    };
+    orders = [order, ...orders];
+    await mockMenuService.recordSale([{ menuItemId: input.menuItem.id, quantity: 1 }]);
     return clone(order);
   },
 
