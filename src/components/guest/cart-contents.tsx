@@ -16,6 +16,7 @@ import { mockOrdersService } from "@/lib/mock-services/orders-service";
 import { mockVenueService } from "@/lib/mock-services/venue-service";
 import { computeFeeLines, feeLabel } from "@/lib/fees";
 import { formatMoney } from "@/lib/format";
+import { useLastCall } from "@/lib/use-last-call";
 import { cn } from "@/lib/utils";
 
 const TIP_PRESETS = [0, 10, 15, 20] as const;
@@ -36,6 +37,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
   } = useGuest();
   const [tipPct, setTipPct] = useState<number>(10);
   const [submitting, setSubmitting] = useState(false);
+  const lastCallActive = useLastCall();
 
   // Live settings snapshot, so manager fee edits show up in the guest cart.
   const feeLines = useMemo(
@@ -205,6 +207,13 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
         </div>
       </div>
 
+      {lastCallActive && (
+        <p className="text-center text-sm text-muted-foreground">
+          Kitchen&apos;s closed for the night — thanks for being here! You can still browse your
+          order history below.
+        </p>
+      )}
+
       {/* TODO(backend): payment step (Stripe) goes here before submission. */}
       <ConfirmDialog
         title="Place this order?"
@@ -212,9 +221,13 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
         confirmLabel={`Place order · ${formatMoney(total)}`}
         onConfirm={handleSubmit}
         trigger={
-      <Button size="lg" className="h-12 w-full glow-primary" disabled={submitting}>
+      <Button size="lg" className="h-12 w-full glow-primary" disabled={submitting || lastCallActive}>
         {submitting && <Loader2 className="size-4 animate-spin" />}
-        {submitting ? "Sending order…" : `Place order · ${formatMoney(total)}`}
+        {submitting
+          ? "Sending order…"
+          : lastCallActive
+            ? "Last call — ordering closed"
+            : `Place order · ${formatMoney(total)}`}
       </Button>
         }
       />
