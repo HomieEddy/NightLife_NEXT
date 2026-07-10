@@ -266,6 +266,9 @@ export interface Order {
   status: OrderStatus;
   placedAt: string; // ISO
   updatedAt: string;
+  /** Runner/bartender who tapped "Claim" — prevents two staff working the same order. */
+  claimedByStaffId?: string;
+  claimedByStaffName?: string;
 }
 
 // ---------- Help requests ----------

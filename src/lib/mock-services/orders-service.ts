@@ -121,6 +121,25 @@ export const mockOrdersService = {
     return clone(order);
   },
 
+  /** Fails (returns null) if another staff member already claimed it. */
+  async claimOrder(orderId: string, staffId: string, staffName: string): Promise<Order | null> {
+    await delay(300);
+    const order = orders.find((o) => o.id === orderId);
+    if (!order || order.claimedByStaffId) return null;
+    order.claimedByStaffId = staffId;
+    order.claimedByStaffName = staffName;
+    return clone(order);
+  },
+
+  async releaseOrder(orderId: string): Promise<Order | null> {
+    await delay(250);
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+    order.claimedByStaffId = undefined;
+    order.claimedByStaffName = undefined;
+    return clone(order);
+  },
+
   async cancelOrder(orderId: string): Promise<Order | null> {
     await delay(300);
     const order = orders.find((o) => o.id === orderId);

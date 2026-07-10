@@ -69,6 +69,20 @@ function StaffOrdersContent() {
     await refresh();
   }
 
+  async function claim(order: Order) {
+    if (!me) return;
+    const updated = await mockOrdersService.claimOrder(order.id, me.id, me.name);
+    if (!updated) toast.error("Someone just claimed this order.");
+    else toast.success(`${order.code} claimed`);
+    await refresh();
+  }
+
+  async function release(order: Order) {
+    await mockOrdersService.releaseOrder(order.id);
+    toast.info(`${order.code} released back to the queue`);
+    await refresh();
+  }
+
   const visible = (orders ?? []).filter((o) => {
     if (tableFilter && o.tableId !== tableFilter) return false;
     if (zoneScoped && me && !me.assignedZoneIds.includes(o.zoneId)) return false;
@@ -134,7 +148,37 @@ function StaffOrdersContent() {
                 order={order}
                 footer={
                   label ? (
-                    <div className="flex gap-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        {order.claimedByStaffId ? (
+                          <span className="text-muted-foreground">
+                            Claimed by{" "}
+                            <span className="font-medium text-foreground">
+                              {order.claimedByStaffId === me?.id ? "you" : order.claimedByStaffName}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Unclaimed</span>
+                        )}
+                        {order.claimedByStaffId === me?.id ? (
+                          <button
+                            type="button"
+                            onClick={() => release(order)}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            Release
+                          </button>
+                        ) : !order.claimedByStaffId ? (
+                          <button
+                            type="button"
+                            onClick={() => claim(order)}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            Claim
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="flex gap-2">
                       <ConfirmDialog
                         trigger={
                           <Button className="h-11 flex-1" disabled={busyId === order.id}>
@@ -161,6 +205,7 @@ function StaffOrdersContent() {
                           onConfirm={() => cancel(order)}
                         />
                       )}
+                      </div>
                     </div>
                   ) : undefined
                 }
