@@ -241,6 +241,123 @@ export default function ManagerSettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Live pulse</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-1.5">
+            <Label>Order alert thresholds (minutes)</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="order-warn" className="text-xs text-muted-foreground">
+                  Warning
+                </Label>
+                <Input
+                  id="order-warn"
+                  type="number"
+                  min={1}
+                  value={venue.slaThresholds.orderWarnMinutes}
+                  onChange={(e) =>
+                    setVenue({
+                      ...venue,
+                      slaThresholds: {
+                        ...venue.slaThresholds,
+                        orderWarnMinutes: Math.max(1, Number(e.target.value)),
+                      },
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="order-critical" className="text-xs text-muted-foreground">
+                  Critical
+                </Label>
+                <Input
+                  id="order-critical"
+                  type="number"
+                  min={1}
+                  value={venue.slaThresholds.orderCriticalMinutes}
+                  onChange={(e) =>
+                    setVenue({
+                      ...venue,
+                      slaThresholds: {
+                        ...venue.slaThresholds,
+                        orderCriticalMinutes: Math.max(1, Number(e.target.value)),
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              An order still pending or preparing past these ages shows up on the Dashboard&apos;s
+              Pulse tab.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Help request alert thresholds (minutes)</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="help-warn" className="text-xs text-muted-foreground">
+                  Warning
+                </Label>
+                <Input
+                  id="help-warn"
+                  type="number"
+                  min={1}
+                  value={venue.slaThresholds.helpWarnMinutes}
+                  onChange={(e) =>
+                    setVenue({
+                      ...venue,
+                      slaThresholds: {
+                        ...venue.slaThresholds,
+                        helpWarnMinutes: Math.max(1, Number(e.target.value)),
+                      },
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="help-critical" className="text-xs text-muted-foreground">
+                  Critical
+                </Label>
+                <Input
+                  id="help-critical"
+                  type="number"
+                  min={1}
+                  value={venue.slaThresholds.helpCriticalMinutes}
+                  onChange={(e) =>
+                    setVenue({
+                      ...venue,
+                      slaThresholds: {
+                        ...venue.slaThresholds,
+                        helpCriticalMinutes: Math.max(1, Number(e.target.value)),
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div>
+              <p className="text-sm font-medium">Auto-flag open tables at last call</p>
+              <p className="text-xs text-muted-foreground">
+                Starting last call adds a closeout nudge to the Pulse feed for every occupied
+                table.
+              </p>
+            </div>
+            <Switch
+              checked={venue.lastCallAutoFlagTables}
+              onCheckedChange={(checked) => setVenue({ ...venue, lastCallAutoFlagTables: checked })}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Opening hours</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
