@@ -19,8 +19,10 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useGuest } from "@/context/guest-context";
+import { mockAnalyticsService } from "@/lib/mock-services/analytics-service";
 import { mockGuestsService } from "@/lib/mock-services/guests-service";
 import { mockOrdersService, ORDER_FLOW } from "@/lib/mock-services/orders-service";
+import { estimateEtaMinutes, formatEta } from "@/lib/eta";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/types";
@@ -92,6 +94,11 @@ export default function GuestOrdersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const [requestingClosure, setRequestingClosure] = useState(false);
+  const [avgFulfillmentMinutes, setAvgFulfillmentMinutes] = useState(8);
+
+  useEffect(() => {
+    mockAnalyticsService.getSummary().then((s) => setAvgFulfillmentMinutes(s.avgFulfillmentMinutes));
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!guestName) {
@@ -202,6 +209,13 @@ export default function GuestOrdersPage() {
                   </span>
                 </div>
               </div>
+
+              {(() => {
+                const eta = formatEta(estimateEtaMinutes(order, avgFulfillmentMinutes));
+                return eta ? (
+                  <p className="text-xs font-medium text-primary">{eta}</p>
+                ) : null;
+              })()}
 
               <OrderTracker order={order} />
 
