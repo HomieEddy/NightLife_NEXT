@@ -21,6 +21,13 @@ export const mockVenue: Venue = {
   autoApproveGuests: false,
   floorMap: { width: 16, height: 9 },
   logoInitials: "LN",
+  slaThresholds: {
+    orderWarnMinutes: 6,
+    orderCriticalMinutes: 12,
+    helpWarnMinutes: 4,
+    helpCriticalMinutes: 8,
+  },
+  lastCallAutoFlagTables: true,
 };
 
 export const mockZones: Zone[] = [

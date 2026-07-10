@@ -29,6 +29,15 @@ export interface Venue {
   floorMap: { width: number; height: number };
   autoApproveGuests: boolean;
   logoInitials: string;
+  /** Minutes an order/help request can sit before the Pulse feed flags it. */
+  slaThresholds: {
+    orderWarnMinutes: number;
+    orderCriticalMinutes: number;
+    helpWarnMinutes: number;
+    helpCriticalMinutes: number;
+  };
+  /** At last call, synthesize a closeout nudge for every occupied table. */
+  lastCallAutoFlagTables: boolean;
 }
 
 export interface Zone {
@@ -294,6 +303,31 @@ export interface ChatMessage {
   authorRole: StaffRole;
   body: string;
   sentAt: string;
+}
+
+// ---------- Live floor pulse ----------
+
+export type AttentionSeverity = "warning" | "critical";
+export type AttentionItemType = "order-overdue" | "help-open" | "table-closeout";
+
+/** One row in the manager's live "needs attention" feed — always derived, never stored. */
+export interface AttentionItem {
+  id: string; // "order-{orderId}" / "help-{requestId}" / "table-{tableId}"
+  type: AttentionItemType;
+  severity: AttentionSeverity;
+  tableId: string;
+  tableCode: string;
+  zoneName: string;
+  message: string; // e.g. "Order A-042 pending 8 min"
+  ageMinutes: number;
+}
+
+/** A manager's urgent message pushed to every staff device at once. */
+export interface Broadcast {
+  id: string;
+  message: string;
+  sentAt: string; // ISO
+  sentBy: string;
 }
 
 // ---------- Analytics ----------
