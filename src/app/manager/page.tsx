@@ -1,32 +1,86 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Euro, Receipt, Table2, Timer } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/shared/metric-card";
 import { MockChart } from "@/components/shared/mock-chart";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { PulseTab } from "@/components/manager/pulse-tab";
+import { useAuth } from "@/context/auth-context";
 import { mockAnalyticsService } from "@/lib/mock-services/analytics-service";
+import { mockGuestsService } from "@/lib/mock-services/guests-service";
 import { mockOrdersService } from "@/lib/mock-services/orders-service";
+import { mockPulseService } from "@/lib/mock-services/pulse-service";
 import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { computeAttentionItems } from "@/lib/pulse";
 import { formatMoney } from "@/lib/format";
-import type { AnalyticsSummary, Order } from "@/lib/types";
+import type { AnalyticsSummary, AttentionItem, Order } from "@/lib/types";
+
+const PULSE_POLL_MS = 8000;
 
 export default function ManagerDashboardPage() {
+  const { user } = useAuth();
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [venueName, setVenueName] = useState("LUXE Noir");
+  const [attentionItems, setAttentionItems] = useState<AttentionItem[] | null>(null);
+  const [lastCallActive, setLastCallActive] = useState(false);
 
   useEffect(() => {
     mockAnalyticsService.getSummary().then(setSummary);
     mockOrdersService.listOrders().then((all) => setOrders(all.slice(0, 4)));
     mockVenueService.getVenue().then((v) => setVenueName(v.name));
   }, []);
+
+  const refreshPulse = useCallback(async () => {
+    const [liveOrders, helpRequests, tables, zones, venue, lastCall] = await Promise.all([
+      mockOrdersService.listOrders(),
+      mockGuestsService.listHelpRequests(),
+      mockVenueService.listTables(),
+      mockVenueService.listZones(),
+      mockVenueService.getVenue(),
+      mockPulseService.getLastCallState(),
+    ]);
+    setAttentionItems(
+      computeAttentionItems(
+        liveOrders,
+        helpRequests,
+        tables,
+        zones,
+        venue.slaThresholds,
+        lastCall.active,
+        venue.lastCallAutoFlagTables,
+      ),
+    );
+    setLastCallActive(lastCall.active);
+  }, []);
+
+  useEffect(() => {
+    refreshPulse();
+    const interval = setInterval(refreshPulse, PULSE_POLL_MS);
+    return () => clearInterval(interval);
+  }, [refreshPulse]);
+
+  const managerName = user?.name ?? "Manager";
+
+  async function sendBroadcast(message: string) {
+    await mockPulseService.sendBroadcast(message, managerName);
+    await refreshPulse();
+  }
+
+  async function toggleLastCall() {
+    if (lastCallActive) await mockPulseService.endLastCall();
+    else await mockPulseService.startLastCall(managerName);
+    await refreshPulse();
+  }
 
   return (
     <div className="space-y-6">
@@ -42,6 +96,45 @@ export default function ManagerDashboardPage() {
         }
       />
 
+      <Tabs defaultValue="tonight">
+        <TabsList>
+          <TabsTrigger value="tonight">Tonight</TabsTrigger>
+          <TabsTrigger value="pulse">
+            Pulse
+            {attentionItems !== null && attentionItems.length > 0 && (
+              <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px]">
+                {attentionItems.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="tonight" className="space-y-6 pt-4">
+          <TonightTab summary={summary} orders={orders} />
+        </TabsContent>
+
+        <TabsContent value="pulse" className="pt-4">
+          <PulseTab
+            items={attentionItems}
+            lastCallActive={lastCallActive}
+            onSendBroadcast={sendBroadcast}
+            onToggleLastCall={toggleLastCall}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function TonightTab({
+  summary,
+  orders,
+}: {
+  summary: AnalyticsSummary | null;
+  orders: Order[] | null;
+}) {
+  return (
+    <>
       {summary === null ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -135,6 +228,6 @@ export default function ManagerDashboardPage() {
           </div>
         )}
       </section>
-    </div>
+    </>
   );
 }
