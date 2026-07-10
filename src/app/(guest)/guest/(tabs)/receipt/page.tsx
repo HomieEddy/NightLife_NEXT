@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Mail, Moon, ReceiptText } from "lucide-react";
+import { CheckCircle2, Mail, Minus, Moon, Plus, ReceiptText, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -96,6 +96,46 @@ function VenueHeader({ tableCode, zoneName }: { tableCode?: string; zoneName?: s
         </p>
       )}
     </div>
+  );
+}
+
+/** Even-split calculator — how much each person at the table owes. */
+function SplitBill({ total }: { total: number }) {
+  const [people, setPeople] = useState(2);
+  const perPerson = total / people;
+
+  return (
+    <Card>
+      <CardContent className="space-y-3">
+        <p className="flex items-center gap-1.5 text-sm font-medium">
+          <Users className="size-4 text-primary" /> Split the bill
+        </p>
+        <div className="flex items-center justify-center gap-4">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setPeople((p) => Math.max(2, p - 1))}
+            aria-label="Fewer people"
+          >
+            <Minus className="size-4" />
+          </Button>
+          <span className="w-10 text-center text-2xl font-bold tabular-nums">{people}</span>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setPeople((p) => Math.min(8, p + 1))}
+            aria-label="More people"
+          >
+            <Plus className="size-4" />
+          </Button>
+        </div>
+        <p className="text-center text-xs text-muted-foreground">people splitting evenly</p>
+        <div className="rounded-lg bg-accent/50 p-3 text-center">
+          <p className="text-2xl font-bold tabular-nums">{formatMoney(perPerson)}</p>
+          <p className="text-xs text-muted-foreground">per person</p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -281,6 +321,8 @@ function NightReceipt() {
           <p className="text-center text-[10px] text-zinc-500">THANK YOU · COME AGAIN</p>
         </div>
       </div>
+
+      <SplitBill total={total} />
 
       {/* Dummy email-the-receipt action */}
       <div className="space-y-2">
