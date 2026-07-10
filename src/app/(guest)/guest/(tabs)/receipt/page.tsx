@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Mail, Minus, Moon, Plus, ReceiptText, Users } from "lucide-react";
+import { CheckCircle2, ChevronDown, Mail, Minus, Moon, Plus, ReceiptText, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { CountUp } from "@/components/fx/count-up";
 import { useGuest } from "@/context/guest-context";
 import { mockOrdersService } from "@/lib/mock-services/orders-service";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { mockPackages } from "@/lib/mock-data/menu";
 import { mockMenuItems } from "@/lib/mock-data/menu";
@@ -99,41 +100,195 @@ function VenueHeader({ tableCode, zoneName }: { tableCode?: string; zoneName?: s
   );
 }
 
-/** Even-split calculator — how much each person at the table owes. */
+/** Distributes `total` across `count` shares in whole cents, so they always sum exactly. */
+function evenShares(total: number, count: number): number[] {
+  const totalCents = Math.round(total * 100);
+  const base = Math.floor(totalCents / count);
+  const remainder = totalCents - base * count;
+  return Array.from({ length: count }, (_, i) => (base + (i < remainder ? 1 : 0)) / 100);
+}
+
+interface CustomShare {
+  id: string;
+  name: string;
+  amount: number;
+}
+
+/** Even or custom (uneven) split calculator — collapsed behind a toggle. */
 function SplitBill({ total }: { total: number }) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"even" | "custom">("even");
   const [people, setPeople] = useState(2);
+  const [shares, setShares] = useState<CustomShare[]>(() =>
+    evenShares(total, 2).map((amount, i) => ({ id: `share-${i}`, name: "", amount })),
+  );
+
   const perPerson = total / people;
+  const assigned = Math.round(shares.reduce((s, x) => s + x.amount, 0) * 100) / 100;
+  const remaining = Math.round((total - assigned) * 100) / 100;
+
+  function resplitEvenly(count: number) {
+    setShares((prev) =>
+      evenShares(total, count).map((amount, i) => ({
+        id: prev[i]?.id ?? `share-${i}`,
+        name: prev[i]?.name ?? "",
+        amount,
+      })),
+    );
+  }
+
+  function addShare() {
+    setShares((prev) => [...prev, { id: `share-${Date.now()}`, name: "", amount: 0 }]);
+  }
+
+  function removeShare(id: string) {
+    setShares((prev) => (prev.length > 2 ? prev.filter((s) => s.id !== id) : prev));
+  }
+
+  function patchShare(id: string, patch: Partial<CustomShare>) {
+    setShares((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  }
 
   return (
     <Card>
       <CardContent className="space-y-3">
-        <p className="flex items-center gap-1.5 text-sm font-medium">
-          <Users className="size-4 text-primary" /> Split the bill
-        </p>
-        <div className="flex items-center justify-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setPeople((p) => Math.max(2, p - 1))}
-            aria-label="Fewer people"
-          >
-            <Minus className="size-4" />
-          </Button>
-          <span className="w-10 text-center text-2xl font-bold tabular-nums">{people}</span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setPeople((p) => Math.min(8, p + 1))}
-            aria-label="More people"
-          >
-            <Plus className="size-4" />
-          </Button>
-        </div>
-        <p className="text-center text-xs text-muted-foreground">people splitting evenly</p>
-        <div className="rounded-lg bg-accent/50 p-3 text-center">
-          <p className="text-2xl font-bold tabular-nums">{formatMoney(perPerson)}</p>
-          <p className="text-xs text-muted-foreground">per person</p>
-        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex w-full items-center justify-between"
+        >
+          <span className="flex items-center gap-1.5 text-sm font-medium">
+            <Users className="size-4 text-primary" /> Split the bill
+          </span>
+          <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+        </button>
+
+        {open && (
+          <div className="space-y-3 pt-1">
+            <div className="flex gap-1.5">
+              {(
+                [
+                  { id: "even", label: "Split evenly" },
+                  { id: "custom", label: "Custom amounts" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    setMode(opt.id);
+                    if (opt.id === "custom") resplitEvenly(people);
+                  }}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    mode === opt.id
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {mode === "even" ? (
+              <>
+                <div className="flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPeople((p) => Math.max(2, p - 1))}
+                    aria-label="Fewer people"
+                  >
+                    <Minus className="size-4" />
+                  </Button>
+                  <span className="w-10 text-center text-2xl font-bold tabular-nums">{people}</span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPeople((p) => Math.min(8, p + 1))}
+                    aria-label="More people"
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </div>
+                <p className="text-center text-xs text-muted-foreground">people splitting evenly</p>
+                <div className="rounded-lg bg-accent/50 p-3 text-center">
+                  <p className="text-2xl font-bold tabular-nums">{formatMoney(perPerson)}</p>
+                  <p className="text-xs text-muted-foreground">per person</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {shares.map((share, i) => (
+                    <div key={share.id} className="flex items-center gap-2">
+                      <Input
+                        placeholder={`Guest ${i + 1}`}
+                        value={share.name}
+                        onChange={(e) => patchShare(share.id, { name: e.target.value })}
+                        className="flex-1"
+                        aria-label="Name (optional)"
+                      />
+                      <div className="relative w-28 shrink-0">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                          $
+                        </span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={share.amount}
+                          onChange={(e) =>
+                            patchShare(share.id, { amount: Math.max(0, Number(e.target.value)) })
+                          }
+                          className="pl-5 tabular-nums"
+                          aria-label="Amount"
+                        />
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+                        aria-label="Remove person"
+                        disabled={shares.length <= 2}
+                        onClick={() => removeShare(share.id)}
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <Button variant="outline" size="sm" onClick={addShare}>
+                    <Plus className="size-3.5" /> Add person
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => resplitEvenly(shares.length)}>
+                    Reset to even
+                  </Button>
+                </div>
+                <div
+                  className={cn(
+                    "rounded-lg p-3 text-center text-sm",
+                    remaining === 0
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                  )}
+                >
+                  {remaining === 0 ? (
+                    <span className="font-medium">Fully assigned — {formatMoney(total)}</span>
+                  ) : remaining > 0 ? (
+                    <span className="font-medium">{formatMoney(remaining)} still unassigned</span>
+                  ) : (
+                    <span className="font-medium">
+                      {formatMoney(Math.abs(remaining))} over the total
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
