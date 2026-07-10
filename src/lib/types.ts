@@ -316,6 +316,16 @@ export interface ChatMessage {
   sentAt: string;
 }
 
+/** One order's bottle-presentation walk-out — the "show floor" lock prevents two colliding at once. */
+export interface ActiveShow {
+  orderId: string;
+  tableCode: string;
+  zoneName: string;
+  label: string; // e.g. "Sparkler parade"
+  staffName: string;
+  startedAt: string; // ISO
+}
+
 // ---------- Live floor pulse ----------
 
 export type AttentionSeverity = "warning" | "critical";

@@ -2,17 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertOctagon, ArrowRight, LifeBuoy, MapPin, Moon, Receipt, UserCheck } from "lucide-react";
+import { AlertOctagon, ArrowRight, LifeBuoy, MapPin, Moon, PartyPopper, Receipt, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { mockOrdersService } from "@/lib/mock-services/orders-service";
 import { mockGuestsService } from "@/lib/mock-services/guests-service";
 import { mockMenuService } from "@/lib/mock-services/menu-service";
+import { mockShowQueueService } from "@/lib/mock-services/show-queue-service";
 import { mockStaffService } from "@/lib/mock-services/staff-service";
 import { mockVenueService } from "@/lib/mock-services/venue-service";
 import { timeAgo } from "@/lib/format";
-import type { SoldOutEvent, StaffMember, Zone } from "@/lib/types";
+import type { ActiveShow, SoldOutEvent, StaffMember, Zone } from "@/lib/types";
 
 interface QueueCounts {
   pendingOrders: number;
@@ -26,6 +27,7 @@ export default function StaffHomePage() {
   const [me, setMe] = useState<StaffMember | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [soldOut, setSoldOut] = useState<SoldOutEvent[]>([]);
+  const [activeShow, setActiveShow] = useState<ActiveShow | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -49,7 +51,10 @@ export default function StaffHomePage() {
   }, []);
 
   useEffect(() => {
-    const refresh = () => mockMenuService.listSoldOutEvents().then(setSoldOut);
+    const refresh = () => {
+      mockMenuService.listSoldOutEvents().then(setSoldOut);
+      mockShowQueueService.getActiveShow().then(setActiveShow);
+    };
     refresh();
     // TODO(backend): WebSocket push instead of polling.
     const interval = setInterval(refresh, 8000);
@@ -129,6 +134,26 @@ export default function StaffHomePage() {
           </Button>
         </CardContent>
       </Card>
+
+      {activeShow && (
+        <Card className="border-primary/40 py-4">
+          <CardContent className="flex items-center justify-between px-4">
+            <div>
+              <p className="flex items-center gap-1.5 text-sm font-medium">
+                <PartyPopper className="size-4 text-primary" /> Show floor busy
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {activeShow.tableCode} · {activeShow.label} · {activeShow.staffName}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/staff/orders">
+                Open <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {soldOut.length > 0 && (
         <Card className="border-red-500/30 py-4">

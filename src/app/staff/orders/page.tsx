@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCheck, Inbox, RefreshCw, XCircle } from "lucide-react";
+import { CheckCheck, Inbox, PartyPopper, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -12,9 +12,10 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { mockOrdersService, nextStatus } from "@/lib/mock-services/orders-service";
+import { mockShowQueueService, orderNeedsShow } from "@/lib/mock-services/show-queue-service";
 import { mockStaffService } from "@/lib/mock-services/staff-service";
 import { cn } from "@/lib/utils";
-import type { Order, OrderStatus, StaffMember } from "@/lib/types";
+import type { ActiveShow, Order, OrderStatus, StaffMember } from "@/lib/types";
 
 const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
   pending: "Accept order",
@@ -38,14 +39,17 @@ function StaffOrdersContent() {
   // Forward-compatible hook for manager/floor-map links into the feed.
   const tableFilter = searchParams.get("table");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [activeShow, setActiveShow] = useState<ActiveShow | null>(null);
 
   const refresh = useCallback(async () => {
-    const [orderList, currentStaff] = await Promise.all([
+    const [orderList, currentStaff, show] = await Promise.all([
       mockOrdersService.listOrders(),
       mockStaffService.getCurrentStaff(),
+      mockShowQueueService.getActiveShow(),
     ]);
     setOrders(orderList);
     setMe(currentStaff);
+    setActiveShow(show);
   }, []);
 
   useEffect(() => {
@@ -80,6 +84,23 @@ function StaffOrdersContent() {
   async function release(order: Order) {
     await mockOrdersService.releaseOrder(order.id);
     toast.info(`${order.code} released back to the queue`);
+    await refresh();
+  }
+
+  async function startShow(order: Order) {
+    if (!me) return;
+    const result = await mockShowQueueService.startShow(order, me.name);
+    if (!result.ok) {
+      toast.error(`Show floor busy — ${result.activeShow?.tableCode}'s presentation is walking.`);
+    } else {
+      toast.success(`${order.tableCode}'s presentation is walking now`);
+    }
+    await refresh();
+  }
+
+  async function finishShow() {
+    await mockShowQueueService.finishShow();
+    toast.info("Show floor is clear");
     await refresh();
   }
 
@@ -178,6 +199,39 @@ function StaffOrdersContent() {
                           </button>
                         ) : null}
                       </div>
+                      {orderNeedsShow(order) && order.status === "ready" && (
+                        <div className="rounded-lg border border-primary/30 bg-primary/5 p-2 text-xs">
+                          {activeShow?.orderId === order.id ? (
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1.5 font-medium text-primary">
+                                <PartyPopper className="size-3.5" /> Walking now — {activeShow.label}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={finishShow}
+                                className="font-medium text-primary hover:underline"
+                              >
+                                Finish show
+                              </button>
+                            </div>
+                          ) : activeShow ? (
+                            <span className="text-muted-foreground">
+                              Show floor busy — {activeShow.tableCode}&apos;s presentation is walking
+                            </span>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Needs a presentation walk-out</span>
+                              <button
+                                type="button"
+                                onClick={() => startShow(order)}
+                                className="font-medium text-primary hover:underline"
+                              >
+                                Start show
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="flex gap-2">
                       <ConfirmDialog
                         trigger={
