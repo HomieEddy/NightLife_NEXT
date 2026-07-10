@@ -93,12 +93,18 @@ export const mockStaffService = {
     );
   },
 
+  /**
+   * `author` overrides the current-staff persona — used for system-style
+   * posts (e.g. a manager's last-call announcement) that aren't authored by
+   * whoever the /staff panel is currently simulating.
+   */
   async sendMessage(input: {
     channel: ChatMessage["channel"];
     body: string;
+    author?: { id: string; name: string; role: StaffMember["role"] };
   }): Promise<ChatMessage> {
     await delay(250);
-    const me = staff.find((s) => s.id === CURRENT_STAFF_ID)!;
+    const me = input.author ?? staff.find((s) => s.id === CURRENT_STAFF_ID)!;
     const message: ChatMessage = {
       id: uid("cm"),
       channel: input.channel,
