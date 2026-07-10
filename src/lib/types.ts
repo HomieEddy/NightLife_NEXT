@@ -166,6 +166,14 @@ export interface StockMovement {
   createdAt: string;
 }
 
+/** Logged the moment a bottle sells out or gets manually 86'd — feeds the live 86-board. */
+export interface SoldOutEvent {
+  id: string;
+  itemId: string;
+  itemName: string;
+  at: string; // ISO
+}
+
 // ---------- Bottle packages ----------
 
 export interface PackageComponent {

@@ -9,6 +9,7 @@ import type {
   MenuCategory,
   MenuItem,
   PackageComponent,
+  SoldOutEvent,
   StockMovement,
   StockMovementType,
 } from "@/lib/types";
@@ -26,6 +27,7 @@ let items: MenuItem[] = clone(mockMenuItems);
 let packages: BottlePackage[] = clone(mockPackages);
 let happyHourRules: HappyHourRule[] = clone(mockHappyHourRules);
 let movements: StockMovement[] = clone(mockStockMovements);
+let soldOutEvents: SoldOutEvent[] = [];
 
 function logMovement(item: MenuItem, type: StockMovementType, delta: number, note?: string) {
   movements = [
@@ -40,6 +42,14 @@ function logMovement(item: MenuItem, type: StockMovementType, delta: number, not
     },
     ...movements,
   ];
+}
+
+/** Feeds the live 86-board — every staff device sees this within one poll. */
+function flagSoldOut(item: MenuItem) {
+  soldOutEvents = [
+    { id: uid("so"), itemId: item.id, itemName: item.name, at: new Date().toISOString() },
+    ...soldOutEvents,
+  ].slice(0, 20);
 }
 
 /** Derived pricing/availability for a package, from live item data. */
@@ -107,7 +117,9 @@ export const mockMenuService = {
     await delay(400);
     const item = items.find((i) => i.id === itemId);
     if (!item) return null;
+    const wasAvailable = item.isAvailable;
     Object.assign(item, patch);
+    if (patch.isAvailable === false && wasAvailable) flagSoldOut(item);
     return clone(item);
   },
 
@@ -212,8 +224,10 @@ export const mockMenuService = {
     if (!item || newCount < 0) return null;
     const delta = newCount - item.inventory;
     if (delta !== 0) {
+      const wasPositive = item.inventory > 0;
       item.inventory = newCount;
       logMovement(item, "adjustment", delta, note);
+      if (wasPositive && newCount === 0) flagSoldOut(item);
     }
     return clone(item);
   },
@@ -231,11 +245,20 @@ export const mockMenuService = {
       for (const component of components) {
         const item = items.find((i) => i.id === component.menuItemId);
         if (!item) continue;
+        const wasPositive = item.inventory > 0;
         const sold = Math.min(item.inventory, component.quantity);
         item.inventory -= sold;
         logMovement(item, "sale", -sold, pkg ? `Package: ${pkg.name}` : "Guest order");
+        if (wasPositive && item.inventory === 0) flagSoldOut(item);
       }
     }
+  },
+
+  /** Recent sell-outs and manual 86s — the live 86-board every staff device polls. */
+  async listSoldOutEvents(withinMinutes = 30): Promise<SoldOutEvent[]> {
+    await delay(200);
+    const cutoff = Date.now() - withinMinutes * 60_000;
+    return clone(soldOutEvents.filter((e) => new Date(e.at).getTime() >= cutoff));
   },
 
   // ---------- Happy hour ----------

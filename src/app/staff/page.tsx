@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, LifeBuoy, MapPin, Moon, Receipt, UserCheck } from "lucide-react";
+import { AlertOctagon, ArrowRight, LifeBuoy, MapPin, Moon, Receipt, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { mockOrdersService } from "@/lib/mock-services/orders-service";
 import { mockGuestsService } from "@/lib/mock-services/guests-service";
+import { mockMenuService } from "@/lib/mock-services/menu-service";
 import { mockStaffService } from "@/lib/mock-services/staff-service";
 import { mockVenueService } from "@/lib/mock-services/venue-service";
-import type { StaffMember, Zone } from "@/lib/types";
+import { timeAgo } from "@/lib/format";
+import type { SoldOutEvent, StaffMember, Zone } from "@/lib/types";
 
 interface QueueCounts {
   pendingOrders: number;
@@ -23,6 +25,7 @@ export default function StaffHomePage() {
   const [counts, setCounts] = useState<QueueCounts | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
+  const [soldOut, setSoldOut] = useState<SoldOutEvent[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -43,6 +46,14 @@ export default function StaffHomePage() {
       setMe(currentStaff);
       setZones(zoneList);
     });
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => mockMenuService.listSoldOutEvents().then(setSoldOut);
+    refresh();
+    // TODO(backend): WebSocket push instead of polling.
+    const interval = setInterval(refresh, 8000);
+    return () => clearInterval(interval);
   }, []);
 
   const myZones = me
@@ -118,6 +129,24 @@ export default function StaffHomePage() {
           </Button>
         </CardContent>
       </Card>
+
+      {soldOut.length > 0 && (
+        <Card className="border-red-500/30 py-4">
+          <CardContent className="space-y-2 px-4">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <AlertOctagon className="size-4 text-red-600 dark:text-red-400" /> 86&apos;d tonight
+            </p>
+            <ul className="space-y-1">
+              {soldOut.slice(0, 5).map((event) => (
+                <li key={event.id} className="flex items-center justify-between text-sm">
+                  <span className="truncate">{event.itemName}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(event.at)}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
