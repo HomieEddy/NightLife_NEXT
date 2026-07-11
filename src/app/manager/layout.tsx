@@ -14,6 +14,7 @@ import {
   Map,
   MapPin,
   Martini,
+  MessageSquare,
   PartyPopper,
   QrCode,
   Receipt,
@@ -44,6 +45,7 @@ const NAV = [
   { href: "/manager/reservations", label: "Reservations", icon: CalendarDays },
   { href: "/manager/events", label: "Events", icon: PartyPopper },
   { href: "/manager/promotions", label: "Promotions", icon: Tag },
+  { href: "/manager/chat", label: "Chat", icon: MessageSquare },
   { href: "/manager/qr", label: "QR codes", icon: QrCode },
   { href: "/manager/subscription", label: "Subscription", icon: CreditCard },
   { href: "/manager/settings", label: "Settings", icon: Settings },
@@ -102,7 +104,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
           ))}
         </nav>
         <div className="border-t p-4 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">LUXE Noir</p>
+          <p className="font-medium text-foreground">Velvet Montréal</p>
           <AuthBanner className="mt-1" />
         </div>
       </aside>
