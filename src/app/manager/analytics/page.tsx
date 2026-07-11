@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Boxes, CalendarRange, Euro, Receipt, Trophy, Users,
+  ArrowRight, Boxes, CalendarRange, CircleDollarSign, Receipt, Trophy, Users,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -144,7 +144,7 @@ export default function ManagerAnalyticsPage() {
         <Tabs defaultValue="sales">
           <TabsList>
             <TabsTrigger value="sales">
-              <Euro className="size-3.5" /> Sales
+              <CircleDollarSign className="size-3.5" /> Sales
             </TabsTrigger>
             <TabsTrigger value="staff">
               <Users className="size-3.5" /> Staff
@@ -160,11 +160,11 @@ export default function ManagerAnalyticsPage() {
               <MetricCard
                 label="Revenue"
                 value={formatMoney(data.totalRevenue)}
-                icon={Euro}
+                icon={CircleDollarSign}
                 hint={`${data.days} nights`}
               />
               <MetricCard label="Orders" value={String(data.totalOrders)} icon={Receipt} />
-              <MetricCard label="Avg order" value={formatMoney(data.avgOrderValue)} icon={Euro} />
+              <MetricCard label="Avg order" value={formatMoney(data.avgOrderValue)} icon={CircleDollarSign} />
               <MetricCard
                 label="Best night"
                 value={formatMoney(data.bestNight.revenue)}
@@ -247,7 +247,7 @@ export default function ManagerAnalyticsPage() {
               <MetricCard
                 label="Revenue served"
                 value={formatMoney(data.staffPerformance.reduce((s, p) => s + p.revenueServed, 0))}
-                icon={Euro}
+                icon={CircleDollarSign}
               />
               <MetricCard
                 label="Fastest runner"

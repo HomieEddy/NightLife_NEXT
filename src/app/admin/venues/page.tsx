@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Ban, Building2, Euro, MoreVertical, Play, Rocket, Search, Trash2,
+  Ban, Building2, CircleDollarSign, MoreVertical, Play, Rocket, Search, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -110,7 +110,7 @@ export default function AdminVenuesPage() {
 
       {/* ---------- Portfolio summary ---------- */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard label="MRR" value={formatMoney(totals.mrr)} icon={Euro} hint="Active tenants" />
+        <MetricCard label="MRR" value={formatMoney(totals.mrr)} icon={CircleDollarSign} hint="Active tenants" />
         <MetricCard label="Active" value={String(totals.active)} icon={Building2} />
         <MetricCard label="Trials" value={String(totals.trials)} icon={Play} hint="14-day trials" />
         <MetricCard label="Suspended" value={String(totals.suspended)} icon={Ban} />
