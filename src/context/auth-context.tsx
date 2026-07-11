@@ -19,6 +19,7 @@ import { mockAuthService } from "@/lib/mock-services/auth-service";
 
 interface AuthContextValue {
   user: AuthUser | null;
+  hydrated: boolean;
   signIn: (input: SignInInput) => Promise<boolean>;
   signOut: () => void;
 }
@@ -59,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const value = useMemo<AuthContextValue>(() => ({ user, signIn, signOut }), [user, signIn, signOut]);
+  const value = useMemo<AuthContextValue>(() => ({ user, hydrated, signIn, signOut }), [user, hydrated, signIn, signOut]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
