@@ -5,7 +5,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 const NAV_LINKS = [
   { href: "/pricing", label: "Pricing" },
-  { href: "/manager", label: "Live demo" },
+  { href: "/demo", label: "Live demo" },
 ];
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {

@@ -173,8 +173,8 @@ export default function LandingPage() {
                   className="h-12 bg-background/40 px-7 text-base backdrop-blur"
                   asChild
                 >
-                  <Link href="/g/demo-table">
-                    <Smartphone className="size-4" /> Try the guest experience
+                  <Link href="/demo">
+                    <Smartphone className="size-4" /> Explore the live demo
                   </Link>
                 </Button>
               </Magnetic>
