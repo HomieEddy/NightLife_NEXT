@@ -48,8 +48,10 @@ counterpart exists (R7), never both alive at once.
    calls (same `AuthUser`/`signIn` signatures — R1).
 5. Invite flow: server action + email + accept page; wire staff-edit-dialog's
    create path and "resend invite".
-6. Seed demo users (Amara/Nina/admin) with roles; delete `admin-gate.ts`,
-   `CURRENT_STAFF_ID`, mock personas file.
+6. Seed live users (Amara/Nina/admin) with roles. Per AD-14: `admin-gate.ts`,
+   `CURRENT_STAFF_ID` and the mock personas are **demo-gated, not deleted** —
+   the demo build keeps demo auth wholesale (its `authService` selector never
+   switches), the live build never imports it.
 7. Migrate `staff-service` identity methods (list/update/toggleShift stay; they
    now read User+Member+StaffProfile). Shifts/chat stay mock until plans 03/07.
 

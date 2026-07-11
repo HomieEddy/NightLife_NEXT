@@ -155,16 +155,57 @@ service layer (table/staff counts). Guest order payment stays out of scope (PRD 
 
 **Choice:** `dev` (local PG or Neon branch, seeded from mock data), `preview`
 (per-PR, seeded, Stripe test mode), `prod`. All secrets via env vars validated at
-boot with a Zod env schema (`src/lib/env.ts`). The public demo runs as a normal
-seeded tenant in preview — keeping the "/demo tour" working forever.
+boot with a Zod env schema (`src/lib/env.ts`). The public Live Demo is **not** an
+environment of the real backend — see AD-14.
+
+## AD-14 · Dual-mode: the mock demo is a permanent product surface
+
+**Context:** the marketing site's Live Demo must keep running on the mock
+services indefinitely — every visitor gets an isolated, self-resetting sandbox
+(module state per tab) with zero backend cost and zero shared-state vandalism.
+Phase 2 therefore does **not** replace mock service bodies; both implementations
+co-exist. This supersedes the literal "replace the body" reading of AGENTS.md
+§9.1 — the *stable interface* principle stands, the mechanism changes.
+
+**Choice:**
+- **Contract from the mock:** `type XService = typeof mockXService`. The real
+  implementation is declared `satisfies XService` — signature drift is a compile
+  error, so the mock and real APIs cannot diverge silently.
+- **Selector layer:** `src/lib/services/x-service.ts` exports the plain name:
+  `export const xService: XService = isDemoMode() ? mockXService : realXService`.
+  Pages import **only** from `src/lib/services/`; an ESLint
+  `no-restricted-imports` rule confines `mock-services/*` imports to selectors,
+  tests and seeds. Call sites change imports once (mechanical), then never again.
+- **Mode = build-time env:** `NEXT_PUBLIC_APP_MODE=demo|live`, one repo, two
+  deploy targets. The landing page's "Live demo" links to the demo deployment.
+  Build-time inlining lets the bundler drop the unused implementation from each
+  build (live ships no mocks; demo ships no fetch layer). Runtime
+  hostname-switching in a single deployment is the documented fallback if two
+  deployments prove annoying.
+- **Simulations are demo-gated, not deleted** (amends R7): "Simulate host
+  approval", "Simulate progress", demo login personas and the admin password
+  gate render behind `isDemoMode()`; live paths use the real counterparts.
+- **Demo CI smoke:** the demo build runs the 5-minute-walkthrough E2E in CI so
+  the demo cannot rot while live work proceeds.
+
+**Alternatives:** seeded demo tenant on the real backend (shared mutable state
+for anonymous visitors, reset crons, infra cost, slower than memory — wrong tool
+for a marketing demo); runtime switching (fallback above).
+
+**Consequences:** wherever a plan says "swap the method body of
+`mockXService.m`", read "implement `realXService.m` satisfying the mock's type
+and wire the selector". The `mockXService → xService` renames never happen — the
+selector owns the plain name; mocks keep theirs. Mocks remain the seed/fixture
+source (AD-10) *and* a shipped product.
 
 ## System sketch
 
 ```
 Browser (manager / staff / guest / admin UIs — unchanged pages)
-   │  service interfaces (unchanged signatures, R1)
+   │  imports from src/lib/services/* selectors (AD-14)
    ▼
-xService implementations  ──►  fetch / server actions
+xService = demo build → mockXService (in-memory, self-resetting)
+           live build ↓ realXService  ──►  fetch / server actions
    ▼
 Next.js route handlers + server actions
    ├─ Zod input validation (AD-7)

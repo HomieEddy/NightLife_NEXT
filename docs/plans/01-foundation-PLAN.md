@@ -23,6 +23,17 @@ features move fast.
   with `toCents/fromCents/splitCents` (port of the receipt page's `evenShares` —
   it becomes the first unit-tested function).
 - **Env** per AD-13: `src/lib/env.ts` Zod-validates `DATABASE_URL`, secrets at boot.
+- **Dual-mode selector layer** per AD-14: `src/lib/app-mode.ts`
+  (`isDemoMode()` from `NEXT_PUBLIC_APP_MODE`) and `src/lib/services/` — one
+  selector file per service exporting the plain name
+  (`export const venueService: VenueService = isDemoMode() ? mockVenueService :
+  realVenueService`, with `type VenueService = typeof mockVenueService`).
+  Until a real implementation exists, the selector exports the mock for both
+  modes — so **this plan already migrates every page import** from
+  `mock-services/*` to `services/*` (mechanical, zero behavior change), and adds
+  the ESLint `no-restricted-imports` rule confining `mock-services/*` to
+  selectors, tests and seeds. Later plans then touch only the selector's real
+  branch.
 - **Seeds**: `prisma/seed.ts` imports the existing `src/lib/mock-data/*` literals
   and inserts them (dollar → cents at the boundary). Mock data stays the single
   source of demo truth (AGENTS.md §9.4).
@@ -42,7 +53,10 @@ features move fast.
 2. `docker-compose.yml` (postgres:17-alpine), `.env.example`, `src/lib/env.ts`.
 3. `prisma/schema.prisma` with conventions from DDD §6 + `Tenant`, `JobRun`.
 4. `src/server/db.ts` (scoped client + extension), `src/server/money.ts`.
-5. ESLint guard for `getPlatformDb` imports.
+5. ESLint guards: `getPlatformDb` import restriction + `mock-services/*` import
+   restriction (AD-14).
+5b. `app-mode.ts` + the 16 selector files (mock-only for now) + the repo-wide
+   import migration; verify with the preview drive that nothing changed.
 6. `prisma/seed.ts` skeleton (tenant "LUXE Noir" only, until plan 03 adds tables).
 7. Vitest + Playwright config, `npm run test`, `test:integration`, `test:e2e`.
 8. First tests: `money.test.ts` (splitCents sums exactly, INV-style),

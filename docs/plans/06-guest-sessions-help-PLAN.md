@@ -44,8 +44,8 @@ approval pushes (guests-service TODO), and closure validation (INV-S2).
 4. Body swaps: `requestSession`/`getSession` → `setSessionStatus` (staff role
    required) → `requestClosure` → help request methods.
 5. QR page: "Regenerate QR" action (tokenVersion bump) + reprint hint.
-6. Delete simulations: waiting-page simulate button, closure simulate button,
-   guest-context TODOs. Rename to `guestsService`.
+6. Gate simulations behind `isDemoMode()` (AD-14): waiting-page simulate
+   button, closure simulate button. Wire the selector's real branch.
 
 ## Testing
 

@@ -55,6 +55,9 @@ The prototype's limits are now the product's limits:
 - Platform admin: leads, tenant CRUD, provisioning job, Stripe subscription billing.
 - Test suite per AGENTS.md §7 Phase 2 (money/state machines first, route-handler
   integration tests, a handful of Playwright E2E flows).
+- **The mock-powered Live Demo remains a shipped product surface** (AD-14): the
+  landing page keeps linking to a fully working demo that needs no accounts and
+  resets itself per visitor. Mocks are maintained, not retired.
 
 ### Out of scope (Phase 2)
 
@@ -71,9 +74,11 @@ The prototype's limits are now the product's limits:
 
 Numbered for traceability from plans and tests (`Rn`).
 
-**R1 — Contract stability.** Every page keeps calling the same service interface;
-methods change body, not signature (AGENTS.md §9.1). Renames (`mockXService` →
-`xService`) happen only when a service is fully real.
+**R1 — Contract stability.** Every page keeps calling the same service interface.
+The mock defines the contract (`type XService = typeof mockXService`); the real
+implementation must satisfy it, and pages import through the `src/lib/services/`
+selector (AD-14). Mock and real implementations co-exist permanently — the mocks
+power the public Live Demo.
 
 **R2 — Tenant isolation.** No query returns another venue's rows, enforced
 centrally, not per-handler. `/admin` is the sole cross-tenant surface, behind a
@@ -94,11 +99,12 @@ closure-requested → closed. Illegal transitions are rejected server-side.
 broadcast, last call, show lock, approval) is visible on every other relevant
 device within 2 seconds without a manual refresh.
 
-**R7 — Real accounts.** Staff sign in with real credentials; managers invite staff
-by email; guests join via signed, revocable table QR tokens; the platform team has
-real admin accounts. All Phase 1 simulations ("Simulate host approval",
-`CURRENT_STAFF_ID`, localStorage gates) are removed in the same PR that ships their
-real counterpart (AGENTS.md §9.6).
+**R7 — Real accounts.** In the live build: staff sign in with real credentials;
+managers invite staff by email; guests join via signed, revocable table QR tokens;
+the platform team has real admin accounts. Phase 1 simulations ("Simulate host
+approval", `CURRENT_STAFF_ID`, localStorage gates) are **demo-gated behind
+`isDemoMode()`** in the same PR that ships their real counterpart (AD-14) — live
+paths never see them, the Live Demo keeps them.
 
 **R8 — Analytics from truth.** Dashboard/analytics/report numbers derive from real
 orders and movements — no seeded generators in production paths.

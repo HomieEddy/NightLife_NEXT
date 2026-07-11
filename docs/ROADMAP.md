@@ -27,12 +27,32 @@ under live features is the classic trap; **orders before guest sessions** becaus
 the order transaction (money + inventory, INV-O2/O4) is the highest-risk work and
 deserves the team's freshest attention — sessions then attach to a proven core.
 
+## Demo co-existence (AD-14) — how to read the plans
+
+The mocks are **not retired**: they power the public Live Demo permanently. So
+wherever a plan says "swap the body of `mockXService.m`" or "rename
+`mockXService → xService`", read instead:
+
+1. implement `realXService.m` declared `satisfies XService`
+   (where `type XService = typeof mockXService`),
+2. wire it through the `src/lib/services/x-service.ts` selector,
+3. leave `mockXService` untouched (it stays demo + fixture source),
+4. gate — don't delete — any simulation the feature obsoletes
+   (`isDemoMode()`), and
+5. `TODO(backend)` deletion still applies: the TODO is fulfilled by the real
+   implementation existing, even though the mock line it sat on survives —
+   move the comment's intent into the plan's exit note if context would be lost.
+
+Every step ordering, test list and exit criterion in the plans remains valid
+under this reading. Plan 01 ships the selector/mode infrastructure.
+
 ## Definition of done — every feature, no exceptions
 
 1. Plan's design followed or the plan updated in the same PR with why.
-2. Mock service methods' bodies replaced; **call-site signatures untouched** (R1);
-   the service renamed only if fully real.
-3. Simulations it obsoletes removed in the same PR (R7).
+2. Real service implemented `satisfies` the mock's type and wired through the
+   selector; **call sites and mock untouched** (R1, AD-14).
+3. Simulations it obsoletes gated behind `isDemoMode()` in the same PR (R7);
+   the demo build still exercises them.
 4. Tests per AGENTS.md §7 Phase 2 — money/state-machine units *before* the
    implementation, route-handler integration incl. tenant-isolation attempts,
    the plan's named E2E flow.
