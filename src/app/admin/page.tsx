@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Building2, Euro, Filter, TrendingUp } from "lucide-react";
+import { ArrowRight, Building2, CircleDollarSign, Filter, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,7 +38,7 @@ export default function AdminOverviewPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <MetricCard label="MRR" value={formatMoney(mrr)} icon={Euro} deltaPct={9.2} />
+          <MetricCard label="MRR" value={formatMoney(mrr)} icon={CircleDollarSign} deltaPct={9.2} />
           <MetricCard label="Active tenants" value={String(activeTenants)} icon={Building2} hint={`${tenants.length} total`} />
           <MetricCard label="Open leads" value={String(openLeads)} icon={Filter} hint="in pipeline" />
           <MetricCard label="Trial → paid" value="64%" icon={TrendingUp} hint="last 90 days" />
