@@ -11,8 +11,8 @@ export const mockEvents: VenueEvent[] = [
   {
     id: "evt-1",
     venueId: "venue-1",
-    name: "Neon Nights Opening",
-    description: "Season opener with resident DJs and bottle specials.",
+    name: "Soirée Saint-Laurent",
+    description: "Soirée d'ouverture avec DJs résidents et spéciaux sur les bouteilles.",
     startsAt: iso(3, 23, 0),
     endsAt: iso(4, 5, 0),
     zoneId: "zone-dance",
@@ -23,8 +23,8 @@ export const mockEvents: VenueEvent[] = [
   {
     id: "evt-2",
     venueId: "venue-1",
-    name: "VIP Champagne Brunch",
-    description: "Daytime rooftop brunch for members.",
+    name: "Brunch Champagne VIP",
+    description: "Brunch en journée sur le rooftop pour les membres.",
     startsAt: iso(6, 12, 0),
     endsAt: iso(6, 16, 0),
     zoneId: "zone-vip",
@@ -35,8 +35,8 @@ export const mockEvents: VenueEvent[] = [
   {
     id: "evt-3",
     venueId: "venue-1",
-    name: "Silent Disco Terrace",
-    description: "Three channels, headphones on the terrace.",
+    name: "Silent Disco sur la Terrasse",
+    description: "Trois canaux, casques sur la terrasse.",
     startsAt: iso(-2, 22, 0),
     endsAt: iso(-2, 4, 0),
     zoneId: "zone-terrace",
