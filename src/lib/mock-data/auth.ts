@@ -5,14 +5,14 @@ export const mockPersonas: AuthUser[] = [
   {
     id: "st-amara",
     name: "Amara Diallo",
-    email: "amara@luxenoir.club",
+    email: "amara@velvetmtl.club",
     role: "manager",
     venueId: "venue-1",
   },
   {
     id: "st-nina",
     name: "Nina Kovač",
-    email: "nina@luxenoir.club",
+    email: "nina@velvetmtl.club",
     role: "staff",
     venueId: "venue-1",
   },
