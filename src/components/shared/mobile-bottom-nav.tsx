@@ -36,7 +36,7 @@ export function MobileBottomNav({
       <div className="mx-auto flex max-w-lg items-stretch">
         {items.map((item) => {
           const active =
-            pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`));
+            pathname === item.href || (pathname.startsWith(`${item.href}/`) && item.href.split("/").length > 2);
           return (
             <Link
               key={item.href}

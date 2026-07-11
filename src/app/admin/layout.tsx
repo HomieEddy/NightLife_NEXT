@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/shared/brand-logo";
+import { RequireAuth } from "@/components/shared/require-auth";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
 import { ADMIN_DEMO_PASSWORD, isAdminUnlocked, setAdminUnlocked } from "@/lib/admin-gate";
@@ -95,10 +96,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     setUnlocked(isAdminUnlocked());
   }, []);
 
-  if (unlocked === null) return null;
-  if (!unlocked) return <AdminGate onUnlock={() => setUnlocked(true)} />;
+  if (unlocked === null) return <RequireAuth><div /></RequireAuth>;
+  if (!unlocked) return <RequireAuth><AdminGate onUnlock={() => setUnlocked(true)} /></RequireAuth>;
 
   return (
+    <RequireAuth>
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
@@ -133,5 +135,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">{children}</main>
     </div>
+    </RequireAuth>
   );
 }
