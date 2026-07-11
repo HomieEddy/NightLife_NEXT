@@ -33,8 +33,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           <BrandLogo className="text-sm" />
           <p>© {new Date().getFullYear()} NightLifeNext. Prototype — not a real product yet.</p>
           <div className="flex gap-4">
-            <Link href="/admin" className="hover:text-foreground">
-              Platform admin
+            <Link href="/demo" className="hover:text-foreground">
+              Demo tour
             </Link>
             <Link href="/g/demo-table" className="hover:text-foreground">
               Guest demo

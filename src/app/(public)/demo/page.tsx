@@ -4,13 +4,11 @@ import {
   ArrowRight,
   BarChart3,
   Bell,
-  Building2,
   CalendarDays,
   ClipboardList,
   Clock,
   CreditCard,
   FileText,
-  Filter,
   Gift,
   KeyRound,
   LayoutDashboard,
@@ -23,7 +21,6 @@ import {
   Radio,
   Receipt,
   RefreshCcw,
-  Rocket,
   Smartphone,
   Sparkles,
   Timer,
@@ -259,49 +256,13 @@ const SEGMENTS: DemoSegment[] = [
       },
     ],
   },
-  {
-    id: "admin",
-    icon: Building2,
-    name: "Platform admin",
-    tagline: "The SaaS side — the team running NightLifeNext across venues.",
-    navGuide:
-      "Top-bar navigation: Overview, Lead pipeline, Tenants and Provisioning. This is the one area that operates across venues rather than inside one.",
-    accent: "border-amber-500/40 text-amber-500 dark:text-amber-400",
-    cta: { href: "/admin", label: "Open the admin panel" },
-    features: [
-      {
-        icon: Filter,
-        title: "Lead pipeline",
-        guide:
-          "A kanban board from new to won/lost with deal values, sources and a per-lead activity log. Won leads hand off straight into tenant provisioning.",
-        href: "/admin/leads",
-        linkLabel: "Lead pipeline",
-      },
-      {
-        icon: Building2,
-        title: "Tenant management",
-        guide:
-          "Every venue on the platform with MRR totals, plan changes, trial conversions and suspend/reactivate controls.",
-        href: "/admin/venues",
-        linkLabel: "Tenants",
-      },
-      {
-        icon: Rocket,
-        title: "Provisioning",
-        guide:
-          "Spin up a new tenant: venue, plan, trial and the manager's invite. The venue's own setup happens in the manager onboarding wizard on first sign-in.",
-        href: "/admin/onboarding",
-        linkLabel: "Provision a tenant",
-      },
-    ],
-  },
 ];
 
 const HOW_IT_WORKS = [
   {
     icon: KeyRound,
     title: "Sign in as anyone",
-    body: "The login page has one-tap demo personas — Amara (manager), Nina (staff runner) and a platform admin. Any PIN works, and every area stays open even without signing in.",
+    body: "The login page has one-tap demo personas — Amara (manager) and Nina (staff runner). Any PIN works, and the manager, staff and guest areas stay open even without signing in.",
     href: "/login",
     linkLabel: "Go to login",
   },
@@ -349,12 +310,6 @@ const WALKTHROUGH = [
     href: "/manager",
     linkLabel: "Pulse tab",
   },
-  {
-    step: "See the SaaS behind it",
-    detail: "Finish in the admin panel: move a lead to won and provision it as a brand-new tenant.",
-    href: "/admin/leads",
-    linkLabel: "Admin leads",
-  },
 ];
 
 export default function DemoTourPage() {
@@ -373,9 +328,9 @@ export default function DemoTourPage() {
             Take the <span className="text-gradient-brand">live demo</span> tour
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            NightLifeNext has four surfaces — one for the manager, one for the floor crew, one for
-            the guest at the table, and one for the platform team behind it all. This page walks
-            you through each, with links straight into the demo.
+            NightLifeNext has three surfaces — one for the manager, one for the floor crew, and
+            one for the guest at the table. This page walks you through each, with links straight
+            into the demo.
           </p>
         </Reveal>
 
@@ -497,9 +452,8 @@ export default function DemoTourPage() {
             The 5-minute walkthrough
           </h2>
           <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-            The fastest way to feel the whole loop — one order travelling guest → staff → manager,
-            then a peek behind the SaaS curtain. Use in-app links between steps so the night
-            doesn&apos;t reset.
+            The fastest way to feel the whole loop — one order travelling guest → staff → manager.
+            Use in-app links between steps so the night doesn&apos;t reset.
           </p>
         </Reveal>
         <Reveal stagger={0.07} y={24} className="mt-6 space-y-3">
