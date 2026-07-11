@@ -64,20 +64,20 @@ const STATS = [
 ];
 
 const PLANS = [
-  { name: "Starter", price: "$149", tagline: "Single-room venues", highlight: false },
-  { name: "Pro", price: "$349", tagline: "Multi-zone clubs", highlight: true },
+  { name: "Starter", price: "$0.99", tagline: "Single-room venues", highlight: false },
+  { name: "Pro", price: "$1.99", tagline: "Multi-zone clubs", highlight: true },
   { name: "Enterprise", price: "Custom", tagline: "Groups & franchises", highlight: false },
 ];
 
 const MARQUEE_VENUES = [
-  "LUXE Noir",
+  "Velvet Montréal",
+  "La Voûte",
+  "Jardin Neon",
+  "Bar Ste-Catherine",
+  "Le Kung Fu",
+  "Le Rouge",
+  "Plage Pulse",
   "Velvet Room",
-  "Neon Garden",
-  "Mirage Club",
-  "Bassline Warehouse",
-  "Sky Lounge 21",
-  "Static Underground",
-  "Club Onyx",
 ];
 
 /** Words wrapped for the hero's masked slide-up reveal. */
