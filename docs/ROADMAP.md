@@ -46,6 +46,25 @@ wherever a plan says "swap the body of `mockXService.m`" or "rename
 Every step ordering, test list and exit criterion in the plans remains valid
 under this reading. Plan 01 ships the selector/mode infrastructure.
 
+## Ongoing: demo-first feature lifecycle
+
+Plans 01–10 graduate the *existing* features. New features — during and after
+the migration — follow the permanent loop (AD-14):
+
+1. **Sketch in the sandbox**: mock data → mock service → UI, demo mode,
+   Phase-1 rules. `TODO(backend)` annotations record backend intent.
+2. **Iterate until the UX is settled** — the demo build is the review
+   environment; killing a feature here costs zero backend work.
+3. **Demo-only gate**: entry points behind `isDemoMode()` until graduated —
+   the live build never shows a feature without a real backend.
+4. **Graduate**: write the next `docs/plans/NN-featurename-PLAN.md` (same
+   template: reasoning, design choices, implementation strategy, testing,
+   review checklist, exit criteria), implement the real branch, wire the
+   selector, drop the gate — one PR, this definition of done.
+
+Numbering continues from 11. UI sketching for new features can proceed in
+parallel with backend plans — the two tracks only meet at graduation.
+
 ## Definition of done — every feature, no exceptions
 
 1. Plan's design followed or the plan updated in the same PR with why.

@@ -158,14 +158,17 @@ service layer (table/staff counts). Guest order payment stays out of scope (PRD 
 boot with a Zod env schema (`src/lib/env.ts`). The public Live Demo is **not** an
 environment of the real backend — see AD-14.
 
-## AD-14 · Dual-mode: the mock demo is a permanent product surface
+## AD-14 · Dual-mode: the mock demo is a permanent product surface AND the sandbox
 
 **Context:** the marketing site's Live Demo must keep running on the mock
 services indefinitely — every visitor gets an isolated, self-resetting sandbox
 (module state per tab) with zero backend cost and zero shared-state vandalism.
-Phase 2 therefore does **not** replace mock service bodies; both implementations
-co-exist. This supersedes the literal "replace the body" reading of AGENTS.md
-§9.1 — the *stable interface* principle stands, the mechanism changes.
+Beyond marketing, the demo is the **permanent development sandbox**: every future
+feature is sketched mock-first in demo mode and iterated on UX before any backend
+is planned (see "Demo-first lifecycle" below). Phase 2 therefore does **not**
+replace mock service bodies; both implementations co-exist. This supersedes the
+literal "replace the body" reading of AGENTS.md §9.1 — the *stable interface*
+principle stands, the mechanism changes.
 
 **Choice:**
 - **Contract from the mock:** `type XService = typeof mockXService`. The real
@@ -181,7 +184,14 @@ co-exist. This supersedes the literal "replace the body" reading of AGENTS.md
   Build-time inlining lets the bundler drop the unused implementation from each
   build (live ships no mocks; demo ships no fetch layer). Runtime
   hostname-switching in a single deployment is the documented fallback if two
-  deployments prove annoying.
+  deployments prove annoying. **Unset defaults to `demo`** — `npm run dev`
+  boots the sandbox with zero setup (no DB, no env); backend work opts in via
+  a `dev:live` script.
+- **Demo-only until graduated:** a feature whose real branch doesn't exist yet
+  hides its UI entry points (nav links, pages, buttons) behind `isDemoMode()` —
+  the live build never shows a feature backed by vanishing in-memory state.
+  Graduation removes the gate in the same PR that wires the selector's real
+  branch.
 - **Simulations are demo-gated, not deleted** (amends R7): "Simulate host
   approval", "Simulate progress", demo login personas and the admin password
   gate render behind `isDemoMode()`; live paths use the real counterparts.
@@ -197,6 +207,18 @@ for a marketing demo); runtime switching (fallback above).
 and wire the selector". The `mockXService → xService` renames never happen — the
 selector owns the plain name; mocks keep theirs. Mocks remain the seed/fixture
 source (AD-10) *and* a shipped product.
+
+**Demo-first lifecycle (every future feature):**
+
+1. **Sketch** — mock data → `mockXService` methods → UI, in demo mode, under the
+   Phase-1 working rules (AGENTS.md §1–§8). Annotate backend intent with
+   `TODO(backend)` as you go; those comments seed the eventual plan.
+2. **Iterate** — the demo build is the review environment; UX changes are cheap
+   because no backend exists to drag along. Features killed here cost nothing.
+3. **Gate** — entry points behind `isDemoMode()` while demo-only (rule above).
+4. **Graduate** — when the UX is settled: write `docs/plans/NN-name-PLAN.md`
+   (same template), implement the real branch `satisfies` the mock's type, wire
+   the selector, remove the gate — one PR, per the roadmap's definition of done.
 
 ## System sketch
 

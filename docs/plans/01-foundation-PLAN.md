@@ -24,7 +24,9 @@ features move fast.
   it becomes the first unit-tested function).
 - **Env** per AD-13: `src/lib/env.ts` Zod-validates `DATABASE_URL`, secrets at boot.
 - **Dual-mode selector layer** per AD-14: `src/lib/app-mode.ts`
-  (`isDemoMode()` from `NEXT_PUBLIC_APP_MODE`) and `src/lib/services/` — one
+  (`isDemoMode()` from `NEXT_PUBLIC_APP_MODE`; **unset = demo**, so plain
+  `npm run dev` boots the sandbox with no DB or env — backend work uses a new
+  `dev:live` script) and `src/lib/services/` — one
   selector file per service exporting the plain name
   (`export const venueService: VenueService = isDemoMode() ? mockVenueService :
   realVenueService`, with `type VenueService = typeof mockVenueService`).

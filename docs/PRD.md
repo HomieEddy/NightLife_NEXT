@@ -147,3 +147,11 @@ Service-by-service behind the stable interface (AGENTS.md §9.4): foundation →
 reservations/events/promotions → analytics/reports → platform/billing. Each step
 ships independently; the app runs mixed (some services real, some mock) throughout.
 See `docs/ROADMAP.md`.
+
+## 9. Feature lifecycle after the migration
+
+The Live Demo is the permanent sandbox (AD-14): every future feature is sketched
+mock-first in demo mode, iterated on UX until satisfied, kept demo-only behind
+`isDemoMode()`, and only then given a backend plan (`docs/plans/NN-…-PLAN.md`) and
+a real implementation. UI exploration and backend delivery are two tracks that
+meet at graduation — see the roadmap's "Ongoing" section.
