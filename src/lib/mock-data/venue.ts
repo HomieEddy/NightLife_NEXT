@@ -2,11 +2,11 @@ import type { Venue, Zone, VenueTable } from "@/lib/types";
 
 export const mockVenue: Venue = {
   id: "venue-1",
-  name: "LUXE Noir",
-  slug: "luxe-noir",
-  address: "14 Rue de la Nuit",
-  city: "Paris",
-  timezone: "Europe/Paris",
+  name: "Velvet Montréal",
+  slug: "velvet-montreal",
+  address: "1436 Boulevard Saint-Laurent",
+  city: "Montréal",
+  timezone: "America/Montreal",
   currency: "CAD",
   openingHours: [
     { day: "Thursday", open: "22:00", close: "04:00" },
@@ -20,7 +20,7 @@ export const mockVenue: Venue = {
   ],
   autoApproveGuests: false,
   floorMap: { width: 16, height: 9 },
-  logoInitials: "LN",
+  logoInitials: "VM",
   slaThresholds: {
     orderWarnMinutes: 6,
     orderCriticalMinutes: 12,
