@@ -1,11 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Filter, LayoutDashboard, Rocket, ShieldCheck } from "lucide-react";
+import { Building2, Filter, LayoutDashboard, LockKeyhole, Rocket, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
+import { ADMIN_DEMO_PASSWORD, isAdminUnlocked, setAdminUnlocked } from "@/lib/admin-gate";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -15,10 +22,81 @@ const NAV = [
   { href: "/admin/onboarding", label: "Provisioning", icon: Rocket },
 ];
 
+/** Shared-password wall shown until the demo admin area is unlocked. */
+function AdminGate({ onUnlock }: { onUnlock: () => void }) {
+  const [password, setPassword] = useState("");
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password === ADMIN_DEMO_PASSWORD) {
+      setAdminUnlocked(true);
+      onUnlock();
+    } else {
+      toast.error("Wrong password.");
+      setPassword("");
+    }
+  }
+
+  return (
+    <div className="flex min-h-dvh flex-col bg-gradient-to-b from-background to-muted/40">
+      <header className="flex h-14 items-center justify-between px-4">
+        <BrandLogo />
+        <ThemeToggle />
+      </header>
+      <main className="flex flex-1 items-center justify-center p-4">
+        <Card className="w-full max-w-sm">
+          <CardContent className="space-y-5 p-6">
+            <div className="space-y-1 text-center">
+              <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-red-500/15 text-red-600 dark:text-red-400">
+                <LockKeyhole className="size-5" />
+              </div>
+              <h1 className="text-lg font-semibold tracking-tight">Platform admin</h1>
+              <p className="text-sm text-muted-foreground">
+                This area is restricted in the live demo. Enter the access password to continue.
+              </p>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-password">Password</Label>
+                <Input
+                  id="admin-password"
+                  type="password"
+                  autoComplete="off"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={!password.trim()}>
+                <LockKeyhole className="size-4" /> Unlock
+              </Button>
+            </form>
+            <p className="text-center text-xs text-muted-foreground">
+              Not part of the tour?{" "}
+              <Link href="/demo" className="text-primary hover:underline">
+                Back to the live demo
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // null = not yet hydrated — render nothing to avoid flashing either state.
+  const [unlocked, setUnlocked] = useState<boolean | null>(null);
   const isActive = (href: string) =>
     href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+
+  useEffect(() => {
+    setUnlocked(isAdminUnlocked());
+  }, []);
+
+  if (unlocked === null) return null;
+  if (!unlocked) return <AdminGate onUnlock={() => setUnlocked(true)} />;
 
   return (
     <div className="flex min-h-dvh flex-col">
