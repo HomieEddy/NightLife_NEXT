@@ -6,6 +6,7 @@ import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
 import { MobileBottomNav } from "@/components/shared/mobile-bottom-nav";
+import { RequireAuth } from "@/components/shared/require-auth";
 import { BroadcastBanner } from "@/components/staff/broadcast-banner";
 import { mockStaffService } from "@/lib/mock-services/staff-service";
 import type { StaffMember } from "@/lib/types";
@@ -23,6 +24,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   }, []);
 
   return (
+    <RequireAuth>
     <div className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col border-x border-border/40">
       <div className="sticky top-0 z-30">
         <BroadcastBanner />
@@ -59,5 +61,6 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
         ]}
       />
     </div>
+    </RequireAuth>
   );
 }

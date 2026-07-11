@@ -24,6 +24,7 @@ import {
   Users,
 } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
+import { RequireAuth } from "@/components/shared/require-auth";
 import { isManagerOnboarded } from "@/lib/onboarding";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -66,19 +67,22 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
   // The wizard gets a clean, chrome-free canvas.
   if (onOnboarding) {
     return (
-      <div className="min-h-dvh">
-        <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-lg">
-          <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
-            <BrandLogo href="/manager/onboarding" />
-            <ThemeToggle />
-          </div>
-        </header>
-        <main className="mx-auto w-full max-w-5xl p-4 sm:p-6">{children}</main>
-      </div>
+      <RequireAuth>
+        <div className="min-h-dvh">
+          <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-lg">
+            <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
+              <BrandLogo href="/manager/onboarding" />
+              <ThemeToggle />
+            </div>
+          </header>
+          <main className="mx-auto w-full max-w-5xl p-4 sm:p-6">{children}</main>
+        </div>
+      </RequireAuth>
     );
   }
 
   return (
+    <RequireAuth>
     <div className="flex min-h-dvh">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r bg-sidebar md:flex print:md:hidden">
@@ -142,5 +146,6 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
         <main className="mx-auto w-full max-w-5xl flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
+    </RequireAuth>
   );
 }
