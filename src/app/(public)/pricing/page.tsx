@@ -9,8 +9,8 @@ export const metadata = { title: "Pricing" };
 const PLANS = [
   {
     name: "Starter",
-    price: "$149",
-    tagline: "For single-room venues getting started with QR ordering.",
+    price: "$0.99",
+    tagline: "Private beta pricing — single-room venues getting started with QR ordering.",
     highlight: false,
     features: [
       { label: "Up to 15 tables", included: true },
@@ -24,8 +24,8 @@ const PLANS = [
   },
   {
     name: "Pro",
-    price: "$349",
-    tagline: "For multi-zone clubs with bottle service and runners.",
+    price: "$1.99",
+    tagline: "Private beta pricing — multi-zone clubs with bottle service and runners.",
     highlight: true,
     features: [
       { label: "Up to 60 tables", included: true },
@@ -60,7 +60,7 @@ export default function PricingPage() {
       <div className="text-center">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Pricing</h1>
         <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-          Per venue, per month. No per-order fees, no hardware lock-in. Cancel anytime.
+          Private beta pricing — per venue, per month. No per-order fees, no hardware lock-in. Cancel anytime.
         </p>
       </div>
 
@@ -115,7 +115,7 @@ export default function PricingPage() {
       </div>
 
       <p className="mt-10 text-center text-sm text-muted-foreground">
-        All plans include a 14-day free trial. Payment processing fees billed separately.
+        Private beta pricing locked in for early adopters. Payment processing fees billed separately.
         {/* TODO(backend): wire Stripe checkout + billing portal here. */}
       </p>
     </div>

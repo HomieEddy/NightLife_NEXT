@@ -18,7 +18,7 @@ export const PLANS: PlanInfo[] = [
   {
     id: "starter",
     name: "Starter",
-    monthlyPrice: 99,
+    monthlyPrice: 0.99,
     tableLimit: 10,
     staffLimit: 5,
     features: ["QR ordering", "Basic menu & inventory", "Email support"],
@@ -26,7 +26,7 @@ export const PLANS: PlanInfo[] = [
   {
     id: "pro",
     name: "Pro",
-    monthlyPrice: 249,
+    monthlyPrice: 1.99,
     tableLimit: 40,
     staffLimit: 25,
     features: [
@@ -40,7 +40,7 @@ export const PLANS: PlanInfo[] = [
   {
     id: "enterprise",
     name: "Enterprise",
-    monthlyPrice: 599,
+    monthlyPrice: 2.99,
     tableLimit: null,
     staffLimit: null,
     features: [
@@ -74,11 +74,11 @@ let subscription: Subscription = {
 };
 
 const invoices: Invoice[] = [
-  { id: "INV-2026-007", date: "2026-07-01", amount: 249, status: "paid" },
-  { id: "INV-2026-006", date: "2026-06-01", amount: 249, status: "paid" },
-  { id: "INV-2026-005", date: "2026-05-01", amount: 249, status: "paid" },
-  { id: "INV-2026-004", date: "2026-04-01", amount: 99, status: "paid" },
-  { id: "INV-2026-003", date: "2026-03-01", amount: 99, status: "paid" },
+  { id: "INV-2026-007", date: "2026-07-01", amount: 1.99, status: "paid" },
+  { id: "INV-2026-006", date: "2026-06-01", amount: 1.99, status: "paid" },
+  { id: "INV-2026-005", date: "2026-05-01", amount: 1.99, status: "paid" },
+  { id: "INV-2026-004", date: "2026-04-01", amount: 0.99, status: "paid" },
+  { id: "INV-2026-003", date: "2026-03-01", amount: 0.99, status: "paid" },
 ];
 
 export const mockBillingService = {
