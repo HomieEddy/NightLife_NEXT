@@ -4,14 +4,14 @@ const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString
 
 export const mockLeads: Lead[] = [
   {
-    id: "lead-1", venueName: "Club Onyx", contactName: "Marco Bianchi", email: "marco@clubonyx.it", phone: "+39 320 555 0101", city: "Milan",
+    id: "lead-1", venueName: "Le Kung Fu", contactName: "Alexandre Dubois", email: "alex@lekungfu.ca", phone: "+1 514 555 1001", city: "Montréal",
     status: "new", source: "landing-page", dealValue: 2988,
     notes: "400-cap venue, wants QR ordering for VIP only.",
     activity: [{ id: "act-1a", at: daysAgo(1), text: "Submitted demo request via landing page" }],
     createdAt: daysAgo(1),
   },
   {
-    id: "lead-2", venueName: "Bassline Warehouse", contactName: "Jade Okafor", email: "jade@bassline.uk", phone: "+44 7700 900123", city: "London",
+    id: "lead-2", venueName: "La Voûte", contactName: "Jade Okafor", email: "jade@lavoute.ca", phone: "+1 438 555 2002", city: "Montréal",
     status: "contacted", source: "referral", dealValue: 2988,
     notes: "Referred by Velvet Room. Interested in runner zone routing.",
     activity: [
@@ -21,7 +21,7 @@ export const mockLeads: Lead[] = [
     createdAt: daysAgo(3),
   },
   {
-    id: "lead-3", venueName: "Sky Lounge 21", contactName: "Elena García", email: "elena@skylounge21.es", phone: "+34 612 555 021", city: "Barcelona",
+    id: "lead-3", venueName: "Bar Ste-Catherine", contactName: "Émilie Garcia", email: "emilie@barstecatherine.ca", phone: "+1 514 555 3003", city: "Montréal",
     status: "demo", source: "landing-page", dealValue: 4200,
     notes: "Rooftop venue, terrace-heavy layout.",
     activity: [
@@ -32,7 +32,7 @@ export const mockLeads: Lead[] = [
     createdAt: daysAgo(6),
   },
   {
-    id: "lead-4", venueName: "Le Baron Rouge", contactName: "Pierre Dubois", email: "pierre@lebaronrouge.fr", phone: "+33 6 55 01 02 03", city: "Paris",
+    id: "lead-4", venueName: "Le Rouge", contactName: "Pierre Dubois", email: "pierre@lerouge.ca", phone: "+1 450 555 4004", city: "Laval",
     status: "negotiating", source: "event", dealValue: 10788,
     notes: "Wants enterprise plan with multi-floor zones. Legal reviewing MSA.",
     activity: [
@@ -43,7 +43,7 @@ export const mockLeads: Lead[] = [
     createdAt: daysAgo(12),
   },
   {
-    id: "lead-5", venueName: "Neon Garden", contactName: "Lisa Chen", email: "lisa@neongarden.de", phone: "+49 151 555 0505", city: "Berlin",
+    id: "lead-5", venueName: "Jardin Neon", contactName: "Lisa Chen", email: "lisa@jardinneon.ca", phone: "+1 514 555 5005", city: "Montréal",
     status: "won", source: "outbound", dealValue: 1788,
     notes: "Signed! Provisioning scheduled.",
     activity: [
@@ -54,7 +54,7 @@ export const mockLeads: Lead[] = [
     createdAt: daysAgo(18),
   },
   {
-    id: "lead-6", venueName: "Pulse Beach Club", contactName: "Nikos Papadopoulos", email: "nikos@pulsebeach.gr", phone: "+30 690 555 0606", city: "Mykonos",
+    id: "lead-6", venueName: "Plage Pulse", contactName: "Nikos Papadopoulos", email: "nikos@plagepulse.ca", phone: "+1 514 555 6006", city: "Montréal",
     status: "lost", source: "landing-page", dealValue: 2988,
     notes: "Went with competitor on pricing. Revisit next season.",
     activity: [
@@ -67,9 +67,9 @@ export const mockLeads: Lead[] = [
 ];
 
 export const mockTenants: Tenant[] = [
-  { id: "ten-1", venueName: "LUXE Noir", slug: "luxe-noir", plan: "pro", status: "active", city: "Paris", tableCount: 23, monthlyRevenue: 349, createdAt: daysAgo(240) },
-  { id: "ten-2", venueName: "Neon Garden", slug: "neon-garden", plan: "starter", status: "trial", city: "Berlin", tableCount: 12, monthlyRevenue: 0, createdAt: daysAgo(4) },
-  { id: "ten-3", venueName: "Velvet Room", slug: "velvet-room", plan: "enterprise", status: "active", city: "Amsterdam", tableCount: 41, monthlyRevenue: 899, createdAt: daysAgo(180) },
-  { id: "ten-4", venueName: "Mirage Club", slug: "mirage-club", plan: "pro", status: "active", city: "Lyon", tableCount: 18, monthlyRevenue: 349, createdAt: daysAgo(120) },
-  { id: "ten-5", venueName: "Static Underground", slug: "static-underground", plan: "starter", status: "suspended", city: "Brussels", tableCount: 9, monthlyRevenue: 149, createdAt: daysAgo(90) },
+  { id: "ten-1", venueName: "Velvet Montréal", slug: "velvet-montreal", plan: "pro", status: "active", city: "Montréal", tableCount: 23, monthlyRevenue: 1.99, createdAt: daysAgo(240) },
+  { id: "ten-2", venueName: "Le Kung Fu", slug: "le-kung-fu", plan: "starter", status: "trial", city: "Montréal", tableCount: 12, monthlyRevenue: 0, createdAt: daysAgo(4) },
+  { id: "ten-3", venueName: "La Voûte", slug: "la-voute", plan: "enterprise", status: "active", city: "Montréal", tableCount: 41, monthlyRevenue: 2.99, createdAt: daysAgo(180) },
+  { id: "ten-4", venueName: "Bar Ste-Catherine", slug: "bar-ste-catherine", plan: "pro", status: "active", city: "Montréal", tableCount: 18, monthlyRevenue: 1.99, createdAt: daysAgo(120) },
+  { id: "ten-5", venueName: "Plage Pulse", slug: "plage-pulse", plan: "starter", status: "suspended", city: "Montréal", tableCount: 9, monthlyRevenue: 0.99, createdAt: daysAgo(90) },
 ];
