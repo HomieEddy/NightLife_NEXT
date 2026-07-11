@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Euro, Receipt, Table2, Timer } from "lucide-react";
+import { ArrowRight, CircleDollarSign, Receipt, Table2, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,14 +30,14 @@ export default function ManagerDashboardPage() {
   const { user } = useAuth();
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [orders, setOrders] = useState<Order[] | null>(null);
-  const [venueName, setVenueName] = useState("LUXE Noir");
+  const [venue, setVenue] = useState({ name: "Velvet Montréal", currency: "CAD" });
   const [attentionItems, setAttentionItems] = useState<AttentionItem[] | null>(null);
   const [lastCallActive, setLastCallActive] = useState(false);
 
   useEffect(() => {
     mockAnalyticsService.getSummary().then(setSummary);
     mockOrdersService.listOrders().then((all) => setOrders(all.slice(0, 4)));
-    mockVenueService.getVenue().then((v) => setVenueName(v.name));
+    mockVenueService.getVenue().then((v) => setVenue({ name: v.name, currency: v.currency }));
   }, []);
 
   const refreshPulse = useCallback(async () => {
@@ -85,7 +85,7 @@ export default function ManagerDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Tonight at ${venueName}`}
+        title={`Tonight at ${venue.name}`}
         description="Saturday · Doors 22:00 — live operations overview"
         actions={
           <Button variant="outline" size="sm" asChild>
@@ -110,7 +110,7 @@ export default function ManagerDashboardPage() {
         </TabsList>
 
         <TabsContent value="tonight" className="space-y-6 pt-4">
-          <TonightTab summary={summary} orders={orders} />
+          <TonightTab summary={summary} orders={orders} currency={venue.currency} />
         </TabsContent>
 
         <TabsContent value="pulse" className="pt-4">
@@ -129,9 +129,11 @@ export default function ManagerDashboardPage() {
 function TonightTab({
   summary,
   orders,
+  currency,
 }: {
   summary: AnalyticsSummary | null;
   orders: Order[] | null;
+  currency: string;
 }) {
   return (
     <>
@@ -145,9 +147,9 @@ function TonightTab({
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <MetricCard
             label="Revenue"
-            value={formatMoney(summary.revenueTonight)}
+            value={formatMoney(summary.revenueTonight, currency)}
             deltaPct={summary.revenueDeltaPct}
-            icon={Euro}
+            icon={CircleDollarSign}
           />
           <MetricCard
             label="Orders"
@@ -157,9 +159,9 @@ function TonightTab({
           />
           <MetricCard
             label="Avg order"
-            value={formatMoney(summary.avgOrderValue)}
+            value={formatMoney(summary.avgOrderValue, currency)}
             deltaPct={summary.avgOrderDeltaPct}
-            icon={Euro}
+            icon={CircleDollarSign}
           />
           <MetricCard
             label="Active tables"
@@ -200,7 +202,7 @@ function TonightTab({
                     </span>
                     <span className="min-w-0 flex-1 truncate">{item.name}</span>
                     <span className="text-xs text-muted-foreground">{item.count}×</span>
-                    <span className="font-medium tabular-nums">{formatMoney(item.revenue)}</span>
+                    <span className="font-medium tabular-nums">{formatMoney(item.revenue, currency)}</span>
                   </li>
                 ))}
               </ul>

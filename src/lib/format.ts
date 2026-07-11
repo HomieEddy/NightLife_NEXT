@@ -1,20 +1,24 @@
-const cadWhole = new Intl.NumberFormat("en-CA", {
-  style: "currency",
-  currency: "CAD",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
+const currencyLocale: Record<string, string> = {
+  CAD: "en-CA",
+  USD: "en-US",
+  EUR: "en-DE",
+  GBP: "en-GB",
+};
 
-const cadCents = new Intl.NumberFormat("en-CA", {
-  style: "currency",
-  currency: "CAD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+function formatterFor(currency: string, fractionDigits: number) {
+  return new Intl.NumberFormat(currencyLocale[currency] ?? "en-CA", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+}
 
 /** Whole amounts render as "$18", fractional ones as "$20.70". */
-export function formatMoney(amount: number): string {
-  return Number.isInteger(amount) ? cadWhole.format(amount) : cadCents.format(amount);
+export function formatMoney(amount: number, currency = "CAD"): string {
+  return Number.isInteger(amount)
+    ? formatterFor(currency, 0).format(amount)
+    : formatterFor(currency, 2).format(amount);
 }
 
 export function timeAgo(iso: string): string {
