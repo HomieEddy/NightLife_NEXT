@@ -1,0 +1,47 @@
+# ROADMAP — Backend Implementation
+
+Order follows AGENTS.md §9.4 (riskiest-cheapest first), extended with the
+foundation and auth prerequisites. Each feature has a full plan in `docs/plans/`;
+nothing starts without its plan's "Preconditions" satisfied. The app runs in a
+mixed state throughout — some services real, some mock — because every step swaps
+method bodies behind a stable interface (R1).
+
+## Sequence
+
+| # | Feature | Plan | Depends on | Risk | Consumes TODOs in |
+|---|---------|------|-----------|------|-------------------|
+| 01 | Foundation: Postgres, Prisma, scoped client, cents, test infra, seeds | [01-foundation-PLAN](plans/01-foundation-PLAN.md) | — | Low | `types.ts` |
+| 02 | Authentication & authorization | [02-authentication-PLAN](plans/02-authentication-PLAN.md) | 01 | Med | `auth-service`, `auth-context`, `admin-gate`, `staff/layout`, `staff-edit-dialog` |
+| 03 | Venue, zones & tables | [03-venue-zones-tables-PLAN](plans/03-venue-zones-tables-PLAN.md) | 01, 02 | Low | `venue-service`, `settings`, `qr` (tokens land in 06) |
+| 04 | Menu, inventory & packages | [04-menu-inventory-PLAN](plans/04-menu-inventory-PLAN.md) | 03 | Med | `menu-service` (ledger), `inventory`, `menu` pages |
+| 05 | Orders & fees (CORE) | [05-orders-fees-PLAN](plans/05-orders-fees-PLAN.md) | 04 | **High** | `orders-service`, `cart-contents`, `happy-hour` pricing, `package-card` |
+| 06 | Guest sessions, QR tokens & help | [06-guest-sessions-help-PLAN](plans/06-guest-sessions-help-PLAN.md) | 05 | Med | `guests-service`, `guest-context`, `g/[tableCode]`, `approvals` |
+| 07 | Realtime & floor pulse | [07-realtime-pulse-PLAN](plans/07-realtime-pulse-PLAN.md) | 05, 06 | Med | all 6 polling TODOs, `pulse-service`, `show-queue-service`, `staff-service` chat |
+| 08 | Reservations, events & promotions | [08-reservations-events-promotions-PLAN](plans/08-reservations-events-promotions-PLAN.md) | 03, 05 | Low | `reservation-service`, `events-service`, `promotions-service` |
+| 09 | Analytics & report engine | [09-analytics-reports-PLAN](plans/09-analytics-reports-PLAN.md) | 05 | Med | `analytics-service`, `report-service`, `mock-chart` |
+| 10 | Platform admin & billing | [10-platform-admin-billing-PLAN](plans/10-platform-admin-billing-PLAN.md) | 02 | Med | `admin-service`, `billing-service`, `subscription`, `pricing`, `lead` pages |
+
+Rationale for the two deviations from a naive order: **auth before venue CRUD**
+because R2 (tenant scoping) needs a session to scope by, and retrofitting auth
+under live features is the classic trap; **orders before guest sessions** because
+the order transaction (money + inventory, INV-O2/O4) is the highest-risk work and
+deserves the team's freshest attention — sessions then attach to a proven core.
+
+## Definition of done — every feature, no exceptions
+
+1. Plan's design followed or the plan updated in the same PR with why.
+2. Mock service methods' bodies replaced; **call-site signatures untouched** (R1);
+   the service renamed only if fully real.
+3. Simulations it obsoletes removed in the same PR (R7).
+4. Tests per AGENTS.md §7 Phase 2 — money/state-machine units *before* the
+   implementation, route-handler integration incl. tenant-isolation attempts,
+   the plan's named E2E flow.
+5. `TODO(backend)` comments it fulfils deleted in the same commit (§9.2).
+6. Verification ladder green (§5): tsc, eslint, suite, preview drive, build.
+7. AGENTS.md / this roadmap edited if the feature made either stale (§9.9).
+
+## Phase 3 parking lot (not planned, recorded so they stop haunting scope talks)
+
+Guest card payments (Stripe Connect) · multi-venue owner accounts · POS/KDS
+integrations · printer hardware · native apps · offline mode · RLS
+defense-in-depth (AD-3) · real charting lib (`mock-chart` TODO).
