@@ -1,11 +1,20 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { SessionContext } from "./db";
-import type { StaffRole } from "@/lib/types";
 
-const AREA_ROLES: Record<string, StaffRole[]> = {
-  manager: ["manager"],
-  staff: ["manager", "host", "bartender", "runner", "security"],
+/**
+ * Better Auth's organization plugin only knows owner/admin/member — it has no
+ * concept of our StaffRole (manager/host/bartender/runner/security). The org
+ * creator gets "owner"; invite.ts maps manager → "admin", everyone else →
+ * "member" (see staffRoleToOrgRole). So "manager area" access is owner|admin;
+ * finer-grained staff roles aren't enforceable here until staff identity
+ * itself moves off StaffProfile-as-mock (plans 03/07 note in staff-service).
+ */
+type OrgRole = "owner" | "admin" | "member";
+
+const AREA_ROLES: Record<"manager" | "staff", OrgRole[]> = {
+  manager: ["owner", "admin"],
+  staff: ["owner", "admin", "member"],
 };
 
 async function getAuth() {
@@ -30,7 +39,7 @@ export async function requireSession(): Promise<AuthSession> {
   return session;
 }
 
-async function memberRole(session: AuthSession): Promise<StaffRole | null> {
+async function memberRole(session: AuthSession): Promise<OrgRole | null> {
   const auth = await getAuth();
   const api = auth.api as Record<string, (...args: unknown[]) => unknown>;
 
@@ -41,11 +50,11 @@ async function memberRole(session: AuthSession): Promise<StaffRole | null> {
   const member = (org as { members?: { userId: string; role: string }[] })
     ?.members?.find((m) => m.userId === session.user.id);
 
-  return (member?.role as StaffRole) ?? null;
+  return (member?.role as OrgRole) ?? null;
 }
 
 export async function requireRole(
-  ...allowed: StaffRole[]
+  ...allowed: OrgRole[]
 ): Promise<AuthSession> {
   const session = await requireSession();
   const role = await memberRole(session);

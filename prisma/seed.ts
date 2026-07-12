@@ -5,6 +5,8 @@ import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { mockVenue, mockZones, mockTables } from "../src/lib/mock-data/venue";
 import { mockShifts } from "../src/lib/mock-data/staff";
+import { getDb, getRawPrisma } from "../src/server/db";
+import { ensureMapPositions } from "../src/server/venue-core";
 
 const DEMO_PASSWORD = "demo1234";
 
@@ -182,6 +184,10 @@ async function main() {
   }
   console.log(`${mockTables.length} tables seeded`);
 
+  // Mock table fixtures don't carry map positions — lay them out same as createTable would.
+  await ensureMapPositions(getDb({ venueId: org.id }));
+  console.log(`Floor-map positions computed`);
+
   // ── Shifts (staffId references the demo roster, not real accounts yet) ──
   const staffIdMap: Record<string, string> = {
     "st-amara": amara.user.id,
@@ -207,6 +213,7 @@ async function main() {
   console.log(`\nDemo password for all users: ${DEMO_PASSWORD}`);
 
   await prisma.$disconnect();
+  await getRawPrisma().$disconnect();
 }
 
 main().catch((e) => {
