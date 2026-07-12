@@ -65,7 +65,7 @@ export const mockOrdersService = {
       return sum + (line.menuItem.price + modTotal) * line.quantity;
     }, 0);
     // Live settings, so fee edits in /manager/settings apply to new orders.
-    const venue = mockVenueService.getVenueSnapshot();
+    const venue = await mockVenueService.getVenueSnapshot();
     const feeBreakdown = computeFeeLines(subtotal, venue);
     const serviceFee = feeBreakdown.reduce((sum, l) => sum + l.amount, 0);
     const now = new Date().toISOString();
@@ -123,7 +123,7 @@ export const mockOrdersService = {
   }): Promise<Order> {
     await delay(700);
     const subtotal = input.menuItem.price;
-    const venue = mockVenueService.getVenueSnapshot();
+    const venue = await mockVenueService.getVenueSnapshot();
     const feeBreakdown = computeFeeLines(subtotal, venue);
     const serviceFee = feeBreakdown.reduce((sum, l) => sum + l.amount, 0);
     const now = new Date().toISOString();

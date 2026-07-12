@@ -3,11 +3,23 @@
 import type { ChatMessage, StaffMember, StaffShift } from "@/lib/types";
 import { authClient } from "@/lib/auth-client";
 
-// Chat and scheduling methods delegate to the mock service via lazy import
-// to avoid the no-restricted-imports rule. These stay mock until plans 03/07.
+// Chat still delegates to the mock service via lazy import to avoid the
+// no-restricted-imports rule — that stays mock until plan 07.
 async function getMockDelegate() {
   const mod = await import("@/lib/mock-services/staff-service");
   return mod.mockStaffService;
+}
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body.error ?? `Request to ${path} failed (${res.status})`);
+  }
+  return res.json() as Promise<T>;
 }
 
 export const liveStaffService = {
@@ -54,18 +66,15 @@ export const liveStaffService = {
   },
 
   async listShifts(): Promise<StaffShift[]> {
-    const delegate = await getMockDelegate();
-    return delegate.listShifts();
+    return api<StaffShift[]>("/api/shifts");
   },
 
   async addShift(input: Omit<StaffShift, "id">): Promise<StaffShift> {
-    const delegate = await getMockDelegate();
-    return delegate.addShift(input);
+    return api<StaffShift>("/api/shifts", { method: "POST", body: JSON.stringify(input) });
   },
 
   async removeShift(shiftId: string): Promise<void> {
-    const delegate = await getMockDelegate();
-    return delegate.removeShift(shiftId);
+    await api<{ ok: boolean }>(`/api/shifts/${shiftId}`, { method: "DELETE" });
   },
 
   async listMessages(channel: ChatMessage["channel"]): Promise<ChatMessage[]> {

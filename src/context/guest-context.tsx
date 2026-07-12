@@ -14,7 +14,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CartLine, OrderItemModifier, MenuItem } from "@/lib/types";
+import type { CartLine, OrderItemModifier, MenuItem, Venue } from "@/lib/types";
 import { uid } from "@/lib/services/delay";
 
 export interface GuestTableInfo {
@@ -29,6 +29,8 @@ export type ClosureStatus = "none" | "requested" | "closed";
 
 interface GuestState {
   table: GuestTableInfo | null;
+  /** Snapshot from the QR landing lookup — a public, unauthenticated read (see findTableByQrSlug). */
+  venue: Venue | null;
   guestName: string;
   sessionId: string | null;
   approved: boolean;
@@ -38,7 +40,7 @@ interface GuestState {
 }
 
 interface GuestContextValue extends GuestState {
-  startSession: (table: GuestTableInfo, guestName: string, sessionId: string) => void;
+  startSession: (table: GuestTableInfo, venue: Venue, guestName: string, sessionId: string) => void;
   approve: () => void;
   reset: () => void;
   addToCart: (item: MenuItem, quantity: number, modifiers: OrderItemModifier[], note?: string) => void;
@@ -55,6 +57,7 @@ const STORAGE_KEY = "nln-guest-state";
 
 const initialState: GuestState = {
   table: null,
+  venue: null,
   guestName: "",
   sessionId: null,
   approved: false,
@@ -84,8 +87,8 @@ export function GuestProvider({ children }: { children: ReactNode }) {
   }, [state, hydrated]);
 
   const startSession = useCallback(
-    (table: GuestTableInfo, guestName: string, sessionId: string) => {
-      setState({ ...initialState, table, guestName, sessionId });
+    (table: GuestTableInfo, venue: Venue, guestName: string, sessionId: string) => {
+      setState({ ...initialState, table, venue, guestName, sessionId });
     },
     [],
   );

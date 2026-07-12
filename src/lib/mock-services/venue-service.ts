@@ -1,6 +1,8 @@
 /**
- * mockVenueService — future backend boundary for venue, zones and tables.
- * TODO(backend): venue settings persisted per tenant; QR slugs become signed tokens.
+ * mockVenueService — the permanent demo-track implementation (AD-14). The live
+ * build's venueService (src/lib/services/venue-service.ts) uses this type as
+ * its contract; the real implementation lives in src/lib/live-services/.
+ * TODO(backend): QR slugs become signed tokens (plan 06).
  */
 import type { Venue, VenueTable, Zone } from "@/lib/types";
 import { mockTables, mockVenue, mockZones } from "@/lib/mock-data/venue";
@@ -46,8 +48,8 @@ export const mockVenueService = {
     return clone(venue);
   },
 
-  /** Synchronous snapshot for pricing math (fees) — always the live settings. */
-  getVenueSnapshot(): Venue {
+  /** Always-current snapshot for pricing math (fees). Async so live mode can hit the DB. */
+  async getVenueSnapshot(): Promise<Venue> {
     return clone(venue);
   },
 
@@ -129,13 +131,13 @@ export const mockVenueService = {
     return clone(result);
   },
 
-  async getTableBySlug(qrSlug: string): Promise<{ table: VenueTable; zone: Zone } | null> {
+  async getTableBySlug(qrSlug: string): Promise<{ table: VenueTable; zone: Zone; venue: Venue } | null> {
     await delay(400);
     const table = tables.find((t) => t.qrSlug === qrSlug);
     if (!table) return null;
     const zone = zones.find((z) => z.id === table.zoneId);
     if (!zone) return null;
-    return clone({ table, zone });
+    return clone({ table, zone, venue });
   },
 
   async setTableStatus(tableId: string, status: VenueTable["status"]): Promise<VenueTable | null> {

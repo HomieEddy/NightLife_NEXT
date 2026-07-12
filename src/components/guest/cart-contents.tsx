@@ -13,7 +13,6 @@ import { BottleIcon } from "@/components/shared/bottle-icon";
 import { AnimatedMoney } from "@/components/fx/animated-money";
 import { useGuest } from "@/context/guest-context";
 import { ordersService } from "@/lib/services/orders-service";
-import { venueService } from "@/lib/services/venue-service";
 import { computeFeeLines, feeLabel } from "@/lib/fees";
 import { formatMoney } from "@/lib/format";
 import { useLastCall } from "@/lib/use-last-call";
@@ -26,6 +25,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
   const router = useRouter();
   const {
     table,
+    venue,
     guestName,
     sessionId,
     cart,
@@ -39,10 +39,11 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const lastCallActive = useLastCall();
 
-  // Live settings snapshot, so manager fee edits show up in the guest cart.
+  // Snapshot taken at QR landing (see findTableByQrSlug) — fee edits made mid-session
+  // won't retroactively apply to an already-open guest cart.
   const feeLines = useMemo(
-    () => computeFeeLines(cartSubtotal, venueService.getVenueSnapshot()),
-    [cartSubtotal],
+    () => (venue ? computeFeeLines(cartSubtotal, venue) : []),
+    [cartSubtotal, venue],
   );
   const serviceFee = useMemo(
     () => Math.round(feeLines.reduce((sum, l) => sum + l.amount, 0) * 100) / 100,

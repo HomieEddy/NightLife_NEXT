@@ -4,11 +4,10 @@ import { Clock, LifeBuoy, Martini, Receipt, ShoppingBag } from "lucide-react";
 import { MobileBottomNav } from "@/components/shared/mobile-bottom-nav";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useGuest } from "@/context/guest-context";
-import { mockVenue } from "@/lib/mock-data/venue";
 import { useLastCall } from "@/lib/use-last-call";
 
 export default function GuestTabsLayout({ children }: { children: React.ReactNode }) {
-  const { table, cartCount } = useGuest();
+  const { table, venue, cartCount } = useGuest();
   const lastCallActive = useLastCall();
 
   return (
@@ -21,7 +20,7 @@ export default function GuestTabsLayout({ children }: { children: React.ReactNod
         )}
         <header className="border-b bg-background/90 backdrop-blur-lg">
           <div className="flex h-12 items-center justify-between px-4">
-            <span className="text-sm font-semibold tracking-tight">{mockVenue.name}</span>
+            <span className="text-sm font-semibold tracking-tight">{venue?.name}</span>
             <div className="flex items-center gap-1">
               {table && (
                 <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 font-mono text-xs text-primary">

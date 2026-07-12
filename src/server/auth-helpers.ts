@@ -30,12 +30,9 @@ export async function requireSession(): Promise<AuthSession> {
   return session;
 }
 
-export async function requireRole(
-  ...allowed: StaffRole[]
-): Promise<AuthSession> {
-  const session = await requireSession();
+async function memberRole(session: AuthSession): Promise<StaffRole | null> {
   const auth = await getAuth();
-  const api = auth.api as Record<string, Function>;
+  const api = auth.api as Record<string, (...args: unknown[]) => unknown>;
 
   const org = session.session.activeOrganizationId
     ? await api.getFullOrganization({ headers: await headers() })
@@ -44,7 +41,16 @@ export async function requireRole(
   const member = (org as { members?: { userId: string; role: string }[] })
     ?.members?.find((m) => m.userId === session.user.id);
 
-  if (!member || !allowed.includes(member.role as StaffRole)) {
+  return (member?.role as StaffRole) ?? null;
+}
+
+export async function requireRole(
+  ...allowed: StaffRole[]
+): Promise<AuthSession> {
+  const session = await requireSession();
+  const role = await memberRole(session);
+
+  if (!role || !allowed.includes(role)) {
     redirect("/login?error=forbidden");
   }
 
@@ -56,6 +62,25 @@ export async function requireArea(
 ): Promise<AuthSession> {
   const allowed = AREA_ROLES[area];
   return requireRole(...allowed);
+}
+
+/**
+ * Route-handler variant of requireArea — returns a 401/403 instead of
+ * redirecting, since a redirect() inside a fetch-based API call would just
+ * hand the client a redirected HTML response instead of JSON.
+ */
+export async function requireApiArea(
+  area: "manager" | "staff",
+): Promise<{ session: AuthSession } | { status: number; error: string }> {
+  const session = await getSession();
+  if (!session) return { status: 401, error: "Not authenticated" };
+  if (session.user.banned) return { status: 403, error: "Account suspended" };
+
+  const role = await memberRole(session);
+  const allowed = AREA_ROLES[area];
+  if (!role || !allowed.includes(role)) return { status: 403, error: "Forbidden" };
+
+  return { session };
 }
 
 export async function requirePlatformAdmin(): Promise<AuthSession> {

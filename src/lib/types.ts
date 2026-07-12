@@ -87,7 +87,7 @@ export interface StaffMember {
   avatarInitials: string;
 }
 
-/** One recurring weekly shift block. TODO(backend): becomes a shifts table with real dates. */
+/** One recurring weekly shift block — backed by the StaffShift table (plan 03). */
 export interface StaffShift {
   id: string;
   staffId: string;
