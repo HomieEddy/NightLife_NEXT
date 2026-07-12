@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { venueService } from "@/lib/services/venue-service";
 import { zoneStaffHref, zoneTablesHref } from "@/lib/entity-links";
 import { useHighlight } from "@/lib/use-highlight";
 import { cn } from "@/lib/utils";
@@ -37,8 +37,8 @@ function ZonesContent() {
 
   const refresh = useCallback(async () => {
     const [zoneList, tableList] = await Promise.all([
-      mockVenueService.listZones(),
-      mockVenueService.listTables(),
+      venueService.listZones(),
+      venueService.listTables(),
     ]);
     setZones(zoneList);
     setTables(tableList);
@@ -68,10 +68,10 @@ function ZonesContent() {
     setSaving(true);
     const input = { ...draft, name: draft.name.trim() };
     if (editingId) {
-      await mockVenueService.updateZone(editingId, input);
+      await venueService.updateZone(editingId, input);
       toast.success(`${input.name} updated`);
     } else {
-      await mockVenueService.createZone(input);
+      await venueService.createZone(input);
       toast.success(`${input.name} created`);
     }
     setSaving(false);
@@ -80,7 +80,7 @@ function ZonesContent() {
   }
 
   async function remove(zone: Zone) {
-    const result = await mockVenueService.deleteZone(zone.id);
+    const result = await venueService.deleteZone(zone.id);
     if (!result.ok) {
       toast.error(
         `${zone.name} still has ${result.blockedBy} table${result.blockedBy === 1 ? "" : "s"} — move or delete them first.`,

@@ -12,9 +12,9 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { useGuest } from "@/context/guest-context";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
-import { mockOrdersService } from "@/lib/mock-services/orders-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { menuService } from "@/lib/services/menu-service";
+import { ordersService } from "@/lib/services/orders-service";
+import { venueService } from "@/lib/services/venue-service";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { MenuItem, VenueTable } from "@/lib/types";
@@ -34,7 +34,7 @@ export default function GuestGiftPage() {
 
   useEffect(() => {
     if (!table) return;
-    Promise.all([mockMenuService.listItems(), mockVenueService.listTables()]).then(
+    Promise.all([menuService.listItems(), venueService.listTables()]).then(
       ([allItems, allTables]) => {
         setItems(
           allItems.filter((i) => i.isAvailable && i.inventory > 0 && i.price <= MAX_GIFT_PRICE),
@@ -54,7 +54,7 @@ export default function GuestGiftPage() {
   async function send() {
     if (!table || !selectedItem || !selectedTable) return;
     setSending(true);
-    await mockOrdersService.sendGift({
+    await ordersService.sendGift({
       fromTableId: table.tableId,
       fromTableCode: table.tableCode,
       fromZoneId: table.zoneId,

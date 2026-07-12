@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { mockStaffService } from "@/lib/mock-services/staff-service";
+import { staffService } from "@/lib/services/staff-service";
 import { cn } from "@/lib/utils";
 import { ASSIGNABLE_ROLES, type StaffMember, type StaffRole, type Zone } from "@/lib/types";
 
@@ -88,14 +88,14 @@ export function StaffEditDialog({
       assignedZoneIds: draft.assignedZoneIds,
     };
     if (member) {
-      await mockStaffService.updateStaff(member.id, {
+      await staffService.updateStaff(member.id, {
         ...base,
         accountStatus: draft.suspended ? "suspended" : member.accountStatus === "suspended" ? "active" : member.accountStatus,
       });
       toast.success(`${base.name} updated`);
     } else {
       // TODO(backend): send an invite (real auth) instead of creating directly.
-      await mockStaffService.addStaff({
+      await staffService.addStaff({
         venueId: "venue-1",
         ...base,
         accountStatus: "invited",
@@ -110,7 +110,7 @@ export function StaffEditDialog({
 
   async function resetPin() {
     if (!member) return;
-    await mockStaffService.resendInvite(member.id);
+    await staffService.resendInvite(member.id);
     toast.success(`New sign-in PIN sent to ${member.email}`);
     onDone();
   }

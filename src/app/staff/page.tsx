@@ -6,12 +6,12 @@ import { AlertOctagon, ArrowRight, LifeBuoy, MapPin, Moon, PartyPopper, Receipt,
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { mockOrdersService } from "@/lib/mock-services/orders-service";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
-import { mockShowQueueService } from "@/lib/mock-services/show-queue-service";
-import { mockStaffService } from "@/lib/mock-services/staff-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { ordersService } from "@/lib/services/orders-service";
+import { guestsService } from "@/lib/services/guests-service";
+import { menuService } from "@/lib/services/menu-service";
+import { showQueueService } from "@/lib/services/show-queue-service";
+import { staffService } from "@/lib/services/staff-service";
+import { venueService } from "@/lib/services/venue-service";
 import { timeAgo } from "@/lib/format";
 import type { ActiveShow, SoldOutEvent, StaffMember, Zone } from "@/lib/types";
 
@@ -31,11 +31,11 @@ export default function StaffHomePage() {
 
   useEffect(() => {
     Promise.all([
-      mockOrdersService.listOrders(),
-      mockGuestsService.listSessions("pending"),
-      mockGuestsService.listHelpRequests(),
-      mockStaffService.getCurrentStaff(),
-      mockVenueService.listZones(),
+      ordersService.listOrders(),
+      guestsService.listSessions("pending"),
+      guestsService.listHelpRequests(),
+      staffService.getCurrentStaff(),
+      venueService.listZones(),
     ]).then(([orders, pendingSessions, help, currentStaff, zoneList]) => {
       setCounts({
         pendingOrders: orders.filter((o) => o.status === "pending").length,
@@ -52,8 +52,8 @@ export default function StaffHomePage() {
 
   useEffect(() => {
     const refresh = () => {
-      mockMenuService.listSoldOutEvents().then(setSoldOut);
-      mockShowQueueService.getActiveShow().then(setActiveShow);
+      menuService.listSoldOutEvents().then(setSoldOut);
+      showQueueService.getActiveShow().then(setActiveShow);
     };
     refresh();
     // TODO(backend): WebSocket push instead of polling.

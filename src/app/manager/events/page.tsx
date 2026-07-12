@@ -21,8 +21,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockEventsService } from "@/lib/mock-services/events-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { eventsService } from "@/lib/services/events-service";
+import { venueService } from "@/lib/services/venue-service";
 import { cn } from "@/lib/utils";
 import type { EventGuest, EventStatus, VenueEvent, Zone } from "@/lib/types";
 
@@ -73,13 +73,13 @@ function EventsContent() {
 
   const refresh = useCallback(async () => {
     const [list, z] = await Promise.all([
-      mockEventsService.listEvents(),
-      mockVenueService.listZones(),
+      eventsService.listEvents(),
+      venueService.listZones(),
     ]);
     setEvents(list);
     setZones(z);
     const entries = await Promise.all(
-      list.filter((e) => e.guestlistEnabled).map(async (e) => [e.id, await mockEventsService.listEventGuests(e.id)] as const),
+      list.filter((e) => e.guestlistEnabled).map(async (e) => [e.id, await eventsService.listEventGuests(e.id)] as const),
     );
     setGuestsByEvent(Object.fromEntries(entries));
   }, []);
@@ -125,10 +125,10 @@ function EventsContent() {
       guestlistEnabled: draft.guestlistEnabled,
     };
     if (editingId) {
-      await mockEventsService.updateEvent(editingId, payload);
+      await eventsService.updateEvent(editingId, payload);
       toast.success("Event updated");
     } else {
-      await mockEventsService.createEvent(payload);
+      await eventsService.createEvent(payload);
       toast.success("Event created");
     }
     setSaving(false);
@@ -137,25 +137,25 @@ function EventsContent() {
   }
 
   async function remove(ev: VenueEvent) {
-    await mockEventsService.deleteEvent(ev.id);
+    await eventsService.deleteEvent(ev.id);
     toast.info(`${ev.name} deleted`);
     await refresh();
   }
 
   async function toggleGuestlist(ev: VenueEvent) {
-    await mockEventsService.updateEvent(ev.id, { guestlistEnabled: !ev.guestlistEnabled });
+    await eventsService.updateEvent(ev.id, { guestlistEnabled: !ev.guestlistEnabled });
     await refresh();
   }
 
   async function addGuest(eventId: string) {
     if (!newGuestName.trim()) return;
-    await mockEventsService.addEventGuest({ eventId, name: newGuestName, partySize: 1 });
+    await eventsService.addEventGuest({ eventId, name: newGuestName, partySize: 1 });
     setNewGuestName("");
     await refresh();
   }
 
   async function removeGuest(guestId: string) {
-    await mockEventsService.removeEventGuest(guestId);
+    await eventsService.removeEventGuest(guestId);
     await refresh();
   }
 

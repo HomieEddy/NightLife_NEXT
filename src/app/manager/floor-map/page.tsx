@@ -15,9 +15,9 @@ import { EntityChip } from "@/components/shared/entity-chip";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockOrdersService } from "@/lib/mock-services/orders-service";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { ordersService } from "@/lib/services/orders-service";
+import { guestsService } from "@/lib/services/guests-service";
+import { venueService } from "@/lib/services/venue-service";
 import { ZONE_SWATCH } from "@/lib/zone-colors";
 import { formatMoney } from "@/lib/format";
 import { SessionOverview } from "@/components/shared/session-overview";
@@ -54,9 +54,9 @@ export default function ManagerFloorMapPage() {
 
   const refresh = useCallback(async () => {
     const [tableList, zoneList, venueData] = await Promise.all([
-      mockVenueService.listTables(),
-      mockVenueService.listZones(),
-      mockVenueService.getVenue(),
+      venueService.listTables(),
+      venueService.listZones(),
+      venueService.getVenue(),
     ]);
     setTables(tableList);
     setZones(zoneList);
@@ -79,7 +79,7 @@ export default function ManagerFloorMapPage() {
       height: Math.min(40, Math.max(1, height)),
     };
     setVenue({ ...venue, floorMap });
-    await mockVenueService.updateVenue({ floorMap });
+    await venueService.updateVenue({ floorMap });
   }
 
   // ---------- Drag handling (edit mode) ----------
@@ -114,12 +114,12 @@ export default function ManagerFloorMapPage() {
     if (!drag?.moved) return;
     const table = (tables ?? []).find((t) => t.id === drag.id);
     if (table?.mapX !== undefined && table.mapY !== undefined) {
-      await mockVenueService.setTablePosition(table.id, table.mapX, table.mapY);
+      await venueService.setTablePosition(table.id, table.mapX, table.mapY);
     }
   }
 
   async function setStatus(table: VenueTable, status: TableStatus) {
-    await mockVenueService.setTableStatus(table.id, status);
+    await venueService.setTableStatus(table.id, status);
     toast.success(`${table.code} → ${status}`);
     await refresh();
   }
@@ -129,8 +129,8 @@ export default function ManagerFloorMapPage() {
   async function showOrders(table: VenueTable) {
     setOrdersLoading(true);
     const [all, allSessions] = await Promise.all([
-      mockOrdersService.listOrders(),
-      mockGuestsService.listSessions(),
+      ordersService.listOrders(),
+      guestsService.listSessions(),
     ]);
     setTableOrders(all.filter((o) => o.tableId === table.id));
     setTableSessions(allSessions.filter((s) => s.tableId === table.id));

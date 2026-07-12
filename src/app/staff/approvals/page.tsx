@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
+import { guestsService } from "@/lib/services/guests-service";
 import { timeAgo } from "@/lib/format";
 import type { GuestSession } from "@/lib/types";
 
@@ -18,7 +18,7 @@ export default function StaffApprovalsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    setSessions(await mockGuestsService.listSessions());
+    setSessions(await guestsService.listSessions());
   }, []);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export default function StaffApprovalsPage() {
 
   async function decide(session: GuestSession, status: "approved" | "denied") {
     setBusyId(session.id);
-    await mockGuestsService.setSessionStatus(session.id, status);
+    await guestsService.setSessionStatus(session.id, status);
     toast[status === "approved" ? "success" : "info"](
       `${session.displayName} at ${session.tableCode} ${status}`,
     );
@@ -40,7 +40,7 @@ export default function StaffApprovalsPage() {
   async function approveClosure(session: GuestSession) {
     setBusyId(session.id);
     // TODO(backend): closing settles payment and frees the table.
-    await mockGuestsService.setSessionStatus(session.id, "closed");
+    await guestsService.setSessionStatus(session.id, "closed");
     toast.success(`Tab closed for ${session.displayName} at ${session.tableCode}`);
     await refresh();
     setBusyId(null);

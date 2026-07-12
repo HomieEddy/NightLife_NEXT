@@ -15,11 +15,11 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PulseTab } from "@/components/manager/pulse-tab";
 import { useAuth } from "@/context/auth-context";
-import { mockAnalyticsService } from "@/lib/mock-services/analytics-service";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
-import { mockOrdersService } from "@/lib/mock-services/orders-service";
-import { mockPulseService } from "@/lib/mock-services/pulse-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { analyticsService } from "@/lib/services/analytics-service";
+import { guestsService } from "@/lib/services/guests-service";
+import { ordersService } from "@/lib/services/orders-service";
+import { pulseService } from "@/lib/services/pulse-service";
+import { venueService } from "@/lib/services/venue-service";
 import { computeAttentionItems } from "@/lib/pulse";
 import { formatMoney } from "@/lib/format";
 import type { AnalyticsSummary, AttentionItem, Order } from "@/lib/types";
@@ -35,19 +35,19 @@ export default function ManagerDashboardPage() {
   const [lastCallActive, setLastCallActive] = useState(false);
 
   useEffect(() => {
-    mockAnalyticsService.getSummary().then(setSummary);
-    mockOrdersService.listOrders().then((all) => setOrders(all.slice(0, 4)));
-    mockVenueService.getVenue().then((v) => setVenue({ name: v.name, currency: v.currency }));
+    analyticsService.getSummary().then(setSummary);
+    ordersService.listOrders().then((all) => setOrders(all.slice(0, 4)));
+    venueService.getVenue().then((v) => setVenue({ name: v.name, currency: v.currency }));
   }, []);
 
   const refreshPulse = useCallback(async () => {
     const [liveOrders, helpRequests, tables, zones, venue, lastCall] = await Promise.all([
-      mockOrdersService.listOrders(),
-      mockGuestsService.listHelpRequests(),
-      mockVenueService.listTables(),
-      mockVenueService.listZones(),
-      mockVenueService.getVenue(),
-      mockPulseService.getLastCallState(),
+      ordersService.listOrders(),
+      guestsService.listHelpRequests(),
+      venueService.listTables(),
+      venueService.listZones(),
+      venueService.getVenue(),
+      pulseService.getLastCallState(),
     ]);
     setAttentionItems(
       computeAttentionItems(
@@ -72,13 +72,13 @@ export default function ManagerDashboardPage() {
   const managerName = user?.name ?? "Manager";
 
   async function sendBroadcast(message: string) {
-    await mockPulseService.sendBroadcast(message, managerName);
+    await pulseService.sendBroadcast(message, managerName);
     await refreshPulse();
   }
 
   async function toggleLastCall() {
-    if (lastCallActive) await mockPulseService.endLastCall();
-    else await mockPulseService.startLastCall(managerName);
+    if (lastCallActive) await pulseService.endLastCall();
+    else await pulseService.startLastCall(managerName);
     await refreshPulse();
   }
 

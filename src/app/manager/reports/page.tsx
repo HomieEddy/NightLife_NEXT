@@ -25,11 +25,11 @@ import { MockChart } from "@/components/shared/mock-chart";
 import { PageHeader } from "@/components/shared/page-header";
 import { RoleBadge } from "@/components/shared/role-badge";
 import {
-  aggregateWeekly, mockAnalyticsService, type HistoricalAnalytics,
-} from "@/lib/mock-services/analytics-service";
+  aggregateWeekly, analyticsService, type HistoricalAnalytics,
+} from "@/lib/services/analytics-service";
 import {
-  mockReportService, REPORT_METRICS, type ReportMetric, type SavedReport,
-} from "@/lib/mock-services/report-service";
+  reportService, REPORT_METRICS, type ReportMetric, type SavedReport,
+} from "@/lib/services/report-service";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -117,7 +117,7 @@ export default function ManagerReportsPage() {
   const [runningId, setRunningId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    setReports(await mockReportService.listReports());
+    setReports(await reportService.listReports());
   }, []);
 
   useEffect(() => {
@@ -169,10 +169,10 @@ export default function ManagerReportsPage() {
         : null,
     };
     if (editingId) {
-      await mockReportService.updateReport(editingId, input);
+      await reportService.updateReport(editingId, input);
       toast.success(`${input.name} updated`);
     } else {
-      await mockReportService.createReport(input);
+      await reportService.createReport(input);
       toast.success(
         input.schedule
           ? `${input.name} saved — runs ${input.schedule.frequency}`
@@ -186,11 +186,11 @@ export default function ManagerReportsPage() {
   }
 
   async function run(report: SavedReport): Promise<HistoricalAnalytics> {
-    const data = await mockAnalyticsService.getHistorical(
+    const data = await analyticsService.getHistorical(
       isoDaysAgo(report.rangeDays - 1),
       isoDaysAgo(0),
     );
-    await mockReportService.markRun(report.id);
+    await reportService.markRun(report.id);
     await refresh();
     return data;
   }
@@ -210,7 +210,7 @@ export default function ManagerReportsPage() {
   }
 
   async function remove(report: SavedReport) {
-    await mockReportService.deleteReport(report.id);
+    await reportService.deleteReport(report.id);
     if (viewing?.report.id === report.id) setViewing(null);
     if (editingId === report.id) {
       setEditingId(null);

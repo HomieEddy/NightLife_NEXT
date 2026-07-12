@@ -23,7 +23,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockAdminService } from "@/lib/mock-services/admin-service";
+import { adminService } from "@/lib/services/admin-service";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Lead, LeadSource, LeadStatus } from "@/lib/types";
@@ -77,7 +77,7 @@ export default function AdminLeadsPage() {
   const [sendingNote, setSendingNote] = useState(false);
 
   const refresh = useCallback(async () => {
-    setLeads(await mockAdminService.listLeads());
+    setLeads(await adminService.listLeads());
   }, []);
 
   useEffect(() => {
@@ -109,7 +109,7 @@ export default function AdminLeadsPage() {
   // ---------- Actions ----------
 
   async function setStatus(lead: Lead, status: LeadStatus) {
-    await mockAdminService.setLeadStatus(lead.id, status);
+    await adminService.setLeadStatus(lead.id, status);
     toast.success(`${lead.venueName} → ${status}`);
     await refresh();
   }
@@ -157,10 +157,10 @@ export default function AdminLeadsPage() {
       dealValue: Math.max(0, draft.dealValue),
     };
     if (editingId) {
-      await mockAdminService.updateLead(editingId, input);
+      await adminService.updateLead(editingId, input);
       toast.success(`${input.venueName} updated`);
     } else {
-      await mockAdminService.createLead(input);
+      await adminService.createLead(input);
       toast.success(`${input.venueName} added to the pipeline`);
     }
     setSaving(false);
@@ -169,7 +169,7 @@ export default function AdminLeadsPage() {
   }
 
   async function remove(lead: Lead) {
-    await mockAdminService.deleteLead(lead.id);
+    await adminService.deleteLead(lead.id);
     if (detailId === lead.id) setDetailId(null);
     toast.info(`${lead.venueName} removed from the pipeline`);
     await refresh();
@@ -178,7 +178,7 @@ export default function AdminLeadsPage() {
   async function addNote() {
     if (!detail || !note.trim()) return;
     setSendingNote(true);
-    await mockAdminService.addLeadNote(detail.id, note.trim());
+    await adminService.addLeadNote(detail.id, note.trim());
     setNote("");
     setSendingNote(false);
     await refresh();

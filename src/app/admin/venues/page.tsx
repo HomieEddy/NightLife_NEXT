@@ -26,7 +26,7 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockAdminService } from "@/lib/mock-services/admin-service";
+import { adminService } from "@/lib/services/admin-service";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { Tenant, TenantPlan, TenantStatus } from "@/lib/types";
 
@@ -40,7 +40,7 @@ export default function AdminVenuesPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | TenantStatus>("all");
 
   const refresh = useCallback(async () => {
-    setTenants(await mockAdminService.listTenants());
+    setTenants(await adminService.listTenants());
   }, []);
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function AdminVenuesPage() {
   async function confirmPlanChange() {
     if (!pendingPlan) return;
     setApplyingPlan(true);
-    await mockAdminService.updateTenant(pendingPlan.tenant.id, { plan: pendingPlan.plan });
+    await adminService.updateTenant(pendingPlan.tenant.id, { plan: pendingPlan.plan });
     toast.success(`${pendingPlan.tenant.venueName} moved to ${pendingPlan.plan}`);
     setApplyingPlan(false);
     setPendingPlan(null);
@@ -83,13 +83,13 @@ export default function AdminVenuesPage() {
   }
 
   async function setStatus(tenant: Tenant, status: TenantStatus) {
-    await mockAdminService.updateTenant(tenant.id, { status });
+    await adminService.updateTenant(tenant.id, { status });
     toast.success(`${tenant.venueName} is now ${status}`);
     await refresh();
   }
 
   async function remove(tenant: Tenant) {
-    await mockAdminService.deleteTenant(tenant.id);
+    await adminService.deleteTenant(tenant.id);
     toast.info(`${tenant.venueName} deleted`);
     await refresh();
   }

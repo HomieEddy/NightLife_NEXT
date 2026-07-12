@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { mockAdminService } from "@/lib/mock-services/admin-service";
+import { adminService } from "@/lib/services/admin-service";
 
 export default function LeadPage() {
   const [submitting, setSubmitting] = useState(false);
@@ -29,7 +29,7 @@ export default function LeadPage() {
     setSubmitting(true);
     try {
       // TODO(backend): POST /api/leads — also notify sales via email/Slack.
-      await mockAdminService.createLead({
+      await adminService.createLead({
         venueName,
         contactName,
         email,

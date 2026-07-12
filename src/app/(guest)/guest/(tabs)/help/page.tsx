@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { useGuest } from "@/context/guest-context";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
+import { guestsService } from "@/lib/services/guests-service";
 import { cn } from "@/lib/utils";
 import type { HelpRequestType } from "@/lib/types";
 
@@ -34,7 +34,7 @@ export default function GuestHelpPage() {
       return;
     }
     setSending(type);
-    await mockGuestsService.createHelpRequest({
+    await guestsService.createHelpRequest({
       tableCode: table.tableCode,
       zoneName: table.zoneName,
       guestName: guestName || "Guest",

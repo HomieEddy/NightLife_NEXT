@@ -12,8 +12,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { AnimatedMoney } from "@/components/fx/animated-money";
 import { useGuest } from "@/context/guest-context";
-import { mockOrdersService } from "@/lib/mock-services/orders-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { ordersService } from "@/lib/services/orders-service";
+import { venueService } from "@/lib/services/venue-service";
 import { computeFeeLines, feeLabel } from "@/lib/fees";
 import { formatMoney } from "@/lib/format";
 import { useLastCall } from "@/lib/use-last-call";
@@ -41,7 +41,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
 
   // Live settings snapshot, so manager fee edits show up in the guest cart.
   const feeLines = useMemo(
-    () => computeFeeLines(cartSubtotal, mockVenueService.getVenueSnapshot()),
+    () => computeFeeLines(cartSubtotal, venueService.getVenueSnapshot()),
     [cartSubtotal],
   );
   const serviceFee = useMemo(
@@ -55,7 +55,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
     if (!table) return;
     setSubmitting(true);
     try {
-      const order = await mockOrdersService.submitOrder({
+      const order = await ordersService.submitOrder({
         tableId: table.tableId,
         tableCode: table.tableCode,
         zoneId: table.zoneId,

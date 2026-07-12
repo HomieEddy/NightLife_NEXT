@@ -12,7 +12,7 @@ import { ItemDetailModal } from "@/components/guest/item-detail-modal";
 import { PackageCard, type PackageWithQuote } from "@/components/guest/package-card";
 import { CartSheet } from "@/components/guest/cart-sheet";
 import { useGuest } from "@/context/guest-context";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
+import { menuService } from "@/lib/services/menu-service";
 import { cn } from "@/lib/utils";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
@@ -29,9 +29,9 @@ export default function GuestMenuPage() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      mockMenuService.listCategories(),
-      mockMenuService.listItems(),
-      mockMenuService.listPackages(),
+      menuService.listCategories(),
+      menuService.listItems(),
+      menuService.listPackages(),
     ]).then(([cats, its, pkgs]) => {
       if (!cancelled) {
         setCategories(cats);

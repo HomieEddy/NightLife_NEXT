@@ -19,7 +19,7 @@ import { EntityChip } from "@/components/shared/entity-chip";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { TableCard } from "@/components/shared/table-card";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { venueService } from "@/lib/services/venue-service";
 import { useHighlight } from "@/lib/use-highlight";
 import { cn } from "@/lib/utils";
 import type { TableStatus, VenueTable, Zone } from "@/lib/types";
@@ -46,16 +46,16 @@ function TablesContent() {
   const highlighted = useHighlight();
 
   const refresh = useCallback(async () => {
-    setTables(await mockVenueService.listTables());
+    setTables(await venueService.listTables());
   }, []);
 
   useEffect(() => {
     refresh();
-    mockVenueService.listZones().then(setZones);
+    venueService.listZones().then(setZones);
   }, [refresh]);
 
   async function setStatus(table: VenueTable, status: TableStatus) {
-    await mockVenueService.setTableStatus(table.id, status);
+    await venueService.setTableStatus(table.id, status);
     toast.success(`${table.code} → ${status}`);
     await refresh();
   }
@@ -99,10 +99,10 @@ function TablesContent() {
       minimumSpend: draft.minimumSpend === "" ? null : Math.max(0, Number(draft.minimumSpend)),
     };
     if (editingId) {
-      await mockVenueService.updateTable(editingId, input);
+      await venueService.updateTable(editingId, input);
       toast.success(`${input.code} updated`);
     } else {
-      await mockVenueService.createTable({ ...input, status: "open" });
+      await venueService.createTable({ ...input, status: "open" });
       toast.success(`${input.code} created — QR available on the QR codes page`);
     }
     setSaving(false);
@@ -111,7 +111,7 @@ function TablesContent() {
   }
 
   async function remove(table: VenueTable) {
-    await mockVenueService.deleteTable(table.id);
+    await venueService.deleteTable(table.id);
     toast.info(`${table.code} deleted`);
     await refresh();
   }

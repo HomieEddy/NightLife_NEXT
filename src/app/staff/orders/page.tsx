@@ -11,9 +11,9 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { mockOrdersService, nextStatus } from "@/lib/mock-services/orders-service";
-import { mockShowQueueService, orderNeedsShow } from "@/lib/mock-services/show-queue-service";
-import { mockStaffService } from "@/lib/mock-services/staff-service";
+import { ordersService, nextStatus } from "@/lib/services/orders-service";
+import { showQueueService, orderNeedsShow } from "@/lib/services/show-queue-service";
+import { staffService } from "@/lib/services/staff-service";
 import { cn } from "@/lib/utils";
 import type { ActiveShow, Order, OrderStatus, StaffMember } from "@/lib/types";
 
@@ -43,9 +43,9 @@ function StaffOrdersContent() {
 
   const refresh = useCallback(async () => {
     const [orderList, currentStaff, show] = await Promise.all([
-      mockOrdersService.listOrders(),
-      mockStaffService.getCurrentStaff(),
-      mockShowQueueService.getActiveShow(),
+      ordersService.listOrders(),
+      staffService.getCurrentStaff(),
+      showQueueService.getActiveShow(),
     ]);
     setOrders(orderList);
     setMe(currentStaff);
@@ -61,35 +61,35 @@ function StaffOrdersContent() {
 
   async function advance(order: Order) {
     setBusyId(order.id);
-    const updated = await mockOrdersService.advanceOrder(order.id);
+    const updated = await ordersService.advanceOrder(order.id);
     if (updated) toast.success(`${order.code} → ${updated.status}`);
     await refresh();
     setBusyId(null);
   }
 
   async function cancel(order: Order) {
-    await mockOrdersService.cancelOrder(order.id);
+    await ordersService.cancelOrder(order.id);
     toast.info(`${order.code} cancelled`);
     await refresh();
   }
 
   async function claim(order: Order) {
     if (!me) return;
-    const updated = await mockOrdersService.claimOrder(order.id, me.id, me.name);
+    const updated = await ordersService.claimOrder(order.id, me.id, me.name);
     if (!updated) toast.error("Someone just claimed this order.");
     else toast.success(`${order.code} claimed`);
     await refresh();
   }
 
   async function release(order: Order) {
-    await mockOrdersService.releaseOrder(order.id);
+    await ordersService.releaseOrder(order.id);
     toast.info(`${order.code} released back to the queue`);
     await refresh();
   }
 
   async function startShow(order: Order) {
     if (!me) return;
-    const result = await mockShowQueueService.startShow(order, me.name);
+    const result = await showQueueService.startShow(order, me.name);
     if (!result.ok) {
       toast.error(`Show floor busy — ${result.activeShow?.tableCode}'s presentation is walking.`);
     } else {
@@ -99,7 +99,7 @@ function StaffOrdersContent() {
   }
 
   async function finishShow() {
-    await mockShowQueueService.finishShow();
+    await showQueueService.finishShow();
     toast.info("Show floor is clear");
     await refresh();
   }

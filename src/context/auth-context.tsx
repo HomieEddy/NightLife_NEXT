@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import type { AuthUser, SignInInput } from "@/lib/types";
-import { mockAuthService } from "@/lib/mock-services/auth-service";
+import { authService } from "@/lib/services/auth-service";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -49,14 +49,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, hydrated]);
 
   const signIn = useCallback(async (input: SignInInput) => {
-    const result = await mockAuthService.signIn(input);
+    const result = await authService.signIn(input);
     if (!result) return false;
     setUser(result);
     return true;
   }, []);
 
   const signOut = useCallback(() => {
-    mockAuthService.signOut();
+    authService.signOut();
     setUser(null);
   }, []);
 

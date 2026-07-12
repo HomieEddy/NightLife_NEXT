@@ -17,8 +17,8 @@ import { MockChart } from "@/components/shared/mock-chart";
 import { PageHeader } from "@/components/shared/page-header";
 import { RoleBadge } from "@/components/shared/role-badge";
 import {
-  aggregateWeekly, mockAnalyticsService, type HistoricalAnalytics,
-} from "@/lib/mock-services/analytics-service";
+  aggregateWeekly, analyticsService, type HistoricalAnalytics,
+} from "@/lib/services/analytics-service";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -42,7 +42,7 @@ export default function ManagerAnalyticsPage() {
 
   const load = useCallback(async (fromISO: string, toISO: string) => {
     setData(null);
-    setData(await mockAnalyticsService.getHistorical(fromISO, toISO));
+    setData(await analyticsService.getHistorical(fromISO, toISO));
   }, []);
 
   useEffect(() => {
