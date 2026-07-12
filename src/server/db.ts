@@ -36,6 +36,9 @@ export function getDb(session: SessionContext) {
           "User", "Session", "Account", "Verification",
           "Organization", "Member", "Invitation",
           "StaffProfile",
+          // Venue's own id IS the venueId (1:1 with Organization) — handlers
+          // filter by id: session.venueId directly instead of a venueId column.
+          "Venue",
         ];
         if (platformModels.includes(model)) return query(args);
 

@@ -1,8 +1,10 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { betterAuth } from "better-auth";
-import { organization, admin } from "better-auth/plugins";
+import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { mockVenue, mockZones, mockTables } from "../src/lib/mock-data/venue";
+import { mockShifts } from "../src/lib/mock-data/staff";
 
 const DEMO_PASSWORD = "demo1234";
 
@@ -23,7 +25,9 @@ async function main() {
         },
       },
     },
-    plugins: [organization(), admin()],
+    // bearer() lets this headless script authenticate createOrganization/addMember
+    // via `Authorization: Bearer <token>` — the browser client uses cookies instead.
+    plugins: [organization(), admin(), bearer()],
   });
 
   // ── Tenant ────────────────────────────────────────────────────────
@@ -118,6 +122,88 @@ async function main() {
   });
 
   console.log(`Staff profiles seeded`);
+
+  // ── Venue config (1:1 with the organization) ──────────────────────
+  await prisma.venue.upsert({
+    where: { id: org.id },
+    update: {},
+    create: {
+      id: org.id,
+      address: mockVenue.address,
+      city: mockVenue.city,
+      timezone: mockVenue.timezone,
+      currency: mockVenue.currency,
+      openingHours: mockVenue.openingHours as unknown as Prisma.InputJsonValue,
+      serviceFees: mockVenue.serviceFees as unknown as Prisma.InputJsonValue,
+      floorMap: mockVenue.floorMap as unknown as Prisma.InputJsonValue,
+      autoApproveGuests: mockVenue.autoApproveGuests,
+      logoInitials: mockVenue.logoInitials,
+      slaThresholds: mockVenue.slaThresholds as unknown as Prisma.InputJsonValue,
+      lastCallAutoFlagTables: mockVenue.lastCallAutoFlagTables,
+    },
+  });
+  console.log(`Venue config seeded for ${org.name}`);
+
+  // ── Zones ──────────────────────────────────────────────────────────
+  for (const zone of mockZones) {
+    await prisma.zone.upsert({
+      where: { id: zone.id },
+      update: {},
+      create: {
+        id: zone.id,
+        venueId: org.id,
+        name: zone.name,
+        description: zone.description,
+        color: zone.color,
+      },
+    });
+  }
+  console.log(`${mockZones.length} zones seeded`);
+
+  // ── Tables ───────────────────────────────────────────────────────
+  for (const table of mockTables) {
+    await prisma.venueTable.upsert({
+      where: { id: table.id },
+      update: {},
+      create: {
+        id: table.id,
+        venueId: org.id,
+        zoneId: table.zoneId,
+        code: table.code,
+        label: table.label,
+        seats: table.seats,
+        minimumSpend: table.minimumSpend,
+        status: table.status,
+        qrSlug: table.qrSlug,
+        mapX: table.mapX,
+        mapY: table.mapY,
+      },
+    });
+  }
+  console.log(`${mockTables.length} tables seeded`);
+
+  // ── Shifts (staffId references the demo roster, not real accounts yet) ──
+  const staffIdMap: Record<string, string> = {
+    "st-amara": amara.user.id,
+    "st-nina": nina.user.id,
+  };
+  for (const shift of mockShifts) {
+    await prisma.staffShift.upsert({
+      where: { id: shift.id },
+      update: {},
+      create: {
+        id: shift.id,
+        venueId: org.id,
+        staffId: staffIdMap[shift.staffId] ?? shift.staffId,
+        dayOfWeek: shift.dayOfWeek,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        zoneId: shift.zoneId,
+      },
+    });
+  }
+  console.log(`${mockShifts.length} shifts seeded`);
+
   console.log(`\nDemo password for all users: ${DEMO_PASSWORD}`);
 
   await prisma.$disconnect();
