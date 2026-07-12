@@ -23,10 +23,10 @@ model Tenant {
 
 /// Background job execution log (AD-9). Platform context.
 model JobRun {
-  id        String   @id @default(cuid())
-  tenantId  String   @map("tenant_id")
-  jobName   String   @map("job_name")
-  status    String   @default("pending")
+  id        String    @id @default(cuid())
+  tenantId  String    @map("tenant_id")
+  jobName   String    @map("job_name")
+  status    String    @default("pending")
   payload   Json?
   result    Json?
   error     String?
@@ -39,4 +39,141 @@ model JobRun {
 
   @@index([tenantId, jobName])
   @@map("job_runs")
+}
+
+// ── Better Auth core tables ─────────────────────────────────────────
+
+model User {
+  id              String    @id
+  name            String
+  email           String    @unique
+  emailVerified   Boolean   @default(false) @map("email_verified")
+  image           String?
+  isPlatformAdmin Boolean   @default(false) @map("is_platform_admin")
+  role            String?
+  banned          Boolean?
+  banReason       String?   @map("ban_reason")
+  banExpires      DateTime? @map("ban_expires") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  sessions      Session[]
+  accounts      Account[]
+  members       Member[]
+  invitations   Invitation[]
+  staffProfile  StaffProfile?
+
+  @@map("users")
+}
+
+model Session {
+  id                   String    @id
+  userId               String    @map("user_id")
+  token                String    @unique
+  expiresAt            DateTime  @map("expires_at") @db.Timestamptz
+  ipAddress            String?   @map("ip_address")
+  userAgent            String?   @map("user_agent")
+  impersonatedBy       String?   @map("impersonated_by")
+  activeOrganizationId String?   @map("active_organization_id")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id
+  userId                String    @map("user_id")
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz
+  scope                 String?
+  idToken               String?   @map("id_token")
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("verifications")
+}
+
+// ── Organization plugin tables ──────────────────────────────────────
+// Organization = venue (1:1 with Tenant). Member roles = StaffRole.
+
+model Organization {
+  id        String    @id
+  name      String
+  slug      String    @unique
+  logo      String?
+  metadata  String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  members     Member[]
+  invitations Invitation[]
+
+  @@map("organizations")
+}
+
+model Member {
+  id             String   @id
+  userId         String   @map("user_id")
+  organizationId String   @map("organization_id")
+  role           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("members")
+}
+
+model Invitation {
+  id             String   @id
+  email          String
+  inviterId      String   @map("inviter_id")
+  organizationId String   @map("organization_id")
+  role           String
+  status         String   @default("pending")
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  inviter      User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
+}
+
+// ── Domain extension ────────────────────────────────────────────────
+// Venue-domain fields that don't belong in the auth User model.
+
+model StaffProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique @map("user_id")
+  phone           String   @default("")
+  avatarInitials  String   @map("avatar_initials")
+  assignedZoneIds String[] @default([]) @map("assigned_zone_ids")
+  isOnShift       Boolean  @default(false) @map("is_on_shift")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("staff_profiles")
 }

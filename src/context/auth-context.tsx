@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * Demo auth state — persists the signed-in persona to localStorage.
- * No real session/security; routes stay open.
- * TODO(backend): replace with a real auth provider + server session.
- */
 import {
   createContext,
   useCallback,
@@ -16,6 +11,8 @@ import {
 } from "react";
 import type { AuthUser, SignInInput } from "@/lib/types";
 import { authService } from "@/lib/services/auth-service";
+import { isDemoMode } from "@/lib/app-mode";
+import { authClient } from "@/lib/auth-client";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -28,7 +25,7 @@ const STORAGE_KEY = "nln-auth-user";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+function DemoAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -60,9 +57,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const value = useMemo<AuthContextValue>(() => ({ user, hydrated, signIn, signOut }), [user, hydrated, signIn, signOut]);
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, hydrated, signIn, signOut }),
+    [user, hydrated, signIn, signOut],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function LiveAuthProvider({ children }: { children: ReactNode }) {
+  const { data: session, isPending } = authClient.useSession();
+  const hydrated = !isPending;
+
+  const user = useMemo<AuthUser | null>(() => {
+    if (!session) return null;
+    const u = session.user as Record<string, unknown>;
+    const isPlatformAdmin = u.isPlatformAdmin === true;
+    return {
+      id: session.user.id,
+      name: session.user.name,
+      email: session.user.email,
+      role: isPlatformAdmin ? "admin" : "manager",
+      venueId: (session.session.activeOrganizationId as string) ?? undefined,
+    };
+  }, [session]);
+
+  const signIn = useCallback(async (input: SignInInput) => {
+    const result = await authService.signIn(input);
+    return result !== null;
+  }, []);
+
+  const signOut = useCallback(() => {
+    authClient.signOut();
+  }, []);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, hydrated, signIn, signOut }),
+    [user, hydrated, signIn, signOut],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  if (isDemoMode()) {
+    return <DemoAuthProvider>{children}</DemoAuthProvider>;
+  }
+  return <LiveAuthProvider>{children}</LiveAuthProvider>;
 }
 
 export function useAuth(): AuthContextValue {

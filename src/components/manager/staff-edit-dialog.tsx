@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { staffService } from "@/lib/services/staff-service";
+import { isDemoMode } from "@/lib/app-mode";
 import { cn } from "@/lib/utils";
 import { ASSIGNABLE_ROLES, type StaffMember, type StaffRole, type Zone } from "@/lib/types";
 
@@ -26,7 +27,6 @@ interface Draft {
   suspended: boolean;
 }
 
-/** Create (member = null) or edit a staff member, including account controls. */
 export function StaffEditDialog({
   open,
   onOpenChange,
@@ -93,8 +93,7 @@ export function StaffEditDialog({
         accountStatus: draft.suspended ? "suspended" : member.accountStatus === "suspended" ? "active" : member.accountStatus,
       });
       toast.success(`${base.name} updated`);
-    } else {
-      // TODO(backend): send an invite (real auth) instead of creating directly.
+    } else if (isDemoMode()) {
       await staffService.addStaff({
         venueId: "venue-1",
         ...base,
@@ -102,6 +101,20 @@ export function StaffEditDialog({
         isOnShift: false,
       });
       toast.success(`${base.name} invited to the team`);
+    } else {
+      const { inviteStaffMember } = await import("@/server/actions/invite");
+      const result = await inviteStaffMember({
+        email: base.email,
+        name: base.name,
+        role: base.role,
+        organizationId: "",
+      });
+      if (result.error) {
+        toast.error(result.error);
+        setSaving(false);
+        return;
+      }
+      toast.success(`Invite sent to ${base.email}`);
     }
     setSaving(false);
     onOpenChange(false);
@@ -110,8 +123,21 @@ export function StaffEditDialog({
 
   async function resetPin() {
     if (!member) return;
-    await staffService.resendInvite(member.id);
-    toast.success(`New sign-in PIN sent to ${member.email}`);
+    if (isDemoMode()) {
+      await staffService.resendInvite(member.id);
+      toast.success(`New sign-in PIN sent to ${member.email}`);
+    } else {
+      const { resendStaffInvite } = await import("@/server/actions/invite");
+      const result = await resendStaffInvite({
+        email: member.email,
+        organizationId: "",
+      });
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`Invite resent to ${member.email}`);
+    }
     onDone();
   }
 
