@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Platform tenant — one per venue. Platform context (unscoped).
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("starter")
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  jobRuns JobRun[]
+
+  @@map("tenants")
+}
+
+/// Background job execution log (AD-9). Platform context.
+model JobRun {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  jobName   String   @map("job_name")
+  status    String   @default("pending")
+  payload   Json?
+  result    Json?
+  error     String?
+  startedAt DateTime? @map("started_at") @db.Timestamptz
+  endedAt   DateTime? @map("ended_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, jobName])
+  @@map("job_runs")
+}
