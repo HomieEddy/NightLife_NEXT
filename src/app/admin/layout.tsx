@@ -13,7 +13,7 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 import { RequireAuth } from "@/components/shared/require-auth";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
-import { ADMIN_DEMO_PASSWORD, isAdminUnlocked, setAdminUnlocked } from "@/lib/admin-gate";
+import { isDemoMode } from "@/lib/app-mode";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -23,12 +23,13 @@ const NAV = [
   { href: "/admin/onboarding", label: "Provisioning", icon: Rocket },
 ];
 
-/** Shared-password wall shown until the demo admin area is unlocked. */
 function AdminGate({ onUnlock }: { onUnlock: () => void }) {
   const [password, setPassword] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (typeof window === "undefined") return;
+    const { ADMIN_DEMO_PASSWORD, setAdminUnlocked } = require("@/lib/admin-gate");
     if (password === ADMIN_DEMO_PASSWORD) {
       setAdminUnlocked(true);
       onUnlock();
@@ -87,14 +88,16 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // null = not yet hydrated — render nothing to avoid flashing either state.
-  const [unlocked, setUnlocked] = useState<boolean | null>(null);
+  const demo = isDemoMode();
+  const [unlocked, setUnlocked] = useState<boolean | null>(demo ? null : true);
   const isActive = (href: string) =>
     href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 
   useEffect(() => {
+    if (!demo) return;
+    const { isAdminUnlocked } = require("@/lib/admin-gate");
     setUnlocked(isAdminUnlocked());
-  }, []);
+  }, [demo]);
 
   if (unlocked === null) return <RequireAuth><div /></RequireAuth>;
   if (!unlocked) return <RequireAuth><AdminGate onUnlock={() => setUnlocked(true)} /></RequireAuth>;
