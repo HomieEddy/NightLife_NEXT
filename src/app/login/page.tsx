@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useAuth } from "@/context/auth-context";
-import { mockAuthService } from "@/lib/mock-services/auth-service";
+import { authService } from "@/lib/services/auth-service";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/types";
 
@@ -32,7 +32,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    mockAuthService.listPersonas().then(setPersonas);
+    authService.listPersonas().then(setPersonas);
   }, []);
 
   async function signInAs(persona: AuthUser) {

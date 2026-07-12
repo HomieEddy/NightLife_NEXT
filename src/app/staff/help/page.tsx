@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
+import { guestsService } from "@/lib/services/guests-service";
 import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { HelpRequest, HelpRequestType } from "@/lib/types";
@@ -27,7 +27,7 @@ export default function StaffHelpPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    setRequests(await mockGuestsService.listHelpRequests());
+    setRequests(await guestsService.listHelpRequests());
   }, []);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function StaffHelpPage() {
 
   async function setStatus(request: HelpRequest, status: "acknowledged" | "resolved") {
     setBusyId(request.id);
-    await mockGuestsService.setHelpRequestStatus(request.id, status);
+    await guestsService.setHelpRequestStatus(request.id, status);
     toast.success(`${request.tableCode} ${status === "acknowledged" ? "on it" : "resolved"}`);
     await refresh();
     setBusyId(null);

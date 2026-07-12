@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { venueService } from "@/lib/services/venue-service";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
 import { setManagerOnboarded } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
@@ -23,14 +23,14 @@ export default function ManagerSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    mockVenueService.getVenue().then(setVenue);
+    venueService.getVenue().then(setVenue);
   }, []);
 
   async function handleSave() {
     if (!venue) return;
     setSaving(true);
     // TODO(backend): PATCH /api/venue — persist settings per tenant.
-    await mockVenueService.updateVenue(venue);
+    await venueService.updateVenue(venue);
     setSaving(false);
     toast.success("Venue settings saved");
   }

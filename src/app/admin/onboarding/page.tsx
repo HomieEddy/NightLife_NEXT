@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockAdminService } from "@/lib/mock-services/admin-service";
-import { PLANS } from "@/lib/mock-services/billing-service";
+import { adminService } from "@/lib/services/admin-service";
+import { PLANS } from "@/lib/services/billing-service";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { TenantPlan } from "@/lib/types";
@@ -39,7 +39,7 @@ function ProvisioningContent() {
 
   useEffect(() => {
     if (!leadId) return;
-    mockAdminService.getLead(leadId).then((lead) => {
+    adminService.getLead(leadId).then((lead) => {
       if (lead) {
         setVenueName(lead.venueName);
         setCity(lead.city);
@@ -59,7 +59,7 @@ function ProvisioningContent() {
 
   async function provision() {
     setProvisioning(true);
-    const tenant = await mockAdminService.onboardTenant({
+    const tenant = await adminService.onboardTenant({
       venueName: venueName.trim(),
       city: city.trim(),
       address: "",

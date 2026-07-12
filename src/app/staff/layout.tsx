@@ -8,7 +8,7 @@ import { AuthBanner } from "@/components/shared/auth-banner";
 import { MobileBottomNav } from "@/components/shared/mobile-bottom-nav";
 import { RequireAuth } from "@/components/shared/require-auth";
 import { BroadcastBanner } from "@/components/staff/broadcast-banner";
-import { mockStaffService } from "@/lib/mock-services/staff-service";
+import { staffService } from "@/lib/services/staff-service";
 import type { StaffMember } from "@/lib/types";
 import { Home, LifeBuoy, MessageSquare, Receipt, UserCheck } from "lucide-react";
 
@@ -20,7 +20,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
   const [me, setMe] = useState<StaffMember | null>(null);
 
   useEffect(() => {
-    mockStaffService.getCurrentStaff().then(setMe);
+    staffService.getCurrentStaff().then(setMe);
   }, []);
 
   return (

@@ -28,8 +28,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockReservationService } from "@/lib/mock-services/reservation-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { reservationService } from "@/lib/services/reservation-service";
+import { venueService } from "@/lib/services/venue-service";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Reservation, ReservationStatus, VenueTable, Zone } from "@/lib/types";
@@ -87,9 +87,9 @@ function ReservationsContent() {
 
   const refresh = useCallback(async () => {
     const [list, z, t] = await Promise.all([
-      mockReservationService.listReservations(),
-      mockVenueService.listZones(),
-      mockVenueService.listTables(),
+      reservationService.listReservations(),
+      venueService.listZones(),
+      venueService.listTables(),
     ]);
     setReservations(list);
     setZones(z);
@@ -111,7 +111,7 @@ function ReservationsContent() {
   async function advance(res: Reservation) {
     const next = STATUS_ACTIONS[res.status];
     if (next === "—") return;
-    await mockReservationService.setStatus(res.id, res.status === "requested" ? "confirmed" : res.status === "confirmed" ? "seated" : "completed");
+    await reservationService.setStatus(res.id, res.status === "requested" ? "confirmed" : res.status === "confirmed" ? "seated" : "completed");
     toast.success(`${res.guestName}'s reservation ${next.toLowerCase()}ed`);
     await refresh();
   }
@@ -151,10 +151,10 @@ function ReservationsContent() {
       source: "manager" as const,
     };
     if (editingId) {
-      await mockReservationService.updateReservation(editingId, payload);
+      await reservationService.updateReservation(editingId, payload);
       toast.success("Reservation updated");
     } else {
-      await mockReservationService.createReservation(payload);
+      await reservationService.createReservation(payload);
       toast.success("Reservation created");
     }
     setSaving(false);
@@ -163,7 +163,7 @@ function ReservationsContent() {
   }
 
   async function remove(res: Reservation) {
-    await mockReservationService.cancelReservation(res.id);
+    await reservationService.cancelReservation(res.id);
     toast.info(`${res.guestName}'s reservation cancelled`);
     await refresh();
   }

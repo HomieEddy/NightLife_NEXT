@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Megaphone, X } from "lucide-react";
-import { mockPulseService } from "@/lib/mock-services/pulse-service";
+import { pulseService } from "@/lib/services/pulse-service";
 import type { Broadcast } from "@/lib/types";
 
 const POLL_MS = 8000;
@@ -22,8 +22,8 @@ export function BroadcastBanner() {
     let cancelled = false;
     async function refresh() {
       const [broadcasts, lastCall] = await Promise.all([
-        mockPulseService.listBroadcasts(),
-        mockPulseService.getLastCallState(),
+        pulseService.listBroadcasts(),
+        pulseService.getLastCallState(),
       ]);
       if (cancelled) return;
       const latest = broadcasts[0] ?? null;

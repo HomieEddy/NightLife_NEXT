@@ -51,7 +51,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
+import { menuService } from "@/lib/services/menu-service";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BottleIconKey, MenuCategory, MenuItem, StockMovement } from "@/lib/types";
@@ -107,9 +107,9 @@ export default function ManagerInventoryPage() {
 
   const refresh = useCallback(async () => {
     const [its, cats, moves] = await Promise.all([
-      mockMenuService.listItems(),
-      mockMenuService.listCategories(true),
-      mockMenuService.listMovements(),
+      menuService.listItems(),
+      menuService.listCategories(true),
+      menuService.listMovements(),
     ]);
     setItems(its);
     setCategories(cats);
@@ -149,7 +149,7 @@ export default function ManagerInventoryPage() {
   async function handleRestock() {
     if (!restocking || restockQty <= 0) return;
     setBusy(true);
-    await mockMenuService.restockItem(restocking.id, restockQty, restockNote.trim() || undefined);
+    await menuService.restockItem(restocking.id, restockQty, restockNote.trim() || undefined);
     setBusy(false);
     toast.success(`+${restockQty} ${restocking.name}`);
     setRestocking(null);
@@ -159,7 +159,7 @@ export default function ManagerInventoryPage() {
   async function handleAdjust() {
     if (!adjusting || adjustCount < 0) return;
     setBusy(true);
-    await mockMenuService.adjustInventory(
+    await menuService.adjustInventory(
       adjusting.id,
       adjustCount,
       adjustNote.trim() || undefined,
@@ -205,7 +205,7 @@ export default function ManagerInventoryPage() {
     setBusy(true);
     if (formItem) {
       // Edits never touch inventory — that's what restock/adjust are for.
-      await mockMenuService.updateItem(formItem.id, {
+      await menuService.updateItem(formItem.id, {
         name: draft.name.trim(),
         description: draft.description,
         categoryId: draft.categoryId,
@@ -214,7 +214,7 @@ export default function ManagerInventoryPage() {
       });
       toast.success(`${draft.name.trim()} updated`);
     } else {
-      await mockMenuService.createItem({
+      await menuService.createItem({
         name: draft.name.trim(),
         description: draft.description,
         categoryId: draft.categoryId,
@@ -234,7 +234,7 @@ export default function ManagerInventoryPage() {
 
   async function handleDelete(item: MenuItem) {
     // TODO(backend): block deletion if the item is referenced by an active package.
-    await mockMenuService.deleteItem(item.id);
+    await menuService.deleteItem(item.id);
     toast.info(`${item.name} removed from inventory`);
     await refresh();
   }

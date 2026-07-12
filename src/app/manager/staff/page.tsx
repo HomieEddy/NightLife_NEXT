@@ -21,8 +21,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { ScheduleTab } from "@/components/manager/schedule-tab";
 import { StaffEditDialog } from "@/components/manager/staff-edit-dialog";
-import { mockStaffService } from "@/lib/mock-services/staff-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { staffService } from "@/lib/services/staff-service";
+import { venueService } from "@/lib/services/venue-service";
 import { cn } from "@/lib/utils";
 import type { StaffAccountStatus, StaffMember, Zone } from "@/lib/types";
 
@@ -41,21 +41,21 @@ function StaffContent() {
   const [editing, setEditing] = useState<StaffMember | null>(null);
 
   const refresh = useCallback(async () => {
-    setStaff(await mockStaffService.listStaff());
+    setStaff(await staffService.listStaff());
   }, []);
 
   useEffect(() => {
     refresh();
-    mockVenueService.listZones().then(setZones);
+    venueService.listZones().then(setZones);
   }, [refresh]);
 
   async function toggleShift(member: StaffMember) {
-    await mockStaffService.toggleShift(member.id);
+    await staffService.toggleShift(member.id);
     await refresh();
   }
 
   async function remove(member: StaffMember) {
-    await mockStaffService.removeStaff(member.id);
+    await staffService.removeStaff(member.id);
     toast.info(`${member.name} removed`);
     await refresh();
   }

@@ -13,7 +13,7 @@ import {
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { venueService } from "@/lib/services/venue-service";
 import type { VenueTable, Zone } from "@/lib/types";
 
 /** Real, scannable QR rendered as inline SVG. */
@@ -39,7 +39,7 @@ export default function ManagerQrPage() {
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    Promise.all([mockVenueService.listTables(), mockVenueService.listZones()]).then(
+    Promise.all([venueService.listTables(), venueService.listZones()]).then(
       ([tableList, zoneList]) => {
         setTables(tableList);
         setZones(zoneList);

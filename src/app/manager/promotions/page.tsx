@@ -19,8 +19,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockPromotionsService } from "@/lib/mock-services/promotions-service";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
+import { promotionsService } from "@/lib/services/promotions-service";
+import { menuService } from "@/lib/services/menu-service";
 import { cn } from "@/lib/utils";
 import type { MenuCategory, Promotion, PromotionStatus, PromotionType } from "@/lib/types";
 
@@ -70,8 +70,8 @@ function PromotionsContent() {
 
   const refresh = useCallback(async () => {
     const [list, cats] = await Promise.all([
-      mockPromotionsService.listPromotions(),
-      mockMenuService.listCategories(true),
+      promotionsService.listPromotions(),
+      menuService.listCategories(true),
     ]);
     setPromos(list);
     setCategories(cats);
@@ -84,7 +84,7 @@ function PromotionsContent() {
   const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
 
   async function runTestCode() {
-    const result = await mockPromotionsService.validateCode(testCode);
+    const result = await promotionsService.validateCode(testCode);
     setTestResult(result);
     if (result) toast.success(`Valid: ${result.name}`);
     else if (testCode.trim()) toast.error("No active promotion for that code.");
@@ -135,10 +135,10 @@ function PromotionsContent() {
       status: draft.status,
     };
     if (editingId) {
-      await mockPromotionsService.updatePromotion(editingId, payload);
+      await promotionsService.updatePromotion(editingId, payload);
       toast.success("Promotion updated");
     } else {
-      await mockPromotionsService.createPromotion(payload);
+      await promotionsService.createPromotion(payload);
       toast.success("Promotion created");
     }
     setSaving(false);
@@ -147,7 +147,7 @@ function PromotionsContent() {
   }
 
   async function remove(p: Promotion) {
-    await mockPromotionsService.deletePromotion(p.id);
+    await promotionsService.deletePromotion(p.id);
     toast.info(`${p.name} deleted`);
     await refresh();
   }

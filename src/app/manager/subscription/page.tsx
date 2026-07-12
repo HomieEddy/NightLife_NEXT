@@ -10,8 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import {
-  mockBillingService, PLANS, type Invoice, type Subscription,
-} from "@/lib/mock-services/billing-service";
+  billingService, PLANS, type Invoice, type Subscription,
+} from "@/lib/services/billing-service";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { TenantPlan } from "@/lib/types";
@@ -25,8 +25,8 @@ export default function ManagerSubscriptionPage() {
 
   const refresh = useCallback(async () => {
     const [sub, inv] = await Promise.all([
-      mockBillingService.getSubscription(),
-      mockBillingService.listInvoices(),
+      billingService.getSubscription(),
+      billingService.listInvoices(),
     ]);
     setSubscription(sub);
     setInvoices(inv);
@@ -39,7 +39,7 @@ export default function ManagerSubscriptionPage() {
   async function changePlan(plan: TenantPlan) {
     setChanging(plan);
     // TODO(backend): Stripe checkout / proration flow.
-    await mockBillingService.changePlan(plan);
+    await billingService.changePlan(plan);
     setChanging(null);
     toast.success(`Switched to the ${PLANS.find((p) => p.id === plan)?.name} plan`);
     await refresh();

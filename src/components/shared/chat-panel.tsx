@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { RoleBadge } from "@/components/shared/role-badge";
-import { mockStaffService } from "@/lib/mock-services/staff-service";
+import { staffService } from "@/lib/services/staff-service";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/types";
@@ -27,7 +27,7 @@ export function ChatPanel({ currentUserId }: { currentUserId: string }) {
   useEffect(() => {
     let cancelled = false;
     setMessages(null);
-    mockStaffService.listMessages(channel).then((msgs) => {
+    staffService.listMessages(channel).then((msgs) => {
       if (!cancelled) setMessages(msgs);
     });
     return () => { cancelled = true; };
@@ -43,8 +43,8 @@ export function ChatPanel({ currentUserId }: { currentUserId: string }) {
     if (!body) return;
     setSending(true);
     setDraft("");
-    await mockStaffService.sendMessage({ channel, body });
-    setMessages(await mockStaffService.listMessages(channel));
+    await staffService.sendMessage({ channel, body });
+    setMessages(await staffService.listMessages(channel));
     setSending(false);
   }
 

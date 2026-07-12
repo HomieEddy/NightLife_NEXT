@@ -22,7 +22,7 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MenuItemCard } from "@/components/shared/menu-item-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { PackageEditor, type PackageDraft } from "@/components/manager/package-editor";
-import { mockMenuService, type PackageQuote } from "@/lib/mock-services/menu-service";
+import { menuService, type PackageQuote } from "@/lib/services/menu-service";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BottlePackage, MenuCategory, MenuItem } from "@/lib/types";
@@ -44,9 +44,9 @@ function MenuContent() {
 
   const refresh = useCallback(async () => {
     const [cats, its, pkgs] = await Promise.all([
-      mockMenuService.listCategories(true),
-      mockMenuService.listItems(),
-      mockMenuService.listPackages(true),
+      menuService.listCategories(true),
+      menuService.listItems(),
+      menuService.listPackages(true),
     ]);
     setCategories(cats);
     setItems(its);
@@ -61,7 +61,7 @@ function MenuContent() {
   // ---------- Items ----------
 
   async function toggleAvailability(item: MenuItem) {
-    await mockMenuService.updateItem(item.id, { isAvailable: !item.isAvailable });
+    await menuService.updateItem(item.id, { isAvailable: !item.isAvailable });
     toast.success(`${item.name} ${item.isAvailable ? "86'd" : "back on the menu"}`);
     await refresh();
   }
@@ -71,7 +71,7 @@ function MenuContent() {
     setSaving(true);
     // TODO(backend): PATCH /api/menu/items/:id
     // Guest-facing fields only — stock lives in /manager/inventory.
-    await mockMenuService.updateItem(editing.id, {
+    await menuService.updateItem(editing.id, {
       name: editing.name,
       description: editing.description,
       price: editing.price,
@@ -87,23 +87,23 @@ function MenuContent() {
   async function savePackage(draft: PackageDraft) {
     // TODO(backend): POST/PATCH /api/menu/packages
     if (editingPackage) {
-      await mockMenuService.updatePackage(editingPackage.id, draft);
+      await menuService.updatePackage(editingPackage.id, draft);
       toast.success(`${draft.name} updated`);
     } else {
-      await mockMenuService.createPackage({ venueId: "venue-1", ...draft });
+      await menuService.createPackage({ venueId: "venue-1", ...draft });
       toast.success(`${draft.name} created`);
     }
     await refresh();
   }
 
   async function togglePackage(pkg: BottlePackage) {
-    await mockMenuService.updatePackage(pkg.id, { isActive: !pkg.isActive });
+    await menuService.updatePackage(pkg.id, { isActive: !pkg.isActive });
     toast.success(`${pkg.name} ${pkg.isActive ? "hidden from guests" : "live on the guest menu"}`);
     await refresh();
   }
 
   async function removePackage(pkg: BottlePackage) {
-    await mockMenuService.deletePackage(pkg.id);
+    await menuService.deletePackage(pkg.id);
     toast.info(`${pkg.name} removed`);
     await refresh();
   }

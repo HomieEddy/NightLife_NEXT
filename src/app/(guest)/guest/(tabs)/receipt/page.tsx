@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { CountUp } from "@/components/fx/count-up";
 import { useGuest } from "@/context/guest-context";
-import { mockOrdersService } from "@/lib/mock-services/orders-service";
+import { ordersService } from "@/lib/services/orders-service";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { mockVenue } from "@/lib/mock-data/venue";
@@ -303,8 +303,8 @@ function NightReceipt() {
   useEffect(() => {
     let cancelled = false;
     const load = sessionId
-      ? mockOrdersService.listOrdersBySession(sessionId)
-      : mockOrdersService.listGuestOrders(guestName);
+      ? ordersService.listOrdersBySession(sessionId)
+      : ordersService.listGuestOrders(guestName);
     load.then((result) => {
       if (!cancelled) setOrders(result.filter((o) => o.status === "delivered"));
     });
@@ -506,7 +506,7 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    mockOrdersService.getOrder(orderId).then((result) => {
+    ordersService.getOrder(orderId).then((result) => {
       if (!cancelled) {
         setOrder(result);
         setLoading(false);

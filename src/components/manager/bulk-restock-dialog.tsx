@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
+import { menuService } from "@/lib/services/menu-service";
 import { cn } from "@/lib/utils";
 import type { MenuItem } from "@/lib/types";
 
@@ -56,7 +56,7 @@ export function BulkRestockDialog({
       return;
     }
     setBusy(true);
-    const applied = await mockMenuService.bulkRestock(
+    const applied = await menuService.bulkRestock(
       lines.map(([itemId, quantity]) => ({ itemId, quantity })),
       note.trim() || undefined,
     );

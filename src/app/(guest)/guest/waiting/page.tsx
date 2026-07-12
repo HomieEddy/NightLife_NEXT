@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { EmptyState } from "@/components/shared/empty-state";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
+import { guestsService } from "@/lib/services/guests-service";
 
 export default function WaitingPage() {
   const router = useRouter();
@@ -35,7 +35,7 @@ export default function WaitingPage() {
 
   async function simulateApproval() {
     setApproving(true);
-    await mockGuestsService.setSessionStatus(sessionId!, "approved");
+    await guestsService.setSessionStatus(sessionId!, "approved");
     approve();
   }
 

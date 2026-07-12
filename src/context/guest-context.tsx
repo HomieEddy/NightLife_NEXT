@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import type { CartLine, OrderItemModifier, MenuItem } from "@/lib/types";
-import { uid } from "@/lib/mock-services/delay";
+import { uid } from "@/lib/services/delay";
 
 export interface GuestTableInfo {
   tableId: string;

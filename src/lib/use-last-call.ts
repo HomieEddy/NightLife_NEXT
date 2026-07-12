@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { mockPulseService } from "@/lib/mock-services/pulse-service";
+import { pulseService } from "@/lib/services/pulse-service";
 
 const POLL_MS = 8000;
 
@@ -12,7 +12,7 @@ export function useLastCall(): boolean {
   useEffect(() => {
     let cancelled = false;
     async function refresh() {
-      const state = await mockPulseService.getLastCallState();
+      const state = await pulseService.getLastCallState();
       if (!cancelled) setActive(state.active);
     }
     refresh();

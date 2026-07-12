@@ -13,8 +13,8 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { guestsService } from "@/lib/services/guests-service";
+import { venueService } from "@/lib/services/venue-service";
 import { mockVenue } from "@/lib/mock-data/venue";
 import type { VenueTable, Zone } from "@/lib/types";
 
@@ -40,7 +40,7 @@ export default function QrEntryPage({
 
   useEffect(() => {
     let cancelled = false;
-    mockVenueService.getTableBySlug(tableCode).then((res) => {
+    venueService.getTableBySlug(tableCode).then((res) => {
       if (!cancelled) {
         setResult(res);
         setLoading(false);
@@ -58,7 +58,7 @@ export default function QrEntryPage({
       return;
     }
     setJoining(true);
-    const session = await mockGuestsService.requestSession({
+    const session = await guestsService.requestSession({
       tableId: result.table.id,
       tableCode: result.table.code,
       zoneName: result.zone.name,

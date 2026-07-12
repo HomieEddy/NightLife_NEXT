@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockAdminService } from "@/lib/mock-services/admin-service";
+import { adminService } from "@/lib/services/admin-service";
 import { formatMoney, timeAgo } from "@/lib/format";
 import type { Lead, Tenant } from "@/lib/types";
 
@@ -18,8 +18,8 @@ export default function AdminOverviewPage() {
   const [tenants, setTenants] = useState<Tenant[] | null>(null);
 
   useEffect(() => {
-    mockAdminService.listLeads().then(setLeads);
-    mockAdminService.listTenants().then(setTenants);
+    adminService.listLeads().then(setLeads);
+    adminService.listTenants().then(setTenants);
   }, []);
 
   const mrr = (tenants ?? []).reduce((sum, t) => sum + t.monthlyRevenue, 0);

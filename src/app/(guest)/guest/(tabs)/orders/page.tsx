@@ -19,9 +19,9 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useGuest } from "@/context/guest-context";
-import { mockAnalyticsService } from "@/lib/mock-services/analytics-service";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
-import { mockOrdersService, ORDER_FLOW } from "@/lib/mock-services/orders-service";
+import { analyticsService } from "@/lib/services/analytics-service";
+import { guestsService } from "@/lib/services/guests-service";
+import { ordersService, ORDER_FLOW } from "@/lib/services/orders-service";
 import { estimateEtaMinutes, formatEta } from "@/lib/eta";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -97,7 +97,7 @@ export default function GuestOrdersPage() {
   const [avgFulfillmentMinutes, setAvgFulfillmentMinutes] = useState(8);
 
   useEffect(() => {
-    mockAnalyticsService.getSummary().then((s) => setAvgFulfillmentMinutes(s.avgFulfillmentMinutes));
+    analyticsService.getSummary().then((s) => setAvgFulfillmentMinutes(s.avgFulfillmentMinutes));
   }, []);
 
   const refresh = useCallback(async () => {
@@ -105,12 +105,12 @@ export default function GuestOrdersPage() {
       setOrders([]);
       return;
     }
-    const result = await mockOrdersService.listGuestOrders(guestName);
+    const result = await ordersService.listGuestOrders(guestName);
     setOrders(result);
     // While waiting for the host to close the tab, watch the session status.
     // TODO(backend): WebSocket push replaces this poll.
     if (closureStatus === "requested" && sessionId) {
-      const session = await mockGuestsService.getSession(sessionId);
+      const session = await guestsService.getSession(sessionId);
       if (session?.status === "closed") setClosureStatus("closed");
     }
   }, [guestName, closureStatus, sessionId, setClosureStatus]);
@@ -130,7 +130,7 @@ export default function GuestOrdersPage() {
   async function requestClosure() {
     if (!sessionId) return;
     setRequestingClosure(true);
-    await mockGuestsService.requestClosure(sessionId);
+    await guestsService.requestClosure(sessionId);
     setClosureStatus("requested");
     setRequestingClosure(false);
     toast.success("Closure requested — your host will confirm shortly.");
@@ -138,7 +138,7 @@ export default function GuestOrdersPage() {
 
   async function simulateClosureApproval() {
     if (!sessionId) return;
-    await mockGuestsService.setSessionStatus(sessionId, "closed");
+    await guestsService.setSessionStatus(sessionId, "closed");
     setClosureStatus("closed");
   }
 
@@ -147,7 +147,7 @@ export default function GuestOrdersPage() {
     const active = orders.find((o) => !["delivered", "cancelled"].includes(o.status));
     if (!active) return;
     setAdvancing(true);
-    await mockOrdersService.advanceOrder(active.id);
+    await ordersService.advanceOrder(active.id);
     await refresh();
     setAdvancing(false);
   }
