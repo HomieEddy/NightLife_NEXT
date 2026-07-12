@@ -25,6 +25,13 @@ export const liveAuthService = {
     });
     if (error || !data) return null;
 
+    // Better Auth doesn't auto-activate an organization on sign-in — every
+    // venue-scoped read (getDb's session.venueId) needs activeOrganizationId set.
+    const { data: orgs } = await authClient.organization.list();
+    if (orgs && orgs.length > 0) {
+      await authClient.organization.setActive({ organizationId: orgs[0].id });
+    }
+
     const session = await authClient.getSession();
     if (!session.data) return null;
 

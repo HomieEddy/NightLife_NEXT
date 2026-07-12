@@ -4,7 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { execSync } from "node:child_process";
 import { betterAuth } from "better-auth";
-import { organization, admin } from "better-auth/plugins";
+import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 
 describe("auth integration", () => {
@@ -38,7 +38,10 @@ describe("auth integration", () => {
           },
         },
       },
-      plugins: [organization(), admin()],
+      // bearer() lets `Authorization: Bearer <token>` calls authenticate
+      // organization endpoints the same way seed.ts needs it to (see its
+      // comment) — without it every Bearer-authed .api call 401s.
+      plugins: [organization(), admin(), bearer()],
     });
   }, 60_000);
 

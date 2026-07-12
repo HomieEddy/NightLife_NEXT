@@ -15,8 +15,7 @@ import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
 import { guestsService } from "@/lib/services/guests-service";
 import { venueService } from "@/lib/services/venue-service";
-import { mockVenue } from "@/lib/mock-data/venue";
-import type { VenueTable, Zone } from "@/lib/types";
+import type { Venue, VenueTable, Zone } from "@/lib/types";
 
 /**
  * QR entry simulation: in production the guest lands here by scanning the
@@ -32,7 +31,7 @@ export default function QrEntryPage({
   const { startSession } = useGuest();
 
   const [loading, setLoading] = useState(true);
-  const [result, setResult] = useState<{ table: VenueTable; zone: Zone } | null>(null);
+  const [result, setResult] = useState<{ table: VenueTable; zone: Zone; venue: Venue } | null>(null);
   const [name, setName] = useState("");
   const [partySize, setPartySize] = useState(2);
   const [joining, setJoining] = useState(false);
@@ -73,6 +72,7 @@ export default function QrEntryPage({
         zoneId: result.zone.id,
         zoneName: result.zone.name,
       },
+      result.venue,
       name.trim(),
       session.id,
     );
@@ -122,7 +122,7 @@ export default function QrEntryPage({
 
       <div className="relative mt-8 text-center animate-fade-up">
         <p className="text-sm text-muted-foreground">Welcome to</p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">{mockVenue.name}</h1>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight">{result.venue.name}</h1>
         <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-sm text-primary">
           <MapPin className="size-3.5" />
           {result.table.code} · {result.zone.name}

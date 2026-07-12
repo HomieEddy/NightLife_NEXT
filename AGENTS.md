@@ -408,6 +408,11 @@ makes it obsolete.
   points (`aggregateWeekly`).
 - The dev server module graph re-instantiates service state on HMR of any file
   in the import chain. If a manual test spans an edit, re-run the test.
+- Venue/zones/tables/shifts (plan 03) persist across reload **in live mode
+  only** — real Postgres via `venueService`'s live branch. Demo mode still
+  resets on reload; that's the permanent sandbox behavior (AD-14), not a bug.
+  Local live testing needs Postgres reachable at `DATABASE_URL` (see
+  `docker-compose.yml`) and `npm run db:seed` at least once.
 - Guest flow entry: `/g/demo-table` → join → "Simulate host approval"
   (prototype control on the waiting page) → menu. The manager area gates on
   first run: clear `localStorage["nlx-manager-onboarded"]` to see onboarding.

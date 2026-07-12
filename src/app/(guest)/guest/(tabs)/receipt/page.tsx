@@ -16,10 +16,9 @@ import { useGuest } from "@/context/guest-context";
 import { ordersService } from "@/lib/services/orders-service";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { mockVenue } from "@/lib/mock-data/venue";
 import { mockPackages } from "@/lib/mock-data/menu";
 import { mockMenuItems } from "@/lib/mock-data/menu";
-import type { Order } from "@/lib/types";
+import type { Order, Venue } from "@/lib/types";
 
 function OrderLines({ order }: { order: Order }) {
   return (
@@ -83,12 +82,20 @@ function Totals({ subtotal, feeBreakdown, tip, total }: {
   );
 }
 
-function VenueHeader({ tableCode, zoneName }: { tableCode?: string; zoneName?: string }) {
+function VenueHeader({
+  venue,
+  tableCode,
+  zoneName,
+}: {
+  venue: Venue | null;
+  tableCode?: string;
+  zoneName?: string;
+}) {
   return (
     <div className="text-center">
-      <p className="font-semibold">{mockVenue.name}</p>
+      <p className="font-semibold">{venue?.name}</p>
       <p className="text-xs text-muted-foreground">
-        {mockVenue.address}, {mockVenue.city}
+        {venue?.address}, {venue?.city}
       </p>
       {tableCode && (
         <p className="text-xs text-muted-foreground">
@@ -296,7 +303,7 @@ function SplitBill({ total }: { total: number }) {
 
 /** Full-night receipt shown after the host approves the tab closure. */
 function NightReceipt() {
-  const { guestName, table, sessionId } = useGuest();
+  const { guestName, table, venue, sessionId } = useGuest();
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [email, setEmail] = useState("");
 
@@ -356,9 +363,9 @@ function NightReceipt() {
       <div className="mx-auto w-full max-w-sm rounded-lg bg-zinc-50 text-zinc-900 shadow-xl">
         <div className="space-y-2 p-5 font-mono text-xs leading-relaxed">
           <div className="text-center">
-            <p className="text-sm font-bold tracking-[0.2em]">{mockVenue.name.toUpperCase()}</p>
+            <p className="text-sm font-bold tracking-[0.2em]">{venue?.name.toUpperCase()}</p>
             <p>
-              {mockVenue.address}, {mockVenue.city}
+              {venue?.address}, {venue?.city}
             </p>
             <div className="my-2 border-y border-dashed border-zinc-400 py-1 font-semibold tracking-widest">
               GUEST RECEIPT
@@ -501,6 +508,7 @@ function NightReceipt() {
 
 /** Single-order receipt (linked from a delivered order card). */
 function SingleOrderReceipt({ orderId }: { orderId: string }) {
+  const { venue } = useGuest();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -546,7 +554,7 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
 
       <Card className="animate-fade-up">
         <CardContent className="space-y-3">
-          <VenueHeader tableCode={order.tableCode} zoneName={order.zoneName} />
+          <VenueHeader venue={venue} tableCode={order.tableCode} zoneName={order.zoneName} />
           <Separator />
           <OrderLines order={order} />
           <Separator />
