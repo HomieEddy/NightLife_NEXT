@@ -10,7 +10,7 @@ function createClient(): PrismaClient {
   return new PrismaClient({ adapter });
 }
 
-function getRawClient(): PrismaClient {
+export function getRawPrisma(): PrismaClient {
   if (!globalForPrisma.__prisma) {
     globalForPrisma.__prisma = createClient();
   }
@@ -26,12 +26,17 @@ export interface SessionContext {
  * on tenant-scoped models. Handlers physically cannot forget scoping.
  */
 export function getDb(session: SessionContext) {
-  const client = getRawClient();
+  const client = getRawPrisma();
   return client.$extends({
     query: {
       $allOperations({ model, operation, args, query }) {
         if (!model) return query(args);
-        const platformModels = ["Tenant", "JobRun"];
+        const platformModels = [
+          "Tenant", "JobRun",
+          "User", "Session", "Account", "Verification",
+          "Organization", "Member", "Invitation",
+          "StaffProfile",
+        ];
         if (platformModels.includes(model)) return query(args);
 
         if (
@@ -73,5 +78,5 @@ export function getDb(session: SessionContext) {
  * Import restricted to src/server/platform/ by ESLint rule.
  */
 export function getPlatformDb(): PrismaClient {
-  return getRawClient();
+  return getRawPrisma();
 }
