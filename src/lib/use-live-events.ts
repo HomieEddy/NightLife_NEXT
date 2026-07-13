@@ -47,9 +47,11 @@ export function useLiveEvents({
   fallbackRefresh,
 }: UseLiveEventsOptions): void {
   const onEventRef = useRef(onEvent);
-  onEventRef.current = onEvent;
   const fallbackRef = useRef(fallbackRefresh);
-  fallbackRef.current = fallbackRefresh;
+  useEffect(() => {
+    onEventRef.current = onEvent;
+    fallbackRef.current = fallbackRefresh;
+  });
 
   useEffect(() => {
     let cancelled = false;
