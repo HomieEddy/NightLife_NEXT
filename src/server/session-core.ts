@@ -4,6 +4,7 @@
  * Closure validation (INV-S2): requestClosure rejects when in-flight orders exist.
  */
 import type { getDb } from "./db";
+import { publish } from "./events";
 import type { GuestSession, GuestSessionStatus, HelpRequest, HelpRequestType, HelpRequestStatus } from "@/lib/types";
 import type { GuestSessionStatus as PrismaSessionStatus, OrderStatus } from "@prisma/client";
 
@@ -135,7 +136,13 @@ export async function createSession(
       status: autoApprove ? "approved" : "pending",
     },
   });
-  return toSession(row);
+  const session = toSession(row);
+  await publish({
+    type: autoApprove ? "SessionApproved" : "SessionRequested",
+    venueId,
+    payload: { sessionId: session.id, tableId: input.tableId },
+  });
+  return session;
 }
 
 export async function setSessionStatus(
@@ -155,7 +162,23 @@ export async function setSessionStatus(
     where: { id: sessionId },
     data: { status: DOMAIN_TO_PRISMA[newStatus] },
   });
-  return { ok: true, session: toSession(updated) };
+  const session = toSession(updated);
+
+  const EVENT_MAP: Partial<Record<GuestSessionStatus, "SessionApproved" | "SessionDenied" | "SessionClosed">> = {
+    approved: "SessionApproved",
+    denied: "SessionDenied",
+    closed: "SessionClosed",
+  };
+  const eventType = EVENT_MAP[newStatus];
+  if (eventType) {
+    await publish({
+      type: eventType,
+      venueId: row.venueId,
+      payload: { sessionId, tableId: row.tableId },
+    });
+  }
+
+  return { ok: true, session };
 }
 
 // ── Closure validation (INV-S2) ─────────────────────────────────────
@@ -187,6 +210,11 @@ export async function requestClosure(
   const updated = await db.guestSession.update({
     where: { id: sessionId },
     data: { status: "closure_requested" },
+  });
+  await publish({
+    type: "ClosureRequested",
+    venueId: session.venueId,
+    payload: { sessionId, tableId: session.tableId },
   });
   return { ok: true, session: toSession(updated) };
 }
@@ -220,7 +248,13 @@ export async function createHelpRequest(
   },
 ): Promise<HelpRequest> {
   const row = await db.helpRequest.create({ data: { ...input, venueId } });
-  return toHelpRequest(row);
+  const request = toHelpRequest(row);
+  await publish({
+    type: "HelpRequested",
+    venueId,
+    payload: { requestId: request.id, sessionId: input.sessionId, type: input.type },
+  });
+  return request;
 }
 
 export async function setHelpRequestStatus(
@@ -235,5 +269,11 @@ export async function setHelpRequestStatus(
     where: { id: requestId },
     data: { status },
   });
-  return toHelpRequest(updated);
+  const request = toHelpRequest(updated);
+  await publish({
+    type: "HelpStatusChanged",
+    venueId: existing.venueId,
+    payload: { requestId, status, sessionId: existing.sessionId },
+  });
+  return request;
 }
