@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CircleDollarSign, Receipt, Table2, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -21,10 +21,9 @@ import { ordersService } from "@/lib/services/orders-service";
 import { pulseService } from "@/lib/services/pulse-service";
 import { venueService } from "@/lib/services/venue-service";
 import { computeAttentionItems } from "@/lib/pulse";
+import { useLiveEvents } from "@/lib/use-live-events";
 import { formatMoney } from "@/lib/format";
 import type { AnalyticsSummary, AttentionItem, Order } from "@/lib/types";
-
-const PULSE_POLL_MS = 8000;
 
 export default function ManagerDashboardPage() {
   const { user } = useAuth();
@@ -63,11 +62,17 @@ export default function ManagerDashboardPage() {
     setLastCallActive(lastCall.active);
   }, []);
 
-  useEffect(() => {
-    refreshPulse();
-    const interval = setInterval(refreshPulse, PULSE_POLL_MS);
-    return () => clearInterval(interval);
-  }, [refreshPulse]);
+  const refreshPulseRef = useRef(refreshPulse);
+  refreshPulseRef.current = refreshPulse;
+
+  useEffect(() => { refreshPulse(); }, [refreshPulse]);
+
+  useLiveEvents({
+    scope: "manager",
+    onEvent: () => refreshPulseRef.current(),
+    fallbackMs: 8000,
+    fallbackRefresh: () => refreshPulseRef.current(),
+  });
 
   const managerName = user?.name ?? "Manager";
 

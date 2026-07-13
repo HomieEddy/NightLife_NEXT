@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Inbox, ListFilter, RefreshCw, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { staffService } from "@/lib/services/staff-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { venueService } from "@/lib/services/venue-service";
 import { formatMoney } from "@/lib/format";
+import { useLiveEvents } from "@/lib/use-live-events";
 import { SessionOverview } from "@/components/shared/session-overview";
 import { cn } from "@/lib/utils";
 import type {
@@ -57,6 +58,9 @@ export default function ManagerOrdersPage() {
     setOrders(await ordersService.listOrders());
   }, []);
 
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
   useEffect(() => {
     refresh();
     venueService.listZones().then(setZones);
@@ -65,10 +69,14 @@ export default function ManagerOrdersPage() {
     menuService.listItems().then(setItems);
     menuService.listCategories(true).then(setCategories);
     guestsService.listSessions().then(setSessions);
-    // TODO(backend): WebSocket push instead of polling.
-    const interval = setInterval(refresh, 10000);
-    return () => clearInterval(interval);
   }, [refresh]);
+
+  useLiveEvents({
+    scope: "manager",
+    onEvent: () => refreshRef.current(),
+    fallbackMs: 10000,
+    fallbackRefresh: () => refreshRef.current(),
+  });
 
   const itemCategory = useMemo(() => {
     const map = new Map<string, string>();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, UserCheck, Users, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { guestsService } from "@/lib/services/guests-service";
 import { timeAgo } from "@/lib/format";
+import { useLiveEvents } from "@/lib/use-live-events";
 import type { GuestSession } from "@/lib/types";
 
 export default function StaffApprovalsPage() {
@@ -21,11 +22,17 @@ export default function StaffApprovalsPage() {
     setSessions(await guestsService.listSessions());
   }, []);
 
-  useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 8000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useLiveEvents({
+    scope: "staff",
+    onEvent: () => refreshRef.current(),
+    fallbackMs: 8000,
+    fallbackRefresh: () => refreshRef.current(),
+  });
 
   async function decide(session: GuestSession, status: "approved" | "denied") {
     setBusyId(session.id);

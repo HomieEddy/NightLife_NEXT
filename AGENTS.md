@@ -308,8 +308,8 @@ where this section and docs/ disagree, docs/ wins and this file gets fixed.
 4. **Migrate in dependency order, riskiest-cheapest first:**
    venue/zones/tables (pure CRUD, no math) → menu/inventory (ledger semantics)
    → orders + fees (transactions, money — write the tests *first* here) →
-   sessions/help/chat (realtime: replace the `setInterval` polling, all marked
-   with TODOs) → analytics/reports (SQL aggregations replace the seeded
+   sessions/help/chat (realtime — plan 07 replaced `setInterval` polling with
+   SSE via `useLiveEvents`) → analytics/reports (SQL aggregations replace the seeded
    generator) → admin/billing (multi-tenant provisioning, Stripe).
 5. **Multi-tenancy is not optional.** Every mock row already carries `venueId`;
    every real query must scope by tenant, enforced centrally (middleware/RLS),
@@ -416,8 +416,14 @@ makes it obsolete.
 - Guest flow entry: **demo mode** — `/g/demo-table` → join → "Simulate host
   approval" (prototype control, demo-only) → menu. **Live mode** — QR URL is
   `/g/<tableId>.<sig>` (signed token); guest joins via API, sets httpOnly
-  cookie, polls for real host approval on the staff panel. Simulate buttons
+  cookie, receives real host approval via SSE (`useLiveEvents`). Simulate buttons
   are gated behind `isDemoMode()` and never render in the live build.
   `QR_TOKEN_SECRET` env var is required in live mode (distinct from
   `AUTH_SECRET`). The manager area gates on first run: clear
   `localStorage["nlx-manager-onboarded"]` to see onboarding.
+- Realtime (plan 07): **demo mode** uses fallback polling only (no SSE server).
+  **Live mode** uses SSE via `useLiveEvents` → `/api/live/{manager,staff,guest}`
+  backed by Postgres `LISTEN/NOTIFY`. All pages use `useLiveEvents` — zero
+  `setInterval(refresh` patterns remain. Floor coordination (broadcasts, last
+  call, show lock, chat) lives in `src/server/floor-core.ts` with domain events
+  published via `src/server/events.ts`.

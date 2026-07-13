@@ -1,6 +1,7 @@
 /**
  * mockStaffService — future backend boundary for staff & team chat.
- * TODO(backend): staff become users with roles (real auth); chat moves to WebSockets.
+ * Plan 07 ships real chat (ChatMessage table + SSE); staff identity
+ * stays mock until a future plan. This mock is the Live Demo sandbox.
  */
 import type { ChatMessage, StaffMember, StaffShift } from "@/lib/types";
 import { CURRENT_STAFF_ID, mockChatMessages, mockShifts, mockStaff } from "@/lib/mock-data/staff";

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Megaphone, X } from "lucide-react";
 import { pulseService } from "@/lib/services/pulse-service";
+import { useLiveEvents } from "@/lib/use-live-events";
 import type { Broadcast } from "@/lib/types";
 
-const POLL_MS = 8000;
 const BROADCAST_TTL_MS = 3 * 60_000;
 
 /**
@@ -18,26 +18,32 @@ export function BroadcastBanner() {
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const [lastCallActive, setLastCallActive] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function refresh() {
-      const [broadcasts, lastCall] = await Promise.all([
-        pulseService.listBroadcasts(),
-        pulseService.getLastCallState(),
-      ]);
-      if (cancelled) return;
-      const latest = broadcasts[0] ?? null;
-      const fresh = latest !== null && Date.now() - new Date(latest.sentAt).getTime() < BROADCAST_TTL_MS;
-      setBroadcast(fresh ? latest : null);
-      setLastCallActive(lastCall.active);
-    }
-    refresh();
-    const interval = setInterval(refresh, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
+  const refresh = useCallback(async () => {
+    const [broadcasts, lastCall] = await Promise.all([
+      pulseService.listBroadcasts(),
+      pulseService.getLastCallState(),
+    ]);
+    const latest = broadcasts[0] ?? null;
+    const fresh = latest !== null && Date.now() - new Date(latest.sentAt).getTime() < BROADCAST_TTL_MS;
+    setBroadcast(fresh ? latest : null);
+    setLastCallActive(lastCall.active);
   }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  useLiveEvents({
+    scope: "staff",
+    onEvent: (e) => {
+      if (e.type === "BroadcastSent" || e.type === "LastCallStarted" || e.type === "LastCallEnded") {
+        refreshRef.current();
+      }
+    },
+    fallbackMs: 8000,
+    fallbackRefresh: () => refreshRef.current(),
+  });
 
   const showBroadcast = broadcast !== null && broadcast.id !== dismissedId;
   if (!showBroadcast && !lastCallActive) return null;

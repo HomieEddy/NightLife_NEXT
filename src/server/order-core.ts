@@ -7,6 +7,7 @@ import type { getDb } from "./db";
 import { getRawPrisma } from "./db";
 import { fromCents, toCents } from "./money";
 import { computeOrderPricing, type FeeInput, type PricingLineInput } from "./pricing";
+import { publish } from "./events";
 import type { Order, OrderStatus, ServiceFee } from "@/lib/types";
 import type { z } from "zod";
 import type { zSubmitOrder, zSendGift, zListOrders } from "./schemas/orders";
@@ -334,7 +335,13 @@ export async function submitOrder(
       return order;
     });
 
-    return { ok: true, order: toOrder(orderRow) };
+    const order = toOrder(orderRow);
+    await publish({
+      type: "OrderPlaced",
+      venueId,
+      payload: { orderId: order.id, tableId: order.tableId, sessionId: order.sessionId, code: order.code },
+    });
+    return { ok: true, order };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
@@ -396,7 +403,13 @@ export async function advanceOrder(
     data: { status: next },
     include: ORDER_INCLUDE,
   });
-  return toOrder(updated);
+  const order = toOrder(updated);
+  await publish({
+    type: "OrderStatusChanged",
+    venueId: order.venueId,
+    payload: { orderId: order.id, status: next, sessionId: order.sessionId },
+  });
+  return order;
 }
 
 // ── Cancel order ──────────────────────────────────────────────────────
@@ -417,7 +430,13 @@ export async function cancelOrder(
     data: { status: "cancelled" },
     include: ORDER_INCLUDE,
   });
-  return toOrder(updated);
+  const order = toOrder(updated);
+  await publish({
+    type: "OrderStatusChanged",
+    venueId: order.venueId,
+    payload: { orderId: order.id, status: "cancelled", sessionId: order.sessionId },
+  });
+  return order;
 }
 
 // ── Claim order (atomic compare-and-set) ──────────────────────────────
@@ -444,6 +463,11 @@ export async function claimOrder(
       return { ok: false, error: "Order already claimed or not found" };
     }
     const order = await getOrder(db, orderId);
+    await publish({
+      type: "OrderClaimed",
+      venueId,
+      payload: { orderId, staffId, staffName },
+    });
     return { ok: true, order: order! };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
@@ -464,5 +488,11 @@ export async function releaseOrder(
     data: { claimedByStaffId: null, claimedByStaffName: null },
     include: ORDER_INCLUDE,
   });
-  return toOrder(updated);
+  const order = toOrder(updated);
+  await publish({
+    type: "OrderReleased",
+    venueId: order.venueId,
+    payload: { orderId },
+  });
+  return order;
 }

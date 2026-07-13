@@ -213,6 +213,10 @@ model Venue {
   orders         Order[]
   guestSessions  GuestSession[]
   helpRequests   HelpRequest[]
+  broadcasts     Broadcast[]
+  floorState     VenueFloorState?
+  activeShow     ActiveShowLock?
+  chatMessages   ChatMessage[]
 
   @@map("venues")
 }
@@ -547,4 +551,80 @@ model HelpRequest {
   @@index([venueId, status])
   @@index([sessionId])
   @@map("help_requests")
+}
+
+// ── Realtime & floor coordination (plan 07) ─────────────────────────
+
+/// Append-only audit log — every domain event is persisted before NOTIFY.
+model DomainEvent {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  type      String
+  payload   Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId, createdAt])
+  @@map("domain_events")
+}
+
+/// Immutable — INSERT only, no UPDATE/DELETE in prod (DDD §6).
+model Broadcast {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  message   String
+  sentBy    String   @map("sent_by")
+  sentAt    DateTime @default(now()) @map("sent_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, sentAt])
+  @@map("broadcasts")
+}
+
+/// Singleton per venue — last call flag + show lock live here.
+model VenueFloorState {
+  venueId          String    @id @map("venue_id")
+  lastCallActive   Boolean   @default(false) @map("last_call_active")
+  lastCallStartedAt DateTime? @map("last_call_started_at") @db.Timestamptz
+  lastCallStartedBy String?  @map("last_call_started_by")
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@map("venue_floor_states")
+}
+
+/// Single-row venue-scoped lock for bottle-presentation walk-outs (INV-F1).
+/// `SELECT … FOR UPDATE` prevents two concurrent startShow calls.
+model ActiveShowLock {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  orderId    String   @map("order_id")
+  tableCode  String   @map("table_code")
+  zoneName   String   @map("zone_name")
+  label      String
+  staffName  String   @map("staff_name")
+  startedAt  DateTime @default(now()) @map("started_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId])
+  @@map("active_show_locks")
+}
+
+/// Append-only chat ledger — INSERT only (DDD §6).
+model ChatMessage {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  channel    String
+  authorId   String   @map("author_id")
+  authorName String   @map("author_name")
+  authorRole String   @map("author_role")
+  body       String
+  sentAt     DateTime @default(now()) @map("sent_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, channel, sentAt])
+  @@map("chat_messages")
 }

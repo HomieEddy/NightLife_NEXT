@@ -3,8 +3,7 @@
 import type { ChatMessage, StaffMember, StaffShift } from "@/lib/types";
 import { authClient } from "@/lib/auth-client";
 
-// Chat still delegates to the mock service via lazy import to avoid the
-// no-restricted-imports rule — that stays mock until plan 07.
+// Staff identity CRUD still delegates to mock until staff become real users.
 async function getMockDelegate() {
   const mod = await import("@/lib/mock-services/staff-service");
   return mod.mockStaffService;
@@ -78,8 +77,7 @@ export const liveStaffService = {
   },
 
   async listMessages(channel: ChatMessage["channel"]): Promise<ChatMessage[]> {
-    const delegate = await getMockDelegate();
-    return delegate.listMessages(channel);
+    return api<ChatMessage[]>(`/api/floor/chat?channel=${channel}`);
   },
 
   async sendMessage(input: {
@@ -87,7 +85,15 @@ export const liveStaffService = {
     body: string;
     author?: { id: string; name: string; role: StaffMember["role"] };
   }): Promise<ChatMessage> {
-    const delegate = await getMockDelegate();
-    return delegate.sendMessage(input);
+    return api<ChatMessage>("/api/floor/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        channel: input.channel,
+        body: input.body,
+        ...(input.author
+          ? { authorId: input.author.id, authorName: input.author.name, authorRole: input.author.role }
+          : {}),
+      }),
+    });
   },
 };

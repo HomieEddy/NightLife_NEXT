@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertOctagon, ArrowRight, LifeBuoy, MapPin, Moon, PartyPopper, Receipt, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { showQueueService } from "@/lib/services/show-queue-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { timeAgo } from "@/lib/format";
+import { useLiveEvents } from "@/lib/use-live-events";
 import type { ActiveShow, SoldOutEvent, StaffMember, Zone } from "@/lib/types";
 
 interface QueueCounts {
@@ -50,16 +51,22 @@ export default function StaffHomePage() {
     });
   }, []);
 
-  useEffect(() => {
-    const refresh = () => {
-      menuService.listSoldOutEvents().then(setSoldOut);
-      showQueueService.getActiveShow().then(setActiveShow);
-    };
-    refresh();
-    // TODO(backend): WebSocket push instead of polling.
-    const interval = setInterval(refresh, 8000);
-    return () => clearInterval(interval);
+  const refreshExtras = useCallback(() => {
+    menuService.listSoldOutEvents().then(setSoldOut);
+    showQueueService.getActiveShow().then(setActiveShow);
   }, []);
+
+  useEffect(() => { refreshExtras(); }, [refreshExtras]);
+
+  const refreshExtrasRef = useRef(refreshExtras);
+  refreshExtrasRef.current = refreshExtras;
+
+  useLiveEvents({
+    scope: "staff",
+    onEvent: () => refreshExtrasRef.current(),
+    fallbackMs: 8000,
+    fallbackRefresh: () => refreshExtrasRef.current(),
+  });
 
   const myZones = me
     ? zones.filter((z) => me.assignedZoneIds.includes(z.id)).map((z) => z.name)
