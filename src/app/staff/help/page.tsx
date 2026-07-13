@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Eye, GlassWater, Hand, LifeBuoy, ReceiptEuro, Shield, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { guestsService } from "@/lib/services/guests-service";
 import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useLiveEvents } from "@/lib/use-live-events";
 import type { HelpRequest, HelpRequestType } from "@/lib/types";
 
 const TYPE_META: Record<HelpRequestType, { label: string; icon: typeof Hand; urgent?: boolean }> = {
@@ -30,11 +31,17 @@ export default function StaffHelpPage() {
     setRequests(await guestsService.listHelpRequests());
   }, []);
 
-  useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 8000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useLiveEvents({
+    scope: "staff",
+    onEvent: () => refreshRef.current(),
+    fallbackMs: 8000,
+    fallbackRefresh: () => refreshRef.current(),
+  });
 
   async function setStatus(request: HelpRequest, status: "acknowledged" | "resolved") {
     setBusyId(request.id);
