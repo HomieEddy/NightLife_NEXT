@@ -210,6 +210,7 @@ model Venue {
   happyHourRules HappyHourRule[]
   stockMovements StockMovement[]
   soldOutEvents  SoldOutEvent[]
+  orders         Order[]
 
   @@map("venues")
 }
@@ -406,4 +407,84 @@ model HappyHourRule {
 
   @@index([venueId])
   @@map("happy_hour_rules")
+}
+
+// ── Orders & fees (plan 05) ─────────────────────────────────────────
+
+enum OrderStatus {
+  pending
+  accepted
+  preparing
+  ready
+  delivered
+  cancelled
+}
+
+model Order {
+  id                 String      @id @default(cuid())
+  venueId            String      @map("venue_id")
+  code               String
+  /// Nullable until plan 06 backfills guest sessions.
+  sessionId          String?     @map("session_id")
+  tableId            String      @map("table_id")
+  tableCode          String      @map("table_code")
+  zoneId             String      @map("zone_id")
+  zoneName           String      @map("zone_name")
+  guestName          String      @map("guest_name")
+  subtotalCents      Int         @map("subtotal_cents")
+  discountCents      Int         @default(0) @map("discount_cents")
+  totalFeeCents      Int         @map("total_fee_cents")
+  tipCents           Int         @map("tip_cents")
+  totalCents         Int         @map("total_cents")
+  status             OrderStatus @default(pending)
+  placedAt           DateTime    @default(now()) @map("placed_at") @db.Timestamptz
+  updatedAt          DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  claimedByStaffId   String?     @map("claimed_by_staff_id")
+  claimedByStaffName String?     @map("claimed_by_staff_name")
+  giftToTableId      String?     @map("gift_to_table_id")
+  giftToTableCode    String?     @map("gift_to_table_code")
+  giftNote           String?     @map("gift_note")
+
+  venue    Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  items    OrderItem[]
+  feeLines FeeLine[]
+
+  @@index([venueId, placedAt])
+  @@index([venueId, status])
+  @@index([sessionId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String @id @default(cuid())
+  orderId    String @map("order_id")
+  menuItemId String @map("menu_item_id")
+  name       String
+  quantity   Int
+  unitCents  Int    @map("unit_cents")
+  /// Modifier snapshot — JSONB array of { groupName, optionName, deltaCents }.
+  modifiers  Json   @default("[]")
+  note       String?
+  packageId  String? @map("package_id")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+/// Snapshot of each fee applied at order time — immune to later fee edits.
+model FeeLine {
+  id         String @id @default(cuid())
+  orderId    String @map("order_id")
+  feeId      String @map("fee_id")
+  feeName    String @map("fee_name")
+  feeType    String @map("fee_type")
+  feeValue   Int    @map("fee_value")
+  amountCents Int   @map("amount_cents")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("fee_lines")
 }
