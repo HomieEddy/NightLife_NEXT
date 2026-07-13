@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCheck, Inbox, PartyPopper, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import { ordersService, nextStatus } from "@/lib/services/orders-service";
 import { showQueueService, orderNeedsShow } from "@/lib/services/show-queue-service";
 import { staffService } from "@/lib/services/staff-service";
 import { cn } from "@/lib/utils";
+import { useLiveEvents } from "@/lib/use-live-events";
 import type { ActiveShow, Order, OrderStatus, StaffMember } from "@/lib/types";
 
 const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
@@ -52,12 +53,17 @@ function StaffOrdersContent() {
     setActiveShow(show);
   }, []);
 
-  useEffect(() => {
-    refresh();
-    // TODO(backend): WebSocket push instead of polling.
-    const interval = setInterval(refresh, 8000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useLiveEvents({
+    scope: "staff",
+    onEvent: () => refreshRef.current(),
+    fallbackMs: 8000,
+    fallbackRefresh: () => refreshRef.current(),
+  });
 
   async function advance(order: Order) {
     setBusyId(order.id);
