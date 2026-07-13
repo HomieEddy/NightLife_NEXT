@@ -76,6 +76,12 @@ export const liveVenueService = {
     return res.json();
   },
 
+  async regenerateToken(tableId: string): Promise<void> {
+    await api<{ tokenVersion: number }>(`/api/tables/${encodeURIComponent(tableId)}/regenerate-token`, {
+      method: "POST",
+    });
+  },
+
   async setTableStatus(tableId: string, status: VenueTable["status"]): Promise<VenueTable | null> {
     const { setTableStatusAction } = await import("@/server/actions/table-actions");
     const result = await setTableStatusAction(tableId, status);

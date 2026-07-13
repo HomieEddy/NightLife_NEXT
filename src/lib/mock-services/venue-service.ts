@@ -140,6 +140,12 @@ export const mockVenueService = {
     return clone({ table, zone, venue });
   },
 
+  async regenerateToken(tableId: string): Promise<void> {
+    await delay(300);
+    // In demo mode QR slugs are plain strings, not signed tokens — this is a no-op
+    // that exercises the UI flow. Live mode bumps tokenVersion on the DB row.
+  },
+
   async setTableStatus(tableId: string, status: VenueTable["status"]): Promise<VenueTable | null> {
     await delay(300);
     const table = tables.find((t) => t.id === tableId);
