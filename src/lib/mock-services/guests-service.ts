@@ -70,6 +70,7 @@ export const mockGuestsService = {
   },
 
   async createHelpRequest(input: {
+    sessionId: string;
     tableCode: string;
     zoneName: string;
     guestName: string;

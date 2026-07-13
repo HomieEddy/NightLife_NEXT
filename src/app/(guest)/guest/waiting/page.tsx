@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Hourglass, Loader2, PartyPopper, QrCode, Sparkles } from "lucide-react";
@@ -9,12 +9,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { EmptyState } from "@/components/shared/empty-state";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
+import { isDemoMode } from "@/lib/app-mode";
 import { guestsService } from "@/lib/services/guests-service";
 
 export default function WaitingPage() {
   const router = useRouter();
   const { table, guestName, sessionId, approved, approve } = useGuest();
   const [approving, setApproving] = useState(false);
+
+  const pollApproval = useCallback(async () => {
+    if (!sessionId || approved) return;
+    const session = await guestsService.getSession(sessionId);
+    if (session?.status === "approved") approve();
+    if (session?.status === "denied") router.replace("/g/demo-table");
+  }, [sessionId, approved, approve, router]);
+
+  useEffect(() => {
+    if (isDemoMode()) return;
+    pollApproval();
+    const interval = setInterval(pollApproval, 4000);
+    return () => clearInterval(interval);
+  }, [pollApproval]);
 
   if (!table || !sessionId) {
     return (
@@ -85,18 +100,20 @@ export default function WaitingPage() {
             <Loader2 className="size-4 animate-spin" /> Waiting for approval…
           </div>
 
-          <div className="relative mt-4 w-full max-w-xs space-y-2 rounded-xl border border-dashed bg-background/60 p-4 backdrop-blur animate-fade-up">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Prototype control
-            </p>
-            <Button className="w-full" onClick={simulateApproval} disabled={approving}>
-              <PartyPopper className="size-4" />
-              {approving ? "Approving…" : "Simulate host approval"}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              In the real product a host taps &quot;approve&quot; on the staff panel.
-            </p>
-          </div>
+          {isDemoMode() && (
+            <div className="relative mt-4 w-full max-w-xs space-y-2 rounded-xl border border-dashed bg-background/60 p-4 backdrop-blur animate-fade-up">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Prototype control
+              </p>
+              <Button className="w-full" onClick={simulateApproval} disabled={approving}>
+                <PartyPopper className="size-4" />
+                {approving ? "Approving…" : "Simulate host approval"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                In the real product a host taps &quot;approve&quot; on the staff panel.
+              </p>
+            </div>
+          )}
         </>
       )}
     </div>

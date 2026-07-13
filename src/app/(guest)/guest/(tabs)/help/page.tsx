@@ -25,7 +25,7 @@ const HELP_OPTIONS: {
 ];
 
 export default function GuestHelpPage() {
-  const { table, guestName } = useGuest();
+  const { table, guestName, sessionId } = useGuest();
   const [sending, setSending] = useState<HelpRequestType | null>(null);
 
   async function requestHelp(type: HelpRequestType, label: string) {
@@ -35,6 +35,7 @@ export default function GuestHelpPage() {
     }
     setSending(type);
     await guestsService.createHelpRequest({
+      sessionId: sessionId ?? "",
       tableCode: table.tableCode,
       zoneName: table.zoneName,
       guestName: guestName || "Guest",

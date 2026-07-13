@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
-import { Copy, Download, ExternalLink, Printer, QrCode } from "lucide-react";
+import { Copy, Download, ExternalLink, Printer, QrCode, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -68,6 +69,11 @@ export default function ManagerQrPage() {
     toast.success(`QR for ${table.code} downloaded`);
   }
 
+  async function regenerateToken(table: VenueTable) {
+    await venueService.regenerateToken(table.id);
+    toast.success(`QR for ${table.code} regenerated — reprint the code to activate.`);
+  }
+
   const zoneName = (id: string) => zones.find((z) => z.id === id)?.name ?? "";
   const visible = useMemo(
     () => (tables ?? []).filter((t) => zoneFilter === "all" || t.zoneId === zoneFilter),
@@ -107,7 +113,6 @@ export default function ManagerQrPage() {
           }
         />
 
-        {/* TODO(backend): QR slugs become signed, revocable tokens; add "regenerate" action. */}
         {tables === null || !origin ? (
           <ListSkeleton rows={6} rowHeight="h-24" />
         ) : (
@@ -138,6 +143,18 @@ export default function ManagerQrPage() {
                     <Button size="sm" variant="outline" onClick={() => downloadPng(table)}>
                       <Download className="size-3.5" /> PNG
                     </Button>
+                    <ConfirmDialog
+                      trigger={
+                        <Button size="sm" variant="outline">
+                          <RefreshCw className="size-3.5" /> Regen
+                        </Button>
+                      }
+                      title={`Regenerate QR for ${table.code}?`}
+                      description="The current printed QR code will stop working. You'll need to reprint it."
+                      confirmLabel="Regenerate"
+                      destructive
+                      onConfirm={() => regenerateToken(table)}
+                    />
                     <Button size="sm" variant="ghost" asChild>
                       <Link href={`/g/${table.qrSlug}`}>
                         <QrCode className="size-3.5" /> Open

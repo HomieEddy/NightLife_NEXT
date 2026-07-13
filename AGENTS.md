@@ -413,6 +413,11 @@ makes it obsolete.
   resets on reload; that's the permanent sandbox behavior (AD-14), not a bug.
   Local live testing needs Postgres reachable at `DATABASE_URL` (see
   `docker-compose.yml`) and `npm run db:seed` at least once.
-- Guest flow entry: `/g/demo-table` → join → "Simulate host approval"
-  (prototype control on the waiting page) → menu. The manager area gates on
-  first run: clear `localStorage["nlx-manager-onboarded"]` to see onboarding.
+- Guest flow entry: **demo mode** — `/g/demo-table` → join → "Simulate host
+  approval" (prototype control, demo-only) → menu. **Live mode** — QR URL is
+  `/g/<tableId>.<sig>` (signed token); guest joins via API, sets httpOnly
+  cookie, polls for real host approval on the staff panel. Simulate buttons
+  are gated behind `isDemoMode()` and never render in the live build.
+  `QR_TOKEN_SECRET` env var is required in live mode (distinct from
+  `AUTH_SECRET`). The manager area gates on first run: clear
+  `localStorage["nlx-manager-onboarded"]` to see onboarding.
