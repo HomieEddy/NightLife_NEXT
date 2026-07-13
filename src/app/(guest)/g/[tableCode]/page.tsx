@@ -113,7 +113,7 @@ export default function QrEntryPage({
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(360px 240px at 50% 0%, oklch(0.62 0.24 300 / 18%), transparent)",
+            "radial-gradient(360px 240px at 50% 0%, oklch(0.72 0.18 55 / 18%), transparent)",
         }}
       />
       <div className="relative flex justify-center pt-6 animate-pop-in">

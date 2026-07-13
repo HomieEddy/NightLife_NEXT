@@ -45,13 +45,16 @@ export function ClubLights({
     renderer.setSize(el.clientWidth, el.clientHeight);
     el.appendChild(renderer.domElement);
 
-    // Brand palette: violet, fuchsia, cyan, amber (matches zone colors).
+    // Ember palette: warm amber/orange dominant, with sparse cool
+    // "club laser" accents (violet, cyan) for depth against the warm ground.
     const palette = [
-      new THREE.Color("#a855f7"),
-      new THREE.Color("#a855f7"),
-      new THREE.Color("#d946ef"),
-      new THREE.Color("#22d3ee"),
       new THREE.Color("#f59e0b"),
+      new THREE.Color("#fb923c"),
+      new THREE.Color("#f97316"),
+      new THREE.Color("#fbbf24"),
+      new THREE.Color("#fb923c"),
+      new THREE.Color("#a855f7"),
+      new THREE.Color("#22d3ee"),
     ];
 
     const count = density;
