@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useGuest } from "@/context/guest-context";
+import { isDemoMode } from "@/lib/app-mode";
 import { analyticsService } from "@/lib/services/analytics-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { ordersService, ORDER_FLOW } from "@/lib/services/orders-service";
@@ -170,7 +171,7 @@ export default function GuestOrdersPage() {
     <div className="space-y-4 p-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Your orders</h1>
-        {hasActive && (
+        {isDemoMode() && hasActive && (
           <Button size="sm" variant="outline" onClick={simulateProgress} disabled={advancing}>
             <FastForward className="size-3.5" />
             Simulate progress
@@ -271,14 +272,16 @@ export default function GuestOrdersPage() {
                 appears here.
               </p>
             </div>
-            <div className="space-y-2 rounded-xl border border-dashed p-3">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Prototype control
-              </p>
-              <Button variant="outline" className="w-full" onClick={simulateClosureApproval}>
-                <PartyPopper className="size-4" /> Simulate host approval
-              </Button>
-            </div>
+            {isDemoMode() && (
+              <div className="space-y-2 rounded-xl border border-dashed p-3">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Prototype control
+                </p>
+                <Button variant="outline" className="w-full" onClick={simulateClosureApproval}>
+                  <PartyPopper className="size-4" /> Simulate host approval
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
