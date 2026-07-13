@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Hourglass, Loader2, PartyPopper, QrCode, Sparkles } from "lucide-react";
@@ -11,6 +11,7 @@ import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
 import { isDemoMode } from "@/lib/app-mode";
 import { guestsService } from "@/lib/services/guests-service";
+import { useLiveEvents } from "@/lib/use-live-events";
 
 export default function WaitingPage() {
   const router = useRouter();
@@ -24,12 +25,25 @@ export default function WaitingPage() {
     if (session?.status === "denied") router.replace("/g/demo-table");
   }, [sessionId, approved, approve, router]);
 
+  const pollRef = useRef(pollApproval);
+  pollRef.current = pollApproval;
+
   useEffect(() => {
     if (isDemoMode()) return;
     pollApproval();
-    const interval = setInterval(pollApproval, 4000);
-    return () => clearInterval(interval);
   }, [pollApproval]);
+
+  useLiveEvents({
+    scope: "guest",
+    sessionId: sessionId ?? undefined,
+    onEvent: (e) => {
+      if (e.type === "SessionApproved" || e.type === "SessionDenied") {
+        pollRef.current();
+      }
+    },
+    fallbackMs: 4000,
+    fallbackRefresh: () => { if (!isDemoMode()) pollRef.current(); },
+  });
 
   if (!table || !sessionId) {
     return (

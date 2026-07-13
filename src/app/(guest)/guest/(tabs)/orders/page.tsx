@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -20,6 +20,7 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useGuest } from "@/context/guest-context";
 import { isDemoMode } from "@/lib/app-mode";
+import { useLiveEvents } from "@/lib/use-live-events";
 import { analyticsService } from "@/lib/services/analytics-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { ordersService, ORDER_FLOW } from "@/lib/services/orders-service";
@@ -109,20 +110,24 @@ export default function GuestOrdersPage() {
     const result = await ordersService.listGuestOrders(guestName);
     setOrders(result);
     // While waiting for the host to close the tab, watch the session status.
-    // TODO(backend): WebSocket push replaces this poll.
     if (closureStatus === "requested" && sessionId) {
       const session = await guestsService.getSession(sessionId);
       if (session?.status === "closed") setClosureStatus("closed");
     }
   }, [guestName, closureStatus, sessionId, setClosureStatus]);
 
-  // Poll to simulate live updates.
-  // TODO(backend): replace polling with a WebSocket order-status subscription.
-  useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 5000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useLiveEvents({
+    scope: "guest",
+    sessionId: sessionId ?? undefined,
+    onEvent: () => refreshRef.current(),
+    fallbackMs: 5000,
+    fallbackRefresh: () => refreshRef.current(),
+  });
 
   useEffect(() => {
     if (closureStatus === "closed") router.push("/guest/receipt");
