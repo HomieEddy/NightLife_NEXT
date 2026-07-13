@@ -3,7 +3,8 @@
  * (sparkler parades, LED signs). Simpler than a real queue: only one show can
  * be "in progress" at a time, so a second runner sees the floor is busy and
  * waits instead of colliding with the first walk-out.
- * TODO(backend): becomes a venue-scoped row with a DB lock or Redis mutex.
+ * Plan 07 ships ActiveShowLock with SELECT … FOR UPDATE; this mock
+ * stays for the permanent Live Demo sandbox.
  */
 import type { ActiveShow, Order } from "@/lib/types";
 import { delay } from "./delay";
