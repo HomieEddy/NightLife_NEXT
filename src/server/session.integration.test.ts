@@ -20,7 +20,6 @@ import { createCategory, createItem } from "./menu-core";
 import { expectTenantIsolation } from "./test-helpers";
 import { toCents } from "./money";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string, opts: { autoApprove?: boolean } = {}) {
   const org = await rawClient.organization.create({ data: { id: `org-${slug}`, name, slug } });
   await rawClient.venue.create({
