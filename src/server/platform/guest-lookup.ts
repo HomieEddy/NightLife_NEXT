@@ -2,7 +2,8 @@
  * Guest QR landing is unauthenticated and doesn't know the venue ahead of
  * time — the qrSlug itself is the only lookup key, so this is one of the
  * few legitimately cross-tenant reads (AD-14's platform exception).
- * TODO(backend): validate a signed QR token (plan 06) instead of a bare slug.
+ * In live mode, QR URLs carry a signed token (plan 06) verified by the
+ * join route; this lookup still handles the slug → table resolution.
  */
 import { getPlatformDb } from "@/server/db";
 import type { Venue, VenueTable, Zone } from "@/lib/types";
