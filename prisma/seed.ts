@@ -5,6 +5,14 @@ import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { mockVenue, mockZones, mockTables } from "../src/lib/mock-data/venue";
 import { mockShifts } from "../src/lib/mock-data/staff";
+import {
+  mockCategories,
+  mockMenuItems,
+  mockPackages,
+  mockStockMovements,
+  mockHappyHourRules,
+} from "../src/lib/mock-data/menu";
+import { toCents } from "../src/server/money";
 import { getDb, getRawPrisma } from "../src/server/db";
 import { ensureMapPositions } from "../src/server/venue-core";
 
@@ -209,6 +217,106 @@ async function main() {
     });
   }
   console.log(`${mockShifts.length} shifts seeded`);
+
+  // ── Menu categories ──────────────────────────────────────────────────
+  for (const cat of mockCategories) {
+    await prisma.menuCategory.upsert({
+      where: { id: cat.id },
+      update: {},
+      create: {
+        id: cat.id,
+        venueId: org.id,
+        name: cat.name,
+        description: cat.description,
+        sortOrder: cat.sortOrder,
+        isActive: cat.isActive,
+      },
+    });
+  }
+  console.log(`${mockCategories.length} menu categories seeded`);
+
+  // ── Menu items ──────────────────────────────────────────────────────
+  for (const item of mockMenuItems) {
+    await prisma.menuItem.upsert({
+      where: { id: item.id },
+      update: {},
+      create: {
+        id: item.id,
+        venueId: org.id,
+        categoryId: item.categoryId,
+        name: item.name,
+        description: item.description,
+        priceCents: toCents(item.price),
+        icon: item.icon,
+        tags: item.tags,
+        isAvailable: item.isAvailable,
+        inventory: item.inventory,
+        modifierGroups: item.modifierGroups as unknown as Prisma.InputJsonValue,
+      },
+    });
+  }
+  console.log(`${mockMenuItems.length} menu items seeded`);
+
+  // ── Stock movements (initial seed) ──────────────────────────────────
+  for (const mv of mockStockMovements) {
+    await prisma.stockMovement.upsert({
+      where: { id: mv.id },
+      update: {},
+      create: {
+        id: mv.id,
+        venueId: org.id,
+        menuItemId: mv.menuItemId,
+        itemName: mv.itemName,
+        type: mv.type,
+        delta: mv.delta,
+        note: mv.note,
+      },
+    });
+  }
+  console.log(`${mockStockMovements.length} stock movements seeded`);
+
+  // ── Packages ────────────────────────────────────────────────────────
+  for (const pkg of mockPackages) {
+    await prisma.bottlePackage.upsert({
+      where: { id: pkg.id },
+      update: {},
+      create: {
+        id: pkg.id,
+        venueId: org.id,
+        name: pkg.name,
+        description: pkg.description,
+        priceCents: toCents(pkg.price),
+        isActive: pkg.isActive,
+        components: {
+          create: pkg.components.map((c) => ({
+            itemId: c.menuItemId,
+            quantity: c.quantity,
+          })),
+        },
+      },
+    });
+  }
+  console.log(`${mockPackages.length} packages seeded`);
+
+  // ── Happy hour rules ────────────────────────────────────────────────
+  for (const rule of mockHappyHourRules) {
+    await prisma.happyHourRule.upsert({
+      where: { id: rule.id },
+      update: {},
+      create: {
+        id: rule.id,
+        venueId: org.id,
+        name: rule.name,
+        daysOfWeek: rule.daysOfWeek,
+        startTime: rule.startTime,
+        endTime: rule.endTime,
+        discountPct: rule.discountPct,
+        appliesToCategoryIds: rule.appliesToCategoryIds,
+        isActive: rule.isActive,
+      },
+    });
+  }
+  console.log(`${mockHappyHourRules.length} happy hour rules seeded`);
 
   console.log(`\nDemo password for all users: ${DEMO_PASSWORD}`);
 

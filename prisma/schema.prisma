@@ -200,10 +200,16 @@ model Venue {
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  organization Organization @relation(fields: [id], references: [id], onDelete: Cascade)
-  zones        Zone[]
-  tables       VenueTable[]
-  shifts       StaffShift[]
+  organization   Organization    @relation(fields: [id], references: [id], onDelete: Cascade)
+  zones          Zone[]
+  tables         VenueTable[]
+  shifts         StaffShift[]
+  menuCategories MenuCategory[]
+  menuItems      MenuItem[]
+  packages       BottlePackage[]
+  happyHourRules HappyHourRule[]
+  stockMovements StockMovement[]
+  soldOutEvents  SoldOutEvent[]
 
   @@map("venues")
 }
@@ -273,4 +279,131 @@ model StaffShift {
 
   @@index([venueId])
   @@map("staff_shifts")
+}
+
+// ── Menu, inventory & packages (plan 04) ──────────────────────────────
+
+model MenuCategory {
+  id          String   @id @default(cuid())
+  venueId     String   @map("venue_id")
+  name        String
+  description String   @default("")
+  sortOrder   Int      @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  items MenuItem[]
+
+  @@index([venueId])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id             String   @id @default(cuid())
+  venueId        String   @map("venue_id")
+  categoryId     String   @map("category_id")
+  name           String
+  description    String   @default("")
+  priceCents     Int      @map("price_cents")
+  icon           String   @default("champagne")
+  tags           String[] @default([])
+  isAvailable    Boolean  @default(true) @map("is_available")
+  /// Cached running balance — always updated inside the same transaction as a StockMovement row.
+  inventory      Int      @default(0)
+  modifierGroups Json     @default("[]") @map("modifier_groups")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue      Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  category   MenuCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  movements  StockMovement[]
+  components PackageComponent[]
+
+  @@index([venueId])
+  @@index([categoryId])
+  @@map("menu_items")
+}
+
+/// Append-only ledger — no UPDATE/DELETE in prod (DDD §6).
+model StockMovement {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  menuItemId String   @map("menu_item_id")
+  itemName   String   @map("item_name")
+  type       String
+  delta      Int
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  venue    Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
+  @@index([menuItemId])
+  @@map("stock_movements")
+}
+
+/// Logged the moment an item sells out or gets manually 86'd.
+model SoldOutEvent {
+  id       String   @id @default(cuid())
+  venueId  String   @map("venue_id")
+  itemId   String   @map("item_id")
+  itemName String   @map("item_name")
+  at       DateTime @default(now()) @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
+  @@map("sold_out_events")
+}
+
+model BottlePackage {
+  id          String   @id @default(cuid())
+  venueId     String   @map("venue_id")
+  name        String
+  description String   @default("")
+  priceCents  Int      @map("price_cents")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue      Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  components PackageComponent[]
+
+  @@index([venueId])
+  @@map("bottle_packages")
+}
+
+model PackageComponent {
+  id        String @id @default(cuid())
+  packageId String @map("package_id")
+  itemId    String @map("item_id")
+  quantity  Int
+
+  package  BottlePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  menuItem MenuItem      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([packageId, itemId])
+  @@map("package_components")
+}
+
+model HappyHourRule {
+  id                   String   @id @default(cuid())
+  venueId              String   @map("venue_id")
+  name                 String
+  daysOfWeek           Int[]    @map("days_of_week")
+  startTime            String   @map("start_time")
+  endTime              String   @map("end_time")
+  discountPct          Int      @map("discount_pct")
+  appliesToCategoryIds String[] @map("applies_to_category_ids")
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
+  @@map("happy_hour_rules")
 }

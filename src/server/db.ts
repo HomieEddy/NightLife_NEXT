@@ -39,6 +39,8 @@ export function getDb(session: SessionContext) {
           // Venue's own id IS the venueId (1:1 with Organization) — handlers
           // filter by id: session.venueId directly instead of a venueId column.
           "Venue",
+          // Join table — scoped via its parent's venueId FK, not its own.
+          "PackageComponent",
         ];
         if (platformModels.includes(model)) return query(args);
 
