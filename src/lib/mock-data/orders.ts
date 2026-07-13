@@ -181,8 +181,8 @@ export const mockGuestSessions: GuestSession[] = [
 ];
 
 export const mockHelpRequests: HelpRequest[] = [
-  { id: "hr-1", tableCode: "VIP-02", zoneName: "VIP Mezzanine", guestName: "Chloé", type: "refill-ice", status: "open", createdAt: minsAgo(4) },
-  { id: "hr-2", tableCode: "MF-05", zoneName: "Main Floor", guestName: "Hugo", type: "call-waiter", status: "open", createdAt: minsAgo(7) },
-  { id: "hr-3", tableCode: "TER-01", zoneName: "Terrace", guestName: "Léa", type: "clean-table", status: "acknowledged", createdAt: minsAgo(15) },
-  { id: "hr-4", tableCode: "BAR-01", zoneName: "Back Bar", guestName: "Inès", type: "bill", status: "resolved", createdAt: minsAgo(25) },
+  { id: "hr-1", sessionId: "gs-3", tableCode: "VIP-02", zoneName: "VIP Mezzanine", guestName: "Chloé", type: "refill-ice", status: "open", createdAt: minsAgo(4) },
+  { id: "hr-2", sessionId: "gs-4", tableCode: "MF-05", zoneName: "Main Floor", guestName: "Hugo", type: "call-waiter", status: "open", createdAt: minsAgo(7) },
+  { id: "hr-3", sessionId: "gs-5", tableCode: "TER-01", zoneName: "Terrace", guestName: "Léa", type: "clean-table", status: "acknowledged", createdAt: minsAgo(15) },
+  { id: "hr-4", sessionId: "gs-5", tableCode: "BAR-01", zoneName: "Back Bar", guestName: "Inès", type: "bill", status: "resolved", createdAt: minsAgo(25) },
 ];

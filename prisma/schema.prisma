@@ -211,6 +211,8 @@ model Venue {
   stockMovements StockMovement[]
   soldOutEvents  SoldOutEvent[]
   orders         Order[]
+  guestSessions  GuestSession[]
+  helpRequests   HelpRequest[]
 
   @@map("venues")
 }
@@ -445,7 +447,8 @@ model Order {
   giftToTableCode    String?     @map("gift_to_table_code")
   giftNote           String?     @map("gift_note")
 
-  venue    Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue    Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  session  GuestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   items    OrderItem[]
   feeLines FeeLine[]
 
@@ -487,4 +490,61 @@ model FeeLine {
 
   @@index([orderId])
   @@map("fee_lines")
+}
+
+// ── Guest sessions & help requests (plan 06) ────────────────────────
+
+enum GuestSessionStatus {
+  pending
+  approved
+  denied
+  closure_requested @map("closure-requested")
+  closed
+}
+
+model GuestSession {
+  id          String             @id @default(cuid())
+  venueId     String             @map("venue_id")
+  tableId     String             @map("table_id")
+  tableCode   String             @map("table_code")
+  zoneName    String             @map("zone_name")
+  displayName String             @map("display_name")
+  partySize   Int                @map("party_size")
+  status      GuestSessionStatus @default(pending)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue        Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  orders       Order[]
+  helpRequests HelpRequest[]
+
+  @@index([venueId, status])
+  @@index([tableId])
+  @@map("guest_sessions")
+}
+
+enum HelpRequestStatus {
+  open
+  acknowledged
+  resolved
+}
+
+model HelpRequest {
+  id        String            @id @default(cuid())
+  venueId   String            @map("venue_id")
+  sessionId String            @map("session_id")
+  tableCode String            @map("table_code")
+  zoneName  String            @map("zone_name")
+  guestName String            @map("guest_name")
+  type      String
+  status    HelpRequestStatus @default(open)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue   Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  session GuestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, status])
+  @@index([sessionId])
+  @@map("help_requests")
 }

@@ -290,6 +290,7 @@ export type HelpRequestStatus = "open" | "acknowledged" | "resolved";
 
 export interface HelpRequest {
   id: string;
+  sessionId: string;
   tableCode: string;
   zoneName: string;
   guestName: string;
