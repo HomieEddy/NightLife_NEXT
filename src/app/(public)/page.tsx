@@ -62,7 +62,7 @@ export default function LandingPage() {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(700px 380px at 30% 15%, oklch(0.62 0.24 300 / 20%), transparent), radial-gradient(500px 320px at 85% 70%, oklch(0.7 0.2 340 / 12%), transparent), radial-gradient(ellipse at bottom, var(--background) 20%, transparent 60%)",
+              "radial-gradient(700px 380px at 30% 15%, oklch(0.72 0.18 55 / 22%), transparent), radial-gradient(520px 340px at 85% 70%, oklch(0.6 0.21 30 / 13%), transparent), radial-gradient(ellipse at bottom, var(--background) 20%, transparent 60%)",
           }}
         />
 
