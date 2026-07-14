@@ -1,12 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Sparkles } from "lucide-react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BottleIcon } from "@/components/shared/bottle-icon";
-import { useGuest } from "@/context/guest-context";
+import { ItemDetailModal } from "@/components/guest/item-detail-modal";
 import { formatMoney } from "@/lib/format";
 import type { PackageQuote } from "@/lib/services/menu-service";
 import type { BottlePackage, MenuItem } from "@/lib/types";
@@ -18,35 +18,19 @@ export type PackageWithQuote = BottlePackage & { quote: PackageQuote };
  * "Includes" modifiers carry the contents so staff see exactly what to pour.
  */
 export function PackageCard({ pkg }: { pkg: PackageWithQuote }) {
-  const { addToCart } = useGuest();
+  const [open, setOpen] = useState(false);
   const soldOut = pkg.quote.maxQuantity === 0;
-
-  function handleAdd() {
-    // Synthetic MenuItem so packages flow through the existing cart/order pipeline.
-    // TODO(backend): orders get a proper package_id line type instead.
-    const syntheticItem: MenuItem = {
-      id: pkg.id,
-      categoryId: "packages",
-      name: pkg.name,
-      description: pkg.description,
-      price: pkg.price,
-      icon: "package",
-      tags: [],
-      isAvailable: true,
-      inventory: pkg.quote.maxQuantity,
-      modifierGroups: [],
-    };
-    addToCart(
-      syntheticItem,
-      1,
-      pkg.quote.lines.map((line) => ({
-        groupName: "Includes",
-        optionName: `${line.quantity}× ${line.name}`,
-        priceDelta: 0,
-      })),
-    );
-    toast.success(`${pkg.name} added to cart`);
-  }
+  const syntheticItem: MenuItem = {
+    id: pkg.id,
+    categoryId: "packages",
+    name: pkg.name,
+    description: pkg.description,
+    price: pkg.price,
+    icon: "package",
+    tags: [],
+    isAvailable: true,
+    inventory: pkg.quote.maxQuantity,
+  };
 
   return (
     <Card className={`border-primary/40 py-4 ${soldOut ? "opacity-50" : ""}`}>
@@ -89,11 +73,16 @@ export function PackageCard({ pkg }: { pkg: PackageWithQuote }) {
               </p>
             )}
           </div>
-          <Button onClick={handleAdd} disabled={soldOut} className="h-11">
+          <Button onClick={() => setOpen(true)} disabled={soldOut} className="h-11">
             Add to cart
           </Button>
         </div>
       </CardContent>
+      <ItemDetailModal
+        item={open ? syntheticItem : null}
+        modifierGroups={pkg.modifierGroups}
+        onClose={() => setOpen(false)}
+      />
     </Card>
   );
 }

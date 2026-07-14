@@ -16,49 +16,67 @@ import { BottleIcon } from "@/components/shared/bottle-icon";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useGuest } from "@/context/guest-context";
-import type { MenuItem, OrderItemModifier } from "@/lib/types";
+import { orderLineSubtotal } from "@/lib/order-line";
+import type { MenuItem, ModifierGroup, OrderItemModifier } from "@/lib/types";
 
 export function ItemDetailModal({
   item,
+  modifierGroups,
   onClose,
 }: {
   item: MenuItem | null;
+  modifierGroups: ModifierGroup[];
   onClose: () => void;
 }) {
   const { addToCart } = useGuest();
   const [quantity, setQuantity] = useState(1);
-  const [selected, setSelected] = useState<Record<string, string[]>>({});
+  const [selected, setSelected] = useState<Record<string, Record<string, number>>>({});
   const [note, setNote] = useState("");
 
   // Reset per item via key on DialogContent below.
   const modifiers: OrderItemModifier[] = useMemo(() => {
     if (!item) return [];
-    return item.modifierGroups.flatMap((group) =>
-      (selected[group.id] ?? []).map((optionId) => {
-        const option = group.options.find((o) => o.id === optionId)!;
-        return { groupName: group.name, optionName: option.name, priceDelta: option.priceDelta };
+    return modifierGroups.flatMap((group) =>
+      Object.entries(selected[group.id] ?? {}).map(([optionId, quantity]) => {
+        const option = group.options.find((entry) => entry.id === optionId)!;
+        return {
+          groupId: group.id,
+          optionId,
+          kind: group.kind,
+          groupName: group.name,
+          optionName: option.name,
+          priceDelta: option.priceDelta,
+          quantity,
+        };
       }),
     );
-  }, [item, selected]);
+  }, [item, modifierGroups, selected]);
 
-  const unitTotal = item
-    ? item.price + modifiers.reduce((s, m) => s + m.priceDelta, 0)
-    : 0;
+  const lineTotal = item ? orderLineSubtotal(item.price, quantity, modifiers) : 0;
 
   const missingRequired = item
-    ? item.modifierGroups.some((g) => g.required && !(selected[g.id]?.length))
+    ? modifierGroups.some((group) => group.required && !Object.keys(selected[group.id] ?? {}).length)
     : false;
 
-  function toggleOption(groupId: string, optionId: string, maxSelections: number) {
+  function toggleOption(group: ModifierGroup, optionId: string) {
     setSelected((prev) => {
-      const current = prev[groupId] ?? [];
-      if (current.includes(optionId)) {
-        return { ...prev, [groupId]: current.filter((id) => id !== optionId) };
+      const current = prev[group.id] ?? {};
+      if (current[optionId]) {
+        const remaining = { ...current };
+        delete remaining[optionId];
+        return { ...prev, [group.id]: remaining };
       }
-      if (maxSelections === 1) return { ...prev, [groupId]: [optionId] };
-      if (current.length >= maxSelections) return prev;
-      return { ...prev, [groupId]: [...current, optionId] };
+      if (group.maxSelections === 1) return { ...prev, [group.id]: { [optionId]: 1 } };
+      if (Object.keys(current).length >= group.maxSelections) return prev;
+      return { ...prev, [group.id]: { ...current, [optionId]: 1 } };
     });
+  }
+
+  function changeOptionQuantity(groupId: string, optionId: string, next: number) {
+    setSelected((prev) => ({
+      ...prev,
+      [groupId]: { ...prev[groupId], [optionId]: next },
+    }));
   }
 
   function handleAdd() {
@@ -87,7 +105,7 @@ export function ItemDetailModal({
               <p className="text-lg font-semibold text-primary">{formatMoney(item.price)}</p>
             </DialogHeader>
 
-            {item.modifierGroups.map((group) => (
+            {modifierGroups.filter((group) => group.isActive).map((group) => (
               <div key={group.id} className="space-y-2">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{group.name}</p>
@@ -97,13 +115,12 @@ export function ItemDetailModal({
                   </p>
                 </div>
                 <div className="space-y-1.5">
-                  {group.options.map((option) => {
-                    const active = (selected[group.id] ?? []).includes(option.id);
+                  {group.options.filter((option) => option.isActive).map((option) => {
+                    const selectedQuantity = selected[group.id]?.[option.id] ?? 0;
+                    const active = selectedQuantity > 0;
                     return (
-                      <button
+                      <div
                         key={option.id}
-                        type="button"
-                        onClick={() => toggleOption(group.id, option.id, group.maxSelections)}
                         className={cn(
                           "flex w-full items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors",
                           active
@@ -111,11 +128,40 @@ export function ItemDetailModal({
                             : "hover:bg-accent/50",
                         )}
                       >
-                        <span>{option.name}</span>
-                        <span className="tabular-nums text-muted-foreground">
-                          {option.priceDelta > 0 ? `+${formatMoney(option.priceDelta)}` : "Free"}
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleOption(group, option.id)}
+                          className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                        >
+                          <span>{option.name}</span>
+                          <span className="tabular-nums text-muted-foreground">
+                            {option.priceDelta > 0 ? `+${formatMoney(option.priceDelta)}` : "Free"}
+                          </span>
+                        </button>
+                        {active && group.kind === "washer" && option.maxQuantity > 1 && (
+                          <div className="ml-3 flex items-center gap-1 border-l pl-3">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7"
+                              onClick={() => changeOptionQuantity(group.id, option.id, Math.max(1, selectedQuantity - 1))}
+                              aria-label={`Decrease ${option.name}`}
+                            >
+                              <Minus className="size-3.5" />
+                            </Button>
+                            <span className="w-5 text-center tabular-nums">{selectedQuantity}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-7"
+                              onClick={() => changeOptionQuantity(group.id, option.id, Math.min(option.maxQuantity, selectedQuantity + 1))}
+                              aria-label={`Increase ${option.name}`}
+                            >
+                              <Plus className="size-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -160,7 +206,7 @@ export function ItemDetailModal({
                 disabled={missingRequired}
               >
                 <ShoppingBag className="size-4" />
-                Add · {formatMoney(unitTotal * quantity)}
+                Add · {formatMoney(lineTotal)}
               </Button>
             </div>
             {missingRequired && (

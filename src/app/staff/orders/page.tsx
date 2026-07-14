@@ -67,47 +67,84 @@ function StaffOrdersContent() {
 
   async function advance(order: Order) {
     setBusyId(order.id);
-    const updated = await ordersService.advanceOrder(order.id);
-    if (updated) toast.success(`${order.code} → ${updated.status}`);
-    await refresh();
-    setBusyId(null);
+    try {
+      const updated = await ordersService.advanceOrder(order.id);
+      if (updated) toast.success(`${order.code} → ${updated.status}`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not update ${order.code}`);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function cancel(order: Order) {
-    await ordersService.cancelOrder(order.id);
-    toast.info(`${order.code} cancelled`);
-    await refresh();
+    setBusyId(order.id);
+    try {
+      await ordersService.cancelOrder(order.id);
+      toast.info(`${order.code} cancelled`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not cancel ${order.code}`);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function claim(order: Order) {
     if (!me) return;
-    const updated = await ordersService.claimOrder(order.id, me.id, me.name);
-    if (!updated) toast.error("Someone just claimed this order.");
-    else toast.success(`${order.code} claimed`);
-    await refresh();
+    setBusyId(order.id);
+    try {
+      const updated = await ordersService.claimOrder(order.id, me.id, me.name);
+      if (!updated) toast.error("Someone just claimed this order.");
+      else toast.success(`${order.code} claimed`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not claim ${order.code}`);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function release(order: Order) {
-    await ordersService.releaseOrder(order.id);
-    toast.info(`${order.code} released back to the queue`);
-    await refresh();
+    setBusyId(order.id);
+    try {
+      await ordersService.releaseOrder(order.id);
+      toast.info(`${order.code} released back to the queue`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not release ${order.code}`);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function startShow(order: Order) {
     if (!me) return;
-    const result = await showQueueService.startShow(order, me.name);
-    if (!result.ok) {
-      toast.error(`Show floor busy — ${result.activeShow?.tableCode}'s presentation is walking.`);
-    } else {
-      toast.success(`${order.tableCode}'s presentation is walking now`);
+    setBusyId(order.id);
+    try {
+      const result = await showQueueService.startShow(order, me.name);
+      if (!result.ok) {
+        toast.error(`Show floor busy — ${result.activeShow?.tableCode}'s presentation is walking.`);
+      } else {
+        toast.success(`${order.tableCode}'s presentation is walking now`);
+      }
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not start the presentation");
+    } finally {
+      setBusyId(null);
     }
-    await refresh();
   }
 
   async function finishShow() {
-    await showQueueService.finishShow();
-    toast.info("Show floor is clear");
-    await refresh();
+    try {
+      await showQueueService.finishShow();
+      toast.info("Show floor is clear");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not finish the presentation");
+    }
   }
 
   const visible = (orders ?? []).filter((o) => {
