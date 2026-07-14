@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { execSync } from "node:child_process";
 import { getDb, type SessionContext } from "./db";
+import { createTestDb, type TestDb } from "./test-pglite";
 import {
   listReservations,
   createReservation,
@@ -41,7 +39,7 @@ async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {
 }
 
 describe("reservation integration (plan 08)", () => {
-  let container: StartedPostgreSqlContainer;
+  let testDb: TestDb;
   let rawClient: PrismaClient;
   let venueA: string;
   let venueB: string;
@@ -50,19 +48,8 @@ describe("reservation integration (plan 08)", () => {
   let tableId: string;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer("postgres:17-alpine").start();
-    const url = container.getConnectionUri();
-
-    execSync(`npx prisma migrate deploy`, {
-      env: { ...process.env, DATABASE_URL: url },
-      cwd: process.cwd(),
-    });
-
-    process.env.DATABASE_URL = url;
-    process.env.AUTH_SECRET = "test-secret-at-least-16";
-
-    const adapter = new PrismaPg(url);
-    rawClient = new PrismaClient({ adapter });
+    testDb = await createTestDb();
+    rawClient = testDb.rawClient;
 
     venueA = await makeVenue(rawClient, "Venue A", "res-a");
     venueB = await makeVenue(rawClient, "Venue B", "res-b");
@@ -83,8 +70,7 @@ describe("reservation integration (plan 08)", () => {
   }, 60_000);
 
   afterAll(async () => {
-    await rawClient?.$disconnect();
-    await container?.stop();
+    await testDb?.teardown();
   });
 
   it("creates, lists and retrieves a reservation", async () => {

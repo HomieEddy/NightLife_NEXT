@@ -1,62 +1,63 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { execSync } from "node:child_process";
 import { getDb, type SessionContext } from "./db";
+import { createTestDb, type TestDb } from "./test-pglite";
+
+async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {
+  const org = await rawClient.organization.create({ data: { id: `org-${slug}`, name, slug } });
+  await rawClient.venue.create({
+    data: {
+      id: org.id,
+      address: "1 Test St",
+      city: "Testville",
+      timezone: "America/Montreal",
+      currency: "CAD",
+      openingHours: [],
+      serviceFees: [],
+      floorMap: { width: 16, height: 9 },
+      autoApproveGuests: false,
+      logoInitials: "TT",
+      slaThresholds: { orderWarnMinutes: 6, orderCriticalMinutes: 12, helpWarnMinutes: 4, helpCriticalMinutes: 8 },
+      lastCallAutoFlagTables: true,
+    },
+  });
+  return org.id;
+}
 
 describe("tenant scoping (AD-3 canary)", () => {
-  let container: StartedPostgreSqlContainer;
+  let testDb: TestDb;
   let rawClient: PrismaClient;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer("postgres:17-alpine").start();
-    const url = container.getConnectionUri();
-
-    process.env.DATABASE_URL = url;
-    process.env.AUTH_SECRET = "test-secret-at-least-16";
-
-    execSync(`npx prisma migrate deploy`, {
-      env: { ...process.env, DATABASE_URL: url },
-      cwd: process.cwd(),
-    });
-
-    const adapter = new PrismaPg(url);
-    rawClient = new PrismaClient({ adapter });
-  });
+    testDb = await createTestDb();
+    rawClient = testDb.rawClient;
+  }, 60_000);
 
   afterAll(async () => {
-    await rawClient?.$disconnect();
-    await container?.stop();
+    await testDb?.teardown();
   });
 
-  it("scoped client cannot read another tenant's rows", async () => {
-    const tenantA = await rawClient.tenant.create({
-      data: { name: "Venue A", slug: "venue-a", plan: "pro", status: "active" },
-    });
-    const tenantB = await rawClient.tenant.create({
-      data: { name: "Venue B", slug: "venue-b", plan: "starter", status: "active" },
-    });
+  it("scoped client cannot read another tenant's zones", async () => {
+    const venueA = await makeVenue(rawClient, "Venue A", "scope-a");
+    const venueB = await makeVenue(rawClient, "Venue B", "scope-b");
 
-    await rawClient.jobRun.create({
-      data: { tenantId: tenantA.id, jobName: "nightly-report", status: "completed" },
+    // Create a zone in each venue via raw client (bypasses scoping)
+    await rawClient.zone.create({
+      data: { venueId: venueA, name: "VIP-A", color: "violet" },
     });
-    await rawClient.jobRun.create({
-      data: { tenantId: tenantB.id, jobName: "nightly-report", status: "completed" },
+    await rawClient.zone.create({
+      data: { venueId: venueB, name: "VIP-B", color: "cyan" },
     });
 
-    const sessionA: SessionContext = { venueId: tenantA.id };
-    const sessionB: SessionContext = { venueId: tenantB.id };
+    const dbA = getDb({ venueId: venueA });
+    const dbB = getDb({ venueId: venueB });
 
-    const dbA = getDb(sessionA);
-    const dbB = getDb(sessionB);
+    const zonesA = await dbA.zone.findMany();
+    const zonesB = await dbB.zone.findMany();
 
-    const jobsA = await dbA.jobRun.findMany();
-    const jobsB = await dbB.jobRun.findMany();
-
-    expect(jobsA).toHaveLength(1);
-    expect(jobsA[0].tenantId).toBe(tenantA.id);
-    expect(jobsB).toHaveLength(1);
-    expect(jobsB[0].tenantId).toBe(tenantB.id);
+    expect(zonesA).toHaveLength(1);
+    expect(zonesA[0].name).toBe("VIP-A");
+    expect(zonesB).toHaveLength(1);
+    expect(zonesB[0].name).toBe("VIP-B");
   });
 });

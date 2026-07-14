@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { execSync } from "node:child_process";
 import { getDb, type SessionContext } from "./db";
+import { createTestDb, type TestDb } from "./test-pglite";
 import {
   createSession,
   getSession,
@@ -56,7 +54,7 @@ async function makeTable(rawClient: PrismaClient, venueId: string, zoneId: strin
 }
 
 describe("guest sessions & help requests integration (plan 06)", () => {
-  let container: StartedPostgreSqlContainer;
+  let testDb: TestDb;
   let rawClient: PrismaClient;
   let venueA: string;
   let venueB: string;
@@ -67,20 +65,8 @@ describe("guest sessions & help requests integration (plan 06)", () => {
   let itemId: string;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer("postgres:17-alpine").start();
-    const url = container.getConnectionUri();
-
-    execSync(`npx prisma migrate deploy`, {
-      env: { ...process.env, DATABASE_URL: url },
-      cwd: process.cwd(),
-    });
-
-    process.env.DATABASE_URL = url;
-    process.env.AUTH_SECRET = "test-secret-at-least-16";
-    process.env.QR_TOKEN_SECRET = "test-qr-secret-at-least-16-chars";
-
-    const adapter = new PrismaPg(url);
-    rawClient = new PrismaClient({ adapter });
+    testDb = await createTestDb();
+    rawClient = testDb.rawClient;
 
     venueA = await makeVenue(rawClient, "Session Venue A", "session-a-int");
     venueB = await makeVenue(rawClient, "Session Venue B", "session-b-int");
@@ -107,11 +93,10 @@ describe("guest sessions & help requests integration (plan 06)", () => {
       inventory: 20,
     });
     itemId = item.id;
-  }, 120_000);
+  }, 60_000);
 
   afterAll(async () => {
-    await rawClient?.$disconnect();
-    await container?.stop();
+    await testDb?.teardown();
   });
 
   // ── Session state machine (INV-S1) ────────────────────────────────
