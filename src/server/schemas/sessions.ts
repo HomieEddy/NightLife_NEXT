@@ -12,6 +12,7 @@ const SESSION_STATUSES = ["pending", "approved", "denied", "closure-requested", 
 
 export const zSetSessionStatus = z.object({
   status: z.enum(SESSION_STATUSES),
+  settlementMethod: z.enum(["terminal", "cash", "house"]).optional(),
 });
 
 const HELP_TYPES = ["call-waiter", "refill-ice", "clean-table", "security", "bill"] as const;
