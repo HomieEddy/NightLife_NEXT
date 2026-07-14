@@ -8,6 +8,7 @@ import type {
   MenuCategory,
   MenuItem,
   PackageComponent,
+  PackageQuote,
   SoldOutEvent,
   StockMovement,
   StockMovementType,
@@ -49,18 +50,6 @@ function flagSoldOut(item: MenuItem) {
     { id: uid("so"), itemId: item.id, itemName: item.name, at: new Date().toISOString() },
     ...soldOutEvents,
   ].slice(0, 20);
-}
-
-/** Derived pricing/availability for a package, from live item data. */
-export interface PackageQuote {
-  /** Sum of component prices × quantities at current menu prices. */
-  componentsValue: number;
-  /** componentsValue − package price (never negative). */
-  savings: number;
-  /** How many of this package the current inventory can fulfill. */
-  maxQuantity: number;
-  /** Resolved component lines for display. */
-  lines: { menuItemId: string; name: string; quantity: number; unitPrice: number }[];
 }
 
 function quoteFor(pkg: BottlePackage): PackageQuote {

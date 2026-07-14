@@ -5,10 +5,10 @@ import type {
   HappyHourRule,
   MenuCategory,
   MenuItem,
+  PackageQuote,
   SoldOutEvent,
   StockMovement,
 } from "@/lib/types";
-import type { PackageQuote } from "@/lib/services/menu-service";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await liveFetch(path, {

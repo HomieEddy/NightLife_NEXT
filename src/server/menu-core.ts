@@ -13,11 +13,11 @@ import type {
   MenuCategory,
   MenuItem,
   ModifierGroup,
+  PackageQuote,
   SoldOutEvent,
   StockMovement,
   StockMovementType,
 } from "@/lib/types";
-import type { PackageQuote } from "@/lib/services/menu-service";
 import type { z } from "zod";
 import type {
   zCategoryInput,

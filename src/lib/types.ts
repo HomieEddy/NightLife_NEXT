@@ -206,6 +206,13 @@ export interface BottlePackage {
   isActive: boolean;
 }
 
+export interface PackageQuote {
+  componentsValue: number;
+  savings: number;
+  maxQuantity: number;
+  lines: { menuItemId: string; name: string; quantity: number; unitPrice: number }[];
+}
+
 export interface HappyHourRule {
   id: string;
   venueId: string;
