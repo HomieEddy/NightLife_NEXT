@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { Martini, QrCode, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MenuItemCard } from "@/components/shared/menu-item-card";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
@@ -15,7 +14,6 @@ import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/lib/services/menu-service";
 import { cn } from "@/lib/utils";
 import type { MenuCategory, MenuItem } from "@/lib/types";
-import { isDemoMode } from "@/lib/app-mode";
 
 export default function GuestMenuPage() {
   const { table } = useGuest();
@@ -65,11 +63,7 @@ export default function GuestMenuPage() {
           icon={QrCode}
           title="No table joined"
           description="Scan the QR code on your table to browse the menu."
-          action={isDemoMode() ? (
-            <Button asChild>
-              <Link href="/g/demo-table">Simulate scanning a QR</Link>
-            </Button>
-          ) : undefined}
+          action={<DemoQrScanAction />}
         />
       </div>
     );

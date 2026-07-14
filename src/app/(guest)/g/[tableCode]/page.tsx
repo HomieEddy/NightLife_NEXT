@@ -2,7 +2,6 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Loader2, MapPin, Minus, Plus, QrCode, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoOpenTableAction } from "@/components/shared/demo-links";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
 import { isDemoMode } from "@/lib/app-mode";
@@ -99,11 +99,7 @@ export default function QrEntryPage({
           description={isDemoMode()
             ? `No table matches the code "${tableCode}". Try the demo table instead.`
             : `No table matches the code "${tableCode}". Ask venue staff for a current QR code.`}
-          action={isDemoMode() ? (
-            <Button asChild>
-              <Link href="/g/demo-table">Open demo table</Link>
-            </Button>
-          ) : undefined}
+          action={<DemoOpenTableAction />}
         />
       </div>
     );

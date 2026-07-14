@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoNewSessionAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { CountUp } from "@/components/fx/count-up";
 import { useGuest } from "@/context/guest-context";
@@ -497,11 +498,7 @@ function NightReceipt() {
         </Button>
       </div>
 
-      {isDemoMode() && (
-        <Button variant="outline" className="w-full animate-fade-up" asChild>
-          <Link href="/g/demo-table">Start a new session</Link>
-        </Button>
-      )}
+      <DemoNewSessionAction />
     </div>
   );
 }

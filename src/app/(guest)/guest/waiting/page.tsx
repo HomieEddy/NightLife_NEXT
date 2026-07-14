@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Hourglass, Loader2, QrCode, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoQrScanAction, deniedSessionPath } from "@/components/shared/demo-links";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
 import { isDemoMode } from "@/lib/app-mode";
@@ -24,7 +24,7 @@ export default function WaitingPage() {
     if (!sessionId || approved) return;
     const session = await guestsService.getSession(sessionId);
     if (session?.status === "approved") approve();
-    if (session?.status === "denied") router.replace(isDemoMode() ? "/g/demo-table" : "/");
+    if (session?.status === "denied") router.replace(deniedSessionPath);
   }, [sessionId, approved, approve, router]);
 
   const pollRef = useRef(pollApproval);
@@ -54,11 +54,7 @@ export default function WaitingPage() {
           icon={QrCode}
           title="No table joined"
           description="Scan the QR code on your table to get started."
-          action={isDemoMode() ? (
-            <Button asChild>
-              <Link href="/g/demo-table">Simulate scanning a QR</Link>
-            </Button>
-          ) : undefined}
+          action={<DemoQrScanAction />}
         />
       </div>
     );
