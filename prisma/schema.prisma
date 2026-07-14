@@ -213,6 +213,9 @@ model Venue {
   orders         Order[]
   guestSessions  GuestSession[]
   helpRequests   HelpRequest[]
+  reservations   Reservation[]
+  venueEvents    VenueEvent[]
+  promotions     Promotion[]
   broadcasts     Broadcast[]
   floorState     VenueFloorState?
   activeShow     ActiveShowLock?
@@ -450,6 +453,9 @@ model Order {
   giftToTableId      String?     @map("gift_to_table_id")
   giftToTableCode    String?     @map("gift_to_table_code")
   giftNote           String?     @map("gift_note")
+  promotionId        String?     @map("promotion_id")
+  promotionCode      String?     @map("promotion_code")
+  promotionCents     Int         @default(0) @map("promotion_cents")
 
   venue    Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
   session  GuestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
@@ -627,4 +633,101 @@ model ChatMessage {
 
   @@index([venueId, channel, sentAt])
   @@map("chat_messages")
+}
+
+// ── Reservations, events & promotions (plan 08) ─────────────────────
+
+enum ReservationStatus {
+  requested
+  confirmed
+  seated
+  cancelled
+  completed
+}
+
+model Reservation {
+  id        String            @id @default(cuid())
+  venueId   String            @map("venue_id")
+  tableId   String?           @map("table_id")
+  zoneId    String?           @map("zone_id")
+  guestName String            @map("guest_name")
+  partySize Int               @map("party_size")
+  startsAt  DateTime          @map("starts_at") @db.Timestamptz
+  endsAt    DateTime?         @map("ends_at") @db.Timestamptz
+  status    ReservationStatus @default(requested)
+  note      String?
+  source    String            @default("manager")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, startsAt])
+  @@index([venueId, status])
+  @@map("reservations")
+}
+
+enum EventStatus {
+  draft
+  published
+  live
+  ended
+}
+
+model VenueEvent {
+  id               String      @id @default(cuid())
+  venueId          String      @map("venue_id")
+  name             String
+  description      String      @default("")
+  startsAt         DateTime    @map("starts_at") @db.Timestamptz
+  endsAt           DateTime    @map("ends_at") @db.Timestamptz
+  zoneId           String?     @map("zone_id")
+  capacity         Int
+  status           EventStatus @default(draft)
+  guestlistEnabled Boolean     @default(false) @map("guestlist_enabled")
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue  Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guests EventGuest[]
+
+  @@index([venueId, startsAt])
+  @@map("venue_events")
+}
+
+model EventGuest {
+  id        String   @id @default(cuid())
+  eventId   String   @map("event_id")
+  name      String
+  partySize Int      @map("party_size")
+  status    String   @default("invited")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  event VenueEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("event_guests")
+}
+
+/// Promotion status is derived from startsAt/endsAt — no stored status column.
+/// Active = now ∈ [startsAt, endsAt], scheduled = now < startsAt, expired = now > endsAt.
+model Promotion {
+  id                   String   @id @default(cuid())
+  venueId              String   @map("venue_id")
+  code                 String
+  name                 String
+  type                 String
+  value                Float
+  appliesToCategoryIds String[] @default([]) @map("applies_to_category_ids")
+  startsAt             DateTime @map("starts_at") @db.Timestamptz
+  endsAt               DateTime @map("ends_at") @db.Timestamptz
+  redemptionCount      Int      @default(0) @map("redemption_count")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, code])
+  @@index([venueId])
+  @@map("promotions")
 }
