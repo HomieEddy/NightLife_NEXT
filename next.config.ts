@@ -8,6 +8,31 @@ const demoResourceAliases = {
   "@/server/db": "./src/server/demo-resource-stub.ts",
 };
 
+const mockServiceFiles = [
+  "admin-service",
+  "analytics-service",
+  "auth-service",
+  "billing-service",
+  "events-service",
+  "guests-service",
+  "menu-service",
+  "orders-service",
+  "promotions-service",
+  "pulse-service",
+  "report-service",
+  "reservation-service",
+  "show-queue-service",
+  "staff-service",
+  "venue-service",
+];
+
+const liveMockAliases = Object.fromEntries(
+  mockServiceFiles.map((file) => [
+    `@/lib/mock-services/${file}`,
+    "./src/lib/live-mock-stub.ts",
+  ]),
+);
+
 const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
@@ -16,6 +41,8 @@ const nextConfig: NextConfig = {
       ? {
           "@/components/shared/demo-controls": "./src/components/shared/demo-controls.live.tsx",
           "@/components/shared/app-mode-banner": "./src/components/shared/app-mode-banner.live.tsx",
+          "@/components/shared/demo-links": "./src/components/shared/demo-links.live.tsx",
+          ...liveMockAliases,
         }
       : demoResourceAliases,
   },
