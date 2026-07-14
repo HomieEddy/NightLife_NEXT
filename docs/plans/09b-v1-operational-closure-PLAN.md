@@ -11,6 +11,10 @@ Preconditions: plans 02 (accounts/roles), 03 (venue/tables/shifts), 04
 exclusively owns platform leads, provisioning, Stripe, subscription limits and
 tenant suspension.
 
+Implementation status: complete on `feature/09b-v1-operational-closure` (2026-07-14).
+The permanent demo and live builds, unit/integration suites, and mode-specific
+Playwright smoke flows are the acceptance evidence for this checkpoint.
+
 ## Reasoning
 
 The backend migration is operationally broad but not yet closed: the live staff

@@ -395,6 +395,17 @@ readable; they codify how this repo has actually been built.
 Most of these are phase-1 mechanics; per §9.9, prune each one when the backend
 makes it obsolete.
 
+- `NEXT_PUBLIC_APP_MODE` is required and accepts only `demo` or `live`; missing
+  or misspelled values fail configuration. Demo resource guards reject DB/auth/
+  HTTP/SSE access, while live selectors reject mock execution. Tests set live
+  mode explicitly; browser/build verification must exercise both modes.
+- Venue timezone, opening hours and `nightStartHour`/`nightEndHour` are persisted
+  live settings. Every business-night consumer receives that venue config — no
+  Toronto/18:00 fallback is allowed in server analytics.
+- Live staff identity is `User` + venue `Member` + `StaffProfile`; exact floor
+  role lives on the profile, while the member role is coarse access. Claims,
+  chat and shows derive attribution from the authenticated profile, never JSON.
+
 - `useSearchParams` **must** sit under `<Suspense>` — wrap the page content in
   a `*Content` component; the default export renders the boundary.
 - Radix `Switch`/`Button` work as `ConfirmDialog` triggers via `asChild` —
