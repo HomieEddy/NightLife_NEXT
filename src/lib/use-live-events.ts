@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { isDemoMode } from "@/lib/app-mode";
+import { assertLiveMode, isDemoMode } from "@/lib/app-mode";
 
 type Scope = "manager" | "staff" | "guest";
 
@@ -76,6 +76,7 @@ export function useLiveEvents({
 
     function connect() {
       if (cancelled) return;
+      assertLiveMode();
 
       let url = ENDPOINT[scope];
       if (scope === "guest" && sessionId) {
