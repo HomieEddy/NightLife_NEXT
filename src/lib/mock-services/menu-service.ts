@@ -1,7 +1,6 @@
 /**
- * mockMenuService — future backend boundary for menu & package management.
- * TODO(backend): CRUD against menu_categories / menu_items / packages tables;
- * inventory becomes a stock ledger with per-night counts.
+ * Permanent demo implementation of menu, package and inventory management.
+ * Live mode persists the same service contract and uses a stock ledger.
  */
 import type {
   BottlePackage,
@@ -22,7 +21,7 @@ import {
 } from "@/lib/mock-data/menu";
 import { clone, delay, uid } from "./delay";
 
-const categories: MenuCategory[] = clone(mockCategories);
+let categories: MenuCategory[] = clone(mockCategories);
 let items: MenuItem[] = clone(mockMenuItems);
 let packages: BottlePackage[] = clone(mockPackages);
 let happyHourRules: HappyHourRule[] = clone(mockHappyHourRules);
@@ -100,6 +99,32 @@ export const mockMenuService = {
     await delay();
     const result = includeInactive ? categories : categories.filter((c) => c.isActive);
     return clone(result).sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+
+  async createCategory(input: Omit<MenuCategory, "id">): Promise<MenuCategory> {
+    await delay(500);
+    const category: MenuCategory = { id: uid("cat"), ...input };
+    categories = [...categories, category];
+    return clone(category);
+  },
+
+  async updateCategory(
+    categoryId: string,
+    patch: Partial<Omit<MenuCategory, "id" | "venueId">>,
+  ): Promise<MenuCategory | null> {
+    await delay(400);
+    const category = categories.find((entry) => entry.id === categoryId);
+    if (!category) return null;
+    Object.assign(category, patch);
+    return clone(category);
+  },
+
+  async deleteCategory(categoryId: string): Promise<void> {
+    await delay(400);
+    if (items.some((item) => item.categoryId === categoryId)) {
+      throw new Error("Category still has menu items");
+    }
+    categories = categories.filter((category) => category.id !== categoryId);
   },
 
   async listItems(categoryId?: string): Promise<MenuItem[]> {
@@ -183,7 +208,7 @@ export const mockMenuService = {
 
   // ---------- Inventory ----------
   // All stock changes flow through movements — never a raw column write.
-  // TODO(backend): stock_movements ledger; inventory = SUM(delta) per item.
+  // Live mode persists this as an append-only stock_movements ledger.
 
   async listMovements(limit = 25): Promise<StockMovement[]> {
     await delay(250);
@@ -234,7 +259,7 @@ export const mockMenuService = {
 
   /**
    * Decrements inventory for sold lines. Package lines (pkg-*) decrement each
-   * component. TODO(backend): move into the order transaction with row locks.
+   * component. Live mode performs the same draw-down transactionally with row locks.
    */
   async recordSale(lines: { menuItemId: string; quantity: number }[]): Promise<void> {
     for (const line of lines) {

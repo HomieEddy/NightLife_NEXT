@@ -2,32 +2,10 @@
  * mockReportService — demo-mode report CRUD with in-memory store.
  */
 import { clone, delay, uid } from "./delay";
+import { REPORT_METRICS, type ReportMetric, type ReportSchedule, type SavedReport } from "@/lib/types";
 
-export const REPORT_METRICS = [
-  { id: "revenue", label: "Revenue & orders" },
-  { id: "zones", label: "Revenue by zone" },
-  { id: "top-items", label: "Top items" },
-  { id: "staff", label: "Staff performance" },
-  { id: "inventory", label: "Inventory depletion" },
-] as const;
-
-export type ReportMetric = (typeof REPORT_METRICS)[number]["id"];
-
-export interface ReportSchedule {
-  frequency: "daily" | "weekly" | "monthly";
-  recipient: string; // email
-}
-
-export interface SavedReport {
-  id: string;
-  name: string;
-  metrics: ReportMetric[];
-  /** Rolling window in days — the engine re-resolves dates at run time. */
-  rangeDays: number;
-  schedule: ReportSchedule | null;
-  createdAt: string;
-  lastRunAt: string | null;
-}
+export { REPORT_METRICS };
+export type { ReportMetric, ReportSchedule, SavedReport };
 
 const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
 
