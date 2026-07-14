@@ -34,7 +34,12 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
 
   const { venueId } = sessionToDbContext(auth.session);
   const { id } = await params;
-  const result = await setSessionStatus(getDb({ venueId }), id, parsed.data.status);
+  const result = await setSessionStatus(
+    getDb({ venueId }),
+    id,
+    parsed.data.status,
+    parsed.data.settlementMethod,
+  );
 
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 409 });
   return NextResponse.json(result.session);
