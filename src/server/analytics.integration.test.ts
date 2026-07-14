@@ -23,6 +23,12 @@ import {
 import { nightForDate } from "./night";
 import { expectTenantIsolation } from "./test-helpers";
 
+const UTC_NIGHT = {
+  timezone: "UTC",
+  nightStartHour: 18,
+  nightEndHour: 10,
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string, serviceFees: any = []) {
   const org = await rawClient.organization.create({ data: { id: `org-${slug}`, name, slug } });
@@ -82,7 +88,7 @@ describe("analytics & reports integration (plan 09)", () => {
     itemId = item.id;
 
     // Place two test orders with known totals at a known time
-    const night = nightForDate("2026-07-14", "UTC");
+    const night = nightForDate("2026-07-14", UTC_NIGHT);
 
     const result1 = await submitOrder(db, venueA, {
       tableId: "t1",
@@ -126,7 +132,7 @@ describe("analytics & reports integration (plan 09)", () => {
 
   it("computes rollup with correct revenue from known orders", async () => {
     const db = getDb(sessionA);
-    const night = nightForDate("2026-07-14", "UTC");
+    const night = nightForDate("2026-07-14", UTC_NIGHT);
     const rollup = await computeRollup(db, night);
 
     // Order 1: 3 × $200 = $600 (60000 cents)
@@ -145,7 +151,7 @@ describe("analytics & reports integration (plan 09)", () => {
 
   it("upserting rollup twice produces exactly one row", async () => {
     const db = getDb(sessionA);
-    const night = nightForDate("2026-07-14", "UTC");
+    const night = nightForDate("2026-07-14", UTC_NIGHT);
     const rollup = await computeRollup(db, night);
 
     await upsertRollup(rawClient, venueA, "2026-07-14", rollup);
