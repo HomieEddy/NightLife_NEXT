@@ -19,13 +19,23 @@ method bodies behind a stable interface (R1).
 | 07 | Realtime & floor pulse | [07-realtime-pulse-PLAN](plans/07-realtime-pulse-PLAN.md) | 05, 06 | Med | all 6 polling TODOs, `pulse-service`, `show-queue-service`, `staff-service` chat |
 | 08 | Reservations, events & promotions | [08-reservations-events-promotions-PLAN](plans/08-reservations-events-promotions-PLAN.md) | 03, 05 | Low | `reservation-service`, `events-service`, `promotions-service` |
 | 09 | Analytics & report engine | [09-analytics-reports-PLAN](plans/09-analytics-reports-PLAN.md) | 05 | Med | `analytics-service`, `report-service`, `mock-chart` |
-| 10 | Platform admin & billing | [10-platform-admin-billing-PLAN](plans/10-platform-admin-billing-PLAN.md) | 02 | Med | `admin-service`, `billing-service`, `subscription`, `pricing`, `lead` pages |
+| 09b | V1 operational closure | [09b-v1-operational-closure-PLAN](plans/09b-v1-operational-closure-PLAN.md) | 02–07, 09 | Med | category/add-on ordering, live `staff-service`, session/table closure, venue time, strict mode isolation, fulfilled migration markers |
+| 10 | Platform admin & billing | [10-platform-admin-billing-PLAN](plans/10-platform-admin-billing-PLAN.md) | 02, 09b | Med | `admin-service`, `billing-service`, `subscription`, `pricing`, `lead` pages |
 
 Rationale for the two deviations from a naive order: **auth before venue CRUD**
 because R2 (tenant scoping) needs a session to scope by, and retrofitting auth
 under live features is the classic trap; **orders before guest sessions** because
 the order transaction (money + inventory, INV-O2/O4) is the highest-risk work and
 deserves the team's freshest attention — sessions then attach to a proven core.
+
+Plan 09b is a corrective checkpoint, not a new product area: it closes live-mode
+identity, table-lifecycle, venue-time, fail-closed mode/resource isolation and
+failure-recovery seams found after plans 01–09 were integrated. It precedes plan
+10 so the platform graduation flow does not provision and bill a tenant whose
+core night still depends on seeded staff, simulation controls, mock services or
+hard-coded operating assumptions. Its one product addition—category/package
+washer and presentation presets—follows the permanent demo-first lifecycle inside
+the plan: accepted mock UX first, tested backend graduation second.
 
 ## Demo co-existence (AD-14) — how to read the plans
 
