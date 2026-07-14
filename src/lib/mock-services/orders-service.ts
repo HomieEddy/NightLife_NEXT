@@ -7,27 +7,17 @@ import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { computeFeeLines } from "@/lib/fees";
 import { orderLineSubtotal } from "@/lib/order-line";
+import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
 import { mockMenuService } from "./menu-service";
 import { mockVenueService } from "./venue-service";
 import { clone, delay, uid } from "./delay";
+
+export { nextStatus, ORDER_FLOW };
 
 // Module-level in-memory store: mutations persist across pages within a session,
 // simulating shared state between guest and staff surfaces.
 let orders: Order[] = clone(mockOrders);
 let orderCounter = 39;
-
-export const ORDER_FLOW = [
-  "pending",
-  "accepted",
-  "preparing",
-  "ready",
-  "delivered",
-] as const satisfies readonly OrderStatus[];
-
-export function nextStatus(status: OrderStatus): OrderStatus | null {
-  const i = (ORDER_FLOW as readonly OrderStatus[]).indexOf(status);
-  return i >= 0 && i < ORDER_FLOW.length - 1 ? ORDER_FLOW[i + 1] : null;
-}
 
 export const mockOrdersService = {
   async listOrders(filter?: { status?: OrderStatus[]; zoneIds?: string[] }): Promise<Order[]> {

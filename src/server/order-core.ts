@@ -8,26 +8,16 @@ import { getRawPrisma } from "@/server/db";
 import { fromCents, toCents } from "./money";
 import { computeOrderPricing, type FeeInput, type PricingLineInput, type PromotionInput } from "./pricing";
 import { publish } from "./events";
+import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
 import type { ModifierGroup, Order, OrderStatus, ServiceFee } from "@/lib/types";
 import type { z } from "zod";
 import type { zSubmitOrder, zSendGift, zListOrders } from "./schemas/orders";
 
 type ScopedDb = ReturnType<typeof getDb>;
 
+export { nextStatus, ORDER_FLOW };
+
 // ── Order status machine ──────────────────────────────────────────────
-
-export const ORDER_FLOW = [
-  "pending",
-  "accepted",
-  "preparing",
-  "ready",
-  "delivered",
-] as const satisfies readonly OrderStatus[];
-
-export function nextStatus(status: OrderStatus): OrderStatus | null {
-  const i = (ORDER_FLOW as readonly OrderStatus[]).indexOf(status);
-  return i >= 0 && i < ORDER_FLOW.length - 1 ? ORDER_FLOW[i + 1] : null;
-}
 
 const TERMINAL_STATUSES: OrderStatus[] = ["delivered", "cancelled"];
 
