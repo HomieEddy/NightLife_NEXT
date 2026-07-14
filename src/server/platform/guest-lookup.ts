@@ -58,6 +58,8 @@ export async function findTableByQrSlug(
       logoInitials: venueRow.logoInitials,
       slaThresholds: venueRow.slaThresholds as unknown as Venue["slaThresholds"],
       lastCallAutoFlagTables: venueRow.lastCallAutoFlagTables,
+      nightStartHour: venueRow.nightStartHour,
+      nightEndHour: venueRow.nightEndHour,
     },
   };
 }

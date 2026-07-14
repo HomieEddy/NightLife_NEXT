@@ -22,6 +22,30 @@ const NO_HAPPY_HOUR: PricingInput["happyHourRules"] = [];
 // ── Basic pricing ─────────────────────────────────────────────────────
 
 describe("pricing engine — basics", () => {
+  it("prices add-on quantity independently from line quantity", () => {
+    const result = computeOrderPricing({
+      lines: [{
+        menuItemId: "bottle-1",
+        name: "Bottle",
+        priceCents: 20_000,
+        quantity: 2,
+        categoryId: "spirits",
+        modifiers: [{
+          groupName: "Washers",
+          optionName: "Red Bull",
+          deltaCents: 600,
+          quantity: 3,
+        }],
+      }],
+      fees: NO_FEES,
+      happyHourRules: NO_HAPPY_HOUR,
+      tipCents: 0,
+      now: new Date("2026-07-10T23:00:00"),
+    });
+
+    expect(result.subtotalCents).toBe(41_800);
+  });
+
   it("computes subtotal from line prices × quantities", () => {
     const result = computeOrderPricing({
       lines: [simpleLine(5000, 2), simpleLine(3000, 1)],
@@ -33,7 +57,7 @@ describe("pricing engine — basics", () => {
     expect(result.subtotalCents).toBe(13000);
   });
 
-  it("includes modifier deltas in line subtotal", () => {
+  it("includes single-quantity add-ons in line subtotal", () => {
     const result = computeOrderPricing({
       lines: [
         withModifiers(5000, 2, [
@@ -46,8 +70,8 @@ describe("pricing engine — basics", () => {
       tipCents: 0,
       now: new Date("2026-07-10T23:00:00"),
     });
-    // (5000 + 500 + 200) × 2 = 11400
-    expect(result.subtotalCents).toBe(11400);
+    // 5000 × 2 + 500 + 200 = 10700
+    expect(result.subtotalCents).toBe(10700);
   });
 
   it("empty cart returns all zeros", () => {
