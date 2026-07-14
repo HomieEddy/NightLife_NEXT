@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderCsv } from "./report-core";
-import type { HistoricalAnalytics } from "@/lib/mock-services/analytics-service";
+import type { HistoricalAnalytics } from "@/lib/types";
 
 const FIXTURE: HistoricalAnalytics = {
   from: "2026-07-07",

@@ -2,30 +2,36 @@ import { z } from "zod";
 
 // ── Categories ─────────────────────────────────────────────────────────
 
-export const zCategoryInput = z.object({
-  name: z.string().min(1),
-  description: z.string(),
-  sortOrder: z.number().int().nonnegative(),
-  isActive: z.boolean().optional(),
-});
-
-export const zCategoryPatch = zCategoryInput.partial();
-
 // ── Items ──────────────────────────────────────────────────────────────
 
 const zModifierOption = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   priceDelta: z.number(),
+  maxQuantity: z.number().int().positive(),
+  inventoryItemId: z.string().min(1).optional(),
+  isActive: z.boolean(),
 });
 
 const zModifierGroup = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  kind: z.enum(["washer", "presentation"]),
   required: z.boolean(),
   maxSelections: z.number().int().positive(),
+  isActive: z.boolean(),
   options: z.array(zModifierOption),
 });
+
+export const zCategoryInput = z.object({
+  name: z.string().min(1),
+  description: z.string(),
+  sortOrder: z.number().int().nonnegative(),
+  isActive: z.boolean().optional(),
+  modifierGroups: z.array(zModifierGroup).optional(),
+});
+
+export const zCategoryPatch = zCategoryInput.partial();
 
 export const zItemInput = z.object({
   categoryId: z.string().min(1),
@@ -36,7 +42,6 @@ export const zItemInput = z.object({
   tags: z.array(z.string()),
   isAvailable: z.boolean().optional(),
   inventory: z.number().int().nonnegative().optional(),
-  modifierGroups: z.array(zModifierGroup).optional(),
 });
 
 export const zItemPatch = z.object({
@@ -47,7 +52,6 @@ export const zItemPatch = z.object({
   icon: z.string().min(1).optional(),
   tags: z.array(z.string()).optional(),
   isAvailable: z.boolean().optional(),
-  modifierGroups: z.array(zModifierGroup).optional(),
 });
 
 // ── Inventory ──────────────────────────────────────────────────────────
@@ -90,6 +94,7 @@ export const zPackageInput = z.object({
   priceCents: z.number().int().nonnegative(),
   components: z.array(zComponentInput).min(1),
   isActive: z.boolean().optional(),
+  modifierGroups: z.array(zModifierGroup).optional(),
 });
 
 export const zPackagePatch = z.object({
@@ -98,6 +103,7 @@ export const zPackagePatch = z.object({
   priceCents: z.number().int().nonnegative().optional(),
   components: z.array(zComponentInput).min(1).optional(),
   isActive: z.boolean().optional(),
+  modifierGroups: z.array(zModifierGroup).optional(),
 });
 
 // ── Happy hour ─────────────────────────────────────────────────────────

@@ -4,8 +4,7 @@
  */
 import { Prisma } from "@prisma/client";
 import type { getDb } from "./db";
-import type { HistoricalAnalytics } from "@/lib/mock-services/analytics-service";
-import type { ReportMetric, SavedReport, ReportSchedule } from "@/lib/mock-services/report-service";
+import type { HistoricalAnalytics, ReportMetric, SavedReport, ReportSchedule } from "@/lib/types";
 
 type ScopedDb = ReturnType<typeof getDb>;
 

@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 const zOrderLineModifier = z.object({
-  groupName: z.string().min(1),
-  optionName: z.string().min(1),
-  deltaCents: z.number().int(),
+  groupId: z.string().min(1),
+  optionId: z.string().min(1),
+  quantity: z.number().int().positive(),
 });
 
 const zOrderLine = z.object({
@@ -11,7 +11,6 @@ const zOrderLine = z.object({
   quantity: z.number().int().positive(),
   modifiers: z.array(zOrderLineModifier).optional().default([]),
   note: z.string().optional(),
-  packageId: z.string().optional(),
 });
 
 export const zSubmitOrder = z.object({
