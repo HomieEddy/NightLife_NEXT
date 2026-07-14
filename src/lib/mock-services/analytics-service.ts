@@ -1,6 +1,5 @@
 /**
- * mockAnalyticsService — future backend boundary for reporting.
- * TODO(backend): replace with SQL aggregations (materialized views) over orders.
+ * mockAnalyticsService — demo-mode analytics with seeded data.
  */
 import type {
   AnalyticsSummary,

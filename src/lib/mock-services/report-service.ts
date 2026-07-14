@@ -1,6 +1,5 @@
 /**
- * mockReportService — future backend boundary for the report engine.
- * TODO(backend): reports table + cron worker that emails rendered PDFs/CSVs.
+ * mockReportService — demo-mode report CRUD with in-memory store.
  */
 import { clone, delay, uid } from "./delay";
 

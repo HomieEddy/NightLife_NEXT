@@ -220,6 +220,8 @@ model Venue {
   floorState     VenueFloorState?
   activeShow     ActiveShowLock?
   chatMessages   ChatMessage[]
+  nightlyRollups NightlyRollup[]
+  savedReports   SavedReport[]
 
   @@map("venues")
 }
@@ -730,4 +732,66 @@ model Promotion {
   @@unique([venueId, code])
   @@index([venueId])
   @@map("promotions")
+}
+
+// ── Analytics & reports (plan 09) ──────────────────────────────────
+
+/// One row per venue-night with pre-aggregated metrics. Idempotent upsert
+/// by (venueId, nightDate). JSONB columns carry a `v` field for shape versioning.
+model NightlyRollup {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  nightDate       String   @map("night_date")
+  revenueCents    Int      @map("revenue_cents")
+  orderCount      Int      @map("order_count")
+  avgOrderCents   Int      @map("avg_order_cents")
+  /// { v: 1, zones: [{ zoneId, zoneName, revenueCents, orderCount }] }
+  byZone          Json     @map("by_zone")
+  /// { v: 1, items: [{ name, count, revenueCents, categoryId? }] }
+  topItems        Json     @map("top_items")
+  /// { v: 1, staff: [{ staffId, name, role, ordersDelivered, avgDeliveryMinutes, revenueServedCents }] }
+  staffPerformance Json    @map("staff_performance")
+  /// { v: 1, categories: [{ categoryId, categoryName, unitsSold }] }
+  categoryDepletion Json   @map("category_depletion")
+  computedAt      DateTime @default(now()) @map("computed_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, nightDate])
+  @@map("nightly_rollups")
+}
+
+/// Saved report configuration — metrics to include, rolling window, optional schedule.
+model SavedReport {
+  id          String   @id @default(cuid())
+  venueId     String   @map("venue_id")
+  name        String
+  /// JSON array of metric ids: ["revenue","zones","top-items","staff","inventory"]
+  metrics     Json
+  rangeDays   Int      @map("range_days")
+  /// Null = on-demand only. { frequency: "daily"|"weekly"|"monthly", recipient: string }
+  schedule    Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  runs  ReportRun[]
+
+  @@index([venueId])
+  @@map("saved_reports")
+}
+
+/// Append-only log of report executions. Tracks when and how reports ran.
+model ReportRun {
+  id        String   @id @default(cuid())
+  reportId  String   @map("report_id")
+  ranAt     DateTime @default(now()) @map("ran_at") @db.Timestamptz
+  trigger   String   @default("manual")
+  fromDate  String   @map("from_date")
+  toDate    String   @map("to_date")
+
+  report SavedReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("report_runs")
 }

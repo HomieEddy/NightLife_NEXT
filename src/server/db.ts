@@ -44,6 +44,7 @@ export function getDb(session: SessionContext) {
           "OrderItem",
           "FeeLine",
           "EventGuest",
+          "ReportRun",
         ];
         if (platformModels.includes(model)) return query(args);
 
