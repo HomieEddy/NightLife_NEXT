@@ -45,6 +45,7 @@ export const liveOrdersService = {
     sessionId?: string;
     lines: CartLine[];
     tip: number;
+    promoCode?: string;
   }): Promise<Order> {
     return api<Order>("/api/orders", {
       method: "POST",
@@ -66,6 +67,7 @@ export const liveOrdersService = {
           note: l.note,
         })),
         tipCents: toCents(input.tip),
+        promoCode: input.promoCode,
       }),
     });
   },

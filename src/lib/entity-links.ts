@@ -10,3 +10,6 @@ export const zoneHref = (zoneId: string) => `/manager/zones?highlight=${zoneId}`
 export const tableHref = (tableId: string) => `/manager/tables?highlight=${tableId}`;
 export const staffOrdersHref = (tableId: string) => `/staff/orders?table=${tableId}`;
 export const menuCategoryHref = (categoryId: string) => `/manager/menu?category=${categoryId}`;
+export const reservationHref = (resId: string) => `/manager/reservations?highlight=${resId}`;
+export const eventHref = (eventId: string) => `/manager/events?highlight=${eventId}`;
+export const promotionHref = (promoId: string) => `/manager/promotions?highlight=${promoId}`;
