@@ -109,9 +109,10 @@ async function main() {
   // ── Staff profiles ────────────────────────────────────────────────
   await prisma.staffProfile.upsert({
     where: { userId: amara.user.id },
-    update: {},
+    update: { role: "manager" },
     create: {
       userId: amara.user.id,
+      role: "manager",
       phone: "+33 6 12 34 56 78",
       avatarInitials: "AD",
       assignedZoneIds: [],
@@ -121,9 +122,10 @@ async function main() {
 
   await prisma.staffProfile.upsert({
     where: { userId: nina.user.id },
-    update: {},
+    update: { role: "runner" },
     create: {
       userId: nina.user.id,
+      role: "runner",
       phone: "+33 6 98 76 54 32",
       avatarInitials: "NK",
       assignedZoneIds: [],
@@ -150,6 +152,8 @@ async function main() {
       logoInitials: mockVenue.logoInitials,
       slaThresholds: mockVenue.slaThresholds as unknown as Prisma.InputJsonValue,
       lastCallAutoFlagTables: mockVenue.lastCallAutoFlagTables,
+      nightStartHour: mockVenue.nightStartHour,
+      nightEndHour: mockVenue.nightEndHour,
     },
   });
   console.log(`Venue config seeded for ${org.name}`);
@@ -196,7 +200,7 @@ async function main() {
   await ensureMapPositions(getDb({ venueId: org.id }));
   console.log(`Floor-map positions computed`);
 
-  // ── Shifts (staffId references the demo roster, not real accounts yet) ──
+  // ── Shifts (staffId is a real User FK) ───────────────────────────────
   const staffIdMap: Record<string, string> = {
     "st-amara": amara.user.id,
     "st-nina": nina.user.id,
@@ -230,6 +234,7 @@ async function main() {
         description: cat.description,
         sortOrder: cat.sortOrder,
         isActive: cat.isActive,
+        modifierGroups: cat.modifierGroups as unknown as Prisma.InputJsonValue,
       },
     });
   }
@@ -251,7 +256,6 @@ async function main() {
         tags: item.tags,
         isAvailable: item.isAvailable,
         inventory: item.inventory,
-        modifierGroups: item.modifierGroups as unknown as Prisma.InputJsonValue,
       },
     });
   }
@@ -287,6 +291,7 @@ async function main() {
         description: pkg.description,
         priceCents: toCents(pkg.price),
         isActive: pkg.isActive,
+        modifierGroups: pkg.modifierGroups as unknown as Prisma.InputJsonValue,
         components: {
           create: pkg.components.map((c) => ({
             itemId: c.menuItemId,

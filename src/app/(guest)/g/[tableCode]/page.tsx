@@ -13,13 +13,14 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
+import { isDemoMode } from "@/lib/app-mode";
 import { guestsService } from "@/lib/services/guests-service";
 import { venueService } from "@/lib/services/venue-service";
 import type { Venue, VenueTable, Zone } from "@/lib/types";
 
 /**
  * QR entry simulation: in production the guest lands here by scanning the
- * QR code printed on the table. TODO(backend): validate a signed QR token.
+ * QR code printed on the table. Live mode validates its signed QR token.
  */
 export default function QrEntryPage({
   params,
@@ -95,12 +96,14 @@ export default function QrEntryPage({
         <EmptyState
           icon={QrCode}
           title="Table not found"
-          description={`No table matches the code "${tableCode}". Try the demo table instead.`}
-          action={
+          description={isDemoMode()
+            ? `No table matches the code "${tableCode}". Try the demo table instead.`
+            : `No table matches the code "${tableCode}". Ask venue staff for a current QR code.`}
+          action={isDemoMode() ? (
             <Button asChild>
               <Link href="/g/demo-table">Open demo table</Link>
             </Button>
-          }
+          ) : undefined}
         />
       </div>
     );

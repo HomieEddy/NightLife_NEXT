@@ -62,6 +62,7 @@ model User {
   members       Member[]
   invitations   Invitation[]
   staffProfile  StaffProfile?
+  staffShifts   StaffShift[]
 
   @@map("users")
 }
@@ -152,6 +153,10 @@ model Invitation {
   organizationId String   @map("organization_id")
   role           String
   status         String   @default("pending")
+  draftName      String?  @map("draft_name")
+  draftPhone     String?  @map("draft_phone")
+  floorRole      StaffRole? @map("floor_role")
+  assignedZoneIds String[] @default([]) @map("assigned_zone_ids")
   expiresAt      DateTime @map("expires_at") @db.Timestamptz
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
@@ -164,10 +169,18 @@ model Invitation {
 // ── Domain extension ────────────────────────────────────────────────
 // Venue-domain fields that don't belong in the auth User model.
 
+enum StaffRole {
+  manager
+  host
+  bartender
+  runner
+}
+
 model StaffProfile {
   id              String   @id @default(cuid())
   userId          String   @unique @map("user_id")
   phone           String   @default("")
+  role            StaffRole @default(runner)
   avatarInitials  String   @map("avatar_initials")
   assignedZoneIds String[] @default([]) @map("assigned_zone_ids")
   isOnShift       Boolean  @default(false) @map("is_on_shift")
@@ -197,6 +210,8 @@ model Venue {
   logoInitials           String   @map("logo_initials")
   slaThresholds          Json     @map("sla_thresholds")
   lastCallAutoFlagTables Boolean  @default(true) @map("last_call_auto_flag_tables")
+  nightStartHour         Int      @default(18) @map("night_start_hour")
+  nightEndHour           Int      @default(10) @map("night_end_hour")
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -275,8 +290,7 @@ model VenueTable {
   @@map("venue_tables")
 }
 
-/// One recurring weekly shift block. staffId is unscoped by design — staff
-/// identity CRUD stays mock until it migrates; no FK to enforce yet.
+/// One recurring weekly shift block owned by a real venue member.
 model StaffShift {
   id        String   @id @default(cuid())
   venueId   String   @map("venue_id")
@@ -288,6 +302,7 @@ model StaffShift {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  staff User  @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@index([venueId])
   @@map("staff_shifts")
@@ -302,6 +317,7 @@ model MenuCategory {
   description String   @default("")
   sortOrder   Int      @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
+  modifierGroups Json  @default("[]") @map("modifier_groups")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -324,7 +340,6 @@ model MenuItem {
   isAvailable    Boolean  @default(true) @map("is_available")
   /// Cached running balance — always updated inside the same transaction as a StockMovement row.
   inventory      Int      @default(0)
-  modifierGroups Json     @default("[]") @map("modifier_groups")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -378,6 +393,7 @@ model BottlePackage {
   description String   @default("")
   priceCents  Int      @map("price_cents")
   isActive    Boolean  @default(true) @map("is_active")
+  modifierGroups Json  @default("[]") @map("modifier_groups")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -514,6 +530,12 @@ enum GuestSessionStatus {
   closed
 }
 
+enum SettlementMethod {
+  terminal
+  cash
+  house
+}
+
 model GuestSession {
   id          String             @id @default(cuid())
   venueId     String             @map("venue_id")
@@ -523,6 +545,8 @@ model GuestSession {
   displayName String             @map("display_name")
   partySize   Int                @map("party_size")
   status      GuestSessionStatus @default(pending)
+  settledExternallyAt DateTime? @map("settled_externally_at") @db.Timestamptz
+  settlementMethod SettlementMethod? @map("settlement_method")
   createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 

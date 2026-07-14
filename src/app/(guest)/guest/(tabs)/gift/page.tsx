@@ -18,6 +18,7 @@ import { venueService } from "@/lib/services/venue-service";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { MenuItem, VenueTable } from "@/lib/types";
+import { isDemoMode } from "@/lib/app-mode";
 
 // Keeps the gift list to approachable, quick-to-deliver items.
 const MAX_GIFT_PRICE = 60;
@@ -78,11 +79,11 @@ export default function GuestGiftPage() {
           icon={QrCode}
           title="No table joined"
           description="Scan the QR code on your table first."
-          action={
+          action={isDemoMode() ? (
             <Button asChild>
               <Link href="/g/demo-table">Simulate scanning a QR</Link>
             </Button>
-          }
+          ) : undefined}
         />
       </div>
     );
