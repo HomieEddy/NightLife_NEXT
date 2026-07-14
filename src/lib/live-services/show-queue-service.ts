@@ -1,10 +1,10 @@
 "use client";
 
 import type { ActiveShow, Order } from "@/lib/types";
-import { orderNeedsShow, showLabelFor } from "@/lib/mock-services/show-queue-service";
+import { orderNeedsShow, showLabelFor } from "@/lib/order-presentation";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -43,3 +43,4 @@ export const liveShowQueueService = {
 };
 
 export { orderNeedsShow, showLabelFor };
+import { liveFetch } from "./live-fetch";
