@@ -14,7 +14,7 @@ import { Home, LifeBuoy, MessageSquare, Receipt, UserCheck } from "lucide-react"
 
 /**
  * Staff panel shell — mobile-first, high contrast for low-light use.
- * TODO(backend): the "current staff" persona comes from real auth.
+ * Demo uses the seeded runner persona; live mode resolves the authenticated staff profile.
  */
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<StaffMember | null>(null);

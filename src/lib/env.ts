@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assertLiveMode } from "./app-mode";
 
 const liveSchema = z.object({
   DATABASE_URL: z.string().url(),
@@ -20,6 +21,7 @@ export function _resetEnvCache() {
  * if required vars are missing so misconfiguration fails loudly.
  */
 export function getLiveEnv(): LiveEnv {
+  assertLiveMode();
   if (_validated) return _validated;
   _validated = liveSchema.parse({
     DATABASE_URL: process.env.DATABASE_URL,

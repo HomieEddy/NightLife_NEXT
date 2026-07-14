@@ -30,6 +30,7 @@ import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
 import { cn } from "@/lib/utils";
+import { isDemoMode } from "@/lib/app-mode";
 
 const NAV = [
   { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
@@ -48,7 +49,7 @@ const NAV = [
   { href: "/manager/promotions", label: "Promotions", icon: Tag },
   { href: "/manager/chat", label: "Chat", icon: MessageSquare },
   { href: "/manager/qr", label: "QR codes", icon: QrCode },
-  { href: "/manager/subscription", label: "Subscription", icon: CreditCard },
+  ...(isDemoMode() ? [{ href: "/manager/subscription", label: "Subscription", icon: CreditCard }] : []),
   { href: "/manager/settings", label: "Settings", icon: Settings },
 ];
 
@@ -61,7 +62,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
 
   // First run: the demo starts with the onboarding wizard.
   useEffect(() => {
-    if (!onOnboarding && !isManagerOnboarded()) router.replace("/manager/onboarding");
+    if (isDemoMode() && !onOnboarding && !isManagerOnboarded()) router.replace("/manager/onboarding");
   }, [onOnboarding, pathname, router]);
 
   // The wizard gets a clean, chrome-free canvas.
