@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { staffService } from "@/lib/services/staff-service";
-import { isDemoMode } from "@/lib/app-mode";
 import { cn } from "@/lib/utils";
 import { ASSIGNABLE_ROLES, type StaffMember, type StaffRole, type Zone } from "@/lib/types";
 
@@ -87,58 +86,40 @@ export function StaffEditDialog({
       email: draft.email.trim().toLowerCase(),
       assignedZoneIds: draft.assignedZoneIds,
     };
-    if (member) {
-      await staffService.updateStaff(member.id, {
-        ...base,
-        accountStatus: draft.suspended ? "suspended" : member.accountStatus === "suspended" ? "active" : member.accountStatus,
-      });
-      toast.success(`${base.name} updated`);
-    } else if (isDemoMode()) {
-      await staffService.addStaff({
-        venueId: "venue-1",
-        ...base,
-        accountStatus: "invited",
-        isOnShift: false,
-      });
-      toast.success(`${base.name} invited to the team`);
-    } else {
-      const { inviteStaffMember } = await import("@/server/actions/invite");
-      const result = await inviteStaffMember({
-        email: base.email,
-        name: base.name,
-        role: base.role,
-        organizationId: "",
-      });
-      if (result.error) {
-        toast.error(result.error);
-        setSaving(false);
-        return;
+    try {
+      if (member) {
+        await staffService.updateStaff(member.id, {
+          ...base,
+          accountStatus: draft.suspended ? "suspended" : member.accountStatus === "suspended" ? "active" : member.accountStatus,
+        });
+        toast.success(`${base.name} updated`);
+      } else {
+        await staffService.addStaff({
+          venueId: "venue-1",
+          ...base,
+          accountStatus: "invited",
+          isOnShift: false,
+        });
+        toast.success(`${base.name} invited to the team`);
       }
-      toast.success(`Invite sent to ${base.email}`);
+      onOpenChange(false);
+      onDone();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save the team member.");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    onOpenChange(false);
-    onDone();
   }
 
   async function resetPin() {
     if (!member) return;
-    if (isDemoMode()) {
+    try {
       await staffService.resendInvite(member.id);
-      toast.success(`New sign-in PIN sent to ${member.email}`);
-    } else {
-      const { resendStaffInvite } = await import("@/server/actions/invite");
-      const result = await resendStaffInvite({
-        email: member.email,
-        organizationId: "",
-      });
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
       toast.success(`Invite resent to ${member.email}`);
+      onDone();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not resend the invitation.");
     }
-    onDone();
   }
 
   return (

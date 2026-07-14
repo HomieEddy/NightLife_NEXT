@@ -3,7 +3,7 @@
 /**
  * Client-side guest session + cart state.
  * Persisted to sessionStorage so the flow survives route changes and refreshes.
- * TODO(backend): replace with a server-side guest session (signed QR token cookie).
+ * Live authorization comes from the signed guest cookie; this state is only UI/cart continuity.
  */
 import {
   createContext,
@@ -15,7 +15,8 @@ import {
   type ReactNode,
 } from "react";
 import type { CartLine, OrderItemModifier, MenuItem, Venue } from "@/lib/types";
-import { uid } from "@/lib/services/delay";
+import { uid } from "@/lib/id";
+import { orderLineSubtotal } from "@/lib/order-line";
 
 export interface GuestTableInfo {
   tableId: string;
@@ -135,10 +136,11 @@ export function GuestProvider({ children }: { children: ReactNode }) {
   const cartCount = useMemo(() => state.cart.reduce((n, l) => n + l.quantity, 0), [state.cart]);
   const cartSubtotal = useMemo(
     () =>
-      state.cart.reduce((sum, l) => {
-        const mods = l.modifiers.reduce((s, m) => s + m.priceDelta, 0);
-        return sum + (l.menuItem.price + mods) * l.quantity;
-      }, 0),
+      state.cart.reduce(
+        (sum, line) =>
+          sum + orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers),
+        0,
+      ),
     [state.cart],
   );
 
