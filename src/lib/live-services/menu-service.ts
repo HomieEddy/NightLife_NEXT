@@ -11,7 +11,7 @@ import type {
 import type { PackageQuote } from "@/lib/services/menu-service";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -28,13 +28,36 @@ export const liveMenuService = {
     return api<MenuCategory[]>(`/api/menu/categories${qs}`);
   },
 
+  async createCategory(input: Omit<MenuCategory, "id">): Promise<MenuCategory> {
+    return api<MenuCategory>("/api/menu/categories", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  async updateCategory(
+    categoryId: string,
+    patch: Partial<Omit<MenuCategory, "id" | "venueId">>,
+  ): Promise<MenuCategory | null> {
+    return api<MenuCategory | null>(`/api/menu/categories/${encodeURIComponent(categoryId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  },
+
+  async deleteCategory(categoryId: string): Promise<void> {
+    await api<{ ok: boolean }>(`/api/menu/categories/${encodeURIComponent(categoryId)}`, {
+      method: "DELETE",
+    });
+  },
+
   async listItems(categoryId?: string): Promise<MenuItem[]> {
     const qs = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : "";
     return api<MenuItem[]>(`/api/menu/items${qs}`);
   },
 
   async getItem(itemId: string): Promise<MenuItem | null> {
-    const res = await fetch(`/api/menu/items/${encodeURIComponent(itemId)}`);
+    const res = await liveFetch(`/api/menu/items/${encodeURIComponent(itemId)}`);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to get item ${itemId}`);
     return res.json();
@@ -55,7 +78,7 @@ export const liveMenuService = {
   },
 
   async deleteItem(itemId: string): Promise<void> {
-    const res = await fetch(`/api/menu/items/${encodeURIComponent(itemId)}`, { method: "DELETE" });
+    const res = await liveFetch(`/api/menu/items/${encodeURIComponent(itemId)}`, { method: "DELETE" });
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(body.error ?? "Delete failed");
@@ -76,7 +99,7 @@ export const liveMenuService = {
   },
 
   async getPackage(packageId: string): Promise<(BottlePackage & { quote: PackageQuote }) | null> {
-    const res = await fetch(`/api/menu/packages/${encodeURIComponent(packageId)}`);
+    const res = await liveFetch(`/api/menu/packages/${encodeURIComponent(packageId)}`);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to get package ${packageId}`);
     return res.json();
@@ -183,3 +206,4 @@ export const liveMenuService = {
     });
   },
 };
+import { liveFetch } from "./live-fetch";

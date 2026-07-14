@@ -1,9 +1,9 @@
 "use client";
 
-import type { GuestSession, HelpRequest, HelpRequestType } from "@/lib/types";
+import type { GuestSession, HelpRequest, HelpRequestType, SettlementMethod } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -34,7 +34,7 @@ export const liveGuestsService = {
   },
 
   async getSession(sessionId: string): Promise<GuestSession | null> {
-    const res = await fetch(`/api/guest/session`);
+    const res = await liveFetch(`/api/guest/session`);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error("Failed to get session");
     return res.json();
@@ -47,10 +47,11 @@ export const liveGuestsService = {
   async setSessionStatus(
     sessionId: string,
     status: GuestSession["status"],
+    settlementMethod?: SettlementMethod,
   ): Promise<GuestSession | null> {
     return api<GuestSession>(`/api/sessions/${encodeURIComponent(sessionId)}`, {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, settlementMethod }),
     });
   },
 
@@ -81,3 +82,4 @@ export const liveGuestsService = {
     });
   },
 };
+import { liveFetch } from "./live-fetch";
