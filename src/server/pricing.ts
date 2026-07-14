@@ -43,10 +43,17 @@ export interface HappyHourInput {
   appliesToCategoryIds: string[];
 }
 
+export interface PromotionInput {
+  type: "percentage" | "flat";
+  value: number; // % for percentage, dollar amount for flat
+  appliesToCategoryIds: string[]; // empty = all categories
+}
+
 export interface PricingInput {
   lines: PricingLineInput[];
   fees: FeeInput[];
   happyHourRules: HappyHourInput[];
+  promotion?: PromotionInput;
   tipCents: number;
   now: Date;
 }
@@ -64,6 +71,7 @@ export interface FeeLineResult {
 export interface PricingResult {
   subtotalCents: number;
   discountCents: number;
+  promotionCents: number;
   discountedSubtotalCents: number;
   feeLines: FeeLineResult[];
   totalFeeCents: number;
@@ -103,12 +111,13 @@ function isInHappyHourWindow(rule: HappyHourInput, now: Date): boolean {
 // ── Engine ────────────────────────────────────────────────────────────
 
 export function computeOrderPricing(input: PricingInput): PricingResult {
-  const { lines, fees, happyHourRules, tipCents, now } = input;
+  const { lines, fees, happyHourRules, promotion, tipCents, now } = input;
 
   if (lines.length === 0) {
     return {
       subtotalCents: 0,
       discountCents: 0,
+      promotionCents: 0,
       discountedSubtotalCents: 0,
       feeLines: [],
       totalFeeCents: 0,
@@ -149,9 +158,44 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
     }
   }
 
-  const discountedSubtotalCents = subtotalCents - discountCents;
+  const afterHappyHourCents = subtotalCents - discountCents;
 
-  // 3. Fees — computed on the discounted subtotal
+  // 3. Promotion discount — applies to the already-discounted price (after happy-hour)
+  let promotionCents = 0;
+  if (promotion) {
+    if (promotion.type === "percentage") {
+      // Category-scoped: discount only qualifying lines' post-happy-hour amounts
+      if (promotion.appliesToCategoryIds.length > 0) {
+        for (const line of lines) {
+          if (!promotion.appliesToCategoryIds.includes(line.categoryId)) continue;
+          const modDelta = line.modifiers.reduce((s, m) => s + m.deltaCents, 0);
+          const lineTotal = (line.priceCents + modDelta) * line.quantity;
+          // Subtract line's share of the happy-hour discount before applying promo
+          let lineHhDiscount = 0;
+          if (discountCents > 0 && activeRules.length > 0) {
+            let bestPct = 0;
+            for (const rule of activeRules) {
+              const applies =
+                rule.appliesToCategoryIds.length === 0 ||
+                rule.appliesToCategoryIds.includes(line.categoryId);
+              if (applies && rule.discountPct > bestPct) bestPct = rule.discountPct;
+            }
+            lineHhDiscount = Math.round(lineTotal * bestPct / 100);
+          }
+          promotionCents += Math.round((lineTotal - lineHhDiscount) * promotion.value / 100);
+        }
+      } else {
+        promotionCents = Math.round(afterHappyHourCents * promotion.value / 100);
+      }
+    } else {
+      // Flat discount — applies to the whole order, capped at the after-happy-hour amount
+      promotionCents = Math.min(Math.round(promotion.value * 100), afterHappyHourCents);
+    }
+  }
+
+  const discountedSubtotalCents = afterHappyHourCents - promotionCents;
+
+  // 4. Fees — computed on the discounted subtotal
   const feeLines: FeeLineResult[] = [];
   for (const fee of fees) {
     if (fee.type === "percentage") {
@@ -175,12 +219,13 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
 
   const totalFeeCents = feeLines.reduce((s, f) => s + f.amountCents, 0);
 
-  // 4. Total
+  // 5. Total
   const totalCents = discountedSubtotalCents + totalFeeCents + tipCents;
 
   return {
     subtotalCents,
     discountCents,
+    promotionCents,
     discountedSubtotalCents,
     feeLines,
     totalFeeCents,

@@ -281,6 +281,10 @@ export interface Order {
   giftToTableId?: string;
   giftToTableCode?: string;
   giftNote?: string;
+  /** Promotion snapshot — set when a promo code was applied at order time. */
+  promotionId?: string;
+  promotionCode?: string;
+  promotionCents?: number;
 }
 
 // ---------- Help requests ----------
