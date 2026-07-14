@@ -2,6 +2,7 @@
  * Report engine: CRUD for saved reports, run recording, CSV rendering,
  * and scheduled-report due selection.
  */
+import { Prisma } from "@prisma/client";
 import type { getDb } from "./db";
 import type { HistoricalAnalytics } from "@/lib/mock-services/analytics-service";
 import type { ReportMetric, SavedReport, ReportSchedule } from "@/lib/mock-services/report-service";
@@ -47,10 +48,12 @@ export async function listReports(db: ScopedDb): Promise<SavedReport[]> {
 
 export async function createReport(
   db: ScopedDb,
+  venueId: string,
   input: { name: string; metrics: ReportMetric[]; rangeDays: number; schedule: ReportSchedule | null },
 ): Promise<SavedReport> {
   const row = await db.savedReport.create({
     data: {
+      venueId,
       name: input.name,
       metrics: input.metrics as unknown as object,
       rangeDays: input.rangeDays,
@@ -162,7 +165,7 @@ export async function findDueReports(
   const dayOfMonth = today.getDate();
 
   const all = await db.savedReport.findMany({
-    where: { schedule: { not: null } },
+    where: { schedule: { not: Prisma.DbNull } },
     include: { runs: { orderBy: { ranAt: "desc" }, take: 1 } },
   });
 

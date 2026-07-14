@@ -187,7 +187,7 @@ describe("analytics & reports integration (plan 09)", () => {
   it("creates, updates, lists, and deletes a saved report", async () => {
     const db = getDb(sessionA);
 
-    const report = await createReport(db, {
+    const report = await createReport(db, venueA, {
       name: "Weekly Sales",
       metrics: ["revenue", "zones"],
       rangeDays: 7,
@@ -212,7 +212,7 @@ describe("analytics & reports integration (plan 09)", () => {
 
   it("recordRun creates an append-only row", async () => {
     const db = getDb(sessionA);
-    const report = await createReport(db, {
+    const report = await createReport(db, venueA, {
       name: "Run Test",
       metrics: ["revenue"],
       rangeDays: 7,
@@ -236,19 +236,19 @@ describe("analytics & reports integration (plan 09)", () => {
   it("findDueReports returns daily on any day, weekly on Monday, monthly on 1st", async () => {
     const db = getDb(sessionA);
 
-    await createReport(db, {
+    await createReport(db, venueA, {
       name: "Daily Report",
       metrics: ["revenue"],
       rangeDays: 1,
       schedule: { frequency: "daily", recipient: "test@example.com" },
     });
-    await createReport(db, {
+    await createReport(db, venueA, {
       name: "Weekly Report",
       metrics: ["revenue"],
       rangeDays: 7,
       schedule: { frequency: "weekly", recipient: "test@example.com" },
     });
-    await createReport(db, {
+    await createReport(db, venueA, {
       name: "Monthly Report",
       metrics: ["revenue"],
       rangeDays: 30,
@@ -279,7 +279,7 @@ describe("analytics & reports integration (plan 09)", () => {
 
   it("saved reports are tenant-isolated", async () => {
     const db = getDb(sessionA);
-    const report = await createReport(db, {
+    const report = await createReport(db, venueA, {
       name: "Isolation Test",
       metrics: ["revenue"],
       rangeDays: 7,

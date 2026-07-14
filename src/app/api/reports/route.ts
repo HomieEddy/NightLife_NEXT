@@ -27,7 +27,7 @@ async function livePOST(request: NextRequest) {
 
   const body = await request.json();
   const { venueId } = sessionToDbContext(auth.session);
-  const report = await createReport(getDb({ venueId }), body);
+  const report = await createReport(getDb({ venueId }), venueId, body);
   return NextResponse.json(report, { status: 201 });
 }
 
