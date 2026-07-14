@@ -5,12 +5,14 @@ export function parseAppMode(value: string | undefined): AppMode {
   throw new Error('NEXT_PUBLIC_APP_MODE must be explicitly set to "demo" or "live"');
 }
 
+export const APP_MODE = parseAppMode(process.env.NEXT_PUBLIC_APP_MODE);
+
 export function getAppMode(): AppMode {
-  return parseAppMode(process.env.NEXT_PUBLIC_APP_MODE);
+  return APP_MODE;
 }
 
 export function isDemoMode(): boolean {
-  return getAppMode() === "demo";
+  return APP_MODE === "demo";
 }
 
 export function assertDemoMode(): void {
