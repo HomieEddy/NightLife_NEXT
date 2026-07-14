@@ -7,22 +7,10 @@
  * stays for the permanent Live Demo sandbox.
  */
 import type { ActiveShow, Order } from "@/lib/types";
+import { showLabelFor } from "@/lib/order-presentation";
 import { delay } from "./delay";
 
 let activeShow: ActiveShow | null = null;
-
-/** An order needs a show if any item carries a "Presentation" modifier. */
-export function orderNeedsShow(order: Order): boolean {
-  return order.items.some((item) => item.modifiers.some((m) => m.groupName === "Presentation"));
-}
-
-/** The presentation label(s) for an order, e.g. "Sparkler parade". */
-export function showLabelFor(order: Order): string {
-  const labels = order.items.flatMap((item) =>
-    item.modifiers.filter((m) => m.groupName === "Presentation").map((m) => m.optionName),
-  );
-  return labels.length > 0 ? labels.join(" + ") : "Presentation";
-}
 
 export const mockShowQueueService = {
   async getActiveShow(): Promise<ActiveShow | null> {

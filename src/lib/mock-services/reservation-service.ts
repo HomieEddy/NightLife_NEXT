@@ -1,6 +1,6 @@
 /**
  * mockReservationService — future backend boundary for table reservations.
- * TODO(backend): replace with API routes backed by PostgreSQL; confirm/seat flip table status.
+ * The permanent demo counterpart to PostgreSQL-backed reservations.
  */
 import type { Reservation, ReservationStatus } from "@/lib/types";
 import { mockReservations } from "@/lib/mock-data/reservations";

@@ -2,7 +2,7 @@
  * mockVenueService — the permanent demo-track implementation (AD-14). The live
  * build's venueService (src/lib/services/venue-service.ts) uses this type as
  * its contract; the real implementation lives in src/lib/live-services/.
- * TODO(backend): QR slugs become signed tokens (plan 06).
+ * Live mode issues signed QR tokens; demo keeps readable walkthrough slugs.
  */
 import type { Venue, VenueTable, Zone } from "@/lib/types";
 import { mockTables, mockVenue, mockZones } from "@/lib/mock-data/venue";
