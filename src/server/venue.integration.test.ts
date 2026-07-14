@@ -58,6 +58,9 @@ describe("venue/zone/table/shift integration (plan 03)", () => {
 
     venueA = await makeVenue(rawClient, "Venue A", "venue-a-int");
     venueB = await makeVenue(rawClient, "Venue B", "venue-b-int");
+    await rawClient.user.create({
+      data: { id: "st-test", name: "Shift Tester", email: "shift@test.local" },
+    });
     sessionA = { venueId: venueA };
   }, 60_000);
 
@@ -71,10 +74,21 @@ describe("venue/zone/table/shift integration (plan 03)", () => {
     expect(before?.name).toBe("Venue A");
     expect(before?.currency).toBe("CAD");
 
-    const updated = await updateVenue(db, venueA, { name: "Venue A Renamed", autoApproveGuests: true });
+    const updated = await updateVenue(db, venueA, {
+      name: "Venue A Renamed",
+      autoApproveGuests: true,
+      timezone: "America/Vancouver",
+      nightStartHour: 20,
+      nightEndHour: 6,
+      openingHours: [{ day: "Friday", open: "20:00", close: "04:00" }],
+    });
     expect(updated.name).toBe("Venue A Renamed");
     expect(updated.autoApproveGuests).toBe(true);
     expect(updated.city).toBe("Testville");
+    expect(updated.timezone).toBe("America/Vancouver");
+    expect(updated.nightStartHour).toBe(20);
+    expect(updated.nightEndHour).toBe(6);
+    expect(updated.openingHours).toEqual([{ day: "Friday", open: "20:00", close: "04:00" }]);
   });
 
   it("creates, lists and updates zones with a derived tableCount", async () => {
