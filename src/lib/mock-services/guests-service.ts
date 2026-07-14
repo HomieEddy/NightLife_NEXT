@@ -1,9 +1,9 @@
 /**
  * mockGuestsService — future backend boundary for guest sessions & help requests.
- * TODO(backend): sessions become rows keyed by table QR token; approval pushes
+ * Live sessions are keyed by signed table QR tokens; approval pushes
  * over WebSocket to the waiting guest.
  */
-import type { GuestSession, HelpRequest, HelpRequestType } from "@/lib/types";
+import type { GuestSession, HelpRequest, HelpRequestType, SettlementMethod } from "@/lib/types";
 import { mockGuestSessions, mockHelpRequests } from "@/lib/mock-data/orders";
 import { clone, delay, uid } from "./delay";
 
@@ -43,7 +43,7 @@ export const mockGuestsService = {
   /**
    * Guest asks to close their tab. Only valid once every order is delivered
    * (enforced by the UI; re-checked server-side once a backend exists).
-   * TODO(backend): validate order states server-side + notify hosts via WebSocket.
+   * Live mode validates order states server-side and notifies hosts via SSE.
    */
   async requestClosure(sessionId: string): Promise<GuestSession | null> {
     await delay(500);
@@ -56,11 +56,16 @@ export const mockGuestsService = {
   async setSessionStatus(
     sessionId: string,
     status: GuestSession["status"],
+    settlementMethod?: SettlementMethod,
   ): Promise<GuestSession | null> {
     await delay(300);
     const session = sessions.find((s) => s.id === sessionId);
     if (!session) return null;
     session.status = status;
+    if (status === "closed" && settlementMethod) {
+      session.settlementMethod = settlementMethod;
+      session.settledExternallyAt = new Date().toISOString();
+    }
     return clone(session);
   },
 

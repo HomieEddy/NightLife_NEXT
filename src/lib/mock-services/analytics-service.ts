@@ -3,28 +3,11 @@
  */
 import type {
   AnalyticsSummary,
-  CategoryDepletionPoint,
   RevenuePoint,
-  StaffPerformancePoint,
+  HistoricalAnalytics,
 } from "@/lib/types";
 import { mockAnalytics } from "@/lib/mock-data/analytics";
 import { clone, delay } from "./delay";
-
-export interface HistoricalAnalytics {
-  from: string; // ISO date
-  to: string;
-  days: number;
-  totalRevenue: number;
-  totalOrders: number;
-  avgOrderValue: number;
-  bestNight: RevenuePoint;
-  /** One point per day, oldest first. */
-  series: RevenuePoint[];
-  revenueByZone: { zoneId: string; zoneName: string; revenue: number }[];
-  topItems: { name: string; count: number; revenue: number; categoryId?: string }[];
-  staffPerformance: StaffPerformancePoint[];
-  categoryDepletion: CategoryDepletionPoint[];
-}
 
 // Deterministic pseudo-random per date, so ranges are stable across calls.
 function seeded(dateKey: string): number {
