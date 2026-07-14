@@ -121,7 +121,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
             <BrandLogo href="/manager" />
             <div className="flex items-center gap-1">
               <RoleBadge role="manager" />
-              <AuthBanner />
+              <AuthBanner className="[&>span]:hidden sm:[&>span]:inline" />
               <ThemeToggle />
             </div>
           </div>

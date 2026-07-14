@@ -96,7 +96,7 @@ export default function ManagerQrPage() {
           title="QR codes"
           description="Each table gets a unique QR. Guests scan to join and order."
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
               <Select value={zoneFilter} onValueChange={setZoneFilter}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="All zones" />

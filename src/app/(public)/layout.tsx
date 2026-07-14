@@ -17,7 +17,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           <BrandLogo />
           <nav className="flex items-center gap-1 sm:gap-2">
             {NAV_LINKS.map((link) => (
-              <Button key={link.href} variant="ghost" size="sm" asChild>
+              <Button key={link.href} variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
                 <Link href={link.href}>{link.label}</Link>
               </Button>
             ))}
