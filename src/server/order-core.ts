@@ -4,7 +4,7 @@
  * recordSale's row locks, and all money lives as integer cents.
  */
 import type { getDb } from "./db";
-import { getRawPrisma } from "./db";
+import { getRawPrisma } from "@/server/db";
 import { fromCents, toCents } from "./money";
 import { computeOrderPricing, type FeeInput, type PricingLineInput, type PromotionInput } from "./pricing";
 import { publish } from "./events";

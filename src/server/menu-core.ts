@@ -5,7 +5,7 @@
  * prevent oversell under concurrency.
  */
 import type { getDb } from "./db";
-import { getRawPrisma } from "./db";
+import { getRawPrisma } from "@/server/db";
 import { fromCents } from "./money";
 import type {
   BottlePackage,

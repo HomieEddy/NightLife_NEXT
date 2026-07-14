@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { organization, admin } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { getRawPrisma } from "./db";
+import { getRawPrisma } from "@/server/db";
 
 export const auth = betterAuth({
   database: prismaAdapter(getRawPrisma(), { provider: "postgresql" }),
