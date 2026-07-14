@@ -276,6 +276,32 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("open");
   });
 
+  it("keeps a table reserved for its next confirmed reservation", async () => {
+    const db = getDb(ctxA);
+    const session = await createSession(db, venueA, {
+      tableId, tableCode: "VIP-01", zoneName: "VIP", displayName: "Close before booking", partySize: 2,
+    }, false);
+    await setSessionStatus(db, session.id, "approved");
+    await requestClosure(db, session.id);
+    await rawClient.reservation.create({
+      data: {
+        venueId: venueA,
+        tableId,
+        zoneId,
+        guestName: "Next booking",
+        partySize: 4,
+        startsAt: new Date(Date.now() + 60 * 60 * 1000),
+        endsAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        status: "confirmed",
+      },
+    });
+
+    const result = await setSessionStatus(db, session.id, "closed", "terminal");
+
+    expect(result.ok).toBe(true);
+    expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("reserved");
+  });
+
   // ── Revoked token (INV-S3) — existing session survives ────────────
 
   it("existing session survives token version bump", async () => {

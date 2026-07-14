@@ -219,14 +219,11 @@ export async function setSessionStatus(
           where: { venueId: row.venueId, sessionId, status: { in: IN_FLIGHT_STATUSES } },
         });
         if (inFlight > 0) throw new Error(`${inFlight} order(s) still in flight`);
-        const now = new Date();
         const reservation = await tx.reservation.findFirst({
           where: {
             venueId: row.venueId,
             tableId: row.tableId,
             status: "confirmed",
-            startsAt: { lte: now },
-            OR: [{ endsAt: null }, { endsAt: { gte: now } }],
           },
         });
         await tx.venueTable.update({
