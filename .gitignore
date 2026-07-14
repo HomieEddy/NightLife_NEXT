@@ -16,6 +16,9 @@
 /playwright-report/
 /blob-report/
 
+# PGlite local dev database
+/.pglite-data/
+
 # next.js
 /.next/
 /out/

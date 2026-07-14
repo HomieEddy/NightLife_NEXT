@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "dev:live": "dotenv -e .env -- next dev",
+    "dev:pglite": "tsx scripts/pglite-dev.ts",
+    "dev:pglite:seed": "tsx scripts/pglite-dev.ts --seed",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run --project unit",
-    "test:integration": "dotenv -e .env -- vitest run --project integration",
+    "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
     "db:migrate": "dotenv -e .env -- npx prisma migrate deploy",
     "db:seed": "dotenv -e .env -- npx tsx prisma/seed.ts"
@@ -41,6 +43,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.4.1",
+    "@electric-sql/pglite-socket": "^0.1.1",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@testcontainers/postgresql": "^12.0.4",
