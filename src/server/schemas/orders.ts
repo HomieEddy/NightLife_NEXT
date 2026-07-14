@@ -23,6 +23,7 @@ export const zSubmitOrder = z.object({
   sessionId: z.string().optional(),
   lines: z.array(zOrderLine).min(1),
   tipCents: z.number().int().nonnegative(),
+  promoCode: z.string().optional(),
 });
 
 export const zSendGift = z.object({

@@ -43,6 +43,7 @@ export function getDb(session: SessionContext) {
           "PackageComponent",
           "OrderItem",
           "FeeLine",
+          "EventGuest",
         ];
         if (platformModels.includes(model)) return query(args);
 

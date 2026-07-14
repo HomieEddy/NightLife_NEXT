@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, ChevronDown, Mail, Minus, Moon, Plus, ReceiptText, Users, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, Mail, Minus, Moon, Plus, ReceiptText, Tag, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,11 +52,13 @@ function OrderLines({ order }: { order: Order }) {
   );
 }
 
-function Totals({ subtotal, feeBreakdown, tip, total }: {
+function Totals({ subtotal, feeBreakdown, tip, total, promotionCode, promotionCents }: {
   subtotal: number;
   feeBreakdown?: { fee: { name: string; type: "percentage" | "flat"; value: number }; amount: number }[];
   tip: number;
   total: number;
+  promotionCode?: string;
+  promotionCents?: number;
 }) {
   return (
     <div className="space-y-1 text-sm">
@@ -64,6 +66,14 @@ function Totals({ subtotal, feeBreakdown, tip, total }: {
         <span>Subtotal</span>
         <span className="tabular-nums">{formatMoney(subtotal)}</span>
       </div>
+      {promotionCode && promotionCents ? (
+        <div className="flex justify-between text-primary">
+          <span className="flex items-center gap-1">
+            <Tag className="size-3" /> {promotionCode}
+          </span>
+          <span className="tabular-nums">−{formatMoney(promotionCents / 100)}</span>
+        </div>
+      ) : null}
       {(feeBreakdown ?? []).map((line) => (
         <div key={line.fee.name} className="flex justify-between text-muted-foreground">
           <span>{line.fee.name} {line.fee.type === "percentage" ? `(${line.fee.value}%)` : ""}</span>
@@ -450,6 +460,12 @@ function NightReceipt() {
                   </div>
                 );
               })}
+              {order.promotionCode && order.promotionCents ? (
+                <div className="flex justify-between text-[10px] text-zinc-500">
+                  <span>PROMO {order.promotionCode}</span>
+                  <span className="tabular-nums">−{formatMoney(order.promotionCents / 100)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between text-[10px] text-zinc-500">
                 <span>served</span>
                 <span className="tabular-nums">{formatMoney(order.total)}</span>
@@ -463,6 +479,15 @@ function NightReceipt() {
               <span>SUBTOTAL</span>
               <span className="tabular-nums">{formatMoney(subtotal)}</span>
             </div>
+            {(() => {
+              const totalPromoCents = orders.reduce((s, o) => s + (o.promotionCents ?? 0), 0);
+              return totalPromoCents > 0 ? (
+                <div className="flex justify-between text-zinc-600">
+                  <span>PROMO DISCOUNT</span>
+                  <span className="tabular-nums">−{formatMoney(totalPromoCents / 100)}</span>
+                </div>
+              ) : null;
+            })()}
             {feeLines.map((line) => (
               <div key={line.name} className="flex justify-between text-zinc-600">
                 <span>{line.name.toUpperCase()} {line.type === "percentage" ? `(${line.value}%)` : "(flat)"}</span>
@@ -563,6 +588,8 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
             feeBreakdown={order.feeBreakdown}
             tip={order.tip}
             total={order.total}
+            promotionCode={order.promotionCode}
+            promotionCents={order.promotionCents}
           />
           <Separator />
           <p className="text-center text-xs text-muted-foreground">

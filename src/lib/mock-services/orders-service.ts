@@ -5,7 +5,7 @@
 import type { CartLine, MenuItem, Order, OrderStatus } from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
-import { computeFeeLines, computeServiceFee } from "@/lib/fees";
+import { computeFeeLines } from "@/lib/fees";
 import { mockMenuService } from "./menu-service";
 import { mockVenueService } from "./venue-service";
 import { clone, delay, uid } from "./delay";
@@ -58,6 +58,9 @@ export const mockOrdersService = {
     sessionId?: string;
     lines: CartLine[];
     tip: number;
+    promoCode?: string;
+    promoDiscount?: number;
+    promoId?: string;
   }): Promise<Order> {
     await delay(700);
     const subtotal = input.lines.reduce((sum, line) => {
@@ -66,7 +69,8 @@ export const mockOrdersService = {
     }, 0);
     // Live settings, so fee edits in /manager/settings apply to new orders.
     const venue = await mockVenueService.getVenueSnapshot();
-    const feeBreakdown = computeFeeLines(subtotal, venue);
+    const afterPromo = subtotal - (input.promoDiscount ?? 0);
+    const feeBreakdown = computeFeeLines(afterPromo, venue);
     const serviceFee = feeBreakdown.reduce((sum, l) => sum + l.amount, 0);
     const now = new Date().toISOString();
     const order: Order = {
@@ -92,7 +96,10 @@ export const mockOrdersService = {
       serviceFee,
       feeBreakdown,
       tip: input.tip,
-      total: Math.round((subtotal + serviceFee + input.tip) * 100) / 100,
+      total: Math.round((afterPromo + serviceFee + input.tip) * 100) / 100,
+      promotionId: input.promoId,
+      promotionCode: input.promoCode,
+      promotionCents: input.promoDiscount ? Math.round(input.promoDiscount * 100) : undefined,
       status: "pending",
       placedAt: now,
       updatedAt: now,

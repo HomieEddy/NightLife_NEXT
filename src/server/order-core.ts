@@ -6,7 +6,7 @@
 import type { getDb } from "./db";
 import { getRawPrisma } from "./db";
 import { fromCents, toCents } from "./money";
-import { computeOrderPricing, type FeeInput, type PricingLineInput } from "./pricing";
+import { computeOrderPricing, type FeeInput, type PricingLineInput, type PromotionInput } from "./pricing";
 import { publish } from "./events";
 import type { Order, OrderStatus, ServiceFee } from "@/lib/types";
 import type { z } from "zod";
@@ -56,6 +56,9 @@ interface OrderRow {
   giftToTableId: string | null;
   giftToTableCode: string | null;
   giftNote: string | null;
+  promotionId: string | null;
+  promotionCode: string | null;
+  promotionCents: number;
   items: {
     id: string;
     menuItemId: string;
@@ -119,6 +122,9 @@ function toOrder(row: OrderRow): Order {
     giftToTableId: row.giftToTableId ?? undefined,
     giftToTableCode: row.giftToTableCode ?? undefined,
     giftNote: row.giftNote ?? undefined,
+    promotionId: row.promotionId ?? undefined,
+    promotionCode: row.promotionCode ?? undefined,
+    promotionCents: row.promotionCents || undefined,
   };
 }
 
@@ -189,7 +195,7 @@ export async function submitOrder(
 ): Promise<{ ok: true; order: Order } | { ok: false; error: string }> {
   const prisma = getRawPrisma();
 
-  // Load venue fees + happy-hour rules + menu items for pricing
+  // Load venue fees + happy-hour rules + menu items + optional promo for pricing
   const [venueRow, happyHourRows, menuItems] = await Promise.all([
     db.venue.findUnique({ where: { id: venueId } }),
     db.happyHourRule.findMany({ where: { isActive: true } }),
@@ -199,6 +205,20 @@ export async function submitOrder(
   ]);
 
   if (!venueRow) return { ok: false, error: "Venue not found" };
+
+  // Validate promo code before entering the transaction
+  let promoRow: { id: string; code: string; type: string; value: number; appliesToCategoryIds: string[] } | null = null;
+  if (input.promoCode) {
+    const normalized = input.promoCode.trim().toUpperCase();
+    const found = await db.promotion.findUnique({
+      where: { venueId_code: { venueId, code: normalized } },
+    });
+    if (!found) return { ok: false, error: `Promo code "${input.promoCode}" not found` };
+    const now = new Date();
+    if (now < found.startsAt) return { ok: false, error: "This promo code is not yet active" };
+    if (now > found.endsAt) return { ok: false, error: "This promo code has expired" };
+    promoRow = found;
+  }
 
   const itemMap = new Map(menuItems.map((i) => [i.id, i]));
   for (const line of input.lines) {
@@ -238,10 +258,19 @@ export async function submitOrder(
     appliesToCategoryIds: r.appliesToCategoryIds,
   }));
 
+  const promotion: PromotionInput | undefined = promoRow
+    ? {
+        type: promoRow.type as "percentage" | "flat",
+        value: promoRow.value,
+        appliesToCategoryIds: promoRow.appliesToCategoryIds,
+      }
+    : undefined;
+
   const pricing = computeOrderPricing({
     lines: pricingLines,
     fees,
     happyHourRules,
+    promotion,
     tipCents: input.tipCents,
     now: new Date(),
   });
@@ -261,10 +290,13 @@ export async function submitOrder(
           zoneName: input.zoneName,
           guestName: input.guestName,
           subtotalCents: pricing.subtotalCents,
-          discountCents: pricing.discountCents,
+          discountCents: pricing.discountCents + pricing.promotionCents,
           totalFeeCents: pricing.totalFeeCents,
           tipCents: pricing.tipCents,
           totalCents: pricing.totalCents,
+          promotionId: promoRow?.id ?? null,
+          promotionCode: promoRow?.code ?? null,
+          promotionCents: pricing.promotionCents,
           status: "pending",
           items: {
             create: input.lines.map((line) => {
@@ -330,6 +362,14 @@ export async function submitOrder(
             data: { venueId, itemId: item.id, itemName: item.name },
           });
         }
+      }
+
+      // Increment promotion redemption count — exactly once per order, inside the transaction
+      if (promoRow) {
+        await tx.$executeRawUnsafe(
+          `UPDATE promotions SET redemption_count = redemption_count + 1, updated_at = NOW() WHERE id = $1`,
+          promoRow.id,
+        );
       }
 
       return order;
