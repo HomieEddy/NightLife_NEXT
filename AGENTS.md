@@ -213,10 +213,10 @@ Priorities, highest value first:
    `fees.ts`, order-total computation, order/session status transitions,
    inventory ledger balancing (`inventory === Σ movements.delta`). These are
    the functions where a silent bug costs real money.
-2. **Route handlers get integration tests** against a real (containerized or
-   in-memory) database — request in, DB rows + response out. Test the
-   authorization boundary explicitly: a staff token must not reach manager
-   endpoints; tenant A must never read tenant B's rows.
+2. **Route handlers get integration tests** against a real in-process database
+   (PGlite via `src/server/test-pglite.ts`) — request in, DB rows + response out.
+   No Docker or external Postgres needed. Test the authorization boundary explicitly:
+   a staff token must not reach manager endpoints; tenant A must never read tenant B's rows.
 3. **A handful of end-to-end flows** (Playwright): guest scan→order→delivery,
    manager fee change→guest cart reflects it, admin provision→manager
    onboarding. These mirror the manual preview flows in §5 — automate the
@@ -233,8 +233,8 @@ write and run them*. Per-feature test lists live in `docs/plans/*-PLAN.md` — a
 feature's plan names its required tests; don't invent a different set silently.
 
 1. **Harness:** Vitest, two projects — `unit` (node, no I/O) and `integration`
-   (route handlers against real Postgres via Testcontainers). Playwright for the
-   E2E flows named in §7.3 and the plans. Commands: `npm run test`,
+   (route handlers against real Postgres via PGlite in-process database, no Docker needed).
+   Playwright for the E2E flows named in §7.3 and the plans. Commands: `npm run test`,
    `test:integration`, `test:e2e`. (Configured by plan 01; until then, §5 governs.)
 2. **Layout & naming:** tests live next to the code they test —
    `src/server/pricing.ts` → `src/server/pricing.test.ts`;
@@ -411,8 +411,8 @@ makes it obsolete.
 - Venue/zones/tables/shifts (plan 03) persist across reload **in live mode
   only** — real Postgres via `venueService`'s live branch. Demo mode still
   resets on reload; that's the permanent sandbox behavior (AD-14), not a bug.
-  Local live testing needs Postgres reachable at `DATABASE_URL` (see
-  `docker-compose.yml`) and `npm run db:seed` at least once.
+  Local live testing: use `npm run dev:pglite` to start PGlite in-process Postgres
+  (no Docker needed), or connect to real Postgres at `DATABASE_URL` for external DBs.
 - Guest flow entry: **demo mode** — `/g/demo-table` → join → "Simulate host
   approval" (prototype control, demo-only) → menu. **Live mode** — QR URL is
   `/g/<tableId>.<sig>` (signed token); guest joins via API, sets httpOnly

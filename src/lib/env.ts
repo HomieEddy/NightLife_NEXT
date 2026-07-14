@@ -10,6 +10,11 @@ export type LiveEnv = z.infer<typeof liveSchema>;
 
 let _validated: LiveEnv | null = null;
 
+/** @internal — only for test-pglite to reset after changing process.env */
+export function _resetEnvCache() {
+  _validated = null;
+}
+
 /**
  * Returns validated env vars. Only callable in live mode — throws at boot
  * if required vars are missing so misconfiguration fails loudly.

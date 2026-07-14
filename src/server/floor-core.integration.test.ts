@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { execSync } from "node:child_process";
 import { getDb, type SessionContext } from "./db";
+import { createTestDb, type TestDb } from "./test-pglite";
 import {
   listBroadcasts,
   sendBroadcast,
@@ -40,36 +38,23 @@ async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {
 }
 
 describe("floor-core integration (plan 07)", () => {
-  let container: StartedPostgreSqlContainer;
+  let testDb: TestDb;
   let rawClient: PrismaClient;
   let venueA: string;
   let venueB: string;
   let ctxA: SessionContext;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer("postgres:17-alpine").start();
-    const url = container.getConnectionUri();
-
-    execSync(`npx prisma migrate deploy`, {
-      env: { ...process.env, DATABASE_URL: url },
-      cwd: process.cwd(),
-    });
-
-    process.env.DATABASE_URL = url;
-    process.env.AUTH_SECRET = "test-secret-at-least-16";
-    process.env.QR_TOKEN_SECRET = "test-qr-secret-at-least-16-chars";
-
-    const adapter = new PrismaPg(url);
-    rawClient = new PrismaClient({ adapter });
+    testDb = await createTestDb();
+    rawClient = testDb.rawClient;
 
     venueA = await makeVenue(rawClient, "Club A", "club-a");
     venueB = await makeVenue(rawClient, "Club B", "club-b");
     ctxA = { venueId: venueA };
-  });
+  }, 60_000);
 
   afterAll(async () => {
-    await rawClient.$disconnect();
-    await container.stop();
+    await testDb?.teardown();
   });
 
   // ── Broadcasts ────────────────────────────────────────────────────

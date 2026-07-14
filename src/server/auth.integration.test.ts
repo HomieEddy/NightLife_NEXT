@@ -1,29 +1,19 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { execSync } from "node:child_process";
 import { betterAuth } from "better-auth";
 import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { createTestDb, type TestDb } from "./test-pglite";
 
 describe("auth integration", () => {
-  let container: StartedPostgreSqlContainer;
+  let testDb: TestDb;
   let prisma: PrismaClient;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let testAuth: any;
 
   beforeAll(async () => {
-    container = await new PostgreSqlContainer("postgres:17-alpine").start();
-    const url = container.getConnectionUri();
-
-    execSync(`npx prisma migrate deploy`, {
-      env: { ...process.env, DATABASE_URL: url },
-      cwd: process.cwd(),
-    });
-
-    const adapter = new PrismaPg(url);
-    prisma = new PrismaClient({ adapter });
+    testDb = await createTestDb();
+    prisma = testDb.rawClient;
 
     testAuth = betterAuth({
       database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -46,8 +36,7 @@ describe("auth integration", () => {
   }, 60_000);
 
   afterAll(async () => {
-    await prisma?.$disconnect();
-    await container?.stop();
+    await testDb?.teardown();
   });
 
   it("staff token cannot access a different venue's org", async () => {
@@ -82,6 +71,18 @@ describe("auth integration", () => {
   });
 
   it("suspended user cannot sign in", async () => {
+    const adminUser = await testAuth.api.signUpEmail({
+      body: {
+        name: "Admin",
+        email: "ban-admin@test.com",
+        password: "password123",
+      },
+    });
+    await prisma.user.update({
+      where: { id: adminUser.user.id },
+      data: { role: "admin" },
+    });
+
     const user = await testAuth.api.signUpEmail({
       body: {
         name: "Suspended User",
@@ -90,28 +91,17 @@ describe("auth integration", () => {
       },
     });
 
-    // Ban the user
     await testAuth.api.banUser({
-      headers: new Headers({ authorization: `Bearer ${user.token}` }),
+      headers: new Headers({ authorization: `Bearer ${adminUser.token}` }),
       body: { userId: user.user.id },
     });
 
-    // Try to sign in
-    const result = await testAuth.api.signInEmail({
-      body: { email: "suspended@test.com", password: "password123" },
-    });
-
-    // Banned users should fail to get a valid session
-    const session = await testAuth.api.getSession({
-      headers: new Headers({
-        authorization: `Bearer ${result?.token ?? "invalid"}`,
+    // Banned user should be rejected at sign-in
+    await expect(
+      testAuth.api.signInEmail({
+        body: { email: "suspended@test.com", password: "password123" },
       }),
-    });
-
-    // The session should either be null or the user should be marked as banned
-    if (session) {
-      expect(session.user.banned).toBe(true);
-    }
+    ).rejects.toThrow(/banned/);
   });
 
   it("invitation is single-use", async () => {
