@@ -3,7 +3,7 @@
  * Returns null if the cookie is missing or the session doesn't exist.
  */
 import type { NextRequest } from "next/server";
-import { getPlatformDb } from "./db";
+import { getPlatformDb } from "@/server/db";
 
 export async function getGuestVenueId(request: NextRequest): Promise<string | null> {
   const sessionId = request.cookies.get("nln-guest-session")?.value;

@@ -4,7 +4,7 @@
  */
 import type { PrismaClient } from "@prisma/client";
 import type { getDb } from "./db";
-import { getRawPrisma } from "./db";
+import { getRawPrisma } from "@/server/db";
 import { fromCents } from "./money";
 import { nightContaining, nightForDate, type NightBoundary, type NightConfig } from "./night";
 import type {

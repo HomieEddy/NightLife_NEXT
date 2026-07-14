@@ -18,7 +18,7 @@ const AREA_ROLES: Record<"manager" | "staff", OrgRole[]> = {
 };
 
 async function getAuth() {
-  const { auth } = await import("./auth");
+  const { auth } = await import("@/server/auth");
   return auth;
 }
 

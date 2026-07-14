@@ -4,7 +4,7 @@
  * Closure validation (INV-S2): requestClosure rejects when in-flight orders exist.
  */
 import type { getDb } from "./db";
-import { getRawPrisma } from "./db";
+import { getRawPrisma } from "@/server/db";
 import { publish, publishInTransaction } from "./events";
 import type { GuestSession, GuestSessionStatus, HelpRequest, HelpRequestType, HelpRequestStatus, SettlementMethod } from "@/lib/types";
 import type { GuestSessionStatus as PrismaSessionStatus, OrderStatus } from "@prisma/client";

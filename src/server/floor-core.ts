@@ -3,7 +3,7 @@
  * All writes publish domain events for SSE delivery.
  */
 import type { getDb } from "./db";
-import { getRawPrisma } from "./db";
+import { getRawPrisma } from "@/server/db";
 import { publish } from "./events";
 import type { ActiveShow, Broadcast, ChatMessage } from "@/lib/types";
 import type { StaffRole } from "@/lib/types";
