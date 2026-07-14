@@ -81,6 +81,7 @@ const eslintConfig = defineConfig([
       "src/components/demo/**",
       "src/components/shared/demo-controls.tsx",
       "src/components/shared/demo-links.tsx",
+      "src/components/shared/demo-tour-page.tsx",
       "src/components/shared/app-mode-banner.tsx",
       "**/*.test.ts",
       "**/*.test.tsx",
