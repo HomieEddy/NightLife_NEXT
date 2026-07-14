@@ -3,7 +3,7 @@
 import type { Reservation, ReservationStatus } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -29,7 +29,7 @@ export const liveReservationService = {
   },
 
   async getReservation(id: string): Promise<Reservation | null> {
-    const res = await fetch(`/api/reservations/${encodeURIComponent(id)}`);
+    const res = await liveFetch(`/api/reservations/${encodeURIComponent(id)}`);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to get reservation ${id}`);
     return res.json();
@@ -72,3 +72,4 @@ export const liveReservationService = {
     return this.setStatus(id, "cancelled");
   },
 };
+import { liveFetch } from "./live-fetch";

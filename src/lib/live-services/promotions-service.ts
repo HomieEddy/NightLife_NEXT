@@ -3,7 +3,7 @@
 import type { Promotion } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -20,7 +20,7 @@ export const livePromotionsService = {
   },
 
   async getPromotion(id: string): Promise<Promotion | null> {
-    const res = await fetch(`/api/promotions/${encodeURIComponent(id)}`);
+    const res = await liveFetch(`/api/promotions/${encodeURIComponent(id)}`);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to get promotion ${id}`);
     return res.json();
@@ -55,3 +55,4 @@ export const livePromotionsService = {
     return res.valid && res.promotion ? res.promotion : null;
   },
 };
+import { liveFetch } from "./live-fetch";
