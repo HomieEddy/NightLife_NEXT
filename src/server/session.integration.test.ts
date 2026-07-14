@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { getDb, type SessionContext } from "./db";
 import { createTestDb, type TestDb } from "./test-pglite";
@@ -99,6 +99,14 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     await testDb?.teardown();
   });
 
+  beforeEach(async () => {
+    await rawClient.guestSession.updateMany({
+      where: { venueId: venueA, status: { in: ["approved", "closure_requested"] } },
+      data: { status: "closed", settledExternallyAt: new Date(), settlementMethod: "house" },
+    });
+    await rawClient.venueTable.update({ where: { id: tableId }, data: { status: "open" } });
+  });
+
   // ── Session state machine (INV-S1) ────────────────────────────────
 
   it("creates a pending session", async () => {
@@ -126,6 +134,7 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     const result = await setSessionStatus(db, session.id, "approved");
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.session.status).toBe("approved");
+    expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("occupied");
   });
 
   it("transitions pending → denied", async () => {
@@ -138,6 +147,22 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     const result = await setSessionStatus(db, session.id, "denied");
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.session.status).toBe("denied");
+    expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("open");
+  });
+
+  it("rejects a second active session for the same table", async () => {
+    const db = getDb(ctxA);
+    const first = await createSession(db, venueA, {
+      tableId, tableCode: "VIP-01", zoneName: "VIP", displayName: "First", partySize: 2,
+    }, false);
+    await setSessionStatus(db, first.id, "approved");
+    const second = await createSession(db, venueA, {
+      tableId, tableCode: "VIP-01", zoneName: "VIP", displayName: "Second", partySize: 2,
+    }, false);
+
+    const result = await setSessionStatus(db, second.id, "approved");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("active session");
   });
 
   it("rejects illegal transition pending → closed", async () => {
@@ -231,6 +256,24 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     }, true);
 
     expect(session.status).toBe("approved");
+    expect((await rawClient.venueTable.findUnique({ where: { id: autoTable.id } }))?.status).toBe("occupied");
+  });
+
+  it("records external settlement and releases the table on close", async () => {
+    const db = getDb(ctxA);
+    const session = await createSession(db, venueA, {
+      tableId, tableCode: "VIP-01", zoneName: "VIP", displayName: "Close", partySize: 2,
+    }, false);
+    await setSessionStatus(db, session.id, "approved");
+    await requestClosure(db, session.id);
+
+    const result = await setSessionStatus(db, session.id, "closed", "terminal");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.session.settlementMethod).toBe("terminal");
+      expect(result.session.settledExternallyAt).toBeTruthy();
+    }
+    expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("open");
   });
 
   // ── Revoked token (INV-S3) — existing session survives ────────────

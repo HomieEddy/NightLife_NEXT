@@ -28,6 +28,8 @@ function toVenue(
     logoInitials: string;
     slaThresholds: unknown;
     lastCallAutoFlagTables: boolean;
+    nightStartHour: number;
+    nightEndHour: number;
   },
   org: OrgIdentity,
 ): Venue {
@@ -46,6 +48,8 @@ function toVenue(
     logoInitials: row.logoInitials,
     slaThresholds: row.slaThresholds as Venue["slaThresholds"],
     lastCallAutoFlagTables: row.lastCallAutoFlagTables,
+    nightStartHour: row.nightStartHour,
+    nightEndHour: row.nightEndHour,
   };
 }
 
