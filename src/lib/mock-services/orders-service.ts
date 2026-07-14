@@ -5,7 +5,7 @@
 import type { CartLine, MenuItem, Order, OrderStatus } from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
-import { computeFeeLines, computeServiceFee } from "@/lib/fees";
+import { computeFeeLines } from "@/lib/fees";
 import { mockMenuService } from "./menu-service";
 import { mockVenueService } from "./venue-service";
 import { clone, delay, uid } from "./delay";

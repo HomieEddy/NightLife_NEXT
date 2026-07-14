@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/types";
-import { Gift, MapPin } from "lucide-react";
+import { Gift, MapPin, Tag } from "lucide-react";
 
 export function OrderCard({
   order,
@@ -33,6 +33,12 @@ export function OrderCard({
               <MapPin className="size-3" />
               {order.tableCode} · {order.zoneName} · {order.guestName}
             </p>
+            {order.promotionCode && (
+              <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-primary">
+                <Tag className="size-3" /> {order.promotionCode}
+                {order.promotionCents ? ` (−${formatMoney(order.promotionCents / 100)})` : ""}
+              </p>
+            )}
             {order.giftToTableCode && (
               <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-primary">
                 <Gift className="size-3" /> Deliver to {order.giftToTableCode} — anonymous gift

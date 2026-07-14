@@ -442,6 +442,7 @@ describe("pricing engine — invariants", () => {
     });
     expect(Number.isInteger(result.subtotalCents)).toBe(true);
     expect(Number.isInteger(result.discountCents)).toBe(true);
+    expect(Number.isInteger(result.promotionCents)).toBe(true);
     expect(Number.isInteger(result.discountedSubtotalCents)).toBe(true);
     expect(Number.isInteger(result.totalFeeCents)).toBe(true);
     expect(Number.isInteger(result.tipCents)).toBe(true);
@@ -449,5 +450,122 @@ describe("pricing engine — invariants", () => {
     for (const fl of result.feeLines) {
       expect(Number.isInteger(fl.amountCents)).toBe(true);
     }
+  });
+});
+
+// ── Promotion discount ───────────────────────────────────────────────
+
+describe("pricing engine — promotions", () => {
+  it("applies a percentage promo to all categories", () => {
+    const result = computeOrderPricing({
+      lines: [simpleLine(10000, 1), simpleLine(5000, 2)],
+      fees: NO_FEES,
+      happyHourRules: NO_HAPPY_HOUR,
+      promotion: { type: "percentage", value: 10, appliesToCategoryIds: [] },
+      tipCents: 0,
+      now: new Date("2026-07-10T23:00:00"),
+    });
+    // subtotal: 20000, promo: 10% = 2000
+    expect(result.subtotalCents).toBe(20000);
+    expect(result.promotionCents).toBe(2000);
+    expect(result.discountedSubtotalCents).toBe(18000);
+  });
+
+  it("applies a flat promo, capped at subtotal", () => {
+    const result = computeOrderPricing({
+      lines: [simpleLine(3000, 1)],
+      fees: NO_FEES,
+      happyHourRules: NO_HAPPY_HOUR,
+      promotion: { type: "flat", value: 50, appliesToCategoryIds: [] },
+      tipCents: 0,
+      now: new Date("2026-07-10T23:00:00"),
+    });
+    // $50 flat > $30 subtotal → capped at 3000
+    expect(result.promotionCents).toBe(3000);
+    expect(result.discountedSubtotalCents).toBe(0);
+  });
+
+  it("applies flat promo normally when subtotal exceeds it", () => {
+    const result = computeOrderPricing({
+      lines: [simpleLine(10000, 1)],
+      fees: NO_FEES,
+      happyHourRules: NO_HAPPY_HOUR,
+      promotion: { type: "flat", value: 25, appliesToCategoryIds: [] },
+      tipCents: 0,
+      now: new Date("2026-07-10T23:00:00"),
+    });
+    // $25 flat = 2500 cents
+    expect(result.promotionCents).toBe(2500);
+    expect(result.discountedSubtotalCents).toBe(7500);
+  });
+
+  it("category-scoped promo only discounts matching lines", () => {
+    const result = computeOrderPricing({
+      lines: [
+        simpleLine(10000, 1, "spirits"),
+        simpleLine(5000, 1, "beer"),
+      ],
+      fees: NO_FEES,
+      happyHourRules: NO_HAPPY_HOUR,
+      promotion: { type: "percentage", value: 20, appliesToCategoryIds: ["spirits"] },
+      tipCents: 0,
+      now: new Date("2026-07-10T23:00:00"),
+    });
+    // Only spirits line: 10000 * 20% = 2000
+    expect(result.promotionCents).toBe(2000);
+    expect(result.discountedSubtotalCents).toBe(13000);
+  });
+
+  // Precedence rule: promo applies to the already-discounted price (after happy-hour)
+  it("promo applies after happy-hour discount", () => {
+    const fridayNight = new Date("2026-07-10T23:00:00"); // Friday
+    const result = computeOrderPricing({
+      lines: [simpleLine(10000, 1)],
+      fees: NO_FEES,
+      happyHourRules: [{
+        id: "hh1",
+        isActive: true,
+        daysOfWeek: [5],
+        startTime: "22:00",
+        endTime: "23:30",
+        discountPct: 20,
+        appliesToCategoryIds: [],
+      }],
+      promotion: { type: "percentage", value: 10, appliesToCategoryIds: [] },
+      tipCents: 0,
+      now: fridayNight,
+    });
+    // HH: 10000 * 20% = 2000 discount → 8000 after HH
+    // Promo: 8000 * 10% = 800
+    expect(result.discountCents).toBe(2000);
+    expect(result.promotionCents).toBe(800);
+    expect(result.discountedSubtotalCents).toBe(7200);
+  });
+
+  it("fees computed on the post-promo subtotal", () => {
+    const result = computeOrderPricing({
+      lines: [simpleLine(10000, 1)],
+      fees: [{ id: "f1", name: "Service", type: "percentage", value: 1000 }], // 10%
+      happyHourRules: NO_HAPPY_HOUR,
+      promotion: { type: "percentage", value: 20, appliesToCategoryIds: [] },
+      tipCents: 0,
+      now: new Date("2026-07-10T23:00:00"),
+    });
+    // promo: 2000 → discounted subtotal: 8000
+    // fee: 10% of 8000 = 800
+    expect(result.promotionCents).toBe(2000);
+    expect(result.discountedSubtotalCents).toBe(8000);
+    expect(result.feeLines[0].amountCents).toBe(800);
+  });
+
+  it("no promotion means promotionCents is 0", () => {
+    const result = computeOrderPricing({
+      lines: [simpleLine(10000, 1)],
+      fees: NO_FEES,
+      happyHourRules: NO_HAPPY_HOUR,
+      tipCents: 0,
+      now: new Date("2026-07-10T23:00:00"),
+    });
+    expect(result.promotionCents).toBe(0);
   });
 });

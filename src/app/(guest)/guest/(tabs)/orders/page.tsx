@@ -10,6 +10,7 @@ import {
   PartyPopper,
   Receipt,
   ReceiptText,
+  Tag,
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -207,6 +208,12 @@ export default function GuestOrdersPage() {
                     {order.items.reduce((n, i) => n + i.quantity, 0)} items ·{" "}
                     {timeAgo(order.placedAt)}
                   </p>
+                  {order.promotionCode && (
+                    <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-primary">
+                      <Tag className="size-3" /> {order.promotionCode}
+                      {order.promotionCents ? ` (−${formatMoney(order.promotionCents / 100)})` : ""}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <StatusBadge status={order.status} pulse={order.status === "pending"} />
