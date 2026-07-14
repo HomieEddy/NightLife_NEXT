@@ -1,12 +1,15 @@
 "use client";
 
 import { ChatPanel } from "@/components/shared/chat-panel";
-import { useAuth } from "@/context/auth-context";
-import { isDemoMode } from "@/lib/app-mode";
-import { CURRENT_STAFF_ID } from "@/lib/mock-data/staff";
+import { staffService } from "@/lib/services/staff-service";
+import { useEffect, useState } from "react";
 
 export default function StaffChatPage() {
-  const { user } = useAuth();
-  const userId = isDemoMode() ? CURRENT_STAFF_ID : user?.id ?? "";
+  const [userId, setUserId] = useState("");
+
+  useEffect(() => {
+    staffService.getCurrentStaff().then((staff) => setUserId(staff?.id ?? ""));
+  }, []);
+
   return <ChatPanel currentUserId={userId} />;
 }

@@ -5,6 +5,9 @@ import { Check, UserCheck, Users, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
@@ -12,11 +15,13 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { guestsService } from "@/lib/services/guests-service";
 import { timeAgo } from "@/lib/format";
 import { useLiveEvents } from "@/lib/use-live-events";
-import type { GuestSession } from "@/lib/types";
+import type { GuestSession, SettlementMethod } from "@/lib/types";
 
 export default function StaffApprovalsPage() {
   const [sessions, setSessions] = useState<GuestSession[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [closing, setClosing] = useState<GuestSession | null>(null);
+  const [settlementMethod, setSettlementMethod] = useState<SettlementMethod | "">("");
 
   const refresh = useCallback(async () => {
     setSessions(await guestsService.listSessions());
@@ -36,21 +41,32 @@ export default function StaffApprovalsPage() {
 
   async function decide(session: GuestSession, status: "approved" | "denied") {
     setBusyId(session.id);
-    await guestsService.setSessionStatus(session.id, status);
-    toast[status === "approved" ? "success" : "info"](
-      `${session.displayName} at ${session.tableCode} ${status}`,
-    );
-    await refresh();
-    setBusyId(null);
+    try {
+      await guestsService.setSessionStatus(session.id, status);
+      toast[status === "approved" ? "success" : "info"](`${session.displayName} at ${session.tableCode} ${status}`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update the guest session.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
-  async function approveClosure(session: GuestSession) {
+  async function approveClosure() {
+    if (!closing || !settlementMethod) return;
+    const session = closing;
     setBusyId(session.id);
-    // TODO(backend): closing settles payment and frees the table.
-    await guestsService.setSessionStatus(session.id, "closed");
-    toast.success(`Tab closed for ${session.displayName} at ${session.tableCode}`);
-    await refresh();
-    setBusyId(null);
+    try {
+      await guestsService.setSessionStatus(session.id, "closed", settlementMethod);
+      toast.success(`Tab closed for ${session.displayName} at ${session.tableCode}`);
+      setClosing(null);
+      setSettlementMethod("");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not close the tab.");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   const pending = (sessions ?? []).filter((s) => s.status === "pending");
@@ -150,17 +166,9 @@ export default function StaffApprovalsPage() {
                       </div>
                       <StatusBadge status={session.status} pulse />
                     </div>
-                    <ConfirmDialog
-                      trigger={
-                        <Button className="h-11 w-full" disabled={busyId === session.id}>
-                          <Check className="size-4" /> Approve & close tab
-                        </Button>
-                      }
-                      title={`Close the tab for ${session.tableCode}?`}
-                      description="The session ends and the table frees up. Payment settlement arrives with the backend."
-                      confirmLabel="Close tab"
-                      onConfirm={() => approveClosure(session)}
-                    />
+                    <Button className="h-11 w-full" disabled={busyId === session.id} onClick={() => setClosing(session)}>
+                      <Check className="size-4" /> Record settlement & close
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
@@ -188,6 +196,32 @@ export default function StaffApprovalsPage() {
           )}
         </>
       )}
+
+      <Dialog open={closing !== null} onOpenChange={(open) => !open && setClosing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Close the tab for {closing?.tableCode}?</DialogTitle>
+            <DialogDescription>
+              Record how staff settled this tab externally. Closing ends the guest session and returns the table to reserved or open.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="settlement-method">Settlement method</Label>
+            <Select value={settlementMethod} onValueChange={(value) => setSettlementMethod(value as SettlementMethod)}>
+              <SelectTrigger id="settlement-method"><SelectValue placeholder="Choose a method" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="terminal">Card terminal</SelectItem>
+                <SelectItem value="cash">Cash</SelectItem>
+                <SelectItem value="house">House account</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setClosing(null)} disabled={busyId === closing?.id}>Cancel</Button>
+            <Button onClick={approveClosure} disabled={!settlementMethod || busyId === closing?.id}>Record & close tab</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
