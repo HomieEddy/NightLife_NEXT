@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
-import { Copy, Download, ExternalLink, Printer, QrCode, RefreshCw } from "lucide-react";
+import { Copy, Download, Printer, QrCode, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,12 +11,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { DemoManagerGuestFlowAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { venueService } from "@/lib/services/venue-service";
 import type { VenueTable, Zone } from "@/lib/types";
-import { isDemoMode } from "@/lib/app-mode";
 
 /** Real, scannable QR rendered as inline SVG. */
 function QrSvg({ url, className }: { url: string; className?: string }) {
@@ -113,13 +113,7 @@ export default function ManagerQrPage() {
               <Button variant="outline" onClick={() => window.print()}>
                 <Printer className="size-4" /> Print sheet
               </Button>
-              {isDemoMode() && (
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/g/demo-table">
-                    <ExternalLink className="size-3.5" /> Test guest flow
-                  </Link>
-                </Button>
-              )}
+              <DemoManagerGuestFlowAction />
             </div>
           }
         />
