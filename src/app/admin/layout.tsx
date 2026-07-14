@@ -14,6 +14,7 @@ import { RequireAuth } from "@/components/shared/require-auth";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
 import { isDemoMode } from "@/lib/app-mode";
+import { ADMIN_DEMO_PASSWORD, isAdminUnlocked, setAdminUnlocked } from "@/lib/admin-gate";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -29,7 +30,6 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (typeof window === "undefined") return;
-    const { ADMIN_DEMO_PASSWORD, setAdminUnlocked } = require("@/lib/admin-gate");
     if (password === ADMIN_DEMO_PASSWORD) {
       setAdminUnlocked(true);
       onUnlock();
@@ -95,7 +95,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!demo) return;
-    const { isAdminUnlocked } = require("@/lib/admin-gate");
     setUnlocked(isAdminUnlocked());
   }, [demo]);
 

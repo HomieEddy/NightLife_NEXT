@@ -26,10 +26,13 @@ async function liveGET(request: NextRequest) {
   }
 
   const { getRawPrisma } = await import("@/server/db");
-  const venue = await getRawPrisma().venue.findUnique({ where: { id: venueId }, select: { timezone: true } });
-  const timezone = venue?.timezone ?? "UTC";
+  const venue = await getRawPrisma().venue.findUnique({
+    where: { id: venueId },
+    select: { timezone: true, nightStartHour: true, nightEndHour: true },
+  });
+  if (!venue) return NextResponse.json({ error: "Venue not found" }, { status: 404 });
 
-  const summary = await getSummaryForVenue(db, venueId, timezone);
+  const summary = await getSummaryForVenue(db, venueId, venue);
   return NextResponse.json(summary);
 }
 

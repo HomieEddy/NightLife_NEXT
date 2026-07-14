@@ -41,5 +41,23 @@ async function livePOST(_request: NextRequest, { params }: { params: Promise<{ i
   return NextResponse.json(category);
 }
 
+async function liveDELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { getDb } = await import("@/server/db");
+  const { deleteCategory } = await import("@/server/menu-core");
+
+  const auth = await requireApiArea("manager");
+  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const { id } = await params;
+  const { venueId } = sessionToDbContext(auth.session);
+  const removed = await deleteCategory(getDb({ venueId }), id);
+  if (!removed) {
+    return NextResponse.json({ error: "Category still has menu items" }, { status: 409 });
+  }
+  return NextResponse.json({ ok: true });
+}
+
 export const PATCH = isDemoMode() ? demoHandler : livePATCH;
 export const POST = isDemoMode() ? demoHandler : livePOST;
+export const DELETE = isDemoMode() ? demoHandler : liveDELETE;
