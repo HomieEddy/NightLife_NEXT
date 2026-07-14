@@ -15,6 +15,7 @@ import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/lib/services/menu-service";
 import { cn } from "@/lib/utils";
 import type { MenuCategory, MenuItem } from "@/lib/types";
+import { isDemoMode } from "@/lib/app-mode";
 
 export default function GuestMenuPage() {
   const { table } = useGuest();
@@ -64,11 +65,11 @@ export default function GuestMenuPage() {
           icon={QrCode}
           title="No table joined"
           description="Scan the QR code on your table to browse the menu."
-          action={
+          action={isDemoMode() ? (
             <Button asChild>
               <Link href="/g/demo-table">Simulate scanning a QR</Link>
             </Button>
-          }
+          ) : undefined}
         />
       </div>
     );
@@ -134,7 +135,13 @@ export default function GuestMenuPage() {
         </div>
       )}
 
-      <ItemDetailModal item={openItem} onClose={() => setOpenItem(null)} />
+      <ItemDetailModal
+        item={openItem}
+        modifierGroups={
+          categories.find((category) => category.id === openItem?.categoryId)?.modifierGroups ?? []
+        }
+        onClose={() => setOpenItem(null)}
+      />
       <CartSheet />
     </div>
   );

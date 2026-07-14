@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Hourglass, Loader2, PartyPopper, QrCode, Sparkles } from "lucide-react";
+import { Hourglass, Loader2, QrCode, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -12,6 +12,8 @@ import { useGuest } from "@/context/guest-context";
 import { isDemoMode } from "@/lib/app-mode";
 import { guestsService } from "@/lib/services/guests-service";
 import { useLiveEvents } from "@/lib/use-live-events";
+import { DemoHostApprovalControl } from "@/components/shared/demo-controls";
+import { toast } from "sonner";
 
 export default function WaitingPage() {
   const router = useRouter();
@@ -22,7 +24,7 @@ export default function WaitingPage() {
     if (!sessionId || approved) return;
     const session = await guestsService.getSession(sessionId);
     if (session?.status === "approved") approve();
-    if (session?.status === "denied") router.replace("/g/demo-table");
+    if (session?.status === "denied") router.replace(isDemoMode() ? "/g/demo-table" : "/");
   }, [sessionId, approved, approve, router]);
 
   const pollRef = useRef(pollApproval);
@@ -52,11 +54,11 @@ export default function WaitingPage() {
           icon={QrCode}
           title="No table joined"
           description="Scan the QR code on your table to get started."
-          action={
+          action={isDemoMode() ? (
             <Button asChild>
               <Link href="/g/demo-table">Simulate scanning a QR</Link>
             </Button>
-          }
+          ) : undefined}
         />
       </div>
     );
@@ -64,8 +66,14 @@ export default function WaitingPage() {
 
   async function simulateApproval() {
     setApproving(true);
-    await guestsService.setSessionStatus(sessionId!, "approved");
-    approve();
+    try {
+      await guestsService.setSessionStatus(sessionId!, "approved");
+      approve();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not approve the demo session");
+    } finally {
+      setApproving(false);
+    }
   }
 
   return (
@@ -114,20 +122,7 @@ export default function WaitingPage() {
             <Loader2 className="size-4 animate-spin" /> Waiting for approval…
           </div>
 
-          {isDemoMode() && (
-            <div className="relative mt-4 w-full max-w-xs space-y-2 rounded-xl border border-dashed bg-background/60 p-4 backdrop-blur animate-fade-up">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Prototype control
-              </p>
-              <Button className="w-full" onClick={simulateApproval} disabled={approving}>
-                <PartyPopper className="size-4" />
-                {approving ? "Approving…" : "Simulate host approval"}
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                In the real product a host taps &quot;approve&quot; on the staff panel.
-              </p>
-            </div>
-          )}
+          <DemoHostApprovalControl approving={approving} onApprove={simulateApproval} />
         </>
       )}
     </div>

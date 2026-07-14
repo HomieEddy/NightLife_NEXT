@@ -2,10 +2,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { isDemoMode } from "@/lib/app-mode";
 
 const NAV_LINKS = [
   { href: "/pricing", label: "Pricing" },
-  { href: "/demo", label: "Live demo" },
+  ...(isDemoMode() ? [{ href: "/demo", label: "Live demo" }] : []),
 ];
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -20,9 +21,11 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
                 <Link href={link.href}>{link.label}</Link>
               </Button>
             ))}
-            <Button size="sm" asChild>
-              <Link href="/lead">Get started</Link>
-            </Button>
+            {isDemoMode() && (
+              <Button size="sm" asChild>
+                <Link href="/lead">Get started</Link>
+              </Button>
+            )}
             <ThemeToggle />
           </nav>
         </div>
@@ -31,14 +34,18 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <footer className="border-t py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-muted-foreground sm:flex-row">
           <BrandLogo className="text-sm" />
-          <p>© {new Date().getFullYear()} NightLifeNext. Prototype — not a real product yet.</p>
+          <p>© {new Date().getFullYear()} NightLifeNext.</p>
           <div className="flex gap-4">
-            <Link href="/demo" className="hover:text-foreground">
-              Demo tour
-            </Link>
-            <Link href="/g/demo-table" className="hover:text-foreground">
-              Guest demo
-            </Link>
+            {isDemoMode() && (
+              <Link href="/demo" className="hover:text-foreground">
+                Demo tour
+              </Link>
+            )}
+            {isDemoMode() && (
+              <Link href="/g/demo-table" className="hover:text-foreground">
+                Guest demo
+              </Link>
+            )}
           </div>
         </div>
       </footer>
