@@ -223,7 +223,6 @@ export default function ManagerInventoryPage() {
         inventory: Math.max(0, draft.inventory),
         tags: [],
         isAvailable: true,
-        modifierGroups: [],
       });
       toast.success(`${draft.name.trim()} added to inventory`);
     }
@@ -233,7 +232,6 @@ export default function ManagerInventoryPage() {
   }
 
   async function handleDelete(item: MenuItem) {
-    // TODO(backend): block deletion if the item is referenced by an active package.
     await menuService.deleteItem(item.id);
     toast.info(`${item.name} removed from inventory`);
     await refresh();

@@ -42,20 +42,28 @@ function AcceptContent() {
     }
 
     setSubmitting(true);
+    try {
+      const invitation = await authClient.organization.getInvitation({ query: { id: invitationId } });
+      if (invitation.error || !invitation.data) throw new Error("Invitation expired or already used.");
 
-    const { error } = await authClient.organization.acceptInvitation({
-      invitationId,
-    });
+      const signup = await authClient.signUp.email({
+        email: invitation.data.email,
+        name: name.trim(),
+        password,
+      });
+      if (signup.error) throw new Error(signup.error.message || "Could not create the account");
 
-    if (error) {
-      toast.error("Invitation expired or already used.");
+      const accepted = await authClient.organization.acceptInvitation({ invitationId });
+      if (accepted.error) throw new Error(accepted.error.message || "Invitation expired or already used.");
+
+      setDone(true);
+      toast.success("Account created! Redirecting to staff…");
+      setTimeout(() => router.push("/staff"), 1200);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not accept the invitation");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    setDone(true);
-    toast.success("Account created! Redirecting to sign in…");
-    setTimeout(() => router.push("/login"), 2000);
   }
 
   if (!invitationId) {
