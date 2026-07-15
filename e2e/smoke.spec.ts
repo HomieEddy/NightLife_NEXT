@@ -45,6 +45,8 @@ test("live mode hides demo and ungraduated surfaces", async ({ page }) => {
   expect(demoResponse?.status()).toBe(404);
   const adminResponse = await page.goto("/admin");
   expect(adminResponse?.status()).toBe(404);
+  const leadResponse = await page.goto("/lead");
+  expect(leadResponse?.status()).toBe(404);
   const billingResponse = await page.goto("/manager/subscription");
   expect(billingResponse?.status()).toBe(404);
 });
