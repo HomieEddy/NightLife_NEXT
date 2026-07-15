@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -31,6 +31,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
 import { cn } from "@/lib/utils";
 import { isDemoMode } from "@/lib/app-mode";
+import { venueService } from "@/lib/services/venue-service";
 
 const NAV = [
   { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
@@ -56,6 +57,11 @@ const NAV = [
 export default function ManagerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [venueName, setVenueName] = useState<string | null>(null);
+
+  useEffect(() => {
+    venueService.getVenue().then((v) => setVenueName(v.name));
+  }, []);
   const onOnboarding = pathname.startsWith("/manager/onboarding");
   const isActive = (href: string) =>
     href === "/manager" ? pathname === "/manager" : pathname.startsWith(href);
@@ -109,7 +115,7 @@ export default function ManagerLayout({ children }: { children: React.ReactNode 
           ))}
         </nav>
         <div className="border-t p-4 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">Velvet Montréal</p>
+          <p className="font-medium text-foreground">{venueName ?? "…"}</p>
           <AuthBanner className="mt-1" />
         </div>
       </aside>

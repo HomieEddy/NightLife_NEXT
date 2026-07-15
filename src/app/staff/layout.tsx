@@ -9,6 +9,7 @@ import { MobileBottomNav } from "@/components/shared/mobile-bottom-nav";
 import { RequireAuth } from "@/components/shared/require-auth";
 import { BroadcastBanner } from "@/components/staff/broadcast-banner";
 import { staffService } from "@/lib/services/staff-service";
+import { venueService } from "@/lib/services/venue-service";
 import type { StaffMember } from "@/lib/types";
 import { Home, LifeBuoy, MessageSquare, Receipt, UserCheck } from "lucide-react";
 
@@ -18,9 +19,11 @@ import { Home, LifeBuoy, MessageSquare, Receipt, UserCheck } from "lucide-react"
  */
 export default function StaffLayout({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<StaffMember | null>(null);
+  const [venueName, setVenueName] = useState<string | null>(null);
 
   useEffect(() => {
     staffService.getCurrentStaff().then(setMe);
+    venueService.getVenue().then((v) => setVenueName(v.name));
   }, []);
 
   return (
@@ -38,7 +41,7 @@ export default function StaffLayout({ children }: { children: React.ReactNode })
               </Avatar>
               <div className="leading-tight">
                 <p className="text-sm font-semibold">{me?.name ?? "Loading…"}</p>
-                <p className="text-[11px] text-muted-foreground">LUXE Noir · Staff panel</p>
+                <p className="text-[11px] text-muted-foreground">{venueName ?? "…"} · Staff panel</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
