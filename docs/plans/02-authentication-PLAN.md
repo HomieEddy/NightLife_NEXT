@@ -75,3 +75,10 @@ counterpart exists (R7), never both alive at once.
 
 All five simulations gone; login/logout/invite work in preview; role matrix tests
 green; `/demo` tour unaffected (personas still one-tap).
+
+Post-plan note (2026-07-15, plan 09b addendum): the per-area role check on
+direct URL entry originally landed only for API writes. It is now enforced at
+render time too — manager/staff layouts are server components calling
+`requireArea()` in live mode, the proxy guards `/guest/*` on the guest session
+cookie, and login redirects each user to their role home (owner/admin →
+`/manager`, member → `/staff`, platform admin → `/admin`).

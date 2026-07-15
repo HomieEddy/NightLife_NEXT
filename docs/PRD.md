@@ -119,8 +119,10 @@ cross-links, deterministic money display, print styles.
 
 ## 6. Success criteria
 
-- The 5-minute demo walkthrough (`/demo`) runs on the real backend with two devices
-  simultaneously — one as staff, one as guest — and state syncs live.
+- The 5-minute walkthrough exists in both modes (AD-14): the demo build's `/demo`
+  tour runs it on the sandbox, and the live build proves the same night flow with
+  two simultaneous authenticated contexts — one staff, one guest — with state
+  syncing over live events (the plan-09b two-context E2E).
 - A brand-new tenant can be provisioned from admin, receive the manager invite,
   complete onboarding, configure the venue, and take its first guest order without
   developer involvement.
