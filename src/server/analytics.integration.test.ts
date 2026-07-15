@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { getDb, getRawPrisma, type SessionContext } from "./db";
+import { getDb, type SessionContext } from "./db";
 import { createTestDb, type TestDb } from "./test-pglite";
 import { createCategory, createItem } from "./menu-core";
 import { submitOrder } from "./order-core";
-import { advanceOrder } from "./order-core";
 import { toCents } from "./money";
 import {
   getSummaryForVenue,
@@ -20,7 +19,7 @@ import {
   recordRun,
   findDueReports,
 } from "./report-core";
-import { nightForDate } from "./night";
+import { nightContaining, nightForDate } from "./night";
 import { expectTenantIsolation } from "./test-helpers";
 
 const UTC_NIGHT = {
@@ -145,6 +144,44 @@ describe("analytics & reports integration (plan 09)", () => {
     expect(rollup.topItems.v).toBe(1);
     expect(rollup.topItems.items[0].name).toBe("Grey Goose");
     expect(rollup.topItems.items[0].count).toBe(5); // 3 + 2
+  });
+
+  it("uses persisted custom night settings for summary and rollup", async () => {
+    const db = getDb(sessionA);
+    await rawClient.venue.update({
+      where: { id: venueA },
+      data: { timezone: "UTC", nightStartHour: 23, nightEndHour: 2 },
+    });
+    const config = await rawClient.venue.findUniqueOrThrow({
+      where: { id: venueA },
+      select: { timezone: true, nightStartHour: true, nightEndHour: true },
+    });
+    const result = await submitOrder(db, venueA, {
+      tableId: "custom-night-table",
+      tableCode: "NIGHT-01",
+      zoneId: "custom-night-zone",
+      zoneName: "Night Window",
+      guestName: "Custom night",
+      lines: [{ menuItemId: itemId, quantity: 1, modifiers: [] }],
+      tipCents: 0,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    try {
+      const summary = await getSummaryForVenue(db, venueA, config);
+      const rollup = await computeRollup(db, nightContaining(new Date(), config));
+
+      expect(summary.ordersTonight).toBe(1);
+      expect(rollup.orderCount).toBe(summary.ordersTonight);
+      expect(rollup.revenueCents).toBe(Math.round(summary.revenueTonight * 100));
+      expect((await rawClient.venue.findUniqueOrThrow({ where: { id: venueB } })).nightStartHour)
+        .toBe(18);
+    } finally {
+      await rawClient.order.delete({ where: { id: result.order.id } });
+      await rawClient.stockMovement.deleteMany({ where: { note: `Order ${result.order.code}` } });
+      await rawClient.menuItem.update({ where: { id: itemId }, data: { inventory: { increment: 1 } } });
+    }
   });
 
   // ── Rollup idempotency ─────────────────────────────────────────────
