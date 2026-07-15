@@ -1,5 +1,4 @@
-import { PrismaClient, type Prisma } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import type { Prisma } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -19,8 +18,7 @@ import { ensureMapPositions } from "../src/server/venue-core";
 const DEMO_PASSWORD = "demo1234";
 
 async function main() {
-  const adapter = new PrismaPg(process.env.DATABASE_URL!);
-  const prisma = new PrismaClient({ adapter });
+  const prisma = getRawPrisma();
 
   const seedAuth = betterAuth({
     database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -40,6 +38,16 @@ async function main() {
     plugins: [organization(), admin(), bearer()],
   });
 
+  async function seedUser(name: string, email: string) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return seedAuth.api.signInEmail({ body: { email, password: DEMO_PASSWORD } });
+    }
+    return seedAuth.api.signUpEmail({
+      body: { name, email, password: DEMO_PASSWORD },
+    });
+  }
+
   // ── Tenant ────────────────────────────────────────────────────────
   const tenant = await prisma.tenant.upsert({
     where: { slug: "luxe-noir" },
@@ -54,31 +62,13 @@ async function main() {
   console.log(`Tenant: ${tenant.name} (${tenant.id})`);
 
   // ── Demo users ────────────────────────────────────────────────────
-  const amara = await seedAuth.api.signUpEmail({
-    body: {
-      name: "Amara Diallo",
-      email: "amara@velvetmtl.club",
-      password: DEMO_PASSWORD,
-    },
-  });
+  const amara = await seedUser("Amara Diallo", "amara@velvetmtl.club");
   console.log(`User: Amara Diallo (${amara.user.id})`);
 
-  const nina = await seedAuth.api.signUpEmail({
-    body: {
-      name: "Nina Kovač",
-      email: "nina@velvetmtl.club",
-      password: DEMO_PASSWORD,
-    },
-  });
+  const nina = await seedUser("Nina Kovač", "nina@velvetmtl.club");
   console.log(`User: Nina Kovač (${nina.user.id})`);
 
-  const adminUser = await seedAuth.api.signUpEmail({
-    body: {
-      name: "Platform Admin",
-      email: "admin@nightlifext.com",
-      password: DEMO_PASSWORD,
-    },
-  });
+  const adminUser = await seedUser("Platform Admin", "admin@nightlifext.com");
   await prisma.user.update({
     where: { id: adminUser.user.id },
     data: { isPlatformAdmin: true, role: "admin" },
@@ -86,24 +76,30 @@ async function main() {
   console.log(`User: Platform Admin (${adminUser.user.id}) [isPlatformAdmin]`);
 
   // ── Organization (= venue) ────────────────────────────────────────
-  const org = await seedAuth.api.createOrganization({
-    headers: new Headers({ authorization: `Bearer ${amara.token}` }),
-    body: {
-      name: "Velvet Montréal",
-      slug: "velvet-mtl",
-    },
-  });
+  const org = await prisma.organization.findUnique({ where: { slug: "velvet-mtl" } })
+    ?? await seedAuth.api.createOrganization({
+      headers: new Headers({ authorization: `Bearer ${amara.token}` }),
+      body: {
+        name: "Velvet Montréal",
+        slug: "velvet-mtl",
+      },
+    });
   console.log(`Organization: Velvet Montréal (${org.id})`);
 
   // Add Nina as member
-  await seedAuth.api.addMember({
-    headers: new Headers({ authorization: `Bearer ${amara.token}` }),
-    body: {
-      userId: nina.user.id,
-      organizationId: org.id,
-      role: "member",
-    },
+  const ninaMembership = await prisma.member.findFirst({
+    where: { userId: nina.user.id, organizationId: org.id },
   });
+  if (!ninaMembership) {
+    await seedAuth.api.addMember({
+      headers: new Headers({ authorization: `Bearer ${amara.token}` }),
+      body: {
+        userId: nina.user.id,
+        organizationId: org.id,
+        role: "member",
+      },
+    });
+  }
   console.log(`Member: Nina added to Velvet Montréal`);
 
   // ── Staff profiles ────────────────────────────────────────────────
@@ -205,22 +201,26 @@ async function main() {
     "st-amara": amara.user.id,
     "st-nina": nina.user.id,
   };
+  let seededShiftCount = 0;
   for (const shift of mockShifts) {
+    const staffId = staffIdMap[shift.staffId];
+    if (!staffId) continue;
     await prisma.staffShift.upsert({
       where: { id: shift.id },
       update: {},
       create: {
         id: shift.id,
         venueId: org.id,
-        staffId: staffIdMap[shift.staffId] ?? shift.staffId,
+        staffId,
         dayOfWeek: shift.dayOfWeek,
         startTime: shift.startTime,
         endTime: shift.endTime,
         zoneId: shift.zoneId,
       },
     });
+    seededShiftCount += 1;
   }
-  console.log(`${mockShifts.length} shifts seeded`);
+  console.log(`${seededShiftCount} shifts seeded`);
 
   // ── Menu categories ──────────────────────────────────────────────────
   for (const cat of mockCategories) {
@@ -326,7 +326,6 @@ async function main() {
   console.log(`\nDemo password for all users: ${DEMO_PASSWORD}`);
 
   await prisma.$disconnect();
-  await getRawPrisma().$disconnect();
 }
 
 main().catch((e) => {

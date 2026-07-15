@@ -6,7 +6,10 @@ const globalForPrisma = globalThis as unknown as { __prisma?: PrismaClient };
 
 function createClient(): PrismaClient {
   const env = getLiveEnv();
-  const adapter = new PrismaPg(env.DATABASE_URL);
+  const configuredMax = Number(process.env.DATABASE_POOL_MAX);
+  const adapter = Number.isInteger(configuredMax) && configuredMax > 0
+    ? new PrismaPg({ connectionString: env.DATABASE_URL, max: configuredMax })
+    : new PrismaPg(env.DATABASE_URL);
   return new PrismaClient({ adapter });
 }
 
