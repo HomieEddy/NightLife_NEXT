@@ -20,6 +20,7 @@ method bodies behind a stable interface (R1).
 | 08 | Reservations, events & promotions | [08-reservations-events-promotions-PLAN](plans/08-reservations-events-promotions-PLAN.md) | 03, 05 | Low | `reservation-service`, `events-service`, `promotions-service` |
 | 09 | Analytics & report engine | [09-analytics-reports-PLAN](plans/09-analytics-reports-PLAN.md) | 05 | Med | `analytics-service`, `report-service`, `mock-chart` |
 | 09b | V1 operational closure — complete | [09b-v1-operational-closure-PLAN](plans/09b-v1-operational-closure-PLAN.md) | 02–07, 09 | Med | category/add-on ordering, live `staff-service`, session/table closure, venue time, strict mode isolation, fulfilled migration markers |
+| 09c | Analytics depth & reporting expansion | [09c-analytics-depth-reporting-PLAN](plans/09c-analytics-depth-reporting-PLAN.md) | 08, 09, 09b | Low‑Med | session/reservation/happy-hour/event/promotion metrics, deepened staff/order/inventory analytics, new report metrics + CSV sections |
 | 10 | Platform admin & billing | [10-platform-admin-billing-PLAN](plans/10-platform-admin-billing-PLAN.md) | 02, 09b | Med | `admin-service`, `billing-service`, `subscription`, `pricing`, `lead` pages |
 
 Rationale for the two deviations from a naive order: **auth before venue CRUD**
@@ -36,6 +37,15 @@ core night still depends on seeded staff, simulation controls, mock services or
 hard-coded operating assumptions. Its one product addition—category/package
 washer and presentation presets—follows the permanent demo-first lifecycle inside
 the plan: accepted mock UX first, tested backend graduation second.
+
+Plan 09c widens plan 09's aggregation scope rather than adding product surface:
+in-depth metrics for sessions, reservations, happy hours, events and
+promotions (plus deeper staff/order/inventory numbers), all flowing into the
+existing report engine as new selectable metrics and CSV sections. It is
+almost entirely reads over data plans 05–09b already record — the one new
+write is happy-hour attribution snapshots on orders. It can land before or
+after plan 10; it depends on 09b only for live staff identity and venue night
+config.
 
 ## Demo co-existence (AD-14) — how to read the plans
 
