@@ -78,20 +78,20 @@ function DemoLogin() {
 
   async function signInAs(persona: AuthUser) {
     setSigningIn(persona.id);
-    const ok = await signIn({ email: persona.email, pin: "0000", role: persona.role });
+    const user = await signIn({ email: persona.email, pin: "0000", role: persona.role });
     setSigningIn(null);
-    if (!ok) { toast.error("Sign-in failed."); return; }
-    router.push(ROLE_HOME[persona.role]);
+    if (!user) { toast.error("Sign-in failed."); return; }
+    router.push(ROLE_HOME[user.role]);
   }
 
   async function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !pin.trim()) { toast.error("Enter your email and PIN."); return; }
     setSubmitting(true);
-    const ok = await signIn({ email, pin, role: "manager" });
+    const user = await signIn({ email, pin, role: "manager" });
     setSubmitting(false);
-    if (!ok) { toast.error("No matching account."); return; }
-    router.push("/manager");
+    if (!user) { toast.error("No matching account."); return; }
+    router.push(ROLE_HOME[user.role]);
   }
 
   return (
@@ -189,10 +189,10 @@ function LiveLogin() {
       return;
     }
     setSubmitting(true);
-    const ok = await signIn({ email, pin: password, role: "manager" });
+    const user = await signIn({ email, pin: password, role: "manager" });
     setSubmitting(false);
-    if (!ok) { toast.error("Invalid email or password."); return; }
-    router.push("/manager");
+    if (!user) { toast.error("Invalid email or password."); return; }
+    router.push(ROLE_HOME[user.role]);
   }
 
   return (

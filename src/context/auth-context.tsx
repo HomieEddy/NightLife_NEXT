@@ -11,13 +11,15 @@ import {
 } from "react";
 import type { AuthUser, SignInInput } from "@/lib/types";
 import { authService } from "@/lib/services/auth-service";
+import { orgRoleToAppRole } from "@/lib/live-services/auth-service";
 import { isDemoMode } from "@/lib/app-mode";
 import { authClient } from "@/lib/auth-client";
 
 interface AuthContextValue {
   user: AuthUser | null;
   hydrated: boolean;
-  signIn: (input: SignInInput) => Promise<boolean>;
+  /** Resolves to the signed-in user (with their role) so callers can route by role. */
+  signIn: (input: SignInInput) => Promise<AuthUser | null>;
   signOut: () => void;
 }
 
@@ -47,9 +49,8 @@ function DemoAuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (input: SignInInput) => {
     const result = await authService.signIn(input);
-    if (!result) return false;
-    setUser(result);
-    return true;
+    if (result) setUser(result);
+    return result;
   }, []);
 
   const signOut = useCallback(() => {
@@ -67,6 +68,7 @@ function DemoAuthProvider({ children }: { children: ReactNode }) {
 
 function LiveAuthProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
+  const { data: activeMember } = authClient.useActiveMember();
   const hydrated = !isPending;
 
   const user = useMemo<AuthUser | null>(() => {
@@ -77,14 +79,13 @@ function LiveAuthProvider({ children }: { children: ReactNode }) {
       id: session.user.id,
       name: session.user.name,
       email: session.user.email,
-      role: isPlatformAdmin ? "admin" : "manager",
+      role: orgRoleToAppRole(activeMember?.role, isPlatformAdmin),
       venueId: (session.session.activeOrganizationId as string) ?? undefined,
     };
-  }, [session]);
+  }, [session, activeMember]);
 
   const signIn = useCallback(async (input: SignInInput) => {
-    const result = await authService.signIn(input);
-    return result !== null;
+    return authService.signIn(input);
   }, []);
 
   const signOut = useCallback(() => {
