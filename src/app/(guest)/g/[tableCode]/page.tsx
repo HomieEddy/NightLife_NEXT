@@ -40,12 +40,16 @@ export default function QrEntryPage({
 
   useEffect(() => {
     let cancelled = false;
-    venueService.getTableBySlug(tableCode).then((res) => {
-      if (!cancelled) {
-        setResult(res);
-        setLoading(false);
-      }
-    });
+    venueService.getTableBySlug(tableCode)
+      .then((res) => {
+        if (!cancelled) setResult(res);
+      })
+      .catch(() => {
+        if (!cancelled) setResult(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -58,26 +62,32 @@ export default function QrEntryPage({
       return;
     }
     setJoining(true);
-    const session = await guestsService.requestSession({
-      tableId: result.table.id,
-      tableCode: result.table.code,
-      zoneName: result.zone.name,
-      displayName: `${name.trim()} + ${partySize - 1}`,
-      partySize,
-    });
-    startSession(
-      {
+    try {
+      const session = await guestsService.requestSession({
         tableId: result.table.id,
         tableCode: result.table.code,
-        tableLabel: result.table.label,
-        zoneId: result.zone.id,
         zoneName: result.zone.name,
-      },
-      result.venue,
-      name.trim(),
-      session.id,
-    );
-    router.push("/guest/waiting");
+        displayName: `${name.trim()} + ${partySize - 1}`,
+        partySize,
+        token: tableCode,
+      });
+      startSession(
+        {
+          tableId: result.table.id,
+          tableCode: result.table.code,
+          tableLabel: result.table.label,
+          zoneId: result.zone.id,
+          zoneName: result.zone.name,
+        },
+        result.venue,
+        name.trim(),
+        session.id,
+      );
+      router.push("/guest/waiting");
+    } catch (joinError) {
+      setError(joinError instanceof Error ? joinError.message : "Could not join this table. Try again.");
+      setJoining(false);
+    }
   }
 
   if (loading) {

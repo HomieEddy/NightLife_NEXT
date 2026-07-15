@@ -23,11 +23,16 @@ export const mockGuestsService = {
     zoneName: string;
     displayName: string;
     partySize: number;
+    token?: string;
   }): Promise<GuestSession> {
     await delay(500);
     const session: GuestSession = {
       id: uid("gs"),
-      ...input,
+      tableId: input.tableId,
+      tableCode: input.tableCode,
+      zoneName: input.zoneName,
+      displayName: input.displayName,
+      partySize: input.partySize,
       status: "pending",
       createdAt: new Date().toISOString(),
     };
