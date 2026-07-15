@@ -1,11 +1,11 @@
 import type { NextRequest } from "next/server";
-import { getPlatformDb } from "@/server/db";
+import { getRawPrisma } from "@/server/db";
 
 export async function getGuestSession(request: NextRequest) {
   const sessionId = request.cookies.get("nln-guest-session")?.value;
   if (!sessionId) return null;
 
-  return getPlatformDb().guestSession.findUnique({
+  return getRawPrisma().guestSession.findUnique({
     where: { id: sessionId },
   });
 }
