@@ -7,7 +7,7 @@ import {
   createCategory,
   updateCategory,
   toggleCategory,
-  listItems,
+  deleteCategory,
   getItem,
   createItem,
   updateItem,
@@ -102,6 +102,62 @@ describe("menu/inventory/packages integration (plan 04)", () => {
 
     const activeCats = await listCategories(db, false);
     expect(activeCats.some((c) => c.id === cat.id)).toBe(false);
+  });
+
+  it("round-trips category add-on presets", async () => {
+    const db = getDb(sessionA);
+    const cat = await createCategory(db, venueA, {
+      name: "Preset Category",
+      description: "",
+      sortOrder: 20,
+      modifierGroups: [{
+        id: "washers",
+        name: "Washers",
+        kind: "washer",
+        required: false,
+        maxSelections: 2,
+        isActive: true,
+        options: [{
+          id: "soda",
+          name: "Soda",
+          priceDelta: 4,
+          maxQuantity: 3,
+          isActive: true,
+        }],
+      }],
+    });
+
+    expect(cat.modifierGroups[0].options[0].priceDelta).toBe(4);
+    const updated = await updateCategory(db, cat.id, {
+      modifierGroups: [{
+        ...cat.modifierGroups[0],
+        options: [{ ...cat.modifierGroups[0].options[0], priceDelta: 6 }],
+      }],
+    });
+    expect(updated?.modifierGroups[0].options[0].priceDelta).toBe(6);
+    expect((await listCategories(db, true)).find((row) => row.id === cat.id)?.modifierGroups)
+      .toEqual(updated?.modifierGroups);
+  });
+
+  it("blocks deleting a category referenced by an item", async () => {
+    const db = getDb(sessionA);
+    const cat = await createCategory(db, venueA, {
+      name: "Referenced Category",
+      description: "",
+      sortOrder: 21,
+    });
+    const item = await createItem(db, venueA, {
+      categoryId: cat.id,
+      name: "Referenced Bottle",
+      description: "",
+      priceCents: 1000,
+      icon: "vodka",
+      tags: [],
+    });
+
+    expect(await deleteCategory(db, cat.id)).toBe(false);
+    await deleteItem(db, item.id);
+    expect(await deleteCategory(db, cat.id)).toBe(true);
   });
 
   // ── Item CRUD + ledger ───────────────────────────────────────────────
@@ -421,6 +477,55 @@ describe("menu/inventory/packages integration (plan 04)", () => {
     await deletePackage(db, pkg.id);
     const afterDelete = await getPackage(db, pkg.id);
     expect(afterDelete).toBeNull();
+  });
+
+  it("round-trips package add-on presets", async () => {
+    const db = getDb(sessionA);
+    const cat = await createCategory(db, venueA, {
+      name: "Package Preset Category",
+      description: "",
+      sortOrder: 22,
+    });
+    const item = await createItem(db, venueA, {
+      categoryId: cat.id,
+      name: "Package Preset Bottle",
+      description: "",
+      priceCents: 10000,
+      icon: "champagne",
+      tags: [],
+      inventory: 5,
+    });
+    const modifierGroups = [{
+      id: "presentation",
+      name: "Presentation",
+      kind: "presentation" as const,
+      required: false,
+      maxSelections: 1,
+      isActive: true,
+      options: [{
+        id: "show",
+        name: "Light show",
+        priceDelta: 25,
+        maxQuantity: 1,
+        isActive: true,
+      }],
+    }];
+
+    const pkg = await createPackage(db, venueA, {
+      name: "Preset Package",
+      description: "",
+      priceCents: 9000,
+      components: [{ menuItemId: item.id, quantity: 1 }],
+      modifierGroups,
+    });
+    expect((await getPackage(db, pkg.id))?.modifierGroups).toEqual(modifierGroups);
+
+    const updatedGroups = [{
+      ...modifierGroups[0],
+      options: [{ ...modifierGroups[0].options[0], priceDelta: 40 }],
+    }];
+    await updatePackage(db, pkg.id, { modifierGroups: updatedGroups });
+    expect((await getPackage(db, pkg.id))?.modifierGroups).toEqual(updatedGroups);
   });
 
   it("rejects deleting an item referenced by an active package (INV-I3)", async () => {
