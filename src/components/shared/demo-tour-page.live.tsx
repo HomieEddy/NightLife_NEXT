@@ -1,1 +1,3 @@
-export function DemoTourPage() { return null; }
+import { notFound } from "next/navigation";
+
+export function DemoTourPage() { notFound(); }

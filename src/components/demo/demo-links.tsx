@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -29,10 +32,18 @@ export function DemoManagerGuestFlowAction() {
 }
 
 export function DemoPublicNav() {
+  const pathname = usePathname();
   return (
-    <Button variant="ghost" size="sm" asChild>
-      <Link href="/demo"><ArrowLeft className="size-4" /> Back to demo</Link>
-    </Button>
+    <>
+      {pathname !== "/demo" && (
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/demo"><ArrowLeft className="size-4" /> Back to demo</Link>
+        </Button>
+      )}
+      <Button size="sm" asChild>
+        <Link href="/login">Log in</Link>
+      </Button>
+    </>
   );
 }
 

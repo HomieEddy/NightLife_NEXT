@@ -246,12 +246,6 @@ function LiveLogin() {
 // ── Page ────────────────────────────────────────────────────────────
 
 function LoginContent() {
-  const searchParams = useSearchParams();
-  const previewMode = searchParams.get("preview");
-
-  if (previewMode === "live") return <LiveLogin />;
-  if (previewMode === "demo") return <DemoLogin />;
-
   return isDemoMode() ? <DemoLogin /> : <LiveLogin />;
 }
 

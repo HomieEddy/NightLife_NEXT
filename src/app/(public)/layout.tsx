@@ -10,7 +10,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <BrandLogo />
+          <BrandLogo href={isDemoMode() ? "/demo" : "/"} />
           <nav className="flex items-center gap-1 sm:gap-2">
             {!isDemoMode() && (
               <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
@@ -25,7 +25,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <main className="flex-1">{children}</main>
       <footer className="border-t py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-muted-foreground sm:flex-row">
-          <BrandLogo className="text-sm" />
+          <BrandLogo href={isDemoMode() ? "/demo" : "/"} className="text-sm" />
           <p>© {new Date().getFullYear()} NightLifeNext.</p>
           <DemoPublicFooter />
         </div>

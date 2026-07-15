@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClubLights } from "@/components/fx/club-lights";
@@ -37,8 +38,16 @@ const PLANS = [
 ];
 
 export default function LandingPage() {
+  // The demo build's home is the tour — the marketing landing lives on the live app.
+  if (isDemoMode()) redirect("/demo");
+  return <LandingContent />;
+}
+
+function LandingContent() {
   const heroRef = useRef<HTMLElement>(null);
-  const demoHref = isDemoMode() ? "/demo" : DEMO_APP_URL;
+  const demoHref = DEMO_APP_URL;
+  // Lead capture hasn't graduated to live — the demo app owns the funnel.
+  const leadHref = `${DEMO_APP_URL}/lead`;
 
   useGSAP(
     () => {
@@ -92,7 +101,7 @@ export default function LandingPage() {
 
           <div className="hero-item mt-9 flex flex-col gap-3 sm:flex-row">
             <Button size="lg" className="h-12 px-7 text-base glow-primary" asChild>
-              <Link href="/lead">
+              <Link href={leadHref}>
                 Request a demo <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -212,7 +221,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-8">
               <Button size="lg" className="h-13 px-8 text-base glow-primary" asChild>
-                <Link href="/lead">
+                <Link href={leadHref}>
                   Request a demo <ArrowRight className="size-4" />
                 </Link>
               </Button>

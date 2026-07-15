@@ -39,6 +39,15 @@ test("demo links return to the demo home", async ({ page }) => {
 
   await page.goto("/demo");
   await expect(page.getByRole("link", { name: "Pricing" })).toHaveCount(0);
+  // The demo home doesn't link to itself — it offers the login entry instead.
+  await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+  await expect(page.getByRole("link", { name: "Back to demo" })).toHaveCount(0);
+
+  // The marketing landing lives on the live app; the demo home is the tour.
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/demo$/);
+
+  await page.goto("/lead");
   await expect(page.getByRole("link", { name: "Back to demo" })).toHaveAttribute("href", "/demo");
   const pricingResponse = await page.goto("/pricing");
   expect(pricingResponse?.status()).toBe(404);
