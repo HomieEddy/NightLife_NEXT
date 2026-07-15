@@ -137,6 +137,34 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("occupied");
   });
 
+  it("rolls back approval when its domain event cannot be written", async () => {
+    const db = getDb(ctxA);
+    const session = await createSession(db, venueA, {
+      tableId,
+      tableCode: "VIP-01",
+      zoneName: "VIP",
+      displayName: "Event rollback",
+      partySize: 2,
+    }, false);
+    await rawClient.$executeRawUnsafe(
+      `ALTER TABLE domain_events
+       ADD CONSTRAINT reject_session_approved
+       CHECK (type <> 'SessionApproved') NOT VALID`,
+    );
+
+    try {
+      const result = await setSessionStatus(db, session.id, "approved");
+
+      expect(result.ok).toBe(false);
+      expect((await getSession(db, session.id))?.status).toBe("pending");
+      expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("open");
+    } finally {
+      await rawClient.$executeRawUnsafe(
+        "ALTER TABLE domain_events DROP CONSTRAINT reject_session_approved",
+      );
+    }
+  });
+
   it("transitions pending → denied", async () => {
     const db = getDb(ctxA);
     const session = await createSession(db, venueA, {
