@@ -17,6 +17,16 @@ export function proxy(request: NextRequest) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
+  // Guests authenticate with their table-session cookie (set by the QR join
+  // flow), not a staff login — without it, back to the landing page to rescan.
+  if (request.nextUrl.pathname.startsWith("/guest")) {
+    const guestSession = request.cookies.get("nln-guest-session")?.value;
+    if (!guestSession) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return NextResponse.next();
+  }
+
   const sessionCookie = getSessionCookie(request);
   if (!sessionCookie) {
     return NextResponse.redirect(new URL("/login", request.url));
@@ -26,5 +36,12 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/manager/:path*", "/staff/:path*", "/admin/:path*", "/lead/:path*", "/demo/:path*"],
+  matcher: [
+    "/manager/:path*",
+    "/staff/:path*",
+    "/admin/:path*",
+    "/lead/:path*",
+    "/demo/:path*",
+    "/guest/:path*",
+  ],
 };

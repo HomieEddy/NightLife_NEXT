@@ -86,6 +86,20 @@ test("live mode hides demo and ungraduated surfaces", async ({ page }) => {
   expect(billingResponse?.status()).toBe(404);
 });
 
+test("live mode guards role and guest areas against direct URL entry", async ({ page }) => {
+  test.skip(process.env.NEXT_PUBLIC_APP_MODE !== "live", "live-mode smoke");
+
+  // Staff/manager areas require a session cookie.
+  await page.goto("/manager/orders");
+  await expect(page).toHaveURL(/\/login/);
+  await page.goto("/staff");
+  await expect(page).toHaveURL(/\/login/);
+
+  // Guest tabs require the table-session cookie set by the QR join flow.
+  await page.goto("/guest/menu");
+  await expect(page).toHaveURL(/\/$/);
+});
+
 test("live pricing distinguishes trial, starter, and pro", async ({ page }) => {
   test.skip(process.env.NEXT_PUBLIC_APP_MODE !== "live", "live-mode smoke");
 
