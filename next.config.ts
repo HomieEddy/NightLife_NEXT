@@ -43,6 +43,8 @@ const nextConfig: NextConfig = {
           "@/components/shared/app-mode-banner": "./src/components/shared/app-mode-banner.live.tsx",
           "@/components/shared/demo-links": "./src/components/shared/demo-links.live.tsx",
           "@/components/shared/demo-tour-page": "./src/components/shared/demo-tour-page.live.tsx",
+          "@/components/shared/admin-surface": "./src/components/shared/admin-surface.live.tsx",
+          "@/components/shared/plan10-surface": "./src/components/shared/plan10-surface.live.tsx",
           ...liveMockAliases,
         }
       : demoResourceAliases,
