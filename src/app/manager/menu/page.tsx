@@ -22,6 +22,7 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MenuItemCard } from "@/components/shared/menu-item-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { PackageEditor, type PackageDraft } from "@/components/manager/package-editor";
+import { ModifierPresetEditor } from "@/components/manager/modifier-preset-editor";
 import { menuService, type PackageQuote } from "@/lib/services/menu-service";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,9 @@ function MenuContent() {
   const [saving, setSaving] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<BottlePackage | null>(null);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
+  const [categoryDraft, setCategoryDraft] = useState<Omit<MenuCategory, "id"> | null>(null);
 
   const refresh = useCallback(async () => {
     const [cats, its, pkgs] = await Promise.all([
@@ -58,6 +62,62 @@ function MenuContent() {
     refresh();
   }, [refresh]);
 
+  function openCategory(category?: MenuCategory) {
+    setEditingCategory(category ?? null);
+    setCategoryDraft(category
+      ? {
+          venueId: category.venueId,
+          name: category.name,
+          description: category.description,
+          sortOrder: category.sortOrder,
+          isActive: category.isActive,
+          modifierGroups: structuredClone(category.modifierGroups),
+        }
+      : {
+          venueId: "venue-1",
+          name: "",
+          description: "",
+          sortOrder: (categories?.length ?? 0) + 1,
+          isActive: true,
+          modifierGroups: [],
+        });
+    setCategoryOpen(true);
+  }
+
+  async function saveCategory() {
+    if (!categoryDraft?.name.trim()) {
+      toast.error("Give the category a name.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingCategory) {
+        await menuService.updateCategory(editingCategory.id, categoryDraft);
+        toast.success(`${categoryDraft.name} updated`);
+      } else {
+        await menuService.createCategory({ ...categoryDraft, name: categoryDraft.name.trim() });
+        toast.success(`${categoryDraft.name} created`);
+      }
+      setCategoryOpen(false);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save the category.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeCategory(category: MenuCategory) {
+    try {
+      await menuService.deleteCategory(category.id);
+      toast.info(`${category.name} removed`);
+      setCategoryOpen(false);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete the category.");
+    }
+  }
+
   // ---------- Items ----------
 
   async function toggleAvailability(item: MenuItem) {
@@ -69,7 +129,6 @@ function MenuContent() {
   async function saveEdit() {
     if (!editing) return;
     setSaving(true);
-    // TODO(backend): PATCH /api/menu/items/:id
     // Guest-facing fields only — stock lives in /manager/inventory.
     await menuService.updateItem(editing.id, {
       name: editing.name,
@@ -85,7 +144,6 @@ function MenuContent() {
   // ---------- Packages ----------
 
   async function savePackage(draft: PackageDraft) {
-    // TODO(backend): POST/PATCH /api/menu/packages
     if (editingPackage) {
       await menuService.updatePackage(editingPackage.id, draft);
       toast.success(`${draft.name} updated`);
@@ -132,6 +190,16 @@ function MenuContent() {
 
           {/* ---------- Bottles tab ---------- */}
           <TabsContent value="bottles" className="space-y-4 pt-3">
+            <div className="flex justify-end gap-2">
+              {categories.find((category) => category.id === activeCategory) && (
+                <Button variant="outline" onClick={() => openCategory(categories.find((category) => category.id === activeCategory)!)}>
+                  <Pencil className="size-4" /> Edit category
+                </Button>
+              )}
+              <Button onClick={() => openCategory()}>
+                <Plus className="size-4" /> New category
+              </Button>
+            </div>
             <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0">
               {categories.map((cat) => (
                 <button
@@ -317,6 +385,60 @@ function MenuContent() {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* ---------- Item edit dialog ---------- */}
+      <Dialog open={categoryOpen} onOpenChange={setCategoryOpen}>
+        <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingCategory ? `Edit ${editingCategory.name}` : "New category"}</DialogTitle>
+          </DialogHeader>
+          {categoryDraft && (
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
+                <div className="space-y-1.5">
+                  <Label htmlFor="category-name">Name</Label>
+                  <Input id="category-name" value={categoryDraft.name} onChange={(event) => setCategoryDraft({ ...categoryDraft, name: event.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="category-order">Sort order</Label>
+                  <Input id="category-order" type="number" min={1} value={categoryDraft.sortOrder} onChange={(event) => setCategoryDraft({ ...categoryDraft, sortOrder: Math.max(1, Number(event.target.value)) })} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="category-description">Description</Label>
+                <Textarea id="category-description" value={categoryDraft.description} onChange={(event) => setCategoryDraft({ ...categoryDraft, description: event.target.value })} />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div><p className="text-sm font-medium">Active</p><p className="text-xs text-muted-foreground">Visible on the guest menu</p></div>
+                <Switch checked={categoryDraft.isActive} onCheckedChange={(isActive) => setCategoryDraft({ ...categoryDraft, isActive })} />
+              </div>
+              <ModifierPresetEditor
+                value={categoryDraft.modifierGroups}
+                onChange={(modifierGroups) => setCategoryDraft({ ...categoryDraft, modifierGroups })}
+                inventoryItems={items}
+              />
+            </div>
+          )}
+          <DialogFooter className="sm:justify-between">
+            <div>
+              {editingCategory && (
+                <ConfirmDialog
+                  trigger={<Button variant="destructive">Delete category</Button>}
+                  title={`Delete ${editingCategory.name}?`}
+                  description="Categories with bottles cannot be deleted. Past orders keep their snapshots."
+                  confirmLabel="Delete category"
+                  destructive
+                  onConfirm={() => removeCategory(editingCategory)}
+                />
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" onClick={() => setCategoryOpen(false)} disabled={saving}>Cancel</Button>
+              <Button onClick={saveCategory} disabled={saving}>{saving ? "Saving…" : "Save category"}</Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ---------- Item edit dialog ---------- */}
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>

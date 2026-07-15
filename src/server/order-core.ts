@@ -4,30 +4,20 @@
  * recordSale's row locks, and all money lives as integer cents.
  */
 import type { getDb } from "./db";
-import { getRawPrisma } from "./db";
+import { getRawPrisma } from "@/server/db";
 import { fromCents, toCents } from "./money";
 import { computeOrderPricing, type FeeInput, type PricingLineInput, type PromotionInput } from "./pricing";
 import { publish } from "./events";
-import type { Order, OrderStatus, ServiceFee } from "@/lib/types";
+import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
+import type { ModifierGroup, Order, OrderStatus, ServiceFee } from "@/lib/types";
 import type { z } from "zod";
 import type { zSubmitOrder, zSendGift, zListOrders } from "./schemas/orders";
 
 type ScopedDb = ReturnType<typeof getDb>;
 
+export { nextStatus, ORDER_FLOW };
+
 // ── Order status machine ──────────────────────────────────────────────
-
-export const ORDER_FLOW = [
-  "pending",
-  "accepted",
-  "preparing",
-  "ready",
-  "delivered",
-] as const satisfies readonly OrderStatus[];
-
-export function nextStatus(status: OrderStatus): OrderStatus | null {
-  const i = (ORDER_FLOW as readonly OrderStatus[]).indexOf(status);
-  return i >= 0 && i < ORDER_FLOW.length - 1 ? ORDER_FLOW[i + 1] : null;
-}
 
 const TERMINAL_STATUSES: OrderStatus[] = ["delivered", "cancelled"];
 
@@ -96,9 +86,23 @@ function toOrder(row: OrderRow): Order {
       name: i.name,
       quantity: i.quantity,
       unitPrice: fromCents(i.unitCents),
-      modifiers: (i.modifiers as { groupName: string; optionName: string; deltaCents: number }[]).map(
-        (m) => ({ groupName: m.groupName, optionName: m.optionName, priceDelta: fromCents(m.deltaCents) }),
-      ),
+      modifiers: (i.modifiers as {
+        groupId?: string;
+        optionId?: string;
+        kind?: "washer" | "presentation";
+        groupName: string;
+        optionName: string;
+        deltaCents: number;
+        quantity?: number;
+      }[]).map((modifier) => ({
+        groupId: modifier.groupId ?? modifier.groupName,
+        optionId: modifier.optionId ?? modifier.optionName,
+        kind: modifier.kind ?? "washer",
+        groupName: modifier.groupName,
+        optionName: modifier.optionName,
+        priceDelta: fromCents(modifier.deltaCents),
+        quantity: modifier.quantity ?? 1,
+      })),
       note: i.note ?? undefined,
     })),
     subtotal: fromCents(row.subtotalCents),
@@ -196,11 +200,16 @@ export async function submitOrder(
   const prisma = getRawPrisma();
 
   // Load venue fees + happy-hour rules + menu items + optional promo for pricing
-  const [venueRow, happyHourRows, menuItems] = await Promise.all([
+  const requestedIds = input.lines.map((line) => line.menuItemId);
+  const [venueRow, happyHourRows, menuItems, packages] = await Promise.all([
     db.venue.findUnique({ where: { id: venueId } }),
     db.happyHourRule.findMany({ where: { isActive: true } }),
     db.menuItem.findMany({
-      where: { id: { in: input.lines.map((l) => l.menuItemId) } },
+      where: { id: { in: requestedIds } },
+    }),
+    db.bottlePackage.findMany({
+      where: { id: { in: requestedIds }, isActive: true },
+      include: { components: true },
     }),
   ]);
 
@@ -221,29 +230,112 @@ export async function submitOrder(
   }
 
   const itemMap = new Map(menuItems.map((i) => [i.id, i]));
+  const packageMap = new Map(packages.map((entry) => [entry.id, entry]));
+  const categories = await db.menuCategory.findMany({
+    where: { id: { in: menuItems.map((item) => item.categoryId) } },
+  });
+  const categoryMap = new Map(categories.map((category) => [category.id, category]));
+
+  type ResolvedModifier = {
+    groupId: string;
+    optionId: string;
+    kind: "washer" | "presentation";
+    groupName: string;
+    optionName: string;
+    deltaCents: number;
+    quantity: number;
+    inventoryItemId?: string;
+  };
+  type ResolvedLine = {
+    menuItemId: string;
+    name: string;
+    priceCents: number;
+    quantity: number;
+    categoryId: string;
+    packageId?: string;
+    components: { menuItemId: string; quantity: number }[];
+    modifiers: ResolvedModifier[];
+    note?: string;
+  };
+
+  const resolvedLines: ResolvedLine[] = [];
   for (const line of input.lines) {
     const item = itemMap.get(line.menuItemId);
-    if (!item) return { ok: false, error: `Menu item ${line.menuItemId} not found` };
-    if (!item.isAvailable) return { ok: false, error: `${item.name} is not available` };
+    const pkg = packageMap.get(line.menuItemId);
+    if (!item && !pkg) return { ok: false, error: `Menu item ${line.menuItemId} not found` };
+    if (item && !item.isAvailable) return { ok: false, error: `${item.name} is not available` };
+
+    const groups = (item
+      ? categoryMap.get(item.categoryId)?.modifierGroups
+      : pkg?.modifierGroups) as unknown as ModifierGroup[] | undefined;
+    const activeGroups = (groups ?? []).filter((group) => group.isActive);
+    const selections = line.modifiers ?? [];
+    const duplicate = selections.find((selection, index) =>
+      selections.findIndex((entry) => entry.groupId === selection.groupId && entry.optionId === selection.optionId) !== index,
+    );
+    if (duplicate) return { ok: false, error: "Duplicate add-on selection" };
+
+    const resolvedModifiers: ResolvedModifier[] = [];
+    for (const group of activeGroups) {
+      const groupSelections = selections.filter((selection) => selection.groupId === group.id);
+      if (group.required && groupSelections.length === 0) {
+        return { ok: false, error: `${group.name} is required` };
+      }
+      if (groupSelections.length > group.maxSelections) {
+        return { ok: false, error: `${group.name} allows ${group.maxSelections} distinct choices` };
+      }
+      for (const selection of groupSelections) {
+        const option = group.options.find((entry) => entry.id === selection.optionId && entry.isActive);
+        if (!option) return { ok: false, error: "Unknown or inactive add-on option" };
+        if (selection.quantity > option.maxQuantity) {
+          return { ok: false, error: `${option.name} allows at most ${option.maxQuantity}` };
+        }
+        resolvedModifiers.push({
+          groupId: group.id,
+          optionId: option.id,
+          kind: group.kind,
+          groupName: group.name,
+          optionName: option.name,
+          deltaCents: toCents(option.priceDelta),
+          quantity: selection.quantity,
+          inventoryItemId: option.inventoryItemId,
+        });
+      }
+    }
+    if (selections.some((selection) => !activeGroups.some((group) => group.id === selection.groupId))) {
+      return { ok: false, error: "Unknown or inactive add-on group" };
+    }
+
+    resolvedLines.push({
+      menuItemId: line.menuItemId,
+      name: item?.name ?? pkg!.name,
+      priceCents: item?.priceCents ?? pkg!.priceCents,
+      quantity: line.quantity,
+      categoryId: item?.categoryId ?? "packages",
+      packageId: pkg?.id,
+      components: pkg
+        ? pkg.components.map((component) => ({ menuItemId: component.itemId, quantity: component.quantity }))
+        : [{ menuItemId: item!.id, quantity: 1 }],
+      modifiers: resolvedModifiers,
+      note: line.note,
+    });
   }
 
   // Build pricing input
-  const pricingLines: PricingLineInput[] = input.lines.map((line) => {
-    const item = itemMap.get(line.menuItemId)!;
-    return {
-      menuItemId: item.id,
-      name: item.name,
-      priceCents: item.priceCents,
+  const pricingLines: PricingLineInput[] = resolvedLines.map((line) => ({
+      menuItemId: line.menuItemId,
+      name: line.name,
+      priceCents: line.priceCents,
       quantity: line.quantity,
-      categoryId: item.categoryId,
-      modifiers: (line.modifiers ?? []).map((m) => ({
-        groupName: m.groupName,
-        optionName: m.optionName,
-        deltaCents: m.deltaCents,
+      categoryId: line.categoryId,
+      modifiers: line.modifiers.map((modifier) => ({
+        groupName: modifier.groupName,
+        optionName: modifier.optionName,
+        deltaCents: modifier.deltaCents,
+        quantity: modifier.quantity,
       })),
       packageId: line.packageId,
-    };
-  });
+    }));
 
   const serviceFees = venueRow.serviceFees as unknown as ServiceFee[];
   const fees = serviceFees.map(venueFeeToInput);
@@ -299,14 +391,21 @@ export async function submitOrder(
           promotionCents: pricing.promotionCents,
           status: "pending",
           items: {
-            create: input.lines.map((line) => {
-              const item = itemMap.get(line.menuItemId)!;
+            create: resolvedLines.map((line) => {
               return {
-                menuItemId: item.id,
-                name: item.name,
+                menuItemId: line.menuItemId,
+                name: line.name,
                 quantity: line.quantity,
-                unitCents: item.priceCents,
-                modifiers: line.modifiers ?? [],
+                unitCents: line.priceCents,
+                modifiers: line.modifiers.map((modifier) => ({
+                  groupId: modifier.groupId,
+                  optionId: modifier.optionId,
+                  kind: modifier.kind,
+                  groupName: modifier.groupName,
+                  optionName: modifier.optionName,
+                  deltaCents: modifier.deltaCents,
+                  quantity: modifier.quantity,
+                })),
                 note: line.note ?? null,
                 packageId: line.packageId ?? null,
               };
@@ -325,22 +424,39 @@ export async function submitOrder(
         include: ORDER_INCLUDE,
       });
 
-      // Decrement inventory with row locks (recordSale logic inlined for atomicity)
-      for (const line of input.lines) {
+      // Base/package draw-down follows line quantity; add-on draw-down does not.
+      const draws = new Map<string, number>();
+      for (const line of resolvedLines) {
+        for (const component of line.components) {
+          draws.set(
+            component.menuItemId,
+            (draws.get(component.menuItemId) ?? 0) + component.quantity * line.quantity,
+          );
+        }
+        for (const modifier of line.modifiers) {
+          if (!modifier.inventoryItemId) continue;
+          draws.set(
+            modifier.inventoryItemId,
+            (draws.get(modifier.inventoryItemId) ?? 0) + modifier.quantity,
+          );
+        }
+      }
+
+      for (const [menuItemId, quantity] of draws) {
         const locked = await tx.$queryRawUnsafe<{ id: string; name: string; inventory: number; is_available: boolean }[]>(
           `SELECT id, name, inventory, is_available FROM menu_items WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
-          line.menuItemId,
+          menuItemId,
           venueId,
         );
 
-        if (locked.length === 0) throw new Error(`Item ${line.menuItemId} not found`);
+        if (locked.length === 0) throw new Error(`Item ${menuItemId} not found`);
         const item = locked[0];
         if (!item.is_available) throw new Error(`${item.name} is not available`);
-        if (item.inventory < line.quantity) {
-          throw new Error(`Not enough stock for ${item.name} (have ${item.inventory}, need ${line.quantity})`);
+        if (item.inventory < quantity) {
+          throw new Error(`Not enough stock for ${item.name} (have ${item.inventory}, need ${quantity})`);
         }
 
-        const newInventory = item.inventory - line.quantity;
+        const newInventory = item.inventory - quantity;
         await tx.$executeRawUnsafe(
           `UPDATE menu_items SET inventory = $1, updated_at = NOW() WHERE id = $2`,
           newInventory,
@@ -352,7 +468,7 @@ export async function submitOrder(
             menuItemId: item.id,
             itemName: item.name,
             type: "sale",
-            delta: -line.quantity,
+            delta: -quantity,
             note: `Order ${code}`,
           },
         });

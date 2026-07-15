@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { getDb, getRawPrisma, type SessionContext } from "./db";
+import { getDb, type SessionContext } from "./db";
 import { createTestDb, type TestDb } from "./test-pglite";
 import { createCategory, createItem } from "./menu-core";
 import { submitOrder } from "./order-core";
-import { advanceOrder } from "./order-core";
 import { toCents } from "./money";
 import {
   getSummaryForVenue,
@@ -20,8 +19,14 @@ import {
   recordRun,
   findDueReports,
 } from "./report-core";
-import { nightForDate } from "./night";
+import { nightContaining, nightForDate } from "./night";
 import { expectTenantIsolation } from "./test-helpers";
+
+const UTC_NIGHT = {
+  timezone: "UTC",
+  nightStartHour: 18,
+  nightEndHour: 10,
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string, serviceFees: any = []) {
@@ -82,7 +87,7 @@ describe("analytics & reports integration (plan 09)", () => {
     itemId = item.id;
 
     // Place two test orders with known totals at a known time
-    const night = nightForDate("2026-07-14", "UTC");
+    const night = nightForDate("2026-07-14", UTC_NIGHT);
 
     const result1 = await submitOrder(db, venueA, {
       tableId: "t1",
@@ -122,11 +127,16 @@ describe("analytics & reports integration (plan 09)", () => {
     await testDb?.teardown();
   });
 
+  // Any test that pins the clock must not leak it — even when it fails mid-assert.
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   // ── Rollup computation ─────────────────────────────────────────────
 
   it("computes rollup with correct revenue from known orders", async () => {
     const db = getDb(sessionA);
-    const night = nightForDate("2026-07-14", "UTC");
+    const night = nightForDate("2026-07-14", UTC_NIGHT);
     const rollup = await computeRollup(db, night);
 
     // Order 1: 3 × $200 = $600 (60000 cents)
@@ -141,11 +151,54 @@ describe("analytics & reports integration (plan 09)", () => {
     expect(rollup.topItems.items[0].count).toBe(5); // 3 + 2
   });
 
+  it("uses persisted custom night settings for summary and rollup", async () => {
+    const db = getDb(sessionA);
+    // Pin the clock inside the 23:00→02:00 window — the order below is placed
+    // "now" and must land in tonight's night regardless of when the suite runs.
+    // Fake only Date so the PGlite driver's real timers keep working.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-07-20T23:30:00Z"));
+    await rawClient.venue.update({
+      where: { id: venueA },
+      data: { timezone: "UTC", nightStartHour: 23, nightEndHour: 2 },
+    });
+    const config = await rawClient.venue.findUniqueOrThrow({
+      where: { id: venueA },
+      select: { timezone: true, nightStartHour: true, nightEndHour: true },
+    });
+    const result = await submitOrder(db, venueA, {
+      tableId: "custom-night-table",
+      tableCode: "NIGHT-01",
+      zoneId: "custom-night-zone",
+      zoneName: "Night Window",
+      guestName: "Custom night",
+      lines: [{ menuItemId: itemId, quantity: 1, modifiers: [] }],
+      tipCents: 0,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    try {
+      const summary = await getSummaryForVenue(db, venueA, config);
+      const rollup = await computeRollup(db, nightContaining(new Date(), config));
+
+      expect(summary.ordersTonight).toBe(1);
+      expect(rollup.orderCount).toBe(summary.ordersTonight);
+      expect(rollup.revenueCents).toBe(Math.round(summary.revenueTonight * 100));
+      expect((await rawClient.venue.findUniqueOrThrow({ where: { id: venueB } })).nightStartHour)
+        .toBe(18);
+    } finally {
+      await rawClient.order.delete({ where: { id: result.order.id } });
+      await rawClient.stockMovement.deleteMany({ where: { note: `Order ${result.order.code}` } });
+      await rawClient.menuItem.update({ where: { id: itemId }, data: { inventory: { increment: 1 } } });
+    }
+  });
+
   // ── Rollup idempotency ─────────────────────────────────────────────
 
   it("upserting rollup twice produces exactly one row", async () => {
     const db = getDb(sessionA);
-    const night = nightForDate("2026-07-14", "UTC");
+    const night = nightForDate("2026-07-14", UTC_NIGHT);
     const rollup = await computeRollup(db, night);
 
     await upsertRollup(rawClient, venueA, "2026-07-14", rollup);

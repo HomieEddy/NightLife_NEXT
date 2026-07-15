@@ -4,8 +4,11 @@
  * last-call analytics. One definition, no reimplementation.
  */
 
-const NIGHT_START_HOUR = 18;
-const NIGHT_END_HOUR = 10;
+export interface NightConfig {
+  timezone: string;
+  nightStartHour: number;
+  nightEndHour: number;
+}
 
 export interface NightBoundary {
   /** Label for this night, e.g. "2026-07-14" (the evening's calendar date). */
@@ -23,7 +26,8 @@ export interface NightBoundary {
  *
  * The returned start/end are UTC Date objects suitable for Postgres queries.
  */
-export function nightContaining(instant: Date, timezone: string): NightBoundary {
+export function nightContaining(instant: Date, config: NightConfig): NightBoundary {
+  const { timezone, nightStartHour, nightEndHour } = config;
   const localStr = instant.toLocaleString("en-US", {
     timeZone: timezone,
     hour12: false,
@@ -38,16 +42,16 @@ export function nightContaining(instant: Date, timezone: string): NightBoundary 
   const [month, day, year] = datePart.split("/");
   const hour = parseInt(timePart.split(":")[0], 10);
 
-  let labelDate = new Date(`${year}-${month}-${day}T00:00:00`);
+  const labelDate = new Date(`${year}-${month}-${day}T00:00:00`);
 
   // Before 10:00 local → belongs to previous evening's night
-  if (hour < NIGHT_END_HOUR) {
+  if (hour < nightEndHour) {
     labelDate.setDate(labelDate.getDate() - 1);
   }
 
   const labelStr = formatDate(labelDate);
-  const start = localToUtc(labelStr, NIGHT_START_HOUR, 0, timezone);
-  const end = localToUtc(nextDay(labelStr), NIGHT_END_HOUR, 0, timezone);
+  const start = localToUtc(labelStr, nightStartHour, 0, timezone);
+  const end = localToUtc(nextDay(labelStr), nightEndHour, 0, timezone);
 
   return { label: labelStr, start, end };
 }
@@ -57,9 +61,10 @@ export function nightContaining(instant: Date, timezone: string): NightBoundary 
  * Night starts at 18:00 on that date and ends at 10:00 the next day, both in
  * the venue's local timezone, returned as UTC.
  */
-export function nightForDate(labelDate: string, timezone: string): NightBoundary {
-  const start = localToUtc(labelDate, NIGHT_START_HOUR, 0, timezone);
-  const end = localToUtc(nextDay(labelDate), NIGHT_END_HOUR, 0, timezone);
+export function nightForDate(labelDate: string, config: NightConfig): NightBoundary {
+  const { timezone, nightStartHour, nightEndHour } = config;
+  const start = localToUtc(labelDate, nightStartHour, 0, timezone);
+  const end = localToUtc(nextDay(labelDate), nightEndHour, 0, timezone);
   return { label: labelDate, start, end };
 }
 

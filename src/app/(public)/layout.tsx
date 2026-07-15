@@ -1,28 +1,23 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/shared/brand-logo";
+import { DemoPublicFooter, DemoPublicNav } from "@/components/shared/demo-links";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-
-const NAV_LINKS = [
-  { href: "/pricing", label: "Pricing" },
-  { href: "/demo", label: "Live demo" },
-];
+import { isDemoMode } from "@/lib/app-mode";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <BrandLogo />
+          <BrandLogo href={isDemoMode() ? "/demo" : "/"} />
           <nav className="flex items-center gap-1 sm:gap-2">
-            {NAV_LINKS.map((link) => (
-              <Button key={link.href} variant="ghost" size="sm" asChild>
-                <Link href={link.href}>{link.label}</Link>
+            {!isDemoMode() && (
+              <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
+                <Link href="/pricing">Pricing</Link>
               </Button>
-            ))}
-            <Button size="sm" asChild>
-              <Link href="/lead">Get started</Link>
-            </Button>
+            )}
+            <DemoPublicNav />
             <ThemeToggle />
           </nav>
         </div>
@@ -30,16 +25,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <main className="flex-1">{children}</main>
       <footer className="border-t py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-muted-foreground sm:flex-row">
-          <BrandLogo className="text-sm" />
-          <p>© {new Date().getFullYear()} NightLifeNext. Prototype — not a real product yet.</p>
-          <div className="flex gap-4">
-            <Link href="/demo" className="hover:text-foreground">
-              Demo tour
-            </Link>
-            <Link href="/g/demo-table" className="hover:text-foreground">
-              Guest demo
-            </Link>
-          </div>
+          <BrandLogo href={isDemoMode() ? "/demo" : "/"} className="text-sm" />
+          <p>© {new Date().getFullYear()} NightLifeNext.</p>
+          <DemoPublicFooter />
         </div>
       </footer>
     </div>

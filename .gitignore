@@ -21,6 +21,8 @@
 
 # next.js
 /.next/
+/.next-demo/
+/.next-live/
 /out/
 
 # production

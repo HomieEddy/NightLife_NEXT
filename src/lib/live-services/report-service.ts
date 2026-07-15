@@ -1,9 +1,9 @@
 "use client";
 
-import type { SavedReport, ReportSchedule, ReportMetric } from "@/lib/mock-services/report-service";
+import type { SavedReport, ReportSchedule, ReportMetric } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -50,3 +50,4 @@ export const liveReportService = {
     });
   },
 };
+import { liveFetch } from "./live-fetch";

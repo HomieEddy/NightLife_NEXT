@@ -40,15 +40,17 @@ not at all.
 **Order** (root) — `OrderItem[]`, `FeeLine[]`, claim, gift fields.
 - INV-O1: `status` transitions only along pending → accepted → preparing → ready →
   delivered; `cancelled` reachable from any non-terminal state. No skips backward.
-- INV-O2 (money): `subtotalCents = Σ((unitPriceCents + Σ modifier deltas) × qty)`;
+- INV-O2 (money): `subtotalCents = Σ(baseUnitCents × lineQty + Σ(addOnUnitCents × addOnQty))`;
   `totalCents = subtotalCents + Σ feeLineCents + tipCents` — exactly, in cents.
   Fee lines snapshot the venue's fee config *at placement time* (fee edits never
   rewrite history).
 - INV-O3: at most one claimant (`claimedByStaffId`); claiming an already-claimed
   order fails, it does not overwrite.
 - INV-O4: order placement and inventory draw-down commit in **one transaction**
-  with row locks on the items (menu-service `recordSale` TODO).
-- INV-O5: a gift order bills the sender's table/session and carries an immutable
+  with row locks on base, package-component and washer inventory items.
+- INV-O5: add-on quantity is independent of line quantity; stored modifier
+  snapshots preserve authoritative kind, names, price and selected quantity.
+- INV-O6: a gift order bills the sender's table/session and carries an immutable
   delivery target (`giftToTableId`).
 
 **GuestSession** (root) — the table's tab for the night.
@@ -58,6 +60,8 @@ not at all.
   guests-service TODO).
 - INV-S3: sessions are keyed to a signed table token; token revocation
   (`tokenVersion` bump) orphans nothing — it only blocks *new* joins.
+- INV-S4: approval/auto-approval locks and occupies the table; external settlement
+  records method/time and releases it to reserved/open in the same event transaction.
 
 **HelpRequest** (root) — open → acknowledged → resolved; timestamps drive Pulse SLA.
 
@@ -89,19 +93,19 @@ status + map position + `tokenVersion`.
 **Broadcast** — immutable, TTL governs display. **LastCall** — venue-scoped
 singleton flag + startedAt. **ActiveShow** — venue-scoped single row;
 - INV-F1: at most one active show per venue, enforced with a DB lock
-  (`SELECT … FOR UPDATE`), not application memory (show-queue TODO).
+  (`SELECT … FOR UPDATE`), not application memory.
 Attention items (Pulse feed) are **derived, never stored** — `computeAttentionItems`
 stays a pure function fed by queries.
 
 ### Workforce context
 
-**StaffMember** (root — becomes a user + membership under AD-4), **StaffShift**,
+**StaffMember** (read model over User + venue Member + StaffProfile), **StaffShift**,
 **ChatMessage** (immutable, channel-scoped).
 
 ### Hospitality Calendar context
 
 **Reservation** (root) — requested → confirmed → seated → completed | cancelled;
-seating flips the table to reserved/occupied (reservation-service TODO).
+seating flips the table to reserved/occupied.
 **VenueEvent** (root) + `EventGuest[]` guestlist. **Promotion** (root) —
 `redemptionCount` increments only inside an order transaction that applied it.
 

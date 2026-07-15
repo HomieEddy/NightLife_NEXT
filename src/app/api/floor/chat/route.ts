@@ -27,6 +27,8 @@ async function livePOST(request: NextRequest) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
   const { getDb } = await import("@/server/db");
   const { sendMessage } = await import("@/server/floor-core");
+  const { getRawPrisma } = await import("@/server/db");
+  const { getCurrentStaff } = await import("@/server/staff-core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -39,11 +41,13 @@ async function livePOST(request: NextRequest) {
     return NextResponse.json({ error: "channel and body required" }, { status: 400 });
   }
 
+  const staff = await getCurrentStaff(getRawPrisma(), venueId, auth.session.user.id);
+  if (!staff) return NextResponse.json({ error: "Staff profile not found" }, { status: 403 });
   const msg = await sendMessage(db, venueId, {
     channel: body.channel,
-    authorId: body.authorId || auth.session.user.id,
-    authorName: body.authorName || auth.session.user.name,
-    authorRole: body.authorRole || "runner",
+    authorId: staff.id,
+    authorName: staff.name,
+    authorRole: staff.role,
     body: body.body,
   });
 

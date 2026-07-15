@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney, timeAgo } from "@/lib/format";
+import { orderLineSubtotal } from "@/lib/order-line";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/types";
 import { Gift, MapPin, Tag } from "lucide-react";
@@ -59,15 +60,12 @@ export function OrderCard({
                   <span className="font-medium text-primary">{item.quantity}×</span> {item.name}
                   {item.modifiers.length > 0 && (
                     <span className="block text-xs text-muted-foreground">
-                      {item.modifiers.map((m) => m.optionName).join(", ")}
+                      {item.modifiers.map((modifier) => `${modifier.quantity}× ${modifier.optionName}`).join(", ")}
                     </span>
                   )}
                 </span>
                 <span className="tabular-nums text-muted-foreground">
-                  {formatMoney(
-                    (item.unitPrice + item.modifiers.reduce((s, m) => s + m.priceDelta, 0)) *
-                      item.quantity,
-                  )}
+                  {formatMoney(orderLineSubtotal(item.unitPrice, item.quantity, item.modifiers))}
                 </span>
               </li>
             ))}

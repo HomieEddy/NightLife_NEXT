@@ -2,7 +2,8 @@
  * Domain event publishing: INSERT into domain_events (audit) + pg_notify
  * on a venue-scoped channel. SSE stream endpoints subscribe to NOTIFY.
  */
-import { getRawPrisma } from "./db";
+import type { Prisma } from "@prisma/client";
+import { getRawPrisma } from "@/server/db";
 
 export type DomainEventType =
   | "OrderPlaced"
@@ -45,23 +46,24 @@ export function channelFor(venueId: string): string {
  */
 export async function publish(event: DomainEvent): Promise<void> {
   const prisma = getRawPrisma();
+  await prisma.$transaction((tx) => publishInTransaction(tx, event));
+}
+
+export async function publishInTransaction(
+  tx: Prisma.TransactionClient,
+  event: DomainEvent,
+): Promise<void> {
   const channel = channelFor(event.venueId);
   const message = JSON.stringify({ type: event.type, ...event.payload });
 
-  await prisma.$transaction(async (tx) => {
-    await tx.domainEvent.create({
-      data: {
-        venueId: event.venueId,
-        type: event.type,
-        payload: event.payload,
-      },
-    });
-    await tx.$executeRawUnsafe(
-      `SELECT pg_notify($1, $2)`,
-      channel,
-      message,
-    );
+  await tx.domainEvent.create({
+    data: {
+      venueId: event.venueId,
+      type: event.type,
+      payload: event.payload,
+    },
   });
+  await tx.$executeRawUnsafe(`SELECT pg_notify($1, $2)`, channel, message);
 }
 
 /**

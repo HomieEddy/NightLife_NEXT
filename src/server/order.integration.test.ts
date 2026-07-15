@@ -13,7 +13,7 @@ import {
   sendGift,
   nextStatus,
 } from "./order-core";
-import { createCategory, createItem, checkLedger, getItem } from "./menu-core";
+import { createCategory, createItem, createPackage, checkLedger, getItem } from "./menu-core";
 import { expectTenantIsolation } from "./test-helpers";
 import { toCents } from "./money";
 
@@ -123,6 +123,124 @@ describe("orders & fees integration (plan 05)", () => {
     expect(ledger.balanced).toBe(true);
   });
 
+  it("resolves authoritative add-ons and decrements washer quantity independently", async () => {
+    const db = getDb(sessionA);
+    const washerCategory = await createCategory(db, venueA, {
+      name: "Washers",
+      description: "",
+      sortOrder: 30,
+    });
+    const washer = await createItem(db, venueA, {
+      categoryId: washerCategory.id,
+      name: "Red Bull",
+      description: "",
+      priceCents: 600,
+      icon: "washer",
+      tags: [],
+      inventory: 10,
+    });
+    const bottleCategory = await createCategory(db, venueA, {
+      name: "Add-on bottles",
+      description: "",
+      sortOrder: 31,
+      modifierGroups: [{
+        id: "washers",
+        name: "Washers",
+        kind: "washer",
+        required: true,
+        maxSelections: 1,
+        isActive: true,
+        options: [{
+          id: "red-bull",
+          name: "Red Bull",
+          priceDelta: 6,
+          maxQuantity: 4,
+          inventoryItemId: washer.id,
+          isActive: true,
+        }],
+      }],
+    });
+    const bottle = await createItem(db, venueA, {
+      categoryId: bottleCategory.id,
+      name: "Test bottle",
+      description: "",
+      priceCents: 20_000,
+      icon: "vodka",
+      tags: [],
+      inventory: 5,
+    });
+
+    const result = await submitOrder(db, venueA, {
+      tableId: "t1",
+      tableCode: "VIP-01",
+      zoneId: "z1",
+      zoneName: "VIP",
+      guestName: "Add-on guest",
+      lines: [{
+        menuItemId: bottle.id,
+        quantity: 2,
+        modifiers: [{ groupId: "washers", optionId: "red-bull", quantity: 3 }],
+      }],
+      tipCents: 0,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.order.subtotal).toBe(418);
+    expect(result.order.items[0].modifiers).toEqual([expect.objectContaining({
+      kind: "washer",
+      optionName: "Red Bull",
+      priceDelta: 6,
+      quantity: 3,
+    })]);
+    expect((await getItem(db, bottle.id))?.inventory).toBe(3);
+    expect((await getItem(db, washer.id))?.inventory).toBe(7);
+  });
+
+  it("rejects invalid add-on selections without drawing inventory", async () => {
+    const db = getDb(sessionA);
+    const washerCategory = await createCategory(db, venueA, {
+      name: "Validation washers", description: "", sortOrder: 32,
+    });
+    const washer = await createItem(db, venueA, {
+      categoryId: washerCategory.id, name: "Rare washer", description: "",
+      priceCents: 500, icon: "washer", tags: [], inventory: 1,
+    });
+    const bottleCategory = await createCategory(db, venueA, {
+      name: "Validation bottles", description: "", sortOrder: 33,
+      modifierGroups: [{
+        id: "required-washers", name: "Washers", kind: "washer", required: true,
+        maxSelections: 1, isActive: true,
+        options: [{
+          id: "rare", name: "Rare washer", priceDelta: 5, maxQuantity: 2,
+          inventoryItemId: washer.id, isActive: true,
+        }],
+      }],
+    });
+    const bottle = await createItem(db, venueA, {
+      categoryId: bottleCategory.id, name: "Validation bottle", description: "",
+      priceCents: 10_000, icon: "vodka", tags: [], inventory: 4,
+    });
+    const submit = (modifiers: { groupId: string; optionId: string; quantity: number }[]) =>
+      submitOrder(db, venueA, {
+        tableId: "t1", tableCode: "VIP-01", zoneId: "z1", zoneName: "VIP",
+        guestName: "Validation", lines: [{ menuItemId: bottle.id, quantity: 1, modifiers }],
+        tipCents: 0,
+      });
+
+    expect((await submit([])).ok).toBe(false);
+    expect((await submit([{ groupId: "required-washers", optionId: "forged", quantity: 1 }])).ok).toBe(false);
+    expect((await submit([
+      { groupId: "required-washers", optionId: "rare", quantity: 1 },
+      { groupId: "required-washers", optionId: "rare", quantity: 1 },
+    ])).ok).toBe(false);
+    expect((await submit([{ groupId: "required-washers", optionId: "rare", quantity: 3 }])).ok).toBe(false);
+    expect((await submit([{ groupId: "required-washers", optionId: "rare", quantity: 2 }])).ok).toBe(false);
+
+    expect((await getItem(db, bottle.id))?.inventory).toBe(4);
+    expect((await getItem(db, washer.id))?.inventory).toBe(1);
+  });
+
   // ── Inventory failure rolls back order ──────────────────────────────
 
   it("rolls back the entire order when inventory is insufficient", async () => {
@@ -157,6 +275,76 @@ describe("orders & fees integration (plan 05)", () => {
     // Inventory unchanged
     const after = await getItem(db, scarceItem.id);
     expect(after!.inventory).toBe(1);
+  });
+
+  it("rolls back package and washer draw-downs together", async () => {
+    const db = getDb(sessionA);
+    const cat = await createCategory(db, venueA, {
+      name: "Rollback Package Items",
+      description: "",
+      sortOrder: 34,
+    });
+    const bottle = await createItem(db, venueA, {
+      categoryId: cat.id,
+      name: "Rollback Bottle",
+      description: "",
+      priceCents: 20000,
+      icon: "vodka",
+      tags: [],
+      inventory: 5,
+    });
+    const washer = await createItem(db, venueA, {
+      categoryId: cat.id,
+      name: "Rollback Washer",
+      description: "",
+      priceCents: 600,
+      icon: "washer",
+      tags: [],
+      inventory: 1,
+    });
+    const pkg = await createPackage(db, venueA, {
+      name: "Rollback Package",
+      description: "",
+      priceCents: 35000,
+      components: [{ menuItemId: bottle.id, quantity: 1 }],
+      modifierGroups: [{
+        id: "washers",
+        name: "Washers",
+        kind: "washer",
+        required: true,
+        maxSelections: 1,
+        isActive: true,
+        options: [{
+          id: "rollback-washer",
+          name: "Rollback Washer",
+          priceDelta: 6,
+          maxQuantity: 2,
+          inventoryItemId: washer.id,
+          isActive: true,
+        }],
+      }],
+    });
+
+    const result = await submitOrder(db, venueA, {
+      tableId: "t1",
+      tableCode: "VIP-01",
+      zoneId: "z1",
+      zoneName: "VIP",
+      guestName: "Rollback proof",
+      lines: [{
+        menuItemId: pkg.id,
+        quantity: 2,
+        modifiers: [{ groupId: "washers", optionId: "rollback-washer", quantity: 2 }],
+      }],
+      tipCents: 0,
+    });
+
+    expect(result.ok).toBe(false);
+    expect((await getItem(db, bottle.id))?.inventory).toBe(5);
+    expect((await getItem(db, washer.id))?.inventory).toBe(1);
+    expect(await rawClient.order.count({ where: { guestName: "Rollback proof" } })).toBe(0);
+    expect((await checkLedger(db, bottle.id)).balanced).toBe(true);
+    expect((await checkLedger(db, washer.id)).balanced).toBe(true);
   });
 
   // ── State machine ──────────────────────────────────────────────────

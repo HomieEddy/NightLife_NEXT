@@ -3,16 +3,22 @@
 import type { AuthUser, SignInInput } from "@/lib/types";
 import { authClient } from "@/lib/auth-client";
 
+/** Org roles are owner/admin/member — owner|admin run the venue, member is floor staff. */
+export function orgRoleToAppRole(memberRole: string | null | undefined, isPlatformAdmin: boolean): AuthUser["role"] {
+  if (isPlatformAdmin) return "admin";
+  return memberRole === "member" ? "staff" : "manager";
+}
+
 function sessionToAuthUser(session: {
   user: { id: string; name: string; email: string; isPlatformAdmin?: boolean };
   session: { activeOrganizationId?: string | null };
-}, memberRole?: string): AuthUser {
+}, memberRole?: string | null): AuthUser {
   const isPlatformAdmin = (session.user as Record<string, unknown>).isPlatformAdmin === true;
   return {
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,
-    role: memberRole === "manager" ? "manager" : isPlatformAdmin ? "admin" : "staff",
+    role: orgRoleToAppRole(memberRole, isPlatformAdmin),
     venueId: session.session.activeOrganizationId ?? undefined,
   };
 }
@@ -35,7 +41,8 @@ export const liveAuthService = {
     const session = await authClient.getSession();
     if (!session.data) return null;
 
-    return sessionToAuthUser(session.data);
+    const { data: member } = await authClient.organization.getActiveMember();
+    return sessionToAuthUser(session.data, member?.role);
   },
 
   signOut(): void {

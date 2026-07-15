@@ -1,6 +1,23 @@
-import type { Order, GuestSession, HelpRequest } from "@/lib/types";
+import type { Order, GuestSession, HelpRequest, ModifierKind, OrderItemModifier } from "@/lib/types";
 
 const minsAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+
+function modifier(
+  kind: ModifierKind,
+  optionName: string,
+  priceDelta: number,
+  quantity = 1,
+): OrderItemModifier {
+  return {
+    groupId: `mod-${kind}`,
+    optionId: optionName.toLowerCase().replaceAll(" ", "-"),
+    kind,
+    groupName: kind === "washer" ? "Washers inclus" : "Présentation",
+    optionName,
+    priceDelta,
+    quantity,
+  };
+}
 
 export const mockOrders: Order[] = [
   {
@@ -13,7 +30,7 @@ export const mockOrders: Order[] = [
     zoneName: "VIP Mezzanine",
     guestName: "Chloé",
     items: [
-      { id: "oi-1", menuItemId: "mi-dom", name: "Dom Pérignon Vintage", quantity: 1, unitPrice: 320, modifiers: [{ groupName: "Présentation", optionName: "Défilé de sparklers", priceDelta: 25 }] },
+      { id: "oi-1", menuItemId: "mi-dom", name: "Dom Pérignon Vintage", quantity: 1, unitPrice: 320, modifiers: [modifier("presentation", "Défilé de sparklers", 25)] },
       { id: "oi-2", menuItemId: "mi-evian", name: "Evian 75cl", quantity: 2, unitPrice: 8, modifiers: [] },
     ],
     subtotal: 361,
@@ -35,7 +52,7 @@ export const mockOrders: Order[] = [
     zoneName: "Main Floor",
     guestName: "Maxime",
     items: [
-      { id: "oi-3", menuItemId: "mi-hendricks", name: "Hendrick's 1L", quantity: 1, unitPrice: 210, modifiers: [{ groupName: "Washers inclus", optionName: "Red Bull 4-pack", priceDelta: 24 }] },
+      { id: "oi-3", menuItemId: "mi-hendricks", name: "Hendrick's 1L", quantity: 1, unitPrice: 210, modifiers: [modifier("washer", "Red Bull 4-pack", 24)] },
     ],
     subtotal: 234,
     serviceFee: 11.7,
@@ -55,7 +72,7 @@ export const mockOrders: Order[] = [
     zoneName: "Terrace",
     guestName: "Léa",
     items: [
-      { id: "oi-4", menuItemId: "mi-patron", name: "Patrón Silver", quantity: 1, unitPrice: 220, modifiers: [{ groupName: "Washers inclus", optionName: "Carafe de jus d'orange", priceDelta: 0 }] },
+      { id: "oi-4", menuItemId: "mi-patron", name: "Patrón Silver", quantity: 1, unitPrice: 220, modifiers: [modifier("washer", "Carafe de jus d'orange", 0)] },
       { id: "oi-5", menuItemId: "mi-juice-carafe", name: "Carafe de jus frais", quantity: 2, unitPrice: 14, modifiers: [] },
     ],
     subtotal: 248,
@@ -77,7 +94,7 @@ export const mockOrders: Order[] = [
     zoneName: "VIP Mezzanine",
     guestName: "Antoine",
     items: [
-      { id: "oi-6", menuItemId: "mi-belvedere", name: "Belvedere Pure 1.75L", quantity: 1, unitPrice: 300, modifiers: [{ groupName: "Washers inclus", optionName: "Red Bull 4-pack", priceDelta: 24 }, { groupName: "Présentation", optionName: "Enseigne LED + défilé", priceDelta: 60 }] },
+      { id: "oi-6", menuItemId: "mi-belvedere", name: "Belvedere Pure 1.75L", quantity: 1, unitPrice: 300, modifiers: [modifier("washer", "Red Bull 4-pack", 24), modifier("presentation", "Enseigne LED + défilé", 60)] },
     ],
     subtotal: 384,
     serviceFee: 19.2,
@@ -98,7 +115,7 @@ export const mockOrders: Order[] = [
     zoneName: "Back Bar",
     guestName: "Inès",
     items: [
-      { id: "oi-7", menuItemId: "mi-diplomatico", name: "Diplomático Reserva Exclusiva", quantity: 1, unitPrice: 240, modifiers: [{ groupName: "Washers inclus", optionName: "Set soda & tonic", priceDelta: 0 }] },
+      { id: "oi-7", menuItemId: "mi-diplomatico", name: "Diplomático Reserva Exclusiva", quantity: 1, unitPrice: 240, modifiers: [modifier("washer", "Set soda & tonic", 0)] },
       { id: "oi-8", menuItemId: "mi-soda-set", name: "Set de sodas premium", quantity: 1, unitPrice: 12, modifiers: [] },
     ],
     subtotal: 252,
@@ -119,7 +136,7 @@ export const mockOrders: Order[] = [
     zoneName: "Main Floor",
     guestName: "Hugo",
     items: [
-      { id: "oi-9", menuItemId: "mi-titos", name: "Tito's Handmade 1L", quantity: 1, unitPrice: 180, modifiers: [{ groupName: "Washers inclus", optionName: "Carafe de jus de canneberge", priceDelta: 0 }] },
+      { id: "oi-9", menuItemId: "mi-titos", name: "Tito's Handmade 1L", quantity: 1, unitPrice: 180, modifiers: [modifier("washer", "Carafe de jus de canneberge", 0)] },
     ],
     subtotal: 180,
     serviceFee: 9,

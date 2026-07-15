@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { isDemoMode } from "@/lib/app-mode";
+import { assertLiveMode, isDemoMode } from "@/lib/app-mode";
 
 type Scope = "manager" | "staff" | "guest";
 
@@ -16,8 +16,7 @@ interface UseLiveEventsOptions {
   sessionId?: string;
   /** Called on each incoming event. Typically triggers the page's refresh(). */
   onEvent: (event: LiveEventMessage) => void;
-  /** Fallback poll interval in ms — used when SSE is unavailable (demo mode
-   *  or sustained connection failure). Pages keep their existing refresh(). */
+  /** Reconciliation interval in ms. SSE remains the fast path in live mode. */
   fallbackMs?: number;
   /** The refresh function to call on fallback polling. */
   fallbackRefresh?: () => void;
@@ -34,8 +33,8 @@ const MAX_RETRY_MS = 30_000;
 
 /**
  * Subscribes to the venue's SSE stream. On each event whose type the server
- * already filtered to this audience, calls `onEvent`. On sustained failure,
- * falls back to polling via `fallbackRefresh` at `fallbackMs`.
+ * already filtered to this audience, calls `onEvent`. A low-frequency refresh
+ * reconciles notifications missed while the database listener is connecting.
  *
  * In demo mode, only the fallback poll runs — there's no SSE server.
  */
@@ -76,6 +75,7 @@ export function useLiveEvents({
 
     function connect() {
       if (cancelled) return;
+      assertLiveMode();
 
       let url = ENDPOINT[scope];
       if (scope === "guest" && sessionId) {
@@ -86,7 +86,7 @@ export function useLiveEvents({
 
       eventSource.onopen = () => {
         retryMs = INITIAL_RETRY_MS;
-        stopFallback();
+        fallbackRef.current?.();
       };
 
       eventSource.onmessage = (e) => {
@@ -112,9 +112,8 @@ export function useLiveEvents({
       };
     }
 
-    if (isDemoMode()) {
-      startFallback();
-    } else {
+    startFallback();
+    if (!isDemoMode()) {
       connect();
     }
 

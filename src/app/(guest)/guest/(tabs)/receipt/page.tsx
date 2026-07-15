@@ -10,21 +10,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoNewSessionAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { CountUp } from "@/components/fx/count-up";
 import { useGuest } from "@/context/guest-context";
 import { ordersService } from "@/lib/services/orders-service";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { mockPackages } from "@/lib/mock-data/menu";
-import { mockMenuItems } from "@/lib/mock-data/menu";
+import { orderLineSubtotal } from "@/lib/order-line";
 import type { Order, Venue } from "@/lib/types";
+import { isDemoMode } from "@/lib/app-mode";
 
 function OrderLines({ order }: { order: Order }) {
   return (
     <ul className="space-y-2 text-sm">
       {order.items.map((item) => {
-        const modTotal = item.modifiers.reduce((s, m) => s + m.priceDelta, 0);
         return (
           <li key={item.id}>
             <div className="flex justify-between">
@@ -32,15 +32,15 @@ function OrderLines({ order }: { order: Order }) {
                 {item.quantity}× {item.name}
               </span>
               <span className="tabular-nums">
-                {formatMoney((item.unitPrice + modTotal) * item.quantity)}
+                {formatMoney(orderLineSubtotal(item.unitPrice, item.quantity, item.modifiers))}
               </span>
             </div>
             {item.modifiers.length > 0 && (
               <ul className="pl-4 space-y-0.5 text-xs text-muted-foreground">
                 {item.modifiers.map((mod, i) => (
                   <li key={i} className="flex justify-between">
-                    <span>• {mod.optionName}</span>
-                    {mod.priceDelta > 0 && <span className="tabular-nums">{formatMoney(mod.priceDelta * item.quantity)}</span>}
+                    <span>• {mod.quantity}× {mod.optionName}</span>
+                    {mod.priceDelta > 0 && <span className="tabular-nums">{formatMoney(mod.priceDelta * mod.quantity)}</span>}
                   </li>
                 ))}
               </ul>
@@ -355,8 +355,6 @@ function NightReceipt() {
     }
   }
   const feeLines = Array.from(feeMap.values());
-  const serviceFee = feeLines.reduce((s, l) => s + l.amount, 0);
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-2 py-4 text-center animate-pop-in">
@@ -411,32 +409,6 @@ function NightReceipt() {
                 <span>{formatTime(order.placedAt)}</span>
               </div>
               {order.items.map((item) => {
-                const pkg = mockPackages.find((p) => p.id === item.menuItemId);
-                const modTotal = item.modifiers.reduce((s, m) => s + m.priceDelta, 0);
-                if (pkg) {
-                  return (
-                    <div key={item.id} className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="truncate">
-                          {item.quantity}× {pkg.name}
-                        </span>
-                        <span className="whitespace-nowrap tabular-nums">
-                          {formatMoney((item.unitPrice + modTotal) * item.quantity)}
-                        </span>
-                      </div>
-                      <ul className="pl-3 space-y-0.5 text-[11px] text-zinc-500">
-                        {pkg.components.map((comp) => {
-                          const menu = mockMenuItems.find((m) => m.id === comp.menuItemId);
-                          return (
-                            <li key={comp.menuItemId} className="flex justify-between">
-                              <span>• {comp.quantity}× {menu?.name ?? comp.menuItemId}</span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  );
-                }
                 return (
                   <div key={item.id} className="space-y-0.5">
                     <div className="flex justify-between gap-2">
@@ -444,15 +416,15 @@ function NightReceipt() {
                         {item.quantity}× {item.name}
                       </span>
                       <span className="whitespace-nowrap tabular-nums">
-                        {formatMoney((item.unitPrice + modTotal) * item.quantity)}
+                        {formatMoney(orderLineSubtotal(item.unitPrice, item.quantity, item.modifiers))}
                       </span>
                     </div>
                     {item.modifiers.length > 0 && (
                       <ul className="pl-3 space-y-0.5 text-[11px] text-zinc-500">
                         {item.modifiers.map((m, i) => (
                           <li key={i} className="flex justify-between">
-                            <span>• {m.optionName}</span>
-                            {m.priceDelta > 0 && <span className="tabular-nums">{formatMoney(m.priceDelta * item.quantity)}</span>}
+                            <span>• {m.quantity}× {m.optionName}</span>
+                            {m.priceDelta > 0 && <span className="tabular-nums">{formatMoney(m.priceDelta * m.quantity)}</span>}
                           </li>
                         ))}
                       </ul>
@@ -504,7 +476,9 @@ function NightReceipt() {
             </div>
           </div>
 
-          <p className="text-center text-[10px] text-zinc-500">DEMO RECEIPT · NO PAYMENT PROCESSED</p>
+          <p className="text-center text-[10px] text-zinc-500">
+            {isDemoMode() ? "DEMO RECEIPT · NO PAYMENT PROCESSED" : "EXTERNAL SETTLEMENT RECEIPT"}
+          </p>
           <p className="text-center text-[10px] text-zinc-500">THANK YOU · COME AGAIN</p>
         </div>
       </div>
@@ -524,9 +498,7 @@ function NightReceipt() {
         </Button>
       </div>
 
-      <Button variant="outline" className="w-full animate-fade-up" asChild>
-        <Link href="/g/demo-table">Start a new session</Link>
-      </Button>
+      <DemoNewSessionAction />
     </div>
   );
 }
@@ -593,7 +565,7 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
           />
           <Separator />
           <p className="text-center text-xs text-muted-foreground">
-            Demo receipt — no payment was processed.
+            {isDemoMode() ? "Demo receipt — no payment was processed." : "Settled externally with venue staff."}
           </p>
         </CardContent>
       </Card>

@@ -16,6 +16,17 @@ interface InviteInput {
   organizationId: string;
 }
 
+interface InvitationApi {
+  createInvitation(input: {
+    headers: Headers;
+    body: {
+      email: string;
+      role: OrgRole;
+      organizationId: string;
+    };
+  }): Promise<unknown>;
+}
+
 async function getAuth() {
   const { auth } = await import("@/server/auth");
   return auth;
@@ -31,7 +42,7 @@ export async function inviteStaffMember(input: InviteInput) {
   if (!orgId) return { error: "No active organization" };
 
   try {
-    const api = auth.api as Record<string, Function>;
+    const api = auth.api as unknown as InvitationApi;
     const invitation = await api.createInvitation({
       headers: await headers(),
       body: {
@@ -59,7 +70,7 @@ export async function resendStaffInvite(input: {
   if (!orgId) return { error: "No active organization" };
 
   try {
-    const api = auth.api as Record<string, Function>;
+    const api = auth.api as unknown as InvitationApi;
     const invitation = await api.createInvitation({
       headers: await headers(),
       body: {

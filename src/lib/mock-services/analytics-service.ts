@@ -3,28 +3,14 @@
  */
 import type {
   AnalyticsSummary,
-  CategoryDepletionPoint,
   RevenuePoint,
-  StaffPerformancePoint,
+  HistoricalAnalytics,
 } from "@/lib/types";
 import { mockAnalytics } from "@/lib/mock-data/analytics";
+import { aggregateWeekly } from "@/lib/analytics";
 import { clone, delay } from "./delay";
 
-export interface HistoricalAnalytics {
-  from: string; // ISO date
-  to: string;
-  days: number;
-  totalRevenue: number;
-  totalOrders: number;
-  avgOrderValue: number;
-  bestNight: RevenuePoint;
-  /** One point per day, oldest first. */
-  series: RevenuePoint[];
-  revenueByZone: { zoneId: string; zoneName: string; revenue: number }[];
-  topItems: { name: string; count: number; revenue: number; categoryId?: string }[];
-  staffPerformance: StaffPerformancePoint[];
-  categoryDepletion: CategoryDepletionPoint[];
-}
+export { aggregateWeekly };
 
 // Deterministic pseudo-random per date, so ranges are stable across calls.
 function seeded(dateKey: string): number {
@@ -104,16 +90,3 @@ export const mockAnalyticsService = {
   },
 };
 
-/** Collapse a daily series into weekly buckets for readable long-range charts. */
-export function aggregateWeekly(series: RevenuePoint[]): RevenuePoint[] {
-  const buckets: RevenuePoint[] = [];
-  for (let i = 0; i < series.length; i += 7) {
-    const chunk = series.slice(i, i + 7);
-    buckets.push({
-      label: chunk[0].label,
-      revenue: chunk.reduce((s, p) => s + p.revenue, 0),
-      orders: chunk.reduce((s, p) => s + p.orders, 0),
-    });
-  }
-  return buckets;
-}

@@ -1,9 +1,9 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, MapPin, Minus, Plus, QrCode, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Loader2, MapPin, Minus, Plus, QrCode, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,15 +11,17 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoOpenTableAction } from "@/components/shared/demo-links";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
+import { isDemoMode } from "@/lib/app-mode";
 import { guestsService } from "@/lib/services/guests-service";
 import { venueService } from "@/lib/services/venue-service";
 import type { Venue, VenueTable, Zone } from "@/lib/types";
 
 /**
  * QR entry simulation: in production the guest lands here by scanning the
- * QR code printed on the table. TODO(backend): validate a signed QR token.
+ * QR code printed on the table. Live mode validates its signed QR token.
  */
 export default function QrEntryPage({
   params,
@@ -39,12 +41,16 @@ export default function QrEntryPage({
 
   useEffect(() => {
     let cancelled = false;
-    venueService.getTableBySlug(tableCode).then((res) => {
-      if (!cancelled) {
-        setResult(res);
-        setLoading(false);
-      }
-    });
+    venueService.getTableBySlug(tableCode)
+      .then((res) => {
+        if (!cancelled) setResult(res);
+      })
+      .catch(() => {
+        if (!cancelled) setResult(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -57,26 +63,32 @@ export default function QrEntryPage({
       return;
     }
     setJoining(true);
-    const session = await guestsService.requestSession({
-      tableId: result.table.id,
-      tableCode: result.table.code,
-      zoneName: result.zone.name,
-      displayName: `${name.trim()} + ${partySize - 1}`,
-      partySize,
-    });
-    startSession(
-      {
+    try {
+      const session = await guestsService.requestSession({
         tableId: result.table.id,
         tableCode: result.table.code,
-        tableLabel: result.table.label,
-        zoneId: result.zone.id,
         zoneName: result.zone.name,
-      },
-      result.venue,
-      name.trim(),
-      session.id,
-    );
-    router.push("/guest/waiting");
+        displayName: `${name.trim()} + ${partySize - 1}`,
+        partySize,
+        token: tableCode,
+      });
+      startSession(
+        {
+          tableId: result.table.id,
+          tableCode: result.table.code,
+          tableLabel: result.table.label,
+          zoneId: result.zone.id,
+          zoneName: result.zone.name,
+        },
+        result.venue,
+        name.trim(),
+        session.id,
+      );
+      router.push("/guest/waiting");
+    } catch (joinError) {
+      setError(joinError instanceof Error ? joinError.message : "Could not join this table. Try again.");
+      setJoining(false);
+    }
   }
 
   if (loading) {
@@ -95,12 +107,10 @@ export default function QrEntryPage({
         <EmptyState
           icon={QrCode}
           title="Table not found"
-          description={`No table matches the code "${tableCode}". Try the demo table instead.`}
-          action={
-            <Button asChild>
-              <Link href="/g/demo-table">Open demo table</Link>
-            </Button>
-          }
+          description={isDemoMode()
+            ? `No table matches the code "${tableCode}". Try the demo table instead.`
+            : `No table matches the code "${tableCode}". Ask venue staff for a current QR code.`}
+          action={<DemoOpenTableAction />}
         />
       </div>
     );
@@ -117,6 +127,11 @@ export default function QrEntryPage({
         }}
       />
       <div className="relative flex justify-center pt-6 animate-pop-in">
+        {isDemoMode() && (
+          <Button variant="ghost" size="sm" className="absolute left-0 top-5" asChild>
+            <Link href="/demo"><ArrowLeft className="size-4" /> Back to demo</Link>
+          </Button>
+        )}
         <BrandLogo />
       </div>
 

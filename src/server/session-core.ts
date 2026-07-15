@@ -4,8 +4,9 @@
  * Closure validation (INV-S2): requestClosure rejects when in-flight orders exist.
  */
 import type { getDb } from "./db";
-import { publish } from "./events";
-import type { GuestSession, GuestSessionStatus, HelpRequest, HelpRequestType, HelpRequestStatus } from "@/lib/types";
+import { getRawPrisma } from "@/server/db";
+import { publish, publishInTransaction } from "./events";
+import type { GuestSession, GuestSessionStatus, HelpRequest, HelpRequestType, HelpRequestStatus, SettlementMethod } from "@/lib/types";
 import type { GuestSessionStatus as PrismaSessionStatus, OrderStatus } from "@prisma/client";
 
 type ScopedDb = ReturnType<typeof getDb>;
@@ -53,6 +54,8 @@ interface SessionRow {
   partySize: number;
   status: PrismaSessionStatus;
   createdAt: Date;
+  settledExternallyAt: Date | null;
+  settlementMethod: string | null;
 }
 
 function toSession(row: SessionRow): GuestSession {
@@ -65,6 +68,8 @@ function toSession(row: SessionRow): GuestSession {
     partySize: row.partySize,
     status: PRISMA_TO_DOMAIN[row.status],
     createdAt: row.createdAt.toISOString(),
+    settledExternallyAt: row.settledExternallyAt?.toISOString(),
+    settlementMethod: row.settlementMethod as SettlementMethod | undefined,
   };
 }
 
@@ -129,26 +134,41 @@ export async function createSession(
   },
   autoApprove: boolean,
 ): Promise<GuestSession> {
-  const row = await db.guestSession.create({
-    data: {
-      ...input,
+  if (!autoApprove) {
+    const row = await db.guestSession.create({ data: { ...input, venueId, status: "pending" } });
+    const session = toSession(row);
+    await publish({ type: "SessionRequested", venueId, payload: { sessionId: session.id, tableId: input.tableId } });
+    return session;
+  }
+
+  const row = await getRawPrisma().$transaction(async (tx) => {
+    const tables = await tx.$queryRawUnsafe<{ status: string }[]>(
+      `SELECT status FROM venue_tables WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
+      input.tableId,
       venueId,
-      status: autoApprove ? "approved" : "pending",
-    },
+    );
+    if (!tables[0] || tables[0].status === "closed") throw new Error("Table is not available");
+    const active = await tx.guestSession.count({
+      where: { venueId, tableId: input.tableId, status: { in: ["approved", "closure_requested"] } },
+    });
+    if (active > 0) throw new Error("Table already has an active session");
+    const created = await tx.guestSession.create({ data: { ...input, venueId, status: "approved" } });
+    await tx.venueTable.update({ where: { id: input.tableId }, data: { status: "occupied" } });
+    await publishInTransaction(tx, {
+      type: "SessionApproved",
+      venueId,
+      payload: { sessionId: created.id, tableId: input.tableId },
+    });
+    return created;
   });
-  const session = toSession(row);
-  await publish({
-    type: autoApprove ? "SessionApproved" : "SessionRequested",
-    venueId,
-    payload: { sessionId: session.id, tableId: input.tableId },
-  });
-  return session;
+  return toSession(row);
 }
 
 export async function setSessionStatus(
   db: ScopedDb,
   sessionId: string,
   newStatus: GuestSessionStatus,
+  settlementMethod?: SettlementMethod,
 ): Promise<{ ok: true; session: GuestSession } | { ok: false; error: string }> {
   const row = await db.guestSession.findUnique({ where: { id: sessionId } });
   if (!row) return { ok: false, error: "Session not found" };
@@ -158,27 +178,82 @@ export async function setSessionStatus(
     return { ok: false, error: `Cannot transition from ${currentStatus} to ${newStatus}` };
   }
 
-  const updated = await db.guestSession.update({
-    where: { id: sessionId },
-    data: { status: DOMAIN_TO_PRISMA[newStatus] },
-  });
-  const session = toSession(updated);
-
   const EVENT_MAP: Partial<Record<GuestSessionStatus, "SessionApproved" | "SessionDenied" | "SessionClosed">> = {
     approved: "SessionApproved",
     denied: "SessionDenied",
     closed: "SessionClosed",
   };
-  const eventType = EVENT_MAP[newStatus];
-  if (eventType) {
-    await publish({
-      type: eventType,
-      venueId: row.venueId,
-      payload: { sessionId, tableId: row.tableId },
-    });
+  if (newStatus === "closed" && !settlementMethod) {
+    return { ok: false, error: "Settlement method is required" };
   }
 
-  return { ok: true, session };
+  try {
+    const updated = await getRawPrisma().$transaction(async (tx) => {
+      await tx.$queryRawUnsafe(
+        `SELECT id FROM venue_tables WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
+        row.tableId,
+        row.venueId,
+      );
+      const locked = await tx.guestSession.findFirst({ where: { id: sessionId, venueId: row.venueId } });
+      if (!locked) throw new Error("Session not found");
+      const lockedStatus = PRISMA_TO_DOMAIN[locked.status];
+      if (!isValidTransition(lockedStatus, newStatus)) {
+        throw new Error(`Cannot transition from ${lockedStatus} to ${newStatus}`);
+      }
+
+      if (newStatus === "approved") {
+        const active = await tx.guestSession.count({
+          where: {
+            venueId: row.venueId,
+            tableId: row.tableId,
+            id: { not: sessionId },
+            status: { in: ["approved", "closure_requested"] },
+          },
+        });
+        if (active > 0) throw new Error("Table already has an active session");
+        await tx.venueTable.update({ where: { id: row.tableId }, data: { status: "occupied" } });
+      }
+
+      if (newStatus === "closed") {
+        const inFlight = await tx.order.count({
+          where: { venueId: row.venueId, sessionId, status: { in: IN_FLIGHT_STATUSES } },
+        });
+        if (inFlight > 0) throw new Error(`${inFlight} order(s) still in flight`);
+        const reservation = await tx.reservation.findFirst({
+          where: {
+            venueId: row.venueId,
+            tableId: row.tableId,
+            status: "confirmed",
+          },
+        });
+        await tx.venueTable.update({
+          where: { id: row.tableId },
+          data: { status: reservation ? "reserved" : "open" },
+        });
+      }
+
+      const next = await tx.guestSession.update({
+        where: { id: sessionId },
+        data: {
+          status: DOMAIN_TO_PRISMA[newStatus],
+          settledExternallyAt: newStatus === "closed" ? new Date() : undefined,
+          settlementMethod: newStatus === "closed" ? settlementMethod : undefined,
+        },
+      });
+      const eventType = EVENT_MAP[newStatus];
+      if (eventType) {
+        await publishInTransaction(tx, {
+          type: eventType,
+          venueId: row.venueId,
+          payload: { sessionId, tableId: row.tableId },
+        });
+      }
+      return next;
+    });
+    return { ok: true, session: toSession(updated) };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Session update failed" };
+  }
 }
 
 // ── Closure validation (INV-S2) ─────────────────────────────────────

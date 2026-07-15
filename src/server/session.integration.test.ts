@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { getDb, type SessionContext } from "./db";
 import { createTestDb, type TestDb } from "./test-pglite";
@@ -99,6 +99,14 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     await testDb?.teardown();
   });
 
+  beforeEach(async () => {
+    await rawClient.guestSession.updateMany({
+      where: { venueId: venueA, status: { in: ["approved", "closure_requested"] } },
+      data: { status: "closed", settledExternallyAt: new Date(), settlementMethod: "house" },
+    });
+    await rawClient.venueTable.update({ where: { id: tableId }, data: { status: "open" } });
+  });
+
   // ── Session state machine (INV-S1) ────────────────────────────────
 
   it("creates a pending session", async () => {
@@ -126,6 +134,35 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     const result = await setSessionStatus(db, session.id, "approved");
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.session.status).toBe("approved");
+    expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("occupied");
+  });
+
+  it("rolls back approval when its domain event cannot be written", async () => {
+    const db = getDb(ctxA);
+    const session = await createSession(db, venueA, {
+      tableId,
+      tableCode: "VIP-01",
+      zoneName: "VIP",
+      displayName: "Event rollback",
+      partySize: 2,
+    }, false);
+    await rawClient.$executeRawUnsafe(
+      `ALTER TABLE domain_events
+       ADD CONSTRAINT reject_session_approved
+       CHECK (type <> 'SessionApproved') NOT VALID`,
+    );
+
+    try {
+      const result = await setSessionStatus(db, session.id, "approved");
+
+      expect(result.ok).toBe(false);
+      expect((await getSession(db, session.id))?.status).toBe("pending");
+      expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("open");
+    } finally {
+      await rawClient.$executeRawUnsafe(
+        "ALTER TABLE domain_events DROP CONSTRAINT reject_session_approved",
+      );
+    }
   });
 
   it("transitions pending → denied", async () => {
@@ -138,6 +175,22 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     const result = await setSessionStatus(db, session.id, "denied");
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.session.status).toBe("denied");
+    expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("open");
+  });
+
+  it("rejects a second active session for the same table", async () => {
+    const db = getDb(ctxA);
+    const first = await createSession(db, venueA, {
+      tableId, tableCode: "VIP-01", zoneName: "VIP", displayName: "First", partySize: 2,
+    }, false);
+    await setSessionStatus(db, first.id, "approved");
+    const second = await createSession(db, venueA, {
+      tableId, tableCode: "VIP-01", zoneName: "VIP", displayName: "Second", partySize: 2,
+    }, false);
+
+    const result = await setSessionStatus(db, second.id, "approved");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("active session");
   });
 
   it("rejects illegal transition pending → closed", async () => {
@@ -231,6 +284,50 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     }, true);
 
     expect(session.status).toBe("approved");
+    expect((await rawClient.venueTable.findUnique({ where: { id: autoTable.id } }))?.status).toBe("occupied");
+  });
+
+  it("records external settlement and releases the table on close", async () => {
+    const db = getDb(ctxA);
+    const session = await createSession(db, venueA, {
+      tableId, tableCode: "VIP-01", zoneName: "VIP", displayName: "Close", partySize: 2,
+    }, false);
+    await setSessionStatus(db, session.id, "approved");
+    await requestClosure(db, session.id);
+
+    const result = await setSessionStatus(db, session.id, "closed", "terminal");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.session.settlementMethod).toBe("terminal");
+      expect(result.session.settledExternallyAt).toBeTruthy();
+    }
+    expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("open");
+  });
+
+  it("keeps a table reserved for its next confirmed reservation", async () => {
+    const db = getDb(ctxA);
+    const session = await createSession(db, venueA, {
+      tableId, tableCode: "VIP-01", zoneName: "VIP", displayName: "Close before booking", partySize: 2,
+    }, false);
+    await setSessionStatus(db, session.id, "approved");
+    await requestClosure(db, session.id);
+    await rawClient.reservation.create({
+      data: {
+        venueId: venueA,
+        tableId,
+        zoneId,
+        guestName: "Next booking",
+        partySize: 4,
+        startsAt: new Date(Date.now() + 60 * 60 * 1000),
+        endsAt: new Date(Date.now() + 3 * 60 * 60 * 1000),
+        status: "confirmed",
+      },
+    });
+
+    const result = await setSessionStatus(db, session.id, "closed", "terminal");
+
+    expect(result.ok).toBe(true);
+    expect((await rawClient.venueTable.findUnique({ where: { id: tableId } }))?.status).toBe("reserved");
   });
 
   // ── Revoked token (INV-S3) — existing session survives ────────────

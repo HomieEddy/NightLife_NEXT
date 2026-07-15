@@ -395,6 +395,36 @@ readable; they codify how this repo has actually been built.
 Most of these are phase-1 mechanics; per §9.9, prune each one when the backend
 makes it obsolete.
 
+- `NEXT_PUBLIC_APP_MODE` is required and accepts only `demo` or `live`; missing
+  or misspelled values fail configuration. Demo resource guards reject DB/auth/
+  HTTP/SSE access, while live selectors reject mock execution. Tests set live
+  mode explicitly; browser/build verification must exercise both modes.
+- Venue timezone, opening hours and `nightStartHour`/`nightEndHour` are persisted
+  live settings. Every business-night consumer receives that venue config — no
+  Toronto/18:00 fallback is allowed in server analytics.
+- Live staff identity is `User` + venue `Member` + `StaffProfile`; exact floor
+  role lives on the profile, while the member role is coarse access. Claims,
+  chat and shows derive attribution from the authenticated profile, never JSON.
+- Each build owns its home: the **demo** build's `/` redirects to `/demo` (the
+  tour) and `/pricing` 404s; the **live** build's `/` is the marketing landing,
+  `/demo`, `/lead`, `/admin` and `/manager/subscription` 404 until plan 10, and
+  its "Request a demo" CTAs cross-link to the demo app's `/lead`
+  (`NEXT_PUBLIC_DEMO_URL`). Don't add a link without checking which build
+  renders it.
+- Login routes by role: `signIn()` resolves the authenticated `AuthUser` and the
+  login page pushes `ROLE_HOME[user.role]`. Live roles derive from the active
+  org member (owner/admin → manager, member → staff, `isPlatformAdmin` → admin)
+  — Better Auth org roles are never "manager", don't compare against it.
+- Direct-URL guards (live mode only): `src/proxy.ts` requires a session cookie
+  for `/manager|/staff` and the `nln-guest-session` cookie for `/guest/*`
+  (missing → back to `/` to rescan); the manager/staff **layouts are server
+  components** calling `requireArea()` so a wrong-role paste bounces to
+  `/login?error=forbidden`. Their client chrome lives in
+  `ManagerShell`/`StaffShell` (`src/components/{manager,staff}/`). Demo mode
+  keeps the client-side `RequireAuth` gate only.
+- Shells read the venue name via `venueService.getVenue()` — never hardcode a
+  venue string in layout chrome; demo shows the seeded venue, live the tenant's.
+
 - `useSearchParams` **must** sit under `<Suspense>` — wrap the page content in
   a `*Content` component; the default export renders the boundary.
 - Radix `Switch`/`Button` work as `ConfirmDialog` triggers via `asChild` —

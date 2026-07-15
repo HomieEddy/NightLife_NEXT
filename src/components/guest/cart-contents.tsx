@@ -19,6 +19,7 @@ import { computeFeeLines, feeLabel } from "@/lib/fees";
 import { formatMoney } from "@/lib/format";
 import { useLastCall } from "@/lib/use-last-call";
 import { cn } from "@/lib/utils";
+import { orderLineSubtotal } from "@/lib/order-line";
 import type { Promotion } from "@/lib/types";
 
 const TIP_PRESETS = [0, 10, 15, 20] as const;
@@ -135,7 +136,6 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
     <div className="space-y-4">
       <ul className="space-y-3 stagger-children">
         {cart.map((line) => {
-          const modTotal = line.modifiers.reduce((s, m) => s + m.priceDelta, 0);
           return (
             <li key={line.lineId} className="flex gap-3 rounded-xl border p-3">
               <BottleIcon icon={line.menuItem.icon} className="size-11" />
@@ -143,12 +143,12 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
                 <div className="flex items-start justify-between gap-2">
                   <p className="truncate text-sm font-medium">{line.menuItem.name}</p>
                   <p className="shrink-0 text-sm font-semibold tabular-nums">
-                    {formatMoney((line.menuItem.price + modTotal) * line.quantity)}
+                    {formatMoney(orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers))}
                   </p>
                 </div>
                 {line.modifiers.length > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    {line.modifiers.map((m) => m.optionName).join(", ")}
+                    {line.modifiers.map((modifier) => `${modifier.quantity}× ${modifier.optionName}`).join(", ")}
                   </p>
                 )}
                 {line.note && <p className="text-xs italic text-muted-foreground">“{line.note}”</p>}

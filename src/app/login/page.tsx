@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LogIn, Sparkles, UserCog, Users, ShieldCheck } from "lucide-react";
+import { ArrowLeft, LogIn, Sparkles, UserCog, Users, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,17 +28,25 @@ const ROLE_HOME: Record<string, string> = {
   admin: "/admin",
 };
 
-function LoginShell({ children }: { children: React.ReactNode }) {
+function LoginShell({ children, homeHref }: { children: React.ReactNode; homeHref: string }) {
   return (
     <div className="flex min-h-dvh flex-col bg-gradient-to-b from-background to-muted/40">
       <header className="flex h-14 items-center justify-between px-4">
-        <BrandLogo />
+        <BrandLogo href={homeHref} />
         <ThemeToggle />
       </header>
       <main className="flex flex-1 items-center justify-center p-4">
         {children}
       </main>
     </div>
+  );
+}
+
+function BackToLanding({ href, label = "Back to NightLifeNext" }: { href: string; label?: string }) {
+  return (
+    <Button variant="ghost" size="sm" asChild>
+      <Link href={href}><ArrowLeft className="size-4" /> {label}</Link>
+    </Button>
   );
 }
 
@@ -69,24 +78,24 @@ function DemoLogin() {
 
   async function signInAs(persona: AuthUser) {
     setSigningIn(persona.id);
-    const ok = await signIn({ email: persona.email, pin: "0000", role: persona.role });
+    const user = await signIn({ email: persona.email, pin: "0000", role: persona.role });
     setSigningIn(null);
-    if (!ok) { toast.error("Sign-in failed."); return; }
-    router.push(ROLE_HOME[persona.role]);
+    if (!user) { toast.error("Sign-in failed."); return; }
+    router.push(ROLE_HOME[user.role]);
   }
 
   async function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !pin.trim()) { toast.error("Enter your email and PIN."); return; }
     setSubmitting(true);
-    const ok = await signIn({ email, pin, role: "manager" });
+    const user = await signIn({ email, pin, role: "manager" });
     setSubmitting(false);
-    if (!ok) { toast.error("No matching account."); return; }
-    router.push("/manager");
+    if (!user) { toast.error("No matching account."); return; }
+    router.push(ROLE_HOME[user.role]);
   }
 
   return (
-    <LoginShell>
+    <LoginShell homeHref="/demo">
       <Card className="w-full max-w-sm">
         <CardContent className="space-y-5 p-6">
           <div className="space-y-1 text-center">
@@ -156,6 +165,7 @@ function DemoLogin() {
           <p className="text-center text-xs text-muted-foreground">
             Demo only — no real authentication.
           </p>
+          <div className="text-center"><BackToLanding href="/demo" label="Back to demo" /></div>
         </CardContent>
       </Card>
     </LoginShell>
@@ -179,14 +189,14 @@ function LiveLogin() {
       return;
     }
     setSubmitting(true);
-    const ok = await signIn({ email, pin: password, role: "manager" });
+    const user = await signIn({ email, pin: password, role: "manager" });
     setSubmitting(false);
-    if (!ok) { toast.error("Invalid email or password."); return; }
-    router.push("/manager");
+    if (!user) { toast.error("Invalid email or password."); return; }
+    router.push(ROLE_HOME[user.role]);
   }
 
   return (
-    <LoginShell>
+    <LoginShell homeHref="/">
       <Card className="w-full max-w-sm">
         <CardContent className="space-y-5 p-6">
           <div className="space-y-1 text-center">
@@ -226,6 +236,7 @@ function LiveLogin() {
               {submitting ? "Signing in…" : "Sign in"}
             </Button>
           </form>
+          <div className="text-center"><BackToLanding href="/" /></div>
         </CardContent>
       </Card>
     </LoginShell>
@@ -235,12 +246,6 @@ function LiveLogin() {
 // ── Page ────────────────────────────────────────────────────────────
 
 function LoginContent() {
-  const searchParams = useSearchParams();
-  const previewMode = searchParams.get("preview");
-
-  if (previewMode === "live") return <LiveLogin />;
-  if (previewMode === "demo") return <DemoLogin />;
-
   return isDemoMode() ? <DemoLogin /> : <LiveLogin />;
 }
 

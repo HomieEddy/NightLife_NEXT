@@ -6,15 +6,17 @@ function demoHandler() {
 }
 
 async function liveGET(request: NextRequest) {
+  const { getGuestAccess } = await import("@/server/guest-auth");
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
   const { getDb } = await import("@/server/db");
   const { listPackages } = await import("@/server/menu-core");
 
-  const auth = await requireApiArea("staff");
-  if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const guest = await getGuestAccess(request);
+  const auth = guest ? null : await requireApiArea("staff");
+  if (auth && "error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const includeInactive = request.nextUrl.searchParams.get("includeInactive") === "true";
-  const { venueId } = sessionToDbContext(auth.session);
+  const includeInactive = !guest && request.nextUrl.searchParams.get("includeInactive") === "true";
+  const venueId = guest?.venueId ?? sessionToDbContext(auth!.session).venueId;
   const db = getDb({ venueId });
   return NextResponse.json(await listPackages(db, includeInactive));
 }

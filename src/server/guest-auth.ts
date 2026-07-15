@@ -1,18 +1,21 @@
-/**
- * Extracts the venue ID from a guest's httpOnly session cookie.
- * Returns null if the cookie is missing or the session doesn't exist.
- */
 import type { NextRequest } from "next/server";
-import { getPlatformDb } from "./db";
+import { getRawPrisma } from "@/server/db";
 
-export async function getGuestVenueId(request: NextRequest): Promise<string | null> {
+export async function getGuestSession(request: NextRequest) {
   const sessionId = request.cookies.get("nln-guest-session")?.value;
   if (!sessionId) return null;
 
-  const db = getPlatformDb();
-  const row = await db.guestSession.findUnique({
+  return getRawPrisma().guestSession.findUnique({
     where: { id: sessionId },
-    select: { venueId: true },
   });
-  return row?.venueId ?? null;
+}
+
+export async function getGuestVenueId(request: NextRequest) {
+  return (await getGuestSession(request))?.venueId ?? null;
+}
+
+export async function getGuestAccess(request: NextRequest) {
+  const session = await getGuestSession(request);
+  if (!session || session.status === "pending" || session.status === "denied") return null;
+  return session;
 }

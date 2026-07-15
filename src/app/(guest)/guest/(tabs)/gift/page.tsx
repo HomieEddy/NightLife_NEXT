@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Gift, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { PageHeader } from "@/components/shared/page-header";
 import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/lib/services/menu-service";
@@ -78,11 +78,7 @@ export default function GuestGiftPage() {
           icon={QrCode}
           title="No table joined"
           description="Scan the QR code on your table first."
-          action={
-            <Button asChild>
-              <Link href="/g/demo-table">Simulate scanning a QR</Link>
-            </Button>
-          }
+          action={<DemoQrScanAction />}
         />
       </div>
     );

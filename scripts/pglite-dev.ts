@@ -55,7 +55,12 @@ async function main() {
   }
 
   // Port 0 = OS picks a free port
-  const server = new PGLiteSocketServer({ db, port: 0, host: "127.0.0.1" });
+  const server = new PGLiteSocketServer({
+    db,
+    port: 0,
+    host: "127.0.0.1",
+    maxConnections: 100,
+  });
   await server.start();
   const connStr = `postgresql://postgres:postgres@${server.getServerConn()}/postgres`;
   console.log(`[pglite-dev] Postgres ready at ${connStr}`);
@@ -65,7 +70,14 @@ async function main() {
     const seedProc = spawn("npx", ["tsx", "prisma/seed.ts"], {
       stdio: "inherit",
       shell: true,
-      env: { ...process.env, DATABASE_URL: connStr },
+      env: {
+        ...process.env,
+        DATABASE_URL: connStr,
+        DATABASE_POOL_MAX: "1",
+        NEXT_PUBLIC_APP_MODE: "live",
+        AUTH_SECRET: process.env.AUTH_SECRET ?? "dev-secret-at-least-32-characters-long-ok",
+        QR_TOKEN_SECRET: process.env.QR_TOKEN_SECRET ?? "dev-qr-token-secret-key-minimum-16",
+      },
     });
     await new Promise<void>((resolve, reject) => {
       seedProc.on("exit", (code) =>
@@ -81,6 +93,7 @@ async function main() {
     env: {
       ...process.env,
       DATABASE_URL: connStr,
+      DATABASE_POOL_MAX: "1",
       NEXT_PUBLIC_APP_MODE: "live",
       AUTH_SECRET: process.env.AUTH_SECRET ?? "dev-secret-at-least-32-characters-long-ok",
       QR_TOKEN_SECRET: process.env.QR_TOKEN_SECRET ?? "dev-qr-token-secret-key-minimum-16",

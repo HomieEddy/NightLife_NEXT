@@ -5,7 +5,7 @@
  * prevent oversell under concurrency.
  */
 import type { getDb } from "./db";
-import { getRawPrisma } from "./db";
+import { getRawPrisma } from "@/server/db";
 import { fromCents } from "./money";
 import type {
   BottlePackage,
@@ -13,11 +13,11 @@ import type {
   MenuCategory,
   MenuItem,
   ModifierGroup,
+  PackageQuote,
   SoldOutEvent,
   StockMovement,
   StockMovementType,
 } from "@/lib/types";
-import type { PackageQuote } from "@/lib/services/menu-service";
 import type { z } from "zod";
 import type {
   zCategoryInput,
@@ -45,6 +45,7 @@ function toCategory(row: {
   description: string;
   sortOrder: number;
   isActive: boolean;
+  modifierGroups: unknown;
 }): MenuCategory {
   return {
     id: row.id,
@@ -53,6 +54,7 @@ function toCategory(row: {
     description: row.description,
     sortOrder: row.sortOrder,
     isActive: row.isActive,
+    modifierGroups: row.modifierGroups as ModifierGroup[],
   };
 }
 
@@ -66,7 +68,6 @@ function toItem(row: {
   tags: string[];
   isAvailable: boolean;
   inventory: number;
-  modifierGroups: unknown;
 }): MenuItem {
   return {
     id: row.id,
@@ -78,7 +79,6 @@ function toItem(row: {
     tags: row.tags as MenuItem["tags"],
     isAvailable: row.isAvailable,
     inventory: row.inventory,
-    modifierGroups: row.modifierGroups as ModifierGroup[],
   };
 }
 
@@ -124,6 +124,7 @@ function toPackage(row: {
   priceCents: number;
   isActive: boolean;
   components: { itemId: string; quantity: number }[];
+  modifierGroups: unknown;
 }): BottlePackage {
   return {
     id: row.id,
@@ -135,6 +136,7 @@ function toPackage(row: {
       menuItemId: c.itemId,
       quantity: c.quantity,
     })),
+    modifierGroups: row.modifierGroups as ModifierGroup[],
     isActive: row.isActive,
   };
 }
@@ -182,7 +184,11 @@ export async function createCategory(
   input: z.infer<typeof zCategoryInput>,
 ): Promise<MenuCategory> {
   const row = await db.menuCategory.create({
-    data: { ...input, venueId },
+    data: {
+      ...input,
+      modifierGroups: (input.modifierGroups ?? []) as unknown as object,
+      venueId,
+    },
   });
   return toCategory(row);
 }
@@ -193,7 +199,13 @@ export async function updateCategory(
   patch: z.infer<typeof zCategoryPatch>,
 ): Promise<MenuCategory | null> {
   const row = await db.menuCategory
-    .update({ where: { id: categoryId }, data: patch })
+    .update({
+      where: { id: categoryId },
+      data: {
+        ...patch,
+        modifierGroups: patch.modifierGroups as unknown as object,
+      },
+    })
     .catch(() => null);
   return row ? toCategory(row) : null;
 }
@@ -209,6 +221,13 @@ export async function toggleCategory(
     data: { isActive: !existing.isActive },
   });
   return toCategory(row);
+}
+
+export async function deleteCategory(db: ScopedDb, categoryId: string): Promise<boolean> {
+  if (await db.menuItem.findFirst({ where: { categoryId } })) return false;
+  return db.menuCategory.delete({ where: { id: categoryId } })
+    .then(() => true)
+    .catch(() => false);
 }
 
 // ── Items ──────────────────────────────────────────────────────────────
@@ -251,7 +270,6 @@ export async function createItem(
         tags: input.tags,
         isAvailable: input.isAvailable ?? true,
         inventory: initialStock,
-        modifierGroups: (input.modifierGroups ?? []) as unknown as object,
       },
     });
     if (initialStock > 0) {
@@ -287,7 +305,6 @@ export async function updateItem(
   if (patch.priceCents !== undefined) data.priceCents = patch.priceCents;
   if (patch.icon !== undefined) data.icon = patch.icon;
   if (patch.tags !== undefined) data.tags = patch.tags;
-  if (patch.modifierGroups !== undefined) data.modifierGroups = patch.modifierGroups as unknown as object;
 
   if (patch.isAvailable !== undefined) {
     data.isAvailable = patch.isAvailable;
@@ -591,6 +608,7 @@ export async function createPackage(
       description: input.description,
       priceCents: input.priceCents,
       isActive: input.isActive ?? true,
+      modifierGroups: (input.modifierGroups ?? []) as unknown as object,
       components: {
         create: input.components.map((c) => ({
           itemId: c.menuItemId,
@@ -616,6 +634,9 @@ export async function updatePackage(
   if (patch.description !== undefined) data.description = patch.description;
   if (patch.priceCents !== undefined) data.priceCents = patch.priceCents;
   if (patch.isActive !== undefined) data.isActive = patch.isActive;
+  if (patch.modifierGroups !== undefined) {
+    data.modifierGroups = patch.modifierGroups as unknown as object;
+  }
 
   if (patch.components) {
     await db.packageComponent.deleteMany({ where: { packageId } });

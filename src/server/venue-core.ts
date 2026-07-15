@@ -6,6 +6,7 @@ import type { getDb } from "./db";
 import type { Venue, VenueTable, Zone, TableStatus as VenueTableStatus } from "@/lib/types";
 import type { zTableInput, zTablePatch, zVenuePatch, zZoneInput, zZonePatch } from "./schemas/venue";
 import type { z } from "zod";
+import { buildTableUrl } from "./table-token";
 
 type ScopedDb = ReturnType<typeof getDb>;
 
@@ -28,6 +29,8 @@ function toVenue(
     logoInitials: string;
     slaThresholds: unknown;
     lastCallAutoFlagTables: boolean;
+    nightStartHour: number;
+    nightEndHour: number;
   },
   org: OrgIdentity,
 ): Venue {
@@ -46,6 +49,8 @@ function toVenue(
     logoInitials: row.logoInitials,
     slaThresholds: row.slaThresholds as Venue["slaThresholds"],
     lastCallAutoFlagTables: row.lastCallAutoFlagTables,
+    nightStartHour: row.nightStartHour,
+    nightEndHour: row.nightEndHour,
   };
 }
 
@@ -69,6 +74,7 @@ function toTable(row: {
   minimumSpend: number | null;
   status: string;
   qrSlug: string;
+  tokenVersion: number;
   mapX: number | null;
   mapY: number | null;
 }): VenueTable {
@@ -80,7 +86,7 @@ function toTable(row: {
     seats: row.seats,
     minimumSpend: row.minimumSpend,
     status: row.status as VenueTableStatus,
-    qrSlug: row.qrSlug,
+    qrSlug: buildTableUrl(row.id, row.tokenVersion),
     mapX: row.mapX ?? undefined,
     mapY: row.mapY ?? undefined,
   };

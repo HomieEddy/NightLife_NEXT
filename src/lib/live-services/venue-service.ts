@@ -3,7 +3,7 @@
 import type { Venue, VenueTable, Zone } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -70,7 +70,7 @@ export const liveVenueService = {
   },
 
   async getTableBySlug(qrSlug: string): Promise<{ table: VenueTable; zone: Zone; venue: Venue } | null> {
-    const res = await fetch(`/api/tables/by-slug/${encodeURIComponent(qrSlug)}`);
+    const res = await liveFetch(`/api/tables/by-slug/${encodeURIComponent(qrSlug)}`);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to resolve table ${qrSlug}`);
     return res.json();
@@ -89,3 +89,4 @@ export const liveVenueService = {
     return result.data;
   },
 };
+import { liveFetch } from "./live-fetch";

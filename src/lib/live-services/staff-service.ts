@@ -1,16 +1,9 @@
 "use client";
 
 import type { ChatMessage, StaffMember, StaffShift } from "@/lib/types";
-import { authClient } from "@/lib/auth-client";
-
-// Staff identity CRUD still delegates to mock until staff become real users.
-async function getMockDelegate() {
-  const mod = await import("@/lib/mock-services/staff-service");
-  return mod.mockStaffService;
-}
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -23,45 +16,46 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const liveStaffService = {
   async listStaff(): Promise<StaffMember[]> {
-    const delegate = await getMockDelegate();
-    return delegate.listStaff();
+    return api<StaffMember[]>("/api/staff");
   },
 
   async getCurrentStaff(): Promise<StaffMember> {
-    const session = await authClient.getSession();
-    if (!session.data) {
-      throw new Error("Not authenticated");
-    }
-    const delegate = await getMockDelegate();
-    return delegate.getCurrentStaff();
+    return api<StaffMember>("/api/staff/current");
   },
 
   async toggleShift(staffId: string): Promise<StaffMember | null> {
-    const delegate = await getMockDelegate();
-    return delegate.toggleShift(staffId);
+    return api<StaffMember | null>(`/api/staff/${encodeURIComponent(staffId)}/shift`, { method: "POST" });
   },
 
   async addStaff(input: Omit<StaffMember, "id" | "avatarInitials">): Promise<StaffMember> {
-    const delegate = await getMockDelegate();
-    return delegate.addStaff(input);
+    return api<StaffMember>("/api/staff", {
+      method: "POST",
+      body: JSON.stringify({
+        name: input.name,
+        email: input.email,
+        phone: input.phone,
+        role: input.role,
+        assignedZoneIds: input.assignedZoneIds,
+      }),
+    });
   },
 
   async updateStaff(
     staffId: string,
     patch: Partial<Omit<StaffMember, "id" | "venueId" | "avatarInitials">>,
   ): Promise<StaffMember | null> {
-    const delegate = await getMockDelegate();
-    return delegate.updateStaff(staffId, patch);
+    return api<StaffMember | null>(`/api/staff/${encodeURIComponent(staffId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
   },
 
   async resendInvite(staffId: string): Promise<void> {
-    const delegate = await getMockDelegate();
-    return delegate.resendInvite(staffId);
+    await api<{ ok: boolean }>(`/api/staff/${encodeURIComponent(staffId)}/resend`, { method: "POST" });
   },
 
   async removeStaff(staffId: string): Promise<void> {
-    const delegate = await getMockDelegate();
-    return delegate.removeStaff(staffId);
+    await api<{ ok: boolean }>(`/api/staff/${encodeURIComponent(staffId)}`, { method: "DELETE" });
   },
 
   async listShifts(): Promise<StaffShift[]> {
@@ -90,10 +84,8 @@ export const liveStaffService = {
       body: JSON.stringify({
         channel: input.channel,
         body: input.body,
-        ...(input.author
-          ? { authorId: input.author.id, authorName: input.author.name, authorRole: input.author.role }
-          : {}),
       }),
     });
   },
 };
+import { liveFetch } from "./live-fetch";

@@ -1,6 +1,6 @@
 /**
  * mockPromotionsService — future backend boundary for promo codes.
- * TODO(backend): replace with API routes backed by PostgreSQL; validateCode becomes a real lookup.
+ * The permanent demo counterpart to PostgreSQL-backed promotion validation.
  */
 import type { Promotion } from "@/lib/types";
 import { mockPromotions } from "@/lib/mock-data/promotions";

@@ -3,7 +3,7 @@
 import type { VenueEvent, EventGuest } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -20,7 +20,7 @@ export const liveEventsService = {
   },
 
   async getEvent(id: string): Promise<VenueEvent | null> {
-    const res = await fetch(`/api/events/${encodeURIComponent(id)}`);
+    const res = await liveFetch(`/api/events/${encodeURIComponent(id)}`);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to get event ${id}`);
     return res.json();
@@ -66,3 +66,4 @@ export const liveEventsService = {
     await api<{ ok: boolean }>(`/api/event-guests/${encodeURIComponent(guestId)}`, { method: "DELETE" });
   },
 };
+import { liveFetch } from "./live-fetch";

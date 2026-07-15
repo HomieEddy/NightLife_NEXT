@@ -59,7 +59,6 @@ function HappyHourContent() {
   }, [refresh]);
 
   async function toggle(rule: HappyHourRule) {
-    // TODO(backend): pricing engine applies active rules at order time.
     await menuService.toggleHappyHourRule(rule.id);
     toast.success(`${rule.name} ${rule.isActive ? "deactivated" : "activated"}`);
     await refresh();

@@ -1,10 +1,10 @@
 "use client";
 
 import type { AnalyticsSummary } from "@/lib/types";
-import type { HistoricalAnalytics } from "@/lib/mock-services/analytics-service";
+import type { HistoricalAnalytics } from "@/lib/types";
 
 async function api<T>(path: string): Promise<T> {
-  const res = await fetch(path);
+  const res = await liveFetch(path);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(body.error ?? `Request to ${path} failed (${res.status})`);
@@ -21,3 +21,4 @@ export const liveAnalyticsService = {
     return api<HistoricalAnalytics>(`/api/analytics?from=${fromISO}&to=${toISO}`);
   },
 };
+import { liveFetch } from "./live-fetch";

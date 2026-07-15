@@ -5,7 +5,7 @@ import type { CartLine } from "@/lib/types";
 import { toCents } from "@/server/money";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -26,7 +26,7 @@ export const liveOrdersService = {
   },
 
   async getOrder(orderId: string): Promise<Order | null> {
-    const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}`);
+    const res = await liveFetch(`/api/orders/${encodeURIComponent(orderId)}`);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to get order ${orderId}`);
     return res.json();
@@ -60,9 +60,9 @@ export const liveOrdersService = {
           menuItemId: l.menuItem.id,
           quantity: l.quantity,
           modifiers: l.modifiers.map((m) => ({
-            groupName: m.groupName,
-            optionName: m.optionName,
-            deltaCents: toCents(m.priceDelta),
+            groupId: m.groupId,
+            optionId: m.optionId,
+            quantity: m.quantity,
           })),
           note: l.note,
         })),
@@ -110,7 +110,7 @@ export const liveOrdersService = {
   },
 
   async claimOrder(orderId: string, staffId: string, staffName: string): Promise<Order | null> {
-    const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/claim`, {
+    const res = await liveFetch(`/api/orders/${encodeURIComponent(orderId)}/claim`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ staffId, staffName }),
@@ -128,3 +128,4 @@ export const liveOrdersService = {
     return api<Order>(`/api/orders/${encodeURIComponent(orderId)}/cancel`, { method: "PATCH" });
   },
 };
+import { liveFetch } from "./live-fetch";

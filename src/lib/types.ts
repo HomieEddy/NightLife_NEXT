@@ -2,7 +2,7 @@
  * NightLifeNext domain types.
  *
  * These types define the contract between the UI and the (future) backend.
- * TODO(backend): mirror these as Prisma models / API DTOs when wiring PostgreSQL.
+ * Live implementations map these contracts to Prisma models and API DTOs.
  */
 
 // ---------- Venue ----------
@@ -24,6 +24,8 @@ export interface Venue {
   timezone: string;
   currency: "CAD" | "EUR" | "USD" | "GBP";
   openingHours: { day: string; open: string; close: string }[];
+  nightStartHour: number;
+  nightEndHour: number;
   serviceFees: ServiceFee[]; // applied in order to every guest order
   /** Floor-map canvas proportions (abstract units — controls the aspect ratio). */
   floorMap: { width: number; height: number };
@@ -106,19 +108,27 @@ export interface MenuCategory {
   description: string;
   sortOrder: number;
   isActive: boolean;
+  modifierGroups: ModifierGroup[];
 }
+
+export type ModifierKind = "washer" | "presentation";
 
 export interface ModifierOption {
   id: string;
   name: string;
   priceDelta: number;
+  maxQuantity: number;
+  inventoryItemId?: string;
+  isActive: boolean;
 }
 
 export interface ModifierGroup {
   id: string;
   name: string;
+  kind: ModifierKind;
   required: boolean;
   maxSelections: number; // 1 = single choice
+  isActive: boolean;
   options: ModifierOption[];
 }
 
@@ -144,7 +154,6 @@ export interface MenuItem {
   tags: ("popular" | "new" | "premium" | "limited")[];
   isAvailable: boolean; // manual 86 switch
   inventory: number; // bottles left tonight; 0 = sold out regardless of isAvailable
-  modifierGroups: ModifierGroup[];
 }
 
 // ---------- Inventory ----------
@@ -154,7 +163,7 @@ export type StockMovementType = "restock" | "sale" | "adjustment";
 /**
  * Every inventory change is a movement — restocks, sales and manual
  * corrections. The item's `inventory` field is the running balance.
- * TODO(backend): becomes an append-only stock_movements ledger table.
+ * Live mode persists this as an append-only stock_movements ledger row.
  */
 export interface StockMovement {
   id: string;
@@ -193,7 +202,15 @@ export interface BottlePackage {
   description: string;
   price: number;
   components: PackageComponent[];
+  modifierGroups: ModifierGroup[];
   isActive: boolean;
+}
+
+export interface PackageQuote {
+  componentsValue: number;
+  savings: number;
+  maxQuantity: number;
+  lines: { menuItemId: string; name: string; quantity: number; unitPrice: number }[];
 }
 
 export interface HappyHourRule {
@@ -226,7 +243,11 @@ export interface GuestSession {
   partySize: number;
   status: GuestSessionStatus;
   createdAt: string; // ISO
+  settledExternallyAt?: string;
+  settlementMethod?: SettlementMethod;
 }
+
+export type SettlementMethod = "terminal" | "cash" | "house";
 
 // ---------- Orders ----------
 
@@ -239,9 +260,13 @@ export type OrderStatus =
   | "cancelled";
 
 export interface OrderItemModifier {
+  groupId: string;
+  optionId: string;
+  kind: ModifierKind;
   groupName: string;
   optionName: string;
   priceDelta: number;
+  quantity: number;
 }
 
 export interface OrderItem {
@@ -400,6 +425,46 @@ export interface AnalyticsSummary {
   revenueByZone: { zoneId: string; zoneName: string; revenue: number }[];
   staffPerformance: StaffPerformancePoint[];
   categoryDepletion: CategoryDepletionPoint[];
+}
+
+export interface HistoricalAnalytics {
+  from: string;
+  to: string;
+  days: number;
+  totalRevenue: number;
+  totalOrders: number;
+  avgOrderValue: number;
+  bestNight: RevenuePoint;
+  series: RevenuePoint[];
+  revenueByZone: { zoneId: string; zoneName: string; revenue: number }[];
+  topItems: { name: string; count: number; revenue: number; categoryId?: string }[];
+  staffPerformance: StaffPerformancePoint[];
+  categoryDepletion: CategoryDepletionPoint[];
+}
+
+export const REPORT_METRICS = [
+  { id: "revenue", label: "Revenue & orders" },
+  { id: "zones", label: "Revenue by zone" },
+  { id: "top-items", label: "Top items" },
+  { id: "staff", label: "Staff performance" },
+  { id: "inventory", label: "Inventory depletion" },
+] as const;
+
+export type ReportMetric = (typeof REPORT_METRICS)[number]["id"];
+
+export interface ReportSchedule {
+  frequency: "daily" | "weekly" | "monthly";
+  recipient: string;
+}
+
+export interface SavedReport {
+  id: string;
+  name: string;
+  metrics: ReportMetric[];
+  rangeDays: number;
+  schedule: ReportSchedule | null;
+  createdAt: string;
+  lastRunAt: string | null;
 }
 
 // ---------- Platform admin ----------

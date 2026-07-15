@@ -22,7 +22,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/format";
-import type { BottlePackage, MenuItem, PackageComponent } from "@/lib/types";
+import { ModifierPresetEditor } from "@/components/manager/modifier-preset-editor";
+import type { BottlePackage, MenuItem, ModifierGroup, PackageComponent } from "@/lib/types";
 
 export interface PackageDraft {
   name: string;
@@ -30,6 +31,7 @@ export interface PackageDraft {
   price: number;
   isActive: boolean;
   components: PackageComponent[];
+  modifierGroups: ModifierGroup[];
 }
 
 const EMPTY_DRAFT: PackageDraft = {
@@ -38,6 +40,7 @@ const EMPTY_DRAFT: PackageDraft = {
   price: 0,
   isActive: true,
   components: [],
+  modifierGroups: [],
 };
 
 /** Create/edit dialog for bottle packages. Pass `pkg` to edit, omit to create. */
@@ -68,6 +71,7 @@ export function PackageEditor({
               price: pkg.price,
               isActive: pkg.isActive,
               components: pkg.components.map((c) => ({ ...c })),
+              modifierGroups: structuredClone(pkg.modifierGroups),
             }
           : EMPTY_DRAFT,
       );
@@ -225,6 +229,12 @@ export function PackageEditor({
               <Plus className="size-3.5" /> Add bottle
             </Button>
           </div>
+
+          <ModifierPresetEditor
+            value={draft.modifierGroups}
+            onChange={(modifierGroups) => setDraft({ ...draft, modifierGroups })}
+            inventoryItems={items}
+          />
 
           {componentsValue > 0 && (
             <div className="rounded-lg border bg-accent/40 p-3 text-sm">

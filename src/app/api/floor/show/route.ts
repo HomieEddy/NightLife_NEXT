@@ -21,11 +21,15 @@ async function liveGET() {
 async function livePOST(request: NextRequest) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
   const { startShow, finishShow } = await import("@/server/floor-core");
+  const { getRawPrisma } = await import("@/server/db");
+  const { getCurrentStaff } = await import("@/server/staff-core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const { venueId } = sessionToDbContext(auth.session);
+  const staff = await getCurrentStaff(getRawPrisma(), venueId, auth.session.user.id);
+  if (!staff) return NextResponse.json({ error: "Staff profile not found" }, { status: 403 });
   const body = await request.json();
   const action = body.action as "start" | "finish";
 
@@ -36,7 +40,7 @@ async function livePOST(request: NextRequest) {
       body.tableCode,
       body.zoneName,
       body.label,
-      body.staffName,
+      staff.name,
     );
     return NextResponse.json(result);
   } else if (action === "finish") {

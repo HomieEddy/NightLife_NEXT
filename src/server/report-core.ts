@@ -2,10 +2,8 @@
  * Report engine: CRUD for saved reports, run recording, CSV rendering,
  * and scheduled-report due selection.
  */
-import { Prisma } from "@prisma/client";
 import type { getDb } from "./db";
-import type { HistoricalAnalytics } from "@/lib/mock-services/analytics-service";
-import type { ReportMetric, SavedReport, ReportSchedule } from "@/lib/mock-services/report-service";
+import type { HistoricalAnalytics, ReportMetric, SavedReport, ReportSchedule } from "@/lib/types";
 
 type ScopedDb = ReturnType<typeof getDb>;
 
@@ -165,7 +163,6 @@ export async function findDueReports(
   const dayOfMonth = today.getDate();
 
   const all = await db.savedReport.findMany({
-    where: { schedule: { not: Prisma.DbNull } },
     include: { runs: { orderBy: { ranAt: "desc" }, take: 1 } },
   });
 

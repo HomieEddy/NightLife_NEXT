@@ -12,7 +12,7 @@ export interface PricingLineInput {
   priceCents: number;
   quantity: number;
   categoryId: string;
-  modifiers: { groupName: string; optionName: string; deltaCents: number }[];
+  modifiers: { groupName: string; optionName: string; deltaCents: number; quantity?: number }[];
   packageId?: string;
 }
 
@@ -108,6 +108,13 @@ function isInHappyHourWindow(rule: HappyHourInput, now: Date): boolean {
   return rule.daysOfWeek.includes(dayOfWeek) && nowMinutes >= start && nowMinutes < end;
 }
 
+function pricingLineTotal(line: PricingLineInput): number {
+  return line.priceCents * line.quantity + line.modifiers.reduce(
+    (sum, modifier) => sum + modifier.deltaCents * (modifier.quantity ?? 1),
+    0,
+  );
+}
+
 // ── Engine ────────────────────────────────────────────────────────────
 
 export function computeOrderPricing(input: PricingInput): PricingResult {
@@ -129,8 +136,7 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
   // 1. Raw subtotal (before discounts)
   let subtotalCents = 0;
   for (const line of lines) {
-    const modDelta = line.modifiers.reduce((s, m) => s + m.deltaCents, 0);
-    subtotalCents += (line.priceCents + modDelta) * line.quantity;
+    subtotalCents += pricingLineTotal(line);
   }
 
   // 2. Happy-hour discount: for each line, find the best matching rule
@@ -139,8 +145,7 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
 
   if (activeRules.length > 0) {
     for (const line of lines) {
-      const modDelta = line.modifiers.reduce((s, m) => s + m.deltaCents, 0);
-      const lineTotal = (line.priceCents + modDelta) * line.quantity;
+      const lineTotal = pricingLineTotal(line);
 
       let bestPct = 0;
       for (const rule of activeRules) {
@@ -168,8 +173,7 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
       if (promotion.appliesToCategoryIds.length > 0) {
         for (const line of lines) {
           if (!promotion.appliesToCategoryIds.includes(line.categoryId)) continue;
-          const modDelta = line.modifiers.reduce((s, m) => s + m.deltaCents, 0);
-          const lineTotal = (line.priceCents + modDelta) * line.quantity;
+          const lineTotal = pricingLineTotal(line);
           // Subtract line's share of the happy-hour discount before applying promo
           let lineHhDiscount = 0;
           if (discountCents > 0 && activeRules.length > 0) {

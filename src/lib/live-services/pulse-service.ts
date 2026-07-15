@@ -3,7 +3,7 @@
 import type { Broadcast } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
+  const res = await liveFetch(path, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
@@ -44,3 +44,4 @@ export const livePulseService = {
     });
   },
 };
+import { liveFetch } from "./live-fetch";

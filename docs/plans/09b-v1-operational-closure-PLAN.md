@@ -11,6 +11,36 @@ Preconditions: plans 02 (accounts/roles), 03 (venue/tables/shifts), 04
 exclusively owns platform leads, provisioning, Stripe, subscription limits and
 tenant suspension.
 
+Implementation status: complete on `feature/09b-v1-operational-closure` (2026-07-14).
+The permanent demo and live builds, unit/integration suites, and mode-specific
+Playwright smoke flows are the acceptance evidence for this checkpoint.
+
+### Closure addendum (2026-07-15) — navigation & entry-guard alignment
+
+A post-completion pass tightened the mode boundary at the navigation and entry
+layer; the smoke suite encodes each rule:
+
+- **Per-build homes.** The demo build's `/` redirects to `/demo`; its header
+  logo and back-links target `/demo` and the header gains a Log in entry. The
+  live build's `/demo` returns a real 404 (it previously rendered blank), and
+  the landing's "Request a demo" CTAs cross-link to the demo app's `/lead`
+  because live `/lead` stays a plan-10 404. The `?preview=` login-mode bypass
+  (which could render demo login inside the live build) was removed.
+- **Role-home login.** Live sign-in now resolves the active org member's role
+  (owner/admin → manager, member → staff, `isPlatformAdmin` → admin; the old
+  code compared against "manager", which Better Auth never returns, sending
+  every venue user to the staff role). `signIn()` returns the `AuthUser` and
+  all login paths push `ROLE_HOME[user.role]`. A live platform admin still
+  lands on `/admin`'s deliberate 404 until plan 10 graduates that surface.
+- **Direct-URL guards (completes plan 02's route-protection item).** Manager
+  and staff layouts are server components calling `requireArea()` in live mode
+  (client chrome extracted to `ManagerShell`/`StaffShell`); the proxy also
+  guards `/guest/*` on the `nln-guest-session` cookie, redirecting cookieless
+  visitors to `/` to rescan. Demo keeps its client-side `RequireAuth` gate.
+- **No hardcoded venue chrome.** Manager sidebar and staff header read the
+  venue name from `venueService.getVenue()` (they previously showed two
+  different hardcoded venues, both wrong in live mode).
+
 ## Reasoning
 
 The backend migration is operationally broad but not yet closed: the live staff

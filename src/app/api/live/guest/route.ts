@@ -17,9 +17,9 @@ export async function GET(request: NextRequest) {
   // Guest streams authenticate via the guest session cookie (plan 06).
   // The sessionId param scopes which events pass through — the cookie
   // proves the caller owns that session.
-  const { getGuestVenueId } = await import("@/server/guest-auth");
-  const venueId = await getGuestVenueId(request);
-  if (!venueId) {
+  const { getGuestSession } = await import("@/server/guest-auth");
+  const guestSession = await getGuestSession(request);
+  if (!guestSession || guestSession.id !== sessionId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   const controller = new AbortController();
   const stream = createEventStream({
-    venueId,
+    venueId: guestSession.venueId,
     scope: "guest",
     sessionId,
     signal: controller.signal,

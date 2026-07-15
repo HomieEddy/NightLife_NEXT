@@ -1,32 +1,23 @@
 /**
  * mockOrdersService — future backend boundary for order lifecycle.
- * TODO(backend): replace with API routes backed by PostgreSQL + WebSocket pushes.
+ * The permanent demo counterpart to transactional live orders and SSE updates.
  */
 import type { CartLine, MenuItem, Order, OrderStatus } from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { computeFeeLines } from "@/lib/fees";
+import { orderLineSubtotal } from "@/lib/order-line";
+import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
 import { mockMenuService } from "./menu-service";
 import { mockVenueService } from "./venue-service";
 import { clone, delay, uid } from "./delay";
+
+export { nextStatus, ORDER_FLOW };
 
 // Module-level in-memory store: mutations persist across pages within a session,
 // simulating shared state between guest and staff surfaces.
 let orders: Order[] = clone(mockOrders);
 let orderCounter = 39;
-
-export const ORDER_FLOW = [
-  "pending",
-  "accepted",
-  "preparing",
-  "ready",
-  "delivered",
-] as const satisfies readonly OrderStatus[];
-
-export function nextStatus(status: OrderStatus): OrderStatus | null {
-  const i = (ORDER_FLOW as readonly OrderStatus[]).indexOf(status);
-  return i >= 0 && i < ORDER_FLOW.length - 1 ? ORDER_FLOW[i + 1] : null;
-}
 
 export const mockOrdersService = {
   async listOrders(filter?: { status?: OrderStatus[]; zoneIds?: string[] }): Promise<Order[]> {
@@ -63,10 +54,11 @@ export const mockOrdersService = {
     promoId?: string;
   }): Promise<Order> {
     await delay(700);
-    const subtotal = input.lines.reduce((sum, line) => {
-      const modTotal = line.modifiers.reduce((s, m) => s + m.priceDelta, 0);
-      return sum + (line.menuItem.price + modTotal) * line.quantity;
-    }, 0);
+    const subtotal = input.lines.reduce(
+      (sum, line) =>
+        sum + orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers),
+      0,
+    );
     // Live settings, so fee edits in /manager/settings apply to new orders.
     const venue = await mockVenueService.getVenueSnapshot();
     const afterPromo = subtotal - (input.promoDiscount ?? 0);
@@ -106,8 +98,28 @@ export const mockOrdersService = {
     };
     orders = [order, ...orders];
     // Business logic: selling bottles (or packages) draws down tonight's inventory.
+    const [categories, packages] = await Promise.all([
+      mockMenuService.listCategories(true),
+      mockMenuService.listPackages(true),
+    ]);
+    const washerLines = input.lines.flatMap((line) => {
+      const groups = packages.find((pkg) => pkg.id === line.menuItem.id)?.modifierGroups
+        ?? categories.find((category) => category.id === line.menuItem.categoryId)?.modifierGroups
+        ?? [];
+      return line.modifiers.flatMap((modifier) => {
+        const option = groups
+          .find((group) => group.id === modifier.groupId)
+          ?.options.find((candidate) => candidate.id === modifier.optionId);
+        return option?.inventoryItemId
+          ? [{ menuItemId: option.inventoryItemId, quantity: modifier.quantity }]
+          : [];
+      });
+    });
     await mockMenuService.recordSale(
-      order.items.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
+      [
+        ...order.items.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
+        ...washerLines,
+      ],
     );
     return clone(order);
   },

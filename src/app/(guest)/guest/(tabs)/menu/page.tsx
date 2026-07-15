@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { Martini, QrCode, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MenuItemCard } from "@/components/shared/menu-item-card";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
@@ -64,11 +63,7 @@ export default function GuestMenuPage() {
           icon={QrCode}
           title="No table joined"
           description="Scan the QR code on your table to browse the menu."
-          action={
-            <Button asChild>
-              <Link href="/g/demo-table">Simulate scanning a QR</Link>
-            </Button>
-          }
+          action={<DemoQrScanAction />}
         />
       </div>
     );
@@ -134,7 +129,13 @@ export default function GuestMenuPage() {
         </div>
       )}
 
-      <ItemDetailModal item={openItem} onClose={() => setOpenItem(null)} />
+      <ItemDetailModal
+        item={openItem}
+        modifierGroups={
+          categories.find((category) => category.id === openItem?.categoryId)?.modifierGroups ?? []
+        }
+        onClose={() => setOpenItem(null)}
+      />
       <CartSheet />
     </div>
   );

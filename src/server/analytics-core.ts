@@ -4,16 +4,16 @@
  */
 import type { PrismaClient } from "@prisma/client";
 import type { getDb } from "./db";
-import { getRawPrisma } from "./db";
+import { getRawPrisma } from "@/server/db";
 import { fromCents } from "./money";
-import { nightContaining, nightForDate, type NightBoundary } from "./night";
+import { nightContaining, nightForDate, type NightBoundary, type NightConfig } from "./night";
 import type {
   AnalyticsSummary,
   CategoryDepletionPoint,
   RevenuePoint,
   StaffPerformancePoint,
 } from "@/lib/types";
-import type { HistoricalAnalytics } from "@/lib/mock-services/analytics-service";
+import type { HistoricalAnalytics } from "@/lib/types";
 
 type ScopedDb = ReturnType<typeof getDb>;
 
@@ -22,11 +22,11 @@ type ScopedDb = ReturnType<typeof getDb>;
 export async function getSummaryForVenue(
   db: ScopedDb,
   venueId: string,
-  timezone: string,
+  nightConfig: NightConfig,
 ): Promise<AnalyticsSummary> {
   const now = new Date();
-  const tonight = nightContaining(now, timezone);
-  const lastNight = nightForDate(previousDate(tonight.label), timezone);
+  const tonight = nightContaining(now, nightConfig);
+  const lastNight = nightForDate(previousDate(tonight.label), nightConfig);
 
   const [tonightStats, lastNightStats, activeTables, totalTables] =
     await Promise.all([
