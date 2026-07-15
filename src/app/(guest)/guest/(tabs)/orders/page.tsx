@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useGuest } from "@/context/guest-context";
+import { isDemoMode } from "@/lib/app-mode";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { analyticsService } from "@/lib/services/analytics-service";
 import { guestsService } from "@/lib/services/guests-service";
@@ -99,7 +100,9 @@ export default function GuestOrdersPage() {
   const [avgFulfillmentMinutes, setAvgFulfillmentMinutes] = useState(8);
 
   useEffect(() => {
-    analyticsService.getSummary().then((s) => setAvgFulfillmentMinutes(s.avgFulfillmentMinutes));
+    if (isDemoMode()) {
+      analyticsService.getSummary().then((s) => setAvgFulfillmentMinutes(s.avgFulfillmentMinutes));
+    }
   }, []);
 
   const refresh = useCallback(async () => {
