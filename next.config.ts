@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { parseAppMode } from "./src/lib/app-mode";
+import { buildDirectoryForMode, parseAppMode } from "./src/lib/app-mode";
 
 const appMode = parseAppMode(process.env.NEXT_PUBLIC_APP_MODE);
 
@@ -35,6 +35,7 @@ const liveMockAliases = Object.fromEntries(
 
 const nextConfig: NextConfig = {
   /* config options here */
+  distDir: buildDirectoryForMode(appMode),
   reactCompiler: true,
   turbopack: {
     resolveAlias: appMode === "live"

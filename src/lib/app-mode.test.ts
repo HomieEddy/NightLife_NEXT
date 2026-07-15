@@ -3,6 +3,7 @@ import {
   demoOnlyService,
   liveOnlyService,
   parseAppMode,
+  buildDirectoryForMode,
 } from "./app-mode";
 
 describe("app mode", () => {
@@ -12,6 +13,13 @@ describe("app mode", () => {
 
   it.each([undefined, "", "production", "Demo"])("rejects invalid mode %s", (mode) => {
     expect(() => parseAppMode(mode)).toThrow(/NEXT_PUBLIC_APP_MODE/);
+  });
+
+  it.each([
+    ["demo", ".next-demo"],
+    ["live", ".next-live"],
+  ] as const)("isolates the %s compiler output", (mode, directory) => {
+    expect(buildDirectoryForMode(mode)).toBe(directory);
   });
 
   it("rejects a live service before invoking it in demo mode", async () => {

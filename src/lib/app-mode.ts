@@ -7,6 +7,10 @@ export function parseAppMode(value: string | undefined): AppMode {
 
 export const APP_MODE = parseAppMode(process.env.NEXT_PUBLIC_APP_MODE);
 
+export function buildDirectoryForMode(mode: AppMode): string {
+  return `.next-${mode}`;
+}
+
 export function getAppMode(): AppMode {
   return APP_MODE;
 }
