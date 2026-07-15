@@ -13,7 +13,7 @@ import {
   sendGift,
   nextStatus,
 } from "./order-core";
-import { createCategory, createItem, checkLedger, getItem } from "./menu-core";
+import { createCategory, createItem, createPackage, checkLedger, getItem } from "./menu-core";
 import { expectTenantIsolation } from "./test-helpers";
 import { toCents } from "./money";
 
@@ -275,6 +275,76 @@ describe("orders & fees integration (plan 05)", () => {
     // Inventory unchanged
     const after = await getItem(db, scarceItem.id);
     expect(after!.inventory).toBe(1);
+  });
+
+  it("rolls back package and washer draw-downs together", async () => {
+    const db = getDb(sessionA);
+    const cat = await createCategory(db, venueA, {
+      name: "Rollback Package Items",
+      description: "",
+      sortOrder: 34,
+    });
+    const bottle = await createItem(db, venueA, {
+      categoryId: cat.id,
+      name: "Rollback Bottle",
+      description: "",
+      priceCents: 20000,
+      icon: "vodka",
+      tags: [],
+      inventory: 5,
+    });
+    const washer = await createItem(db, venueA, {
+      categoryId: cat.id,
+      name: "Rollback Washer",
+      description: "",
+      priceCents: 600,
+      icon: "washer",
+      tags: [],
+      inventory: 1,
+    });
+    const pkg = await createPackage(db, venueA, {
+      name: "Rollback Package",
+      description: "",
+      priceCents: 35000,
+      components: [{ menuItemId: bottle.id, quantity: 1 }],
+      modifierGroups: [{
+        id: "washers",
+        name: "Washers",
+        kind: "washer",
+        required: true,
+        maxSelections: 1,
+        isActive: true,
+        options: [{
+          id: "rollback-washer",
+          name: "Rollback Washer",
+          priceDelta: 6,
+          maxQuantity: 2,
+          inventoryItemId: washer.id,
+          isActive: true,
+        }],
+      }],
+    });
+
+    const result = await submitOrder(db, venueA, {
+      tableId: "t1",
+      tableCode: "VIP-01",
+      zoneId: "z1",
+      zoneName: "VIP",
+      guestName: "Rollback proof",
+      lines: [{
+        menuItemId: pkg.id,
+        quantity: 2,
+        modifiers: [{ groupId: "washers", optionId: "rollback-washer", quantity: 2 }],
+      }],
+      tipCents: 0,
+    });
+
+    expect(result.ok).toBe(false);
+    expect((await getItem(db, bottle.id))?.inventory).toBe(5);
+    expect((await getItem(db, washer.id))?.inventory).toBe(1);
+    expect(await rawClient.order.count({ where: { guestName: "Rollback proof" } })).toBe(0);
+    expect((await checkLedger(db, bottle.id)).balanced).toBe(true);
+    expect((await checkLedger(db, washer.id)).balanced).toBe(true);
   });
 
   // ── State machine ──────────────────────────────────────────────────
