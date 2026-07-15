@@ -40,6 +40,8 @@ test("demo links return to the demo home", async ({ page }) => {
   await page.goto("/demo");
   await expect(page.getByRole("link", { name: "Pricing" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Back to demo" })).toHaveAttribute("href", "/demo");
+  const pricingResponse = await page.goto("/pricing");
+  expect(pricingResponse?.status()).toBe(404);
 
   await page.goto("/login");
   await expect(page.getByRole("link", { name: "Back to demo" })).toHaveAttribute("href", "/demo");
@@ -73,4 +75,20 @@ test("live mode hides demo and ungraduated surfaces", async ({ page }) => {
   expect(leadResponse?.status()).toBe(404);
   const billingResponse = await page.goto("/manager/subscription");
   expect(billingResponse?.status()).toBe(404);
+});
+
+test("live pricing distinguishes trial, starter, and pro", async ({ page }) => {
+  test.skip(process.env.NEXT_PUBLIC_APP_MODE !== "live", "live-mode smoke");
+
+  await page.goto("/pricing");
+  await expect(page.getByText("Trial", { exact: true })).toBeVisible();
+  await expect(page.getByText("3 days of full access")).toBeVisible();
+  await expect(page.getByText("Starter", { exact: true })).toBeVisible();
+  await expect(page.getByText("$0.99")).toBeVisible();
+  await expect(page.getByText("Team Chat", { exact: true })).toBeVisible();
+  await expect(page.getByText("Floor Map", { exact: true })).toBeVisible();
+  await expect(page.getByText("Pro", { exact: true })).toBeVisible();
+  await expect(page.getByText("$1.99")).toBeVisible();
+  const proCard = page.locator('[data-slot="card"]').filter({ hasText: "Pro" });
+  await expect(proCard.getByText("Every NightLifeNext feature", { exact: true })).toBeVisible();
 });
