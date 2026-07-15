@@ -59,6 +59,7 @@ test("live mode hides demo and ungraduated surfaces", async ({ page }) => {
     "href",
     process.env.NEXT_PUBLIC_DEMO_URL ?? "http://localhost:3001",
   );
+  await expect(page.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
 
   await page.goto("/login");
   await expect(page.getByRole("link", { name: "Back to NightLifeNext" })).toHaveAttribute("href", "/");
