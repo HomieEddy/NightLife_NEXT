@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LIVE_APP_URL } from "@/lib/app-origins";
 
 export const deniedSessionPath = "/g/demo-table";
 
@@ -30,20 +31,12 @@ export function DemoManagerGuestFlowAction() {
 
 export function DemoPublicNav() {
   return (
-    <>
-      <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
-        <Link href="/demo">Live demo</Link>
-      </Button>
-      <Button size="sm" asChild><Link href="/lead">Get started</Link></Button>
-    </>
+    <Button variant="ghost" size="sm" asChild>
+      <Link href={LIVE_APP_URL}><ArrowLeft className="size-4" /> Back to NightLifeNext</Link>
+    </Button>
   );
 }
 
 export function DemoPublicFooter() {
-  return (
-    <div className="flex gap-4">
-      <Link href="/demo" className="hover:text-foreground">Demo tour</Link>
-      <Link href="/g/demo-table" className="hover:text-foreground">Guest demo</Link>
-    </div>
-  );
+  return null;
 }

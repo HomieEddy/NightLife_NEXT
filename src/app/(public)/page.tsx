@@ -9,6 +9,8 @@ import { Reveal } from "@/components/fx/reveal";
 import { NightTimeline } from "@/components/landing/night-timeline";
 import { cn } from "@/lib/utils";
 import { gsap, useGSAP } from "@/lib/gsap";
+import { isDemoMode } from "@/lib/app-mode";
+import { DEMO_APP_URL } from "@/lib/app-origins";
 
 /** Real modules shipped in the manager app — not marketing bullets. */
 const MODULES = [
@@ -36,6 +38,7 @@ const PLANS = [
 
 export default function LandingPage() {
   const heroRef = useRef<HTMLElement>(null);
+  const demoHref = isDemoMode() ? "/demo" : DEMO_APP_URL;
 
   useGSAP(
     () => {
@@ -99,7 +102,7 @@ export default function LandingPage() {
               className="h-12 bg-background/40 px-7 text-base backdrop-blur"
               asChild
             >
-              <Link href="/demo">
+              <Link href={demoHref}>
                 <Smartphone className="size-4" /> Explore the live demo
               </Link>
             </Button>

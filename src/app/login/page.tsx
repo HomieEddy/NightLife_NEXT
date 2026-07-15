@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LogIn, Sparkles, UserCog, Users, ShieldCheck } from "lucide-react";
+import { ArrowLeft, LogIn, Sparkles, UserCog, Users, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useAuth } from "@/context/auth-context";
 import { authService } from "@/lib/services/auth-service";
 import { isDemoMode } from "@/lib/app-mode";
+import { LIVE_APP_URL } from "@/lib/app-origins";
 import type { AuthUser } from "@/lib/types";
 
 const ROLE_ICON: Record<string, typeof UserCog> = {
@@ -27,17 +29,25 @@ const ROLE_HOME: Record<string, string> = {
   admin: "/admin",
 };
 
-function LoginShell({ children }: { children: React.ReactNode }) {
+function LoginShell({ children, homeHref }: { children: React.ReactNode; homeHref: string }) {
   return (
     <div className="flex min-h-dvh flex-col bg-gradient-to-b from-background to-muted/40">
       <header className="flex h-14 items-center justify-between px-4">
-        <BrandLogo />
+        <BrandLogo href={homeHref} />
         <ThemeToggle />
       </header>
       <main className="flex flex-1 items-center justify-center p-4">
         {children}
       </main>
     </div>
+  );
+}
+
+function BackToLanding({ href }: { href: string }) {
+  return (
+    <Button variant="ghost" size="sm" asChild>
+      <Link href={href}><ArrowLeft className="size-4" /> Back to NightLifeNext</Link>
+    </Button>
   );
 }
 
@@ -86,7 +96,7 @@ function DemoLogin() {
   }
 
   return (
-    <LoginShell>
+    <LoginShell homeHref={LIVE_APP_URL}>
       <Card className="w-full max-w-sm">
         <CardContent className="space-y-5 p-6">
           <div className="space-y-1 text-center">
@@ -156,6 +166,7 @@ function DemoLogin() {
           <p className="text-center text-xs text-muted-foreground">
             Demo only — no real authentication.
           </p>
+          <div className="text-center"><BackToLanding href={LIVE_APP_URL} /></div>
         </CardContent>
       </Card>
     </LoginShell>
@@ -186,7 +197,7 @@ function LiveLogin() {
   }
 
   return (
-    <LoginShell>
+    <LoginShell homeHref="/">
       <Card className="w-full max-w-sm">
         <CardContent className="space-y-5 p-6">
           <div className="space-y-1 text-center">
@@ -226,6 +237,7 @@ function LiveLogin() {
               {submitting ? "Signing in…" : "Sign in"}
             </Button>
           </form>
+          <div className="text-center"><BackToLanding href="/" /></div>
         </CardContent>
       </Card>
     </LoginShell>
