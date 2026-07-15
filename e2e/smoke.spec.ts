@@ -34,21 +34,19 @@ test("demo guest chooses independent add-on quantities without backend calls", a
   expect(backendRequests).toEqual([]);
 });
 
-test("demo links back to the live landing page", async ({ page }) => {
+test("demo links return to the demo home", async ({ page }) => {
   test.skip(process.env.NEXT_PUBLIC_APP_MODE !== "demo", "demo-mode smoke");
 
   await page.goto("/demo");
-  const backLink = page.getByRole("link", { name: "Back to NightLifeNext" });
-  await expect(backLink).toHaveAttribute(
-    "href",
-    process.env.NEXT_PUBLIC_LIVE_URL ?? "http://localhost:3000",
-  );
+  await expect(page.getByRole("link", { name: "Pricing" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Back to demo" })).toHaveAttribute("href", "/demo");
 
   await page.goto("/login");
-  await expect(page.getByRole("link", { name: "Back to NightLifeNext" })).toHaveAttribute(
-    "href",
-    process.env.NEXT_PUBLIC_LIVE_URL ?? "http://localhost:3000",
-  );
+  await expect(page.getByRole("link", { name: "Back to demo" })).toHaveAttribute("href", "/demo");
+  await expect(page.getByRole("link", { name: "NightLifeNext" })).toHaveAttribute("href", "/demo");
+
+  await page.goto("/g/demo-table");
+  await expect(page.getByRole("link", { name: "Back to demo" })).toHaveAttribute("href", "/demo");
 });
 
 test("live mode hides demo and ungraduated surfaces", async ({ page }) => {

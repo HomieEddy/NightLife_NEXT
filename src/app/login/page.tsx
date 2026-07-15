@@ -14,7 +14,6 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useAuth } from "@/context/auth-context";
 import { authService } from "@/lib/services/auth-service";
 import { isDemoMode } from "@/lib/app-mode";
-import { LIVE_APP_URL } from "@/lib/app-origins";
 import type { AuthUser } from "@/lib/types";
 
 const ROLE_ICON: Record<string, typeof UserCog> = {
@@ -43,10 +42,10 @@ function LoginShell({ children, homeHref }: { children: React.ReactNode; homeHre
   );
 }
 
-function BackToLanding({ href }: { href: string }) {
+function BackToLanding({ href, label = "Back to NightLifeNext" }: { href: string; label?: string }) {
   return (
     <Button variant="ghost" size="sm" asChild>
-      <Link href={href}><ArrowLeft className="size-4" /> Back to NightLifeNext</Link>
+      <Link href={href}><ArrowLeft className="size-4" /> {label}</Link>
     </Button>
   );
 }
@@ -96,7 +95,7 @@ function DemoLogin() {
   }
 
   return (
-    <LoginShell homeHref={LIVE_APP_URL}>
+    <LoginShell homeHref="/demo">
       <Card className="w-full max-w-sm">
         <CardContent className="space-y-5 p-6">
           <div className="space-y-1 text-center">
@@ -166,7 +165,7 @@ function DemoLogin() {
           <p className="text-center text-xs text-muted-foreground">
             Demo only — no real authentication.
           </p>
-          <div className="text-center"><BackToLanding href={LIVE_APP_URL} /></div>
+          <div className="text-center"><BackToLanding href="/demo" label="Back to demo" /></div>
         </CardContent>
       </Card>
     </LoginShell>

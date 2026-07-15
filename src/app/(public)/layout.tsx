@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { DemoPublicFooter, DemoPublicNav } from "@/components/shared/demo-links";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { isDemoMode } from "@/lib/app-mode";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,9 +12,11 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <BrandLogo />
           <nav className="flex items-center gap-1 sm:gap-2">
-            <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
-              <Link href="/pricing">Pricing</Link>
-            </Button>
+            {!isDemoMode() && (
+              <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
+                <Link href="/pricing">Pricing</Link>
+              </Button>
+            )}
             <DemoPublicNav />
             <ThemeToggle />
           </nav>

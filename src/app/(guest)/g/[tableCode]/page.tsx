@@ -1,8 +1,9 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, MapPin, Minus, Plus, QrCode, Users } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Minus, Plus, QrCode, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -126,6 +127,11 @@ export default function QrEntryPage({
         }}
       />
       <div className="relative flex justify-center pt-6 animate-pop-in">
+        {isDemoMode() && (
+          <Button variant="ghost" size="sm" className="absolute left-0 top-5" asChild>
+            <Link href="/demo"><ArrowLeft className="size-4" /> Back to demo</Link>
+          </Button>
+        )}
         <BrandLogo />
       </div>
 
