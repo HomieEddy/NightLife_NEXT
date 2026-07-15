@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import { getDb, type SessionContext } from "./db";
 import { createTestDb, type TestDb } from "./test-pglite";
@@ -127,6 +127,11 @@ describe("analytics & reports integration (plan 09)", () => {
     await testDb?.teardown();
   });
 
+  // Any test that pins the clock must not leak it — even when it fails mid-assert.
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   // ── Rollup computation ─────────────────────────────────────────────
 
   it("computes rollup with correct revenue from known orders", async () => {
@@ -148,6 +153,11 @@ describe("analytics & reports integration (plan 09)", () => {
 
   it("uses persisted custom night settings for summary and rollup", async () => {
     const db = getDb(sessionA);
+    // Pin the clock inside the 23:00→02:00 window — the order below is placed
+    // "now" and must land in tonight's night regardless of when the suite runs.
+    // Fake only Date so the PGlite driver's real timers keep working.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-07-20T23:30:00Z"));
     await rawClient.venue.update({
       where: { id: venueA },
       data: { timezone: "UTC", nightStartHour: 23, nightEndHour: 2 },
