@@ -90,15 +90,75 @@ function downloadCsv(report: SavedReport, data: HistoricalAnalytics) {
     rows.push([]);
   }
   if (report.metrics.includes("staff")) {
-    rows.push(["Staff", "Role", "Orders delivered", "Avg minutes", "Revenue served"]);
+    rows.push(["Staff", "Role", "Orders delivered", "Avg minutes", "Revenue served", "Claim wait min", "Help resolved", "Avg help min", "Orders/hr"]);
     for (const s of data.staffPerformance)
-      rows.push([s.name, s.role, String(s.ordersDelivered), String(s.avgDeliveryMinutes), String(s.revenueServed)]);
+      rows.push([s.name, s.role, String(s.ordersDelivered), String(s.avgDeliveryMinutes), String(s.revenueServed), String(s.avgClaimMinutes ?? ""), String(s.helpResolved ?? ""), String(s.avgHelpMinutes ?? ""), String(s.ordersPerShiftHour ?? "")]);
     rows.push([]);
   }
   if (report.metrics.includes("inventory")) {
-    rows.push(["Category", "Units sold", "In stock"]);
+    rows.push(["Category", "Units sold", "In stock", "Sell-through", "Sold-out min", "Restock units"]);
     for (const c of data.categoryDepletion)
-      rows.push([c.categoryName, String(c.unitsSold), String(c.unitsInStock)]);
+      rows.push([c.categoryName, String(c.unitsSold), String(c.unitsInStock), String(c.sellThrough ?? ""), String(c.soldOutMinutes ?? ""), String(c.restockUnits ?? "")]);
+    rows.push([]);
+  }
+  if (report.metrics.includes("sessions") && data.sessions) {
+    const s = data.sessions;
+    rows.push(["Sessions"]);
+    rows.push(["Total sessions", String(s.totalSessions)]);
+    rows.push(["Approval rate", String(s.approvalRate)]);
+    rows.push(["Denial rate", String(s.denialRate)]);
+    rows.push(["Avg approval min", String(s.avgApprovalMinutes)]);
+    rows.push(["Avg duration min", String(s.avgDurationMinutes)]);
+    rows.push(["Avg party size", String(s.avgPartySize)]);
+    rows.push(["Revenue / session", String(s.revenuePerSession)]);
+    rows.push(["Revenue / guest", String(s.revenuePerGuest)]);
+    rows.push(["Avg closure min", String(s.avgClosureMinutes)]);
+    rows.push(["Settlement method", "Count", "Pct"]);
+    for (const m of s.settlementMix) rows.push([m.method, String(m.count), String(m.pct)]);
+    rows.push([]);
+  }
+  if (report.metrics.includes("reservations") && data.reservations) {
+    const r = data.reservations;
+    rows.push(["Reservations"]);
+    rows.push(["Requested", "Confirmed", "Seated", "Completed", "Cancelled", "No-show rate", "Avg lead days", "Total covers"]);
+    rows.push([String(r.requested), String(r.confirmed), String(r.seated), String(r.completed), String(r.cancelled), String(r.noShowRate), String(r.avgLeadDays), String(r.totalCovers)]);
+    rows.push([]);
+  }
+  if (report.metrics.includes("happy-hours") && data.happyHours) {
+    const h = data.happyHours;
+    rows.push(["Happy Hours"]);
+    rows.push(["Total HH orders", String(h.totalHhOrders)]);
+    rows.push(["Total HH revenue", String(h.totalHhRevenue)]);
+    rows.push(["Total discount given", String(h.totalDiscountGiven)]);
+    rows.push(["Rule", "Orders", "Revenue", "Discount", "Category uplift"]);
+    for (const r of h.rules) rows.push([r.ruleName, String(r.orders), String(r.revenue), String(r.discountGiven), String(r.categoryUpliftPct)]);
+    rows.push([]);
+  }
+  if (report.metrics.includes("events") && data.events) {
+    rows.push(["Events"]);
+    rows.push(["Event", "Invited", "Confirmed", "Checked in", "Utilization", "Event revenue", "Avg weekday revenue"]);
+    for (const e of data.events.events)
+      rows.push([e.eventName, String(e.invited), String(e.confirmed), String(e.checkedIn), String(e.capacityUtilization), String(e.eventRevenue), String(e.avgWeekdayRevenue)]);
+    rows.push([]);
+  }
+  if (report.metrics.includes("promotions") && data.promotions) {
+    rows.push(["Promotions"]);
+    rows.push(["Code", "Redemptions", "Discount cost", "Attributed revenue", "AOV with promo", "AOV without promo"]);
+    for (const p of data.promotions.promotions)
+      rows.push([p.code, String(p.redemptions), String(p.discountCost), String(p.attributedRevenue), String(p.aovWithPromo), String(p.aovWithoutPromo)]);
+    rows.push([]);
+  }
+  if (report.metrics.includes("order-funnel") && data.orderFunnel) {
+    const f = data.orderFunnel;
+    rows.push(["Order Funnel"]);
+    rows.push(["Placed", "Delivered", "Cancelled", "Cancellation rate", "Tip rate", "Avg tip", "Service fee revenue", "Gift orders", "Gift revenue", "Modifier attach rate"]);
+    rows.push([String(f.placed), String(f.delivered), String(f.cancelled), String(f.cancellationRate), String(f.tipRate), String(f.avgTip), String(f.serviceFeeRevenue), String(f.giftOrders), String(f.giftRevenue), String(f.modifierAttachRate)]);
+    rows.push([]);
+  }
+  if (report.metrics.includes("service-fees") && data.orderFunnel) {
+    rows.push(["Service Fees"]);
+    rows.push(["Service fee revenue", String(data.orderFunnel.serviceFeeRevenue)]);
+    rows.push([]);
   }
   const csv = rows.map((r) => r.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
   const a = document.createElement("a");
@@ -438,9 +498,90 @@ export default function ManagerReportsPage() {
                     <span>{c.categoryName}</span>
                     <span className="text-muted-foreground">
                       {c.unitsSold} sold · {c.unitsInStock} in stock
+                      {c.sellThrough != null && ` · ${Math.round(c.sellThrough * 100)}% sell-through`}
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+            {viewing.report.metrics.includes("sessions") && viewing.data.sessions && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Guest sessions</p>
+                <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
+                  <div><span className="text-muted-foreground">Sessions:</span> {viewing.data.sessions.totalSessions}</div>
+                  <div><span className="text-muted-foreground">Approval:</span> {Math.round(viewing.data.sessions.approvalRate * 100)}%</div>
+                  <div><span className="text-muted-foreground">Avg duration:</span> {viewing.data.sessions.avgDurationMinutes} min</div>
+                  <div><span className="text-muted-foreground">Rev/session:</span> {formatMoney(viewing.data.sessions.revenuePerSession)}</div>
+                </div>
+              </div>
+            )}
+            {viewing.report.metrics.includes("reservations") && viewing.data.reservations && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Reservations</p>
+                <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
+                  <div><span className="text-muted-foreground">Requested:</span> {viewing.data.reservations.requested}</div>
+                  <div><span className="text-muted-foreground">Seated:</span> {viewing.data.reservations.seated}</div>
+                  <div><span className="text-muted-foreground">No-show:</span> {Math.round(viewing.data.reservations.noShowRate * 100)}%</div>
+                  <div><span className="text-muted-foreground">Covers:</span> {viewing.data.reservations.totalCovers}</div>
+                </div>
+              </div>
+            )}
+            {viewing.report.metrics.includes("happy-hours") && viewing.data.happyHours && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Happy hours</p>
+                <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-3">
+                  <div><span className="text-muted-foreground">HH orders:</span> {viewing.data.happyHours.totalHhOrders}</div>
+                  <div><span className="text-muted-foreground">HH revenue:</span> {formatMoney(viewing.data.happyHours.totalHhRevenue)}</div>
+                  <div><span className="text-muted-foreground">Discount:</span> {formatMoney(viewing.data.happyHours.totalDiscountGiven)}</div>
+                </div>
+              </div>
+            )}
+            {viewing.report.metrics.includes("events") && viewing.data.events && viewing.data.events.events.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Events</p>
+                {viewing.data.events.events.map((e) => (
+                  <div key={e.eventId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
+                    <span>{e.eventName}</span>
+                    <span className="text-muted-foreground">
+                      {e.checkedIn} checked in · {Math.round(e.capacityUtilization * 100)}% util ·{" "}
+                      <span className="font-medium text-foreground tabular-nums">{formatMoney(e.eventRevenue)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {viewing.report.metrics.includes("promotions") && viewing.data.promotions && viewing.data.promotions.promotions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Promotions</p>
+                {viewing.data.promotions.promotions.map((p) => (
+                  <div key={p.promotionId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
+                    <span>{p.code}</span>
+                    <span className="text-muted-foreground">
+                      {p.redemptions} used · {formatMoney(p.discountCost)} discount ·{" "}
+                      <span className="font-medium text-foreground tabular-nums">{formatMoney(p.attributedRevenue)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {viewing.report.metrics.includes("order-funnel") && viewing.data.orderFunnel && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Order funnel</p>
+                <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
+                  <div><span className="text-muted-foreground">Placed:</span> {viewing.data.orderFunnel.placed}</div>
+                  <div><span className="text-muted-foreground">Delivered:</span> {viewing.data.orderFunnel.delivered}</div>
+                  <div><span className="text-muted-foreground">Cancelled:</span> {viewing.data.orderFunnel.cancelled} ({Math.round(viewing.data.orderFunnel.cancellationRate * 100)}%)</div>
+                  <div><span className="text-muted-foreground">Fee revenue:</span> {formatMoney(viewing.data.orderFunnel.serviceFeeRevenue)}</div>
+                </div>
+              </div>
+            )}
+            {viewing.report.metrics.includes("service-fees") && viewing.data.orderFunnel && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Service fees</p>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Total fee revenue:</span>{" "}
+                  <span className="font-medium tabular-nums">{formatMoney(viewing.data.orderFunnel.serviceFeeRevenue)}</span>
+                </div>
               </div>
             )}
           </CardContent>
