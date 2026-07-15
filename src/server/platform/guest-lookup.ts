@@ -1,19 +1,26 @@
 /**
  * Guest QR landing is unauthenticated and doesn't know the venue ahead of
- * time — the qrSlug itself is the only lookup key, so this is one of the
+ * time — the signed QR token is the only lookup key, so this is one of the
  * few legitimately cross-tenant reads (AD-14's platform exception).
  * In live mode, QR URLs carry a signed token (plan 06) verified by the
- * join route; this lookup still handles the slug → table resolution.
+ * join route; lookup verifies the same token before returning table details.
  */
 import { getPlatformDb } from "@/server/db";
+import { verifyTableToken } from "@/server/table-token";
 import type { Venue, VenueTable, Zone } from "@/lib/types";
 
 export async function findTableByQrSlug(
-  qrSlug: string,
+  qrToken: string,
 ): Promise<{ table: VenueTable; zone: Zone; venue: Venue } | null> {
   const db = getPlatformDb();
-  const table = await db.venueTable.findUnique({ where: { qrSlug } });
+  const separator = qrToken.indexOf(".");
+  if (separator < 1) return null;
+  const tableId = qrToken.slice(0, separator);
+  const table = await db.venueTable.findUnique({ where: { id: tableId } });
   if (!table) return null;
+  if (!verifyTableToken(qrToken, (id) => id === table.id ? table.tokenVersion : null).valid) {
+    return null;
+  }
 
   const [zone, tableCount, venueRow] = await Promise.all([
     db.zone.findUnique({ where: { id: table.zoneId } }),
@@ -31,7 +38,7 @@ export async function findTableByQrSlug(
       seats: table.seats,
       minimumSpend: table.minimumSpend,
       status: table.status,
-      qrSlug: table.qrSlug,
+      qrSlug: qrToken,
       mapX: table.mapX ?? undefined,
       mapY: table.mapY ?? undefined,
     },

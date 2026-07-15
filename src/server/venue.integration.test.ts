@@ -18,6 +18,7 @@ import {
 } from "./venue-core";
 import { listShifts, addShift, removeShift } from "./shift-core";
 import { expectTenantIsolation } from "./test-helpers";
+import { verifyTableToken } from "./table-token";
 
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {
   const org = await rawClient.organization.create({ data: { id: `org-${slug}`, name, slug } });
@@ -104,7 +105,10 @@ describe("venue/zone/table/shift integration (plan 03)", () => {
       minimumSpend: null,
       status: "open",
     });
-    expect(table.qrSlug).toBe("p-01");
+    expect(verifyTableToken(table.qrSlug, (id) => id === table.id ? 0 : null)).toEqual({
+      valid: true,
+      tableId: table.id,
+    });
 
     const zones = await listZones(db);
     const patio = zones.find((z) => z.id === zone.id);
