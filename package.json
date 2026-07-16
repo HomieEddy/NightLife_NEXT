@@ -8,6 +8,7 @@
     "dev:live": "dotenv -e .env -- next dev",
     "dev:pglite": "tsx scripts/pglite-dev.ts",
     "dev:pglite:seed": "tsx scripts/pglite-dev.ts --seed",
+    "postinstall": "prisma generate",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
