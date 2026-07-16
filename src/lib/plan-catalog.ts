@@ -1,10 +1,8 @@
 /**
  * plan-catalog — the single source of truth for what each subscription tier
  * contains and costs. Pure module (like fees.ts): both builds may import it.
- * The demo admin service holds the *editable* runtime copy; the pricing page
- * reads these defaults in the live build.
- * TODO(backend): PlanConfig becomes a platform table seeded from these
- * defaults; Stripe Prices are keyed on PlanConfig.id (plan 10).
+ * The demo admin service holds the *editable* runtime copy; the live build
+ * reads PlanConfig rows from the platform DB (seeded from these defaults).
  */
 import type { FeatureDef, FeatureKey, PlanConfig, TenantPlan } from "@/lib/types";
 

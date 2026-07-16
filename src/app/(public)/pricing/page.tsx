@@ -11,8 +11,8 @@ import type { PlanConfig } from "@/lib/types";
 
 export const metadata = { title: "Pricing" };
 
-// TODO(backend): plan 10 reads PlanConfig rows (admin-edited) instead of the
-// static defaults, and wires Stripe checkout + billing portal.
+// Live mode reads PlanConfig from the platform DB; Stripe checkout and
+// billing portal are wired via the billing API routes.
 
 const TRIAL = {
   name: "Trial",

@@ -1,7 +1,6 @@
 /**
- * mockAdminService — future backend boundary for platform administration.
- * TODO(backend): leads/tenants live in a platform-level schema; provisioning
- * becomes a job that creates the tenant DB schema + default venue.
+ * mockAdminService — demo-track platform administration. The live counterpart
+ * uses admin-core.ts with Postgres (platform-level schema, provisioning job).
  */
 import type {
   Lead, LeadActivity, LeadStatus, PlanConfig, TelemetryLink, Tenant, TenantPlan,
@@ -166,8 +165,8 @@ export const mockAdminService = {
 
   /** Full onboarding: creates the tenant from the wizard config. */
   async onboardTenant(config: OnboardingConfig): Promise<Tenant> {
-    // TODO(backend): provisioning job — tenant schema, venue, zones/tables,
-    // menu seed, fee config, manager invite email.
+    // Live counterpart: provisionTenant() in admin-core.ts creates the
+    // tenant, org, venue and default zone via the platform DB.
     await delay(1500);
     const status = config.startOnTrial ? "trial" : "active";
     const tenant: Tenant = {

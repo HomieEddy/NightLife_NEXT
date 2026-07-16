@@ -4,7 +4,7 @@
  * Demo lock for the platform-admin area. The live demo advertises the
  * manager/staff/guest surfaces only; /admin stays reachable by URL but asks
  * for a shared password first. sessionStorage, so it re-locks per browser
- * session. TODO(backend): replaced by real platform-admin auth (RBAC).
+ * session. Live mode uses real platform-admin auth (requirePlatformAdmin).
  */
 const KEY = "nlx-admin-unlocked";
 

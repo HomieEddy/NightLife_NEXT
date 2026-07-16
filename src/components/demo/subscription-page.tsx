@@ -48,7 +48,7 @@ export default function ManagerSubscriptionPage() {
 
   async function changePlan(plan: TenantPlan) {
     setChanging(plan);
-    // TODO(backend): Stripe checkout / proration flow.
+    // Live mode: billingService.changePlan() returns a Stripe checkout/portal URL.
     await billingService.changePlan(plan);
     setChanging(null);
     toast.success(`Switched to the ${plans.find((p) => p.id === plan)?.name} plan`);

@@ -1,6 +1,6 @@
 /**
- * mockBillingService — future backend boundary for the venue's SaaS subscription.
- * TODO(backend): Stripe customer + subscription objects; invoices from Stripe API.
+ * mockBillingService — demo-track subscription data. The live counterpart
+ * reads Stripe customer/subscription objects via the billing API routes.
  */
 import type { PlanConfig, TenantPlan } from "@/lib/types";
 // Plan definitions live in the admin mock (edited by /admin/plans); reading

@@ -16,9 +16,8 @@ export interface Entitlements {
 
 /**
  * The current venue's plan entitlements, from the platform's plan configs.
- * Demo mode only: reads the mock subscription. In the live build everything is
- * enabled — TODO(backend): plan 10 wires the tenant's real subscription and
- * moves enforcement server-side (403 + upgrade hint in scoped services).
+ * Reads the subscription via billingService (mock in demo, real in live).
+ * Server-side enforcement (403 + upgrade hint) backs this up in route handlers.
  */
 export function useEntitlements(): Entitlements {
   const [plan, setPlan] = useState<TenantPlan | null>(null);
