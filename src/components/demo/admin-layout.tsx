@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Filter, Layers, LayoutDashboard, LockKeyhole, Rocket, ShieldCheck } from "lucide-react";
+import { Building2, Filter, Layers, LayoutDashboard, LockKeyhole, Rocket, Settings, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +25,7 @@ const NAV = [
   { href: "/admin/venues", label: "Tenants", icon: Building2 },
   { href: "/admin/onboarding", label: "Provisioning", icon: Rocket },
   { href: "/admin/plans", label: "Plans", icon: Layers },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 function AdminGate({ onUnlock }: { onUnlock: () => void }) {
