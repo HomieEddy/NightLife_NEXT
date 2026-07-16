@@ -1,6 +1,6 @@
 /**
  * mockEventsService — future backend boundary for events and guestlists.
- * TODO(backend): replace with API routes backed by PostgreSQL.
+ * The permanent demo counterpart to the PostgreSQL-backed live service.
  */
 import type { VenueEvent, EventGuest } from "@/lib/types";
 import { mockEvents, mockEventGuests } from "@/lib/mock-data/events";

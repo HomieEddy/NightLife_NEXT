@@ -3,6 +3,7 @@ import { Anton, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/auth-context";
+import { AppModeBanner } from "@/components/shared/app-mode-banner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -52,6 +53,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans">
         {/* Dark is the brand default; light is opt-in via the header toggle. */}
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <AppModeBanner />
           <AuthProvider>{children}</AuthProvider>
           <Toaster position="top-center" richColors />
         </ThemeProvider>

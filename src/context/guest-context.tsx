@@ -3,7 +3,7 @@
 /**
  * Client-side guest session + cart state.
  * Persisted to sessionStorage so the flow survives route changes and refreshes.
- * TODO(backend): replace with a server-side guest session (signed QR token cookie).
+ * Live authorization comes from the signed guest cookie; this state is only UI/cart continuity.
  */
 import {
   createContext,
@@ -14,8 +14,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CartLine, OrderItemModifier, MenuItem } from "@/lib/types";
-import { uid } from "@/lib/mock-services/delay";
+import type { CartLine, OrderItemModifier, MenuItem, Venue } from "@/lib/types";
+import { uid } from "@/lib/id";
+import { orderLineSubtotal } from "@/lib/order-line";
 
 export interface GuestTableInfo {
   tableId: string;
@@ -29,6 +30,8 @@ export type ClosureStatus = "none" | "requested" | "closed";
 
 interface GuestState {
   table: GuestTableInfo | null;
+  /** Snapshot from the QR landing lookup — a public, unauthenticated read (see findTableByQrSlug). */
+  venue: Venue | null;
   guestName: string;
   sessionId: string | null;
   approved: boolean;
@@ -38,7 +41,7 @@ interface GuestState {
 }
 
 interface GuestContextValue extends GuestState {
-  startSession: (table: GuestTableInfo, guestName: string, sessionId: string) => void;
+  startSession: (table: GuestTableInfo, venue: Venue, guestName: string, sessionId: string) => void;
   approve: () => void;
   reset: () => void;
   addToCart: (item: MenuItem, quantity: number, modifiers: OrderItemModifier[], note?: string) => void;
@@ -55,6 +58,7 @@ const STORAGE_KEY = "nln-guest-state";
 
 const initialState: GuestState = {
   table: null,
+  venue: null,
   guestName: "",
   sessionId: null,
   approved: false,
@@ -84,8 +88,8 @@ export function GuestProvider({ children }: { children: ReactNode }) {
   }, [state, hydrated]);
 
   const startSession = useCallback(
-    (table: GuestTableInfo, guestName: string, sessionId: string) => {
-      setState({ ...initialState, table, guestName, sessionId });
+    (table: GuestTableInfo, venue: Venue, guestName: string, sessionId: string) => {
+      setState({ ...initialState, table, venue, guestName, sessionId });
     },
     [],
   );
@@ -132,10 +136,11 @@ export function GuestProvider({ children }: { children: ReactNode }) {
   const cartCount = useMemo(() => state.cart.reduce((n, l) => n + l.quantity, 0), [state.cart]);
   const cartSubtotal = useMemo(
     () =>
-      state.cart.reduce((sum, l) => {
-        const mods = l.modifiers.reduce((s, m) => s + m.priceDelta, 0);
-        return sum + (l.menuItem.price + mods) * l.quantity;
-      }, 0),
+      state.cart.reduce(
+        (sum, line) =>
+          sum + orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers),
+        0,
+      ),
     [state.cart],
   );
 

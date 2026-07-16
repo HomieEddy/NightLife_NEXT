@@ -3,29 +3,28 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, ChevronDown, Mail, Minus, Moon, Plus, ReceiptText, Users, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, Mail, Minus, Moon, Plus, ReceiptText, Tag, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoNewSessionAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { CountUp } from "@/components/fx/count-up";
 import { useGuest } from "@/context/guest-context";
-import { mockOrdersService } from "@/lib/mock-services/orders-service";
+import { ordersService } from "@/lib/services/orders-service";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { mockVenue } from "@/lib/mock-data/venue";
-import { mockPackages } from "@/lib/mock-data/menu";
-import { mockMenuItems } from "@/lib/mock-data/menu";
-import type { Order } from "@/lib/types";
+import { orderLineSubtotal } from "@/lib/order-line";
+import type { Order, Venue } from "@/lib/types";
+import { isDemoMode } from "@/lib/app-mode";
 
 function OrderLines({ order }: { order: Order }) {
   return (
     <ul className="space-y-2 text-sm">
       {order.items.map((item) => {
-        const modTotal = item.modifiers.reduce((s, m) => s + m.priceDelta, 0);
         return (
           <li key={item.id}>
             <div className="flex justify-between">
@@ -33,15 +32,15 @@ function OrderLines({ order }: { order: Order }) {
                 {item.quantity}× {item.name}
               </span>
               <span className="tabular-nums">
-                {formatMoney((item.unitPrice + modTotal) * item.quantity)}
+                {formatMoney(orderLineSubtotal(item.unitPrice, item.quantity, item.modifiers))}
               </span>
             </div>
             {item.modifiers.length > 0 && (
               <ul className="pl-4 space-y-0.5 text-xs text-muted-foreground">
                 {item.modifiers.map((mod, i) => (
                   <li key={i} className="flex justify-between">
-                    <span>• {mod.optionName}</span>
-                    {mod.priceDelta > 0 && <span className="tabular-nums">{formatMoney(mod.priceDelta * item.quantity)}</span>}
+                    <span>• {mod.quantity}× {mod.optionName}</span>
+                    {mod.priceDelta > 0 && <span className="tabular-nums">{formatMoney(mod.priceDelta * mod.quantity)}</span>}
                   </li>
                 ))}
               </ul>
@@ -53,11 +52,13 @@ function OrderLines({ order }: { order: Order }) {
   );
 }
 
-function Totals({ subtotal, feeBreakdown, tip, total }: {
+function Totals({ subtotal, feeBreakdown, tip, total, promotionCode, promotionCents }: {
   subtotal: number;
   feeBreakdown?: { fee: { name: string; type: "percentage" | "flat"; value: number }; amount: number }[];
   tip: number;
   total: number;
+  promotionCode?: string;
+  promotionCents?: number;
 }) {
   return (
     <div className="space-y-1 text-sm">
@@ -65,6 +66,14 @@ function Totals({ subtotal, feeBreakdown, tip, total }: {
         <span>Subtotal</span>
         <span className="tabular-nums">{formatMoney(subtotal)}</span>
       </div>
+      {promotionCode && promotionCents ? (
+        <div className="flex justify-between text-primary">
+          <span className="flex items-center gap-1">
+            <Tag className="size-3" /> {promotionCode}
+          </span>
+          <span className="tabular-nums">−{formatMoney(promotionCents / 100)}</span>
+        </div>
+      ) : null}
       {(feeBreakdown ?? []).map((line) => (
         <div key={line.fee.name} className="flex justify-between text-muted-foreground">
           <span>{line.fee.name} {line.fee.type === "percentage" ? `(${line.fee.value}%)` : ""}</span>
@@ -83,12 +92,20 @@ function Totals({ subtotal, feeBreakdown, tip, total }: {
   );
 }
 
-function VenueHeader({ tableCode, zoneName }: { tableCode?: string; zoneName?: string }) {
+function VenueHeader({
+  venue,
+  tableCode,
+  zoneName,
+}: {
+  venue: Venue | null;
+  tableCode?: string;
+  zoneName?: string;
+}) {
   return (
     <div className="text-center">
-      <p className="font-semibold">{mockVenue.name}</p>
+      <p className="font-semibold">{venue?.name}</p>
       <p className="text-xs text-muted-foreground">
-        {mockVenue.address}, {mockVenue.city}
+        {venue?.address}, {venue?.city}
       </p>
       {tableCode && (
         <p className="text-xs text-muted-foreground">
@@ -296,15 +313,15 @@ function SplitBill({ total }: { total: number }) {
 
 /** Full-night receipt shown after the host approves the tab closure. */
 function NightReceipt() {
-  const { guestName, table, sessionId } = useGuest();
+  const { guestName, table, venue, sessionId } = useGuest();
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [email, setEmail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     const load = sessionId
-      ? mockOrdersService.listOrdersBySession(sessionId)
-      : mockOrdersService.listGuestOrders(guestName);
+      ? ordersService.listOrdersBySession(sessionId)
+      : ordersService.listGuestOrders(guestName);
     load.then((result) => {
       if (!cancelled) setOrders(result.filter((o) => o.status === "delivered"));
     });
@@ -338,8 +355,6 @@ function NightReceipt() {
     }
   }
   const feeLines = Array.from(feeMap.values());
-  const serviceFee = feeLines.reduce((s, l) => s + l.amount, 0);
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-2 py-4 text-center animate-pop-in">
@@ -356,9 +371,9 @@ function NightReceipt() {
       <div className="mx-auto w-full max-w-sm rounded-lg bg-zinc-50 text-zinc-900 shadow-xl">
         <div className="space-y-2 p-5 font-mono text-xs leading-relaxed">
           <div className="text-center">
-            <p className="text-sm font-bold tracking-[0.2em]">{mockVenue.name.toUpperCase()}</p>
+            <p className="text-sm font-bold tracking-[0.2em]">{venue?.name.toUpperCase()}</p>
             <p>
-              {mockVenue.address}, {mockVenue.city}
+              {venue?.address}, {venue?.city}
             </p>
             <div className="my-2 border-y border-dashed border-zinc-400 py-1 font-semibold tracking-widest">
               GUEST RECEIPT
@@ -394,32 +409,6 @@ function NightReceipt() {
                 <span>{formatTime(order.placedAt)}</span>
               </div>
               {order.items.map((item) => {
-                const pkg = mockPackages.find((p) => p.id === item.menuItemId);
-                const modTotal = item.modifiers.reduce((s, m) => s + m.priceDelta, 0);
-                if (pkg) {
-                  return (
-                    <div key={item.id} className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="truncate">
-                          {item.quantity}× {pkg.name}
-                        </span>
-                        <span className="whitespace-nowrap tabular-nums">
-                          {formatMoney((item.unitPrice + modTotal) * item.quantity)}
-                        </span>
-                      </div>
-                      <ul className="pl-3 space-y-0.5 text-[11px] text-zinc-500">
-                        {pkg.components.map((comp) => {
-                          const menu = mockMenuItems.find((m) => m.id === comp.menuItemId);
-                          return (
-                            <li key={comp.menuItemId} className="flex justify-between">
-                              <span>• {comp.quantity}× {menu?.name ?? comp.menuItemId}</span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  );
-                }
                 return (
                   <div key={item.id} className="space-y-0.5">
                     <div className="flex justify-between gap-2">
@@ -427,15 +416,15 @@ function NightReceipt() {
                         {item.quantity}× {item.name}
                       </span>
                       <span className="whitespace-nowrap tabular-nums">
-                        {formatMoney((item.unitPrice + modTotal) * item.quantity)}
+                        {formatMoney(orderLineSubtotal(item.unitPrice, item.quantity, item.modifiers))}
                       </span>
                     </div>
                     {item.modifiers.length > 0 && (
                       <ul className="pl-3 space-y-0.5 text-[11px] text-zinc-500">
                         {item.modifiers.map((m, i) => (
                           <li key={i} className="flex justify-between">
-                            <span>• {m.optionName}</span>
-                            {m.priceDelta > 0 && <span className="tabular-nums">{formatMoney(m.priceDelta * item.quantity)}</span>}
+                            <span>• {m.quantity}× {m.optionName}</span>
+                            {m.priceDelta > 0 && <span className="tabular-nums">{formatMoney(m.priceDelta * m.quantity)}</span>}
                           </li>
                         ))}
                       </ul>
@@ -443,6 +432,12 @@ function NightReceipt() {
                   </div>
                 );
               })}
+              {order.promotionCode && order.promotionCents ? (
+                <div className="flex justify-between text-[10px] text-zinc-500">
+                  <span>PROMO {order.promotionCode}</span>
+                  <span className="tabular-nums">−{formatMoney(order.promotionCents / 100)}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between text-[10px] text-zinc-500">
                 <span>served</span>
                 <span className="tabular-nums">{formatMoney(order.total)}</span>
@@ -456,6 +451,15 @@ function NightReceipt() {
               <span>SUBTOTAL</span>
               <span className="tabular-nums">{formatMoney(subtotal)}</span>
             </div>
+            {(() => {
+              const totalPromoCents = orders.reduce((s, o) => s + (o.promotionCents ?? 0), 0);
+              return totalPromoCents > 0 ? (
+                <div className="flex justify-between text-zinc-600">
+                  <span>PROMO DISCOUNT</span>
+                  <span className="tabular-nums">−{formatMoney(totalPromoCents / 100)}</span>
+                </div>
+              ) : null;
+            })()}
             {feeLines.map((line) => (
               <div key={line.name} className="flex justify-between text-zinc-600">
                 <span>{line.name.toUpperCase()} {line.type === "percentage" ? `(${line.value}%)` : "(flat)"}</span>
@@ -472,7 +476,9 @@ function NightReceipt() {
             </div>
           </div>
 
-          <p className="text-center text-[10px] text-zinc-500">DEMO RECEIPT · NO PAYMENT PROCESSED</p>
+          <p className="text-center text-[10px] text-zinc-500">
+            {isDemoMode() ? "DEMO RECEIPT · NO PAYMENT PROCESSED" : "EXTERNAL SETTLEMENT RECEIPT"}
+          </p>
           <p className="text-center text-[10px] text-zinc-500">THANK YOU · COME AGAIN</p>
         </div>
       </div>
@@ -492,21 +498,20 @@ function NightReceipt() {
         </Button>
       </div>
 
-      <Button variant="outline" className="w-full animate-fade-up" asChild>
-        <Link href="/g/demo-table">Start a new session</Link>
-      </Button>
+      <DemoNewSessionAction />
     </div>
   );
 }
 
 /** Single-order receipt (linked from a delivered order card). */
 function SingleOrderReceipt({ orderId }: { orderId: string }) {
+  const { venue } = useGuest();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    mockOrdersService.getOrder(orderId).then((result) => {
+    ordersService.getOrder(orderId).then((result) => {
       if (!cancelled) {
         setOrder(result);
         setLoading(false);
@@ -546,7 +551,7 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
 
       <Card className="animate-fade-up">
         <CardContent className="space-y-3">
-          <VenueHeader tableCode={order.tableCode} zoneName={order.zoneName} />
+          <VenueHeader venue={venue} tableCode={order.tableCode} zoneName={order.zoneName} />
           <Separator />
           <OrderLines order={order} />
           <Separator />
@@ -555,10 +560,12 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
             feeBreakdown={order.feeBreakdown}
             tip={order.tip}
             total={order.total}
+            promotionCode={order.promotionCode}
+            promotionCents={order.promotionCents}
           />
           <Separator />
           <p className="text-center text-xs text-muted-foreground">
-            Demo receipt — no payment was processed.
+            {isDemoMode() ? "Demo receipt — no payment was processed." : "Settled externally with venue staff."}
           </p>
         </CardContent>
       </Card>

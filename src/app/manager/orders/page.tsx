@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Inbox, ListFilter, RefreshCw, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,13 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
-import { mockOrdersService } from "@/lib/mock-services/orders-service";
-import { mockStaffService } from "@/lib/mock-services/staff-service";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { menuService } from "@/lib/services/menu-service";
+import { ordersService } from "@/lib/services/orders-service";
+import { staffService } from "@/lib/services/staff-service";
+import { guestsService } from "@/lib/services/guests-service";
+import { venueService } from "@/lib/services/venue-service";
 import { formatMoney } from "@/lib/format";
+import { useLiveEvents } from "@/lib/use-live-events";
 import { SessionOverview } from "@/components/shared/session-overview";
 import { cn } from "@/lib/utils";
 import type {
@@ -54,21 +55,28 @@ export default function ManagerOrdersPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   const refresh = useCallback(async () => {
-    setOrders(await mockOrdersService.listOrders());
+    setOrders(await ordersService.listOrders());
   }, []);
+
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
 
   useEffect(() => {
     refresh();
-    mockVenueService.listZones().then(setZones);
-    mockVenueService.listTables().then(setTables);
-    mockStaffService.listStaff().then(setStaff);
-    mockMenuService.listItems().then(setItems);
-    mockMenuService.listCategories(true).then(setCategories);
-    mockGuestsService.listSessions().then(setSessions);
-    // TODO(backend): WebSocket push instead of polling.
-    const interval = setInterval(refresh, 10000);
-    return () => clearInterval(interval);
+    venueService.listZones().then(setZones);
+    venueService.listTables().then(setTables);
+    staffService.listStaff().then(setStaff);
+    menuService.listItems().then(setItems);
+    menuService.listCategories(true).then(setCategories);
+    guestsService.listSessions().then(setSessions);
   }, [refresh]);
+
+  useLiveEvents({
+    scope: "manager",
+    onEvent: () => refreshRef.current(),
+    fallbackMs: 10000,
+    fallbackRefresh: () => refreshRef.current(),
+  });
 
   const itemCategory = useMemo(() => {
     const map = new Map<string, string>();

@@ -16,7 +16,7 @@ import {
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { RoleBadge } from "@/components/shared/role-badge";
-import { mockStaffService } from "@/lib/mock-services/staff-service";
+import { staffService } from "@/lib/services/staff-service";
 import { cn } from "@/lib/utils";
 import type { StaffMember, StaffShift, Zone } from "@/lib/types";
 
@@ -46,7 +46,7 @@ export function ScheduleTab({ staff, zones }: { staff: StaffMember[]; zones: Zon
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
-    setShifts(await mockStaffService.listShifts());
+    setShifts(await staffService.listShifts());
   }, []);
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export function ScheduleTab({ staff, zones }: { staff: StaffMember[]; zones: Zon
       return;
     }
     setSaving(true);
-    await mockStaffService.addShift({
+    await staffService.addShift({
       staffId: draft.staffId,
       dayOfWeek: draft.dayOfWeek,
       startTime: draft.startTime,
@@ -89,7 +89,7 @@ export function ScheduleTab({ staff, zones }: { staff: StaffMember[]; zones: Zon
   }
 
   async function remove(shift: StaffShift) {
-    await mockStaffService.removeShift(shift.id);
+    await staffService.removeShift(shift.id);
     toast.info(`${staffName(shift.staffId)} unscheduled from ${DAY_LABELS[shift.dayOfWeek]}`);
     await refresh();
   }

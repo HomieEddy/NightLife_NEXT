@@ -3,8 +3,8 @@
  * broadcasts and the last-call sequence. The attention-feed *items* are
  * derived, not stored (see src/lib/pulse.ts) — these are the two pieces of
  * genuinely new mutable state.
- * TODO(backend): broadcasts push over WebSocket; last call becomes a
- * venue-scoped flag so every connected client updates instantly.
+ * Plan 07 ships real implementations (floor-core.ts + SSE); this mock
+ * stays for the permanent Live Demo sandbox.
  */
 import type { Broadcast } from "@/lib/types";
 import { mockStaffService } from "./staff-service";

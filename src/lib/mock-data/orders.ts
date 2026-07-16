@@ -1,6 +1,23 @@
-import type { Order, GuestSession, HelpRequest } from "@/lib/types";
+import type { Order, GuestSession, HelpRequest, ModifierKind, OrderItemModifier } from "@/lib/types";
 
 const minsAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+
+function modifier(
+  kind: ModifierKind,
+  optionName: string,
+  priceDelta: number,
+  quantity = 1,
+): OrderItemModifier {
+  return {
+    groupId: `mod-${kind}`,
+    optionId: optionName.toLowerCase().replaceAll(" ", "-"),
+    kind,
+    groupName: kind === "washer" ? "Washers" : "Presentation",
+    optionName,
+    priceDelta,
+    quantity,
+  };
+}
 
 export const mockOrders: Order[] = [
   {
@@ -13,13 +30,13 @@ export const mockOrders: Order[] = [
     zoneName: "VIP Mezzanine",
     guestName: "Chloé",
     items: [
-      { id: "oi-1", menuItemId: "mi-dom", name: "Dom Pérignon Vintage", quantity: 1, unitPrice: 320, modifiers: [{ groupName: "Présentation", optionName: "Défilé de sparklers", priceDelta: 25 }] },
-      { id: "oi-2", menuItemId: "mi-evian", name: "Evian 75cl", quantity: 2, unitPrice: 8, modifiers: [] },
+      { id: "oi-1", menuItemId: "mi-dom", name: "Dom Pérignon Vintage", quantity: 1, unitPrice: 320, modifiers: [modifier("presentation", "Sparkler parade", 25)] },
+      { id: "oi-2", menuItemId: "mi-spring-water-12", name: "Spring Water 12-pack", quantity: 2, unitPrice: 20, modifiers: [] },
     ],
-    subtotal: 361,
-    serviceFee: 18.05,
+    subtotal: 385,
+    serviceFee: 19.25,
     tip: 36,
-    total: 415.05,
+    total: 440.25,
     status: "pending",
     placedAt: minsAgo(3),
     updatedAt: minsAgo(3),
@@ -35,12 +52,12 @@ export const mockOrders: Order[] = [
     zoneName: "Main Floor",
     guestName: "Maxime",
     items: [
-      { id: "oi-3", menuItemId: "mi-hendricks", name: "Hendrick's 1L", quantity: 1, unitPrice: 210, modifiers: [{ groupName: "Washers inclus", optionName: "Red Bull 4-pack", priceDelta: 24 }] },
+      { id: "oi-3", menuItemId: "mi-hendricks", name: "Hendrick's 1L", quantity: 1, unitPrice: 210, modifiers: [modifier("washer", "Red Bull", 5)] },
     ],
-    subtotal: 234,
-    serviceFee: 11.7,
+    subtotal: 215,
+    serviceFee: 10.75,
     tip: 24,
-    total: 269.7,
+    total: 249.75,
     status: "accepted",
     placedAt: minsAgo(9),
     updatedAt: minsAgo(7),
@@ -55,13 +72,13 @@ export const mockOrders: Order[] = [
     zoneName: "Terrace",
     guestName: "Léa",
     items: [
-      { id: "oi-4", menuItemId: "mi-patron", name: "Patrón Silver", quantity: 1, unitPrice: 220, modifiers: [{ groupName: "Washers inclus", optionName: "Carafe de jus d'orange", priceDelta: 0 }] },
-      { id: "oi-5", menuItemId: "mi-juice-carafe", name: "Carafe de jus frais", quantity: 2, unitPrice: 14, modifiers: [] },
+      { id: "oi-4", menuItemId: "mi-patron", name: "Patrón Silver", quantity: 1, unitPrice: 220, modifiers: [modifier("washer", "Orange Juice", 0)] },
+      { id: "oi-5", menuItemId: "mi-orange-juice", name: "Orange Juice", quantity: 2, unitPrice: 5, modifiers: [] },
     ],
-    subtotal: 248,
-    serviceFee: 12.4,
+    subtotal: 230,
+    serviceFee: 11.5,
     tip: 25,
-    total: 285.4,
+    total: 266.5,
     status: "preparing",
     placedAt: minsAgo(14),
     updatedAt: minsAgo(10),
@@ -77,12 +94,12 @@ export const mockOrders: Order[] = [
     zoneName: "VIP Mezzanine",
     guestName: "Antoine",
     items: [
-      { id: "oi-6", menuItemId: "mi-belvedere", name: "Belvedere Pure 1.75L", quantity: 1, unitPrice: 300, modifiers: [{ groupName: "Washers inclus", optionName: "Red Bull 4-pack", priceDelta: 24 }, { groupName: "Présentation", optionName: "Enseigne LED + défilé", priceDelta: 60 }] },
+      { id: "oi-6", menuItemId: "mi-belvedere", name: "Belvedere Pure 1.75L", quantity: 1, unitPrice: 300, modifiers: [modifier("washer", "Red Bull", 5), modifier("presentation", "LED sign + parade", 60)] },
     ],
-    subtotal: 384,
-    serviceFee: 19.2,
+    subtotal: 365,
+    serviceFee: 18.25,
     tip: 50,
-    total: 453.2,
+    total: 433.25,
     status: "ready",
     placedAt: minsAgo(22),
     updatedAt: minsAgo(4),
@@ -98,13 +115,13 @@ export const mockOrders: Order[] = [
     zoneName: "Back Bar",
     guestName: "Inès",
     items: [
-      { id: "oi-7", menuItemId: "mi-diplomatico", name: "Diplomático Reserva Exclusiva", quantity: 1, unitPrice: 240, modifiers: [{ groupName: "Washers inclus", optionName: "Set soda & tonic", priceDelta: 0 }] },
-      { id: "oi-8", menuItemId: "mi-soda-set", name: "Set de sodas premium", quantity: 1, unitPrice: 12, modifiers: [] },
+      { id: "oi-7", menuItemId: "mi-diplomatico", name: "Diplomático Reserva Exclusiva", quantity: 1, unitPrice: 240, modifiers: [modifier("washer", "Coca-Cola", 0)] },
+      { id: "oi-8", menuItemId: "mi-coke", name: "Coca-Cola", quantity: 1, unitPrice: 4, modifiers: [] },
     ],
-    subtotal: 252,
-    serviceFee: 12.6,
+    subtotal: 244,
+    serviceFee: 12.2,
     tip: 25,
-    total: 289.6,
+    total: 281.2,
     status: "delivered",
     placedAt: minsAgo(35),
     updatedAt: minsAgo(18),
@@ -119,7 +136,7 @@ export const mockOrders: Order[] = [
     zoneName: "Main Floor",
     guestName: "Hugo",
     items: [
-      { id: "oi-9", menuItemId: "mi-titos", name: "Tito's Handmade 1L", quantity: 1, unitPrice: 180, modifiers: [{ groupName: "Washers inclus", optionName: "Carafe de jus de canneberge", priceDelta: 0 }] },
+      { id: "oi-9", menuItemId: "mi-titos", name: "Tito's Handmade 1L", quantity: 1, unitPrice: 180, modifiers: [modifier("washer", "Cranberry Juice", 0)] },
     ],
     subtotal: 180,
     serviceFee: 9,
@@ -181,8 +198,8 @@ export const mockGuestSessions: GuestSession[] = [
 ];
 
 export const mockHelpRequests: HelpRequest[] = [
-  { id: "hr-1", tableCode: "VIP-02", zoneName: "VIP Mezzanine", guestName: "Chloé", type: "refill-ice", status: "open", createdAt: minsAgo(4) },
-  { id: "hr-2", tableCode: "MF-05", zoneName: "Main Floor", guestName: "Hugo", type: "call-waiter", status: "open", createdAt: minsAgo(7) },
-  { id: "hr-3", tableCode: "TER-01", zoneName: "Terrace", guestName: "Léa", type: "clean-table", status: "acknowledged", createdAt: minsAgo(15) },
-  { id: "hr-4", tableCode: "BAR-01", zoneName: "Back Bar", guestName: "Inès", type: "bill", status: "resolved", createdAt: minsAgo(25) },
+  { id: "hr-1", sessionId: "gs-3", tableCode: "VIP-02", zoneName: "VIP Mezzanine", guestName: "Chloé", type: "refill-ice", status: "open", createdAt: minsAgo(4) },
+  { id: "hr-2", sessionId: "gs-4", tableCode: "MF-05", zoneName: "Main Floor", guestName: "Hugo", type: "call-waiter", status: "open", createdAt: minsAgo(7) },
+  { id: "hr-3", sessionId: "gs-5", tableCode: "TER-01", zoneName: "Terrace", guestName: "Léa", type: "clean-table", status: "acknowledged", createdAt: minsAgo(15) },
+  { id: "hr-4", sessionId: "gs-5", tableCode: "BAR-01", zoneName: "Back Bar", guestName: "Inès", type: "bill", status: "resolved", createdAt: minsAgo(25) },
 ];

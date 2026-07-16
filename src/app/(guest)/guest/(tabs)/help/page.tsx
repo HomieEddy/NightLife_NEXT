@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { useGuest } from "@/context/guest-context";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
+import { guestsService } from "@/lib/services/guests-service";
 import { cn } from "@/lib/utils";
 import type { HelpRequestType } from "@/lib/types";
 
@@ -25,7 +25,7 @@ const HELP_OPTIONS: {
 ];
 
 export default function GuestHelpPage() {
-  const { table, guestName } = useGuest();
+  const { table, guestName, sessionId } = useGuest();
   const [sending, setSending] = useState<HelpRequestType | null>(null);
 
   async function requestHelp(type: HelpRequestType, label: string) {
@@ -34,7 +34,8 @@ export default function GuestHelpPage() {
       return;
     }
     setSending(type);
-    await mockGuestsService.createHelpRequest({
+    await guestsService.createHelpRequest({
+      sessionId: sessionId ?? "",
       tableCode: table.tableCode,
       zoneName: table.zoneName,
       guestName: guestName || "Guest",

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCheck, Inbox, PartyPopper, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -11,10 +11,11 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { mockOrdersService, nextStatus } from "@/lib/mock-services/orders-service";
-import { mockShowQueueService, orderNeedsShow } from "@/lib/mock-services/show-queue-service";
-import { mockStaffService } from "@/lib/mock-services/staff-service";
+import { ordersService, nextStatus } from "@/lib/services/orders-service";
+import { showQueueService, orderNeedsShow } from "@/lib/services/show-queue-service";
+import { staffService } from "@/lib/services/staff-service";
 import { cn } from "@/lib/utils";
+import { useLiveEvents } from "@/lib/use-live-events";
 import type { ActiveShow, Order, OrderStatus, StaffMember } from "@/lib/types";
 
 const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
@@ -43,65 +44,108 @@ function StaffOrdersContent() {
 
   const refresh = useCallback(async () => {
     const [orderList, currentStaff, show] = await Promise.all([
-      mockOrdersService.listOrders(),
-      mockStaffService.getCurrentStaff(),
-      mockShowQueueService.getActiveShow(),
+      ordersService.listOrders(),
+      staffService.getCurrentStaff(),
+      showQueueService.getActiveShow(),
     ]);
     setOrders(orderList);
     setMe(currentStaff);
     setActiveShow(show);
   }, []);
 
-  useEffect(() => {
-    refresh();
-    // TODO(backend): WebSocket push instead of polling.
-    const interval = setInterval(refresh, 8000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useLiveEvents({
+    scope: "staff",
+    onEvent: () => refreshRef.current(),
+    fallbackMs: 8000,
+    fallbackRefresh: () => refreshRef.current(),
+  });
 
   async function advance(order: Order) {
     setBusyId(order.id);
-    const updated = await mockOrdersService.advanceOrder(order.id);
-    if (updated) toast.success(`${order.code} → ${updated.status}`);
-    await refresh();
-    setBusyId(null);
+    try {
+      const updated = await ordersService.advanceOrder(order.id);
+      if (updated) toast.success(`${order.code} → ${updated.status}`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not update ${order.code}`);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function cancel(order: Order) {
-    await mockOrdersService.cancelOrder(order.id);
-    toast.info(`${order.code} cancelled`);
-    await refresh();
+    setBusyId(order.id);
+    try {
+      const updated = await ordersService.cancelOrder(order.id);
+      if (!updated) toast.error(`${order.code} is already delivered or cancelled.`);
+      else toast.info(`${order.code} cancelled — stock returned`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not cancel ${order.code}`);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function claim(order: Order) {
     if (!me) return;
-    const updated = await mockOrdersService.claimOrder(order.id, me.id, me.name);
-    if (!updated) toast.error("Someone just claimed this order.");
-    else toast.success(`${order.code} claimed`);
-    await refresh();
+    setBusyId(order.id);
+    try {
+      const updated = await ordersService.claimOrder(order.id, me.id, me.name);
+      if (!updated) toast.error("Someone just claimed this order.");
+      else toast.success(`${order.code} claimed`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not claim ${order.code}`);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function release(order: Order) {
-    await mockOrdersService.releaseOrder(order.id);
-    toast.info(`${order.code} released back to the queue`);
-    await refresh();
+    setBusyId(order.id);
+    try {
+      await ordersService.releaseOrder(order.id);
+      toast.info(`${order.code} released back to the queue`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not release ${order.code}`);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function startShow(order: Order) {
     if (!me) return;
-    const result = await mockShowQueueService.startShow(order, me.name);
-    if (!result.ok) {
-      toast.error(`Show floor busy — ${result.activeShow?.tableCode}'s presentation is walking.`);
-    } else {
-      toast.success(`${order.tableCode}'s presentation is walking now`);
+    setBusyId(order.id);
+    try {
+      const result = await showQueueService.startShow(order, me.name);
+      if (!result.ok) {
+        toast.error(`Show floor busy — ${result.activeShow?.tableCode}'s presentation is walking.`);
+      } else {
+        toast.success(`${order.tableCode}'s presentation is walking now`);
+      }
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not start the presentation");
+    } finally {
+      setBusyId(null);
     }
-    await refresh();
   }
 
   async function finishShow() {
-    await mockShowQueueService.finishShow();
-    toast.info("Show floor is clear");
-    await refresh();
+    try {
+      await showQueueService.finishShow();
+      toast.info("Show floor is clear");
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not finish the presentation");
+    }
   }
 
   const visible = (orders ?? []).filter((o) => {

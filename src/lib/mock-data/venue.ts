@@ -13,6 +13,8 @@ export const mockVenue: Venue = {
     { day: "Friday", open: "22:00", close: "06:00" },
     { day: "Saturday", open: "22:00", close: "06:00" },
   ],
+  nightStartHour: 18,
+  nightEndHour: 10,
   serviceFees: [
     { id: "fee-service", name: "Service", type: "percentage", value: 5 },
     { id: "fee-tps", name: "TPS", type: "percentage", value: 5 },

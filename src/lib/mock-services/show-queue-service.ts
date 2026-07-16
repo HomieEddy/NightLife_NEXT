@@ -3,25 +3,14 @@
  * (sparkler parades, LED signs). Simpler than a real queue: only one show can
  * be "in progress" at a time, so a second runner sees the floor is busy and
  * waits instead of colliding with the first walk-out.
- * TODO(backend): becomes a venue-scoped row with a DB lock or Redis mutex.
+ * Plan 07 ships ActiveShowLock with SELECT … FOR UPDATE; this mock
+ * stays for the permanent Live Demo sandbox.
  */
 import type { ActiveShow, Order } from "@/lib/types";
+import { showLabelFor } from "@/lib/order-presentation";
 import { delay } from "./delay";
 
 let activeShow: ActiveShow | null = null;
-
-/** An order needs a show if any item carries a "Presentation" modifier. */
-export function orderNeedsShow(order: Order): boolean {
-  return order.items.some((item) => item.modifiers.some((m) => m.groupName === "Presentation"));
-}
-
-/** The presentation label(s) for an order, e.g. "Sparkler parade". */
-export function showLabelFor(order: Order): string {
-  const labels = order.items.flatMap((item) =>
-    item.modifiers.filter((m) => m.groupName === "Presentation").map((m) => m.optionName),
-  );
-  return labels.length > 0 ? labels.join(" + ") : "Presentation";
-}
 
 export const mockShowQueueService = {
   async getActiveShow(): Promise<ActiveShow | null> {

@@ -1,15 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Check,
-  FastForward,
   Loader2,
-  PartyPopper,
   Receipt,
   ReceiptText,
+  Tag,
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -19,13 +18,16 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useGuest } from "@/context/guest-context";
-import { mockAnalyticsService } from "@/lib/mock-services/analytics-service";
-import { mockGuestsService } from "@/lib/mock-services/guests-service";
-import { mockOrdersService, ORDER_FLOW } from "@/lib/mock-services/orders-service";
+import { isDemoMode } from "@/lib/app-mode";
+import { useLiveEvents } from "@/lib/use-live-events";
+import { analyticsService } from "@/lib/services/analytics-service";
+import { guestsService } from "@/lib/services/guests-service";
+import { ordersService, ORDER_FLOW } from "@/lib/services/orders-service";
 import { estimateEtaMinutes, formatEta } from "@/lib/eta";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Order } from "@/lib/types";
+import { DemoClosureApprovalControl, DemoOrderProgressControl } from "@/components/shared/demo-controls";
 
 const STEP_LABELS: Record<(typeof ORDER_FLOW)[number], string> = {
   pending: "Sent",
@@ -94,10 +96,13 @@ export default function GuestOrdersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [advancing, setAdvancing] = useState(false);
   const [requestingClosure, setRequestingClosure] = useState(false);
+  const [approvingClosure, setApprovingClosure] = useState(false);
   const [avgFulfillmentMinutes, setAvgFulfillmentMinutes] = useState(8);
 
   useEffect(() => {
-    mockAnalyticsService.getSummary().then((s) => setAvgFulfillmentMinutes(s.avgFulfillmentMinutes));
+    if (isDemoMode()) {
+      analyticsService.getSummary().then((s) => setAvgFulfillmentMinutes(s.avgFulfillmentMinutes));
+    }
   }, []);
 
   const refresh = useCallback(async () => {
@@ -105,23 +110,27 @@ export default function GuestOrdersPage() {
       setOrders([]);
       return;
     }
-    const result = await mockOrdersService.listGuestOrders(guestName);
+    const result = await ordersService.listGuestOrders(guestName);
     setOrders(result);
     // While waiting for the host to close the tab, watch the session status.
-    // TODO(backend): WebSocket push replaces this poll.
     if (closureStatus === "requested" && sessionId) {
-      const session = await mockGuestsService.getSession(sessionId);
+      const session = await guestsService.getSession(sessionId);
       if (session?.status === "closed") setClosureStatus("closed");
     }
   }, [guestName, closureStatus, sessionId, setClosureStatus]);
 
-  // Poll to simulate live updates.
-  // TODO(backend): replace polling with a WebSocket order-status subscription.
-  useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 5000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  useLiveEvents({
+    scope: "guest",
+    sessionId: sessionId ?? undefined,
+    onEvent: () => refreshRef.current(),
+    fallbackMs: 5000,
+    fallbackRefresh: () => refreshRef.current(),
+  });
 
   useEffect(() => {
     if (closureStatus === "closed") router.push("/guest/receipt");
@@ -130,16 +139,28 @@ export default function GuestOrdersPage() {
   async function requestClosure() {
     if (!sessionId) return;
     setRequestingClosure(true);
-    await mockGuestsService.requestClosure(sessionId);
-    setClosureStatus("requested");
-    setRequestingClosure(false);
-    toast.success("Closure requested — your host will confirm shortly.");
+    try {
+      await guestsService.requestClosure(sessionId);
+      setClosureStatus("requested");
+      toast.success("Closure requested — your host will confirm shortly.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not request tab closure");
+    } finally {
+      setRequestingClosure(false);
+    }
   }
 
   async function simulateClosureApproval() {
     if (!sessionId) return;
-    await mockGuestsService.setSessionStatus(sessionId, "closed");
-    setClosureStatus("closed");
+    setApprovingClosure(true);
+    try {
+      await guestsService.setSessionStatus(sessionId, "closed");
+      setClosureStatus("closed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not close the demo session");
+    } finally {
+      setApprovingClosure(false);
+    }
   }
 
   async function simulateProgress() {
@@ -147,9 +168,14 @@ export default function GuestOrdersPage() {
     const active = orders.find((o) => !["delivered", "cancelled"].includes(o.status));
     if (!active) return;
     setAdvancing(true);
-    await mockOrdersService.advanceOrder(active.id);
-    await refresh();
-    setAdvancing(false);
+    try {
+      await ordersService.advanceOrder(active.id);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not advance the demo order");
+    } finally {
+      setAdvancing(false);
+    }
   }
 
   if (orders === null) {
@@ -170,12 +196,7 @@ export default function GuestOrdersPage() {
     <div className="space-y-4 p-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Your orders</h1>
-        {hasActive && (
-          <Button size="sm" variant="outline" onClick={simulateProgress} disabled={advancing}>
-            <FastForward className="size-3.5" />
-            Simulate progress
-          </Button>
-        )}
+        {hasActive && <DemoOrderProgressControl busy={advancing} onProgress={simulateProgress} />}
       </div>
 
       {orders.length === 0 ? (
@@ -201,6 +222,12 @@ export default function GuestOrdersPage() {
                     {order.items.reduce((n, i) => n + i.quantity, 0)} items ·{" "}
                     {timeAgo(order.placedAt)}
                   </p>
+                  {order.promotionCode && (
+                    <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-primary">
+                      <Tag className="size-3" /> {order.promotionCode}
+                      {order.promotionCents ? ` (−${formatMoney(order.promotionCents / 100)})` : ""}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <StatusBadge status={order.status} pulse={order.status === "pending"} />
@@ -271,14 +298,7 @@ export default function GuestOrdersPage() {
                 appears here.
               </p>
             </div>
-            <div className="space-y-2 rounded-xl border border-dashed p-3">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Prototype control
-              </p>
-              <Button variant="outline" className="w-full" onClick={simulateClosureApproval}>
-                <PartyPopper className="size-4" /> Simulate host approval
-              </Button>
-            </div>
+            <DemoClosureApprovalControl busy={approvingClosure} onApprove={simulateClosureApproval} />
           </CardContent>
         </Card>
       )}

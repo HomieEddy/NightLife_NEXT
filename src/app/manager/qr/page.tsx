@@ -3,17 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import QRCode from "qrcode";
-import { Copy, Download, ExternalLink, Printer, QrCode } from "lucide-react";
+import { Copy, Download, Printer, QrCode, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { DemoManagerGuestFlowAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { venueService } from "@/lib/services/venue-service";
 import type { VenueTable, Zone } from "@/lib/types";
 
 /** Real, scannable QR rendered as inline SVG. */
@@ -39,7 +41,7 @@ export default function ManagerQrPage() {
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    Promise.all([mockVenueService.listTables(), mockVenueService.listZones()]).then(
+    Promise.all([venueService.listTables(), venueService.listZones()]).then(
       ([tableList, zoneList]) => {
         setTables(tableList);
         setZones(zoneList);
@@ -60,12 +62,25 @@ export default function ManagerQrPage() {
   }
 
   async function downloadPng(table: VenueTable) {
-    const dataUrl = await QRCode.toDataURL(tableUrl(table), { width: 1024, margin: 2 });
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = `qr-${table.code.toLowerCase()}.png`;
-    a.click();
-    toast.success(`QR for ${table.code} downloaded`);
+    try {
+      const dataUrl = await QRCode.toDataURL(tableUrl(table), { width: 1024, margin: 2 });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `qr-${table.code.toLowerCase()}.png`;
+      a.click();
+      toast.success(`QR for ${table.code} downloaded`);
+    } catch {
+      toast.error(`Could not generate the QR for ${table.code}`);
+    }
+  }
+
+  async function regenerateToken(table: VenueTable) {
+    try {
+      await venueService.regenerateToken(table.id);
+      toast.success(`QR for ${table.code} regenerated — reprint the code to activate.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not regenerate ${table.code}`);
+    }
   }
 
   const zoneName = (id: string) => zones.find((z) => z.id === id)?.name ?? "";
@@ -81,7 +96,7 @@ export default function ManagerQrPage() {
           title="QR codes"
           description="Each table gets a unique QR. Guests scan to join and order."
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
               <Select value={zoneFilter} onValueChange={setZoneFilter}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="All zones" />
@@ -98,16 +113,11 @@ export default function ManagerQrPage() {
               <Button variant="outline" onClick={() => window.print()}>
                 <Printer className="size-4" /> Print sheet
               </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/g/demo-table">
-                  <ExternalLink className="size-3.5" /> Test guest flow
-                </Link>
-              </Button>
+              <DemoManagerGuestFlowAction />
             </div>
           }
         />
 
-        {/* TODO(backend): QR slugs become signed, revocable tokens; add "regenerate" action. */}
         {tables === null || !origin ? (
           <ListSkeleton rows={6} rowHeight="h-24" />
         ) : (
@@ -138,6 +148,18 @@ export default function ManagerQrPage() {
                     <Button size="sm" variant="outline" onClick={() => downloadPng(table)}>
                       <Download className="size-3.5" /> PNG
                     </Button>
+                    <ConfirmDialog
+                      trigger={
+                        <Button size="sm" variant="outline">
+                          <RefreshCw className="size-3.5" /> Regen
+                        </Button>
+                      }
+                      title={`Regenerate QR for ${table.code}?`}
+                      description="The current printed QR code will stop working. You'll need to reprint it."
+                      confirmLabel="Regenerate"
+                      destructive
+                      onConfirm={() => regenerateToken(table)}
+                    />
                     <Button size="sm" variant="ghost" asChild>
                       <Link href={`/g/${table.qrSlug}`}>
                         <QrCode className="size-3.5" /> Open

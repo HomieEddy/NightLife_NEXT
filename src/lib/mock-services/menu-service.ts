@@ -1,7 +1,6 @@
 /**
- * mockMenuService — future backend boundary for menu & package management.
- * TODO(backend): CRUD against menu_categories / menu_items / packages tables;
- * inventory becomes a stock ledger with per-night counts.
+ * Permanent demo implementation of menu, package and inventory management.
+ * Live mode persists the same service contract and uses a stock ledger.
  */
 import type {
   BottlePackage,
@@ -9,6 +8,7 @@ import type {
   MenuCategory,
   MenuItem,
   PackageComponent,
+  PackageQuote,
   SoldOutEvent,
   StockMovement,
   StockMovementType,
@@ -22,7 +22,7 @@ import {
 } from "@/lib/mock-data/menu";
 import { clone, delay, uid } from "./delay";
 
-const categories: MenuCategory[] = clone(mockCategories);
+let categories: MenuCategory[] = clone(mockCategories);
 let items: MenuItem[] = clone(mockMenuItems);
 let packages: BottlePackage[] = clone(mockPackages);
 let happyHourRules: HappyHourRule[] = clone(mockHappyHourRules);
@@ -50,18 +50,6 @@ function flagSoldOut(item: MenuItem) {
     { id: uid("so"), itemId: item.id, itemName: item.name, at: new Date().toISOString() },
     ...soldOutEvents,
   ].slice(0, 20);
-}
-
-/** Derived pricing/availability for a package, from live item data. */
-export interface PackageQuote {
-  /** Sum of component prices × quantities at current menu prices. */
-  componentsValue: number;
-  /** componentsValue − package price (never negative). */
-  savings: number;
-  /** How many of this package the current inventory can fulfill. */
-  maxQuantity: number;
-  /** Resolved component lines for display. */
-  lines: { menuItemId: string; name: string; quantity: number; unitPrice: number }[];
 }
 
 function quoteFor(pkg: BottlePackage): PackageQuote {
@@ -100,6 +88,32 @@ export const mockMenuService = {
     await delay();
     const result = includeInactive ? categories : categories.filter((c) => c.isActive);
     return clone(result).sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+
+  async createCategory(input: Omit<MenuCategory, "id">): Promise<MenuCategory> {
+    await delay(500);
+    const category: MenuCategory = { id: uid("cat"), ...input };
+    categories = [...categories, category];
+    return clone(category);
+  },
+
+  async updateCategory(
+    categoryId: string,
+    patch: Partial<Omit<MenuCategory, "id" | "venueId">>,
+  ): Promise<MenuCategory | null> {
+    await delay(400);
+    const category = categories.find((entry) => entry.id === categoryId);
+    if (!category) return null;
+    Object.assign(category, patch);
+    return clone(category);
+  },
+
+  async deleteCategory(categoryId: string): Promise<void> {
+    await delay(400);
+    if (items.some((item) => item.categoryId === categoryId)) {
+      throw new Error("Category still has menu items");
+    }
+    categories = categories.filter((category) => category.id !== categoryId);
   },
 
   async listItems(categoryId?: string): Promise<MenuItem[]> {
@@ -183,7 +197,7 @@ export const mockMenuService = {
 
   // ---------- Inventory ----------
   // All stock changes flow through movements — never a raw column write.
-  // TODO(backend): stock_movements ledger; inventory = SUM(delta) per item.
+  // Live mode persists this as an append-only stock_movements ledger.
 
   async listMovements(limit = 25): Promise<StockMovement[]> {
     await delay(250);
@@ -234,7 +248,7 @@ export const mockMenuService = {
 
   /**
    * Decrements inventory for sold lines. Package lines (pkg-*) decrement each
-   * component. TODO(backend): move into the order transaction with row locks.
+   * component. Live mode performs the same draw-down transactionally with row locks.
    */
   async recordSale(lines: { menuItemId: string; quantity: number }[]): Promise<void> {
     for (const line of lines) {
@@ -299,3 +313,27 @@ export const mockMenuService = {
     happyHourRules = happyHourRules.filter((r) => r.id !== ruleId);
   },
 };
+
+/**
+ * Demo-track internal (not part of the cross-track service contract — the live
+ * order core reverses its own ledger rows): credits a cancelled order's draw-down
+ * back as adjustment movements, with recordSale's package expansion. May over-credit
+ * if the original draw-down was clamped at zero stock; acceptable in the sandbox.
+ */
+export async function restoreSale(
+  lines: { menuItemId: string; quantity: number }[],
+  note = "Order cancelled",
+): Promise<void> {
+  for (const line of lines) {
+    const pkg = packages.find((p) => p.id === line.menuItemId);
+    const components: PackageComponent[] = pkg
+      ? pkg.components.map((c) => ({ ...c, quantity: c.quantity * line.quantity }))
+      : [{ menuItemId: line.menuItemId, quantity: line.quantity }];
+    for (const component of components) {
+      const item = items.find((i) => i.id === component.menuItemId);
+      if (!item) continue;
+      item.inventory += component.quantity;
+      logMovement(item, "adjustment", component.quantity, note);
+    }
+  }
+}

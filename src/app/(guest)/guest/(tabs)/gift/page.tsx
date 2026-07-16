@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Gift, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,11 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { PageHeader } from "@/components/shared/page-header";
+import { ClosureGate } from "@/components/guest/closure-gate";
 import { useGuest } from "@/context/guest-context";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
-import { mockOrdersService } from "@/lib/mock-services/orders-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { menuService } from "@/lib/services/menu-service";
+import { ordersService } from "@/lib/services/orders-service";
+import { venueService } from "@/lib/services/venue-service";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { MenuItem, VenueTable } from "@/lib/types";
@@ -34,7 +35,7 @@ export default function GuestGiftPage() {
 
   useEffect(() => {
     if (!table) return;
-    Promise.all([mockMenuService.listItems(), mockVenueService.listTables()]).then(
+    Promise.all([menuService.listItems(), venueService.listTables()]).then(
       ([allItems, allTables]) => {
         setItems(
           allItems.filter((i) => i.isAvailable && i.inventory > 0 && i.price <= MAX_GIFT_PRICE),
@@ -54,7 +55,7 @@ export default function GuestGiftPage() {
   async function send() {
     if (!table || !selectedItem || !selectedTable) return;
     setSending(true);
-    await mockOrdersService.sendGift({
+    await ordersService.sendGift({
       fromTableId: table.tableId,
       fromTableCode: table.tableCode,
       fromZoneId: table.zoneId,
@@ -78,17 +79,14 @@ export default function GuestGiftPage() {
           icon={QrCode}
           title="No table joined"
           description="Scan the QR code on your table first."
-          action={
-            <Button asChild>
-              <Link href="/g/demo-table">Simulate scanning a QR</Link>
-            </Button>
-          }
+          action={<DemoQrScanAction />}
         />
       </div>
     );
   }
 
   return (
+    <ClosureGate>
     <div className="space-y-5 p-4 animate-fade-in">
       <PageHeader
         title="Send a bottle"
@@ -180,5 +178,6 @@ export default function GuestGiftPage() {
         }
       />
     </div>
+    </ClosureGate>
   );
 }

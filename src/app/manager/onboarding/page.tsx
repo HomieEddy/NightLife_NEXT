@@ -16,9 +16,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
-import { mockStaffService } from "@/lib/mock-services/staff-service";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { menuService } from "@/lib/services/menu-service";
+import { staffService } from "@/lib/services/staff-service";
+import { venueService } from "@/lib/services/venue-service";
 import { setManagerOnboarded } from "@/lib/onboarding";
 import { ZONE_SWATCH } from "@/lib/zone-colors";
 import { cn } from "@/lib/utils";
@@ -62,11 +62,11 @@ export default function ManagerOnboardingPage() {
 
   useEffect(() => {
     Promise.all([
-      mockVenueService.getVenue(),
-      mockVenueService.listZones(),
-      mockVenueService.listTables(),
-      mockMenuService.listCategories(true),
-      mockStaffService.listStaff(),
+      venueService.getVenue(),
+      venueService.listZones(),
+      venueService.listTables(),
+      menuService.listCategories(true),
+      staffService.listStaff(),
     ]).then(([venueData, zoneList, tables, catList, staff]) => {
       setVenue(venueData);
       setFees(venueData.serviceFees);
@@ -117,7 +117,7 @@ export default function ManagerOnboardingPage() {
     if (!venue || !me) return;
     setLaunching(true);
     // Apply every edit back to the live venue config.
-    await mockVenueService.updateVenue({
+    await venueService.updateVenue({
       name: venue.name.trim(),
       city: venue.city.trim(),
       address: venue.address.trim(),
@@ -126,15 +126,15 @@ export default function ManagerOnboardingPage() {
       autoApproveGuests: venue.autoApproveGuests,
     });
     for (const zone of zones) {
-      await mockVenueService.updateZone(zone.id, { name: zone.name.trim(), color: zone.color });
+      await venueService.updateZone(zone.id, { name: zone.name.trim(), color: zone.color });
     }
-    const liveCategories = await mockMenuService.listCategories(true);
+    const liveCategories = await menuService.listCategories(true);
     for (const cat of categories) {
       const live = liveCategories.find((c) => c.id === cat.id);
-      if (live && live.isActive !== cat.isActive) await mockMenuService.toggleCategory(cat.id);
+      if (live && live.isActive !== cat.isActive) await menuService.toggleCategory(cat.id);
     }
     if (managerId) {
-      await mockStaffService.updateStaff(managerId, {
+      await staffService.updateStaff(managerId, {
         name: me.name.trim(),
         email: me.email.trim().toLowerCase(),
       });

@@ -1,0 +1,821 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Platform tenant — one per venue. Platform context (unscoped).
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("starter")
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  jobRuns JobRun[]
+
+  @@map("tenants")
+}
+
+/// Background job execution log (AD-9). Platform context.
+model JobRun {
+  id        String    @id @default(cuid())
+  tenantId  String    @map("tenant_id")
+  jobName   String    @map("job_name")
+  status    String    @default("pending")
+  payload   Json?
+  result    Json?
+  error     String?
+  startedAt DateTime? @map("started_at") @db.Timestamptz
+  endedAt   DateTime? @map("ended_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, jobName])
+  @@map("job_runs")
+}
+
+// ── Better Auth core tables ─────────────────────────────────────────
+
+model User {
+  id              String    @id
+  name            String
+  email           String    @unique
+  emailVerified   Boolean   @default(false) @map("email_verified")
+  image           String?
+  isPlatformAdmin Boolean   @default(false) @map("is_platform_admin")
+  role            String?
+  banned          Boolean?
+  banReason       String?   @map("ban_reason")
+  banExpires      DateTime? @map("ban_expires") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  sessions      Session[]
+  accounts      Account[]
+  members       Member[]
+  invitations   Invitation[]
+  staffProfile  StaffProfile?
+  staffShifts   StaffShift[]
+
+  @@map("users")
+}
+
+model Session {
+  id                   String    @id
+  userId               String    @map("user_id")
+  token                String    @unique
+  expiresAt            DateTime  @map("expires_at") @db.Timestamptz
+  ipAddress            String?   @map("ip_address")
+  userAgent            String?   @map("user_agent")
+  impersonatedBy       String?   @map("impersonated_by")
+  activeOrganizationId String?   @map("active_organization_id")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id
+  userId                String    @map("user_id")
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz
+  scope                 String?
+  idToken               String?   @map("id_token")
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("verifications")
+}
+
+// ── Organization plugin tables ──────────────────────────────────────
+// Organization = venue (1:1 with Tenant). Member roles = StaffRole.
+
+model Organization {
+  id        String    @id
+  name      String
+  slug      String    @unique
+  logo      String?
+  metadata  String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  members     Member[]
+  invitations Invitation[]
+  venue       Venue?
+
+  @@map("organizations")
+}
+
+model Member {
+  id             String   @id
+  userId         String   @map("user_id")
+  organizationId String   @map("organization_id")
+  role           String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("members")
+}
+
+model Invitation {
+  id             String   @id
+  email          String
+  inviterId      String   @map("inviter_id")
+  organizationId String   @map("organization_id")
+  role           String
+  status         String   @default("pending")
+  draftName      String?  @map("draft_name")
+  draftPhone     String?  @map("draft_phone")
+  floorRole      StaffRole? @map("floor_role")
+  assignedZoneIds String[] @default([]) @map("assigned_zone_ids")
+  expiresAt      DateTime @map("expires_at") @db.Timestamptz
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  inviter      User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
+}
+
+// ── Domain extension ────────────────────────────────────────────────
+// Venue-domain fields that don't belong in the auth User model.
+
+enum StaffRole {
+  manager
+  host
+  bartender
+  runner
+}
+
+model StaffProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique @map("user_id")
+  phone           String   @default("")
+  role            StaffRole @default(runner)
+  avatarInitials  String   @map("avatar_initials")
+  assignedZoneIds String[] @default([]) @map("assigned_zone_ids")
+  isOnShift       Boolean  @default(false) @map("is_on_shift")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("staff_profiles")
+}
+
+// ── Venue, zones & tables (plan 03) ─────────────────────────────────
+// Venue shares its primary key with Organization (1:1) — name/slug stay
+// on Organization, this table holds the rest of the config. JSONB columns
+// are Zod-validated on write (src/server/schemas/venue.ts), not trusted on read.
+
+model Venue {
+  id                     String   @id
+  address                String
+  city                   String
+  timezone               String
+  currency               String   @default("USD")
+  openingHours           Json     @map("opening_hours")
+  serviceFees            Json     @map("service_fees")
+  floorMap               Json     @map("floor_map")
+  autoApproveGuests      Boolean  @default(false) @map("auto_approve_guests")
+  logoInitials           String   @map("logo_initials")
+  slaThresholds          Json     @map("sla_thresholds")
+  lastCallAutoFlagTables Boolean  @default(true) @map("last_call_auto_flag_tables")
+  nightStartHour         Int      @default(18) @map("night_start_hour")
+  nightEndHour           Int      @default(10) @map("night_end_hour")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization   Organization    @relation(fields: [id], references: [id], onDelete: Cascade)
+  zones          Zone[]
+  tables         VenueTable[]
+  shifts         StaffShift[]
+  menuCategories MenuCategory[]
+  menuItems      MenuItem[]
+  packages       BottlePackage[]
+  happyHourRules HappyHourRule[]
+  stockMovements StockMovement[]
+  soldOutEvents  SoldOutEvent[]
+  orders         Order[]
+  guestSessions  GuestSession[]
+  helpRequests   HelpRequest[]
+  reservations   Reservation[]
+  venueEvents    VenueEvent[]
+  promotions     Promotion[]
+  broadcasts     Broadcast[]
+  floorState     VenueFloorState?
+  activeShow     ActiveShowLock?
+  chatMessages   ChatMessage[]
+  nightlyRollups NightlyRollup[]
+  savedReports   SavedReport[]
+
+  @@map("venues")
+}
+
+/// tableCount is derived by count, never stored (DDD §4).
+model Zone {
+  id          String   @id @default(cuid())
+  venueId     String   @map("venue_id")
+  name        String
+  description String   @default("")
+  color       String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue  Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  tables VenueTable[]
+
+  @@index([venueId])
+  @@map("zones")
+}
+
+enum TableStatus {
+  open
+  occupied
+  reserved
+  closed
+}
+
+model VenueTable {
+  id           String      @id @default(cuid())
+  venueId      String      @map("venue_id")
+  zoneId       String      @map("zone_id")
+  code         String
+  label        String
+  seats        Int
+  minimumSpend Float?      @map("minimum_spend")
+  status       TableStatus @default(open)
+  qrSlug       String      @unique @map("qr_slug")
+  mapX         Float?      @map("map_x")
+  mapY         Float?      @map("map_y")
+  /// Reserved for plan 06 (signed QR tokens) — bumped to invalidate old QR codes.
+  tokenVersion Int         @default(0) @map("token_version")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  zone  Zone  @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+
+  @@index([venueId])
+  @@index([zoneId])
+  @@map("venue_tables")
+}
+
+/// One recurring weekly shift block owned by a real venue member.
+model StaffShift {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  staffId   String   @map("staff_id")
+  dayOfWeek Int      @map("day_of_week")
+  startTime String   @map("start_time")
+  endTime   String   @map("end_time")
+  zoneId    String?  @map("zone_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  staff User  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
+  @@map("staff_shifts")
+}
+
+// ── Menu, inventory & packages (plan 04) ──────────────────────────────
+
+model MenuCategory {
+  id          String   @id @default(cuid())
+  venueId     String   @map("venue_id")
+  name        String
+  description String   @default("")
+  sortOrder   Int      @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  modifierGroups Json  @default("[]") @map("modifier_groups")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  items MenuItem[]
+
+  @@index([venueId])
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id             String   @id @default(cuid())
+  venueId        String   @map("venue_id")
+  categoryId     String   @map("category_id")
+  name           String
+  description    String   @default("")
+  priceCents     Int      @map("price_cents")
+  icon           String   @default("champagne")
+  tags           String[] @default([])
+  isAvailable    Boolean  @default(true) @map("is_available")
+  /// Cached running balance — always updated inside the same transaction as a StockMovement row.
+  inventory      Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue      Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  category   MenuCategory    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  movements  StockMovement[]
+  components PackageComponent[]
+
+  @@index([venueId])
+  @@index([categoryId])
+  @@map("menu_items")
+}
+
+/// Append-only ledger — no UPDATE/DELETE in prod (DDD §6).
+model StockMovement {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  menuItemId String   @map("menu_item_id")
+  itemName   String   @map("item_name")
+  type       String
+  delta      Int
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  venue    Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
+  @@index([menuItemId])
+  @@map("stock_movements")
+}
+
+/// Logged the moment an item sells out or gets manually 86'd.
+model SoldOutEvent {
+  id       String   @id @default(cuid())
+  venueId  String   @map("venue_id")
+  itemId   String   @map("item_id")
+  itemName String   @map("item_name")
+  at       DateTime @default(now()) @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
+  @@map("sold_out_events")
+}
+
+model BottlePackage {
+  id          String   @id @default(cuid())
+  venueId     String   @map("venue_id")
+  name        String
+  description String   @default("")
+  priceCents  Int      @map("price_cents")
+  isActive    Boolean  @default(true) @map("is_active")
+  modifierGroups Json  @default("[]") @map("modifier_groups")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue      Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  components PackageComponent[]
+
+  @@index([venueId])
+  @@map("bottle_packages")
+}
+
+model PackageComponent {
+  id        String @id @default(cuid())
+  packageId String @map("package_id")
+  itemId    String @map("item_id")
+  quantity  Int
+
+  package  BottlePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  menuItem MenuItem      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([packageId, itemId])
+  @@map("package_components")
+}
+
+model HappyHourRule {
+  id                   String   @id @default(cuid())
+  venueId              String   @map("venue_id")
+  name                 String
+  daysOfWeek           Int[]    @map("days_of_week")
+  startTime            String   @map("start_time")
+  endTime              String   @map("end_time")
+  discountPct          Int      @map("discount_pct")
+  appliesToCategoryIds String[] @map("applies_to_category_ids")
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId])
+  @@map("happy_hour_rules")
+}
+
+// ── Orders & fees (plan 05) ─────────────────────────────────────────
+
+enum OrderStatus {
+  pending
+  accepted
+  preparing
+  ready
+  delivered
+  cancelled
+}
+
+model Order {
+  id                 String      @id @default(cuid())
+  venueId            String      @map("venue_id")
+  code               String
+  /// Nullable until plan 06 backfills guest sessions.
+  sessionId          String?     @map("session_id")
+  tableId            String      @map("table_id")
+  tableCode          String      @map("table_code")
+  zoneId             String      @map("zone_id")
+  zoneName           String      @map("zone_name")
+  guestName          String      @map("guest_name")
+  subtotalCents      Int         @map("subtotal_cents")
+  discountCents      Int         @default(0) @map("discount_cents")
+  totalFeeCents      Int         @map("total_fee_cents")
+  tipCents           Int         @map("tip_cents")
+  totalCents         Int         @map("total_cents")
+  status             OrderStatus @default(pending)
+  placedAt           DateTime    @default(now()) @map("placed_at") @db.Timestamptz
+  updatedAt          DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  claimedByStaffId   String?     @map("claimed_by_staff_id")
+  claimedByStaffName String?     @map("claimed_by_staff_name")
+  giftToTableId      String?     @map("gift_to_table_id")
+  giftToTableCode    String?     @map("gift_to_table_code")
+  giftNote           String?     @map("gift_note")
+  promotionId        String?     @map("promotion_id")
+  promotionCode      String?     @map("promotion_code")
+  promotionCents     Int         @default(0) @map("promotion_cents")
+
+  venue    Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  session  GuestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  items    OrderItem[]
+  feeLines FeeLine[]
+
+  @@index([venueId, placedAt])
+  @@index([venueId, status])
+  @@index([sessionId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String @id @default(cuid())
+  orderId    String @map("order_id")
+  menuItemId String @map("menu_item_id")
+  name       String
+  quantity   Int
+  unitCents  Int    @map("unit_cents")
+  /// Modifier snapshot — JSONB array of { groupName, optionName, deltaCents }.
+  modifiers  Json   @default("[]")
+  note       String?
+  packageId  String? @map("package_id")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+/// Snapshot of each fee applied at order time — immune to later fee edits.
+model FeeLine {
+  id         String @id @default(cuid())
+  orderId    String @map("order_id")
+  feeId      String @map("fee_id")
+  feeName    String @map("fee_name")
+  feeType    String @map("fee_type")
+  feeValue   Int    @map("fee_value")
+  amountCents Int   @map("amount_cents")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("fee_lines")
+}
+
+// ── Guest sessions & help requests (plan 06) ────────────────────────
+
+enum GuestSessionStatus {
+  pending
+  approved
+  denied
+  closure_requested @map("closure-requested")
+  closed
+}
+
+enum SettlementMethod {
+  terminal
+  cash
+  house
+}
+
+model GuestSession {
+  id          String             @id @default(cuid())
+  venueId     String             @map("venue_id")
+  tableId     String             @map("table_id")
+  tableCode   String             @map("table_code")
+  zoneName    String             @map("zone_name")
+  displayName String             @map("display_name")
+  partySize   Int                @map("party_size")
+  status      GuestSessionStatus @default(pending)
+  settledExternallyAt DateTime? @map("settled_externally_at") @db.Timestamptz
+  settlementMethod SettlementMethod? @map("settlement_method")
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue        Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  orders       Order[]
+  helpRequests HelpRequest[]
+
+  @@index([venueId, status])
+  @@index([tableId])
+  @@map("guest_sessions")
+}
+
+enum HelpRequestStatus {
+  open
+  acknowledged
+  resolved
+}
+
+model HelpRequest {
+  id        String            @id @default(cuid())
+  venueId   String            @map("venue_id")
+  sessionId String            @map("session_id")
+  tableCode String            @map("table_code")
+  zoneName  String            @map("zone_name")
+  guestName String            @map("guest_name")
+  type      String
+  status    HelpRequestStatus @default(open)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue   Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  session GuestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, status])
+  @@index([sessionId])
+  @@map("help_requests")
+}
+
+// ── Realtime & floor coordination (plan 07) ─────────────────────────
+
+/// Append-only audit log — every domain event is persisted before NOTIFY.
+model DomainEvent {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  type      String
+  payload   Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId, createdAt])
+  @@map("domain_events")
+}
+
+/// Immutable — INSERT only, no UPDATE/DELETE in prod (DDD §6).
+model Broadcast {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  message   String
+  sentBy    String   @map("sent_by")
+  sentAt    DateTime @default(now()) @map("sent_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, sentAt])
+  @@map("broadcasts")
+}
+
+/// Singleton per venue — last call flag + show lock live here.
+model VenueFloorState {
+  venueId          String    @id @map("venue_id")
+  lastCallActive   Boolean   @default(false) @map("last_call_active")
+  lastCallStartedAt DateTime? @map("last_call_started_at") @db.Timestamptz
+  lastCallStartedBy String?  @map("last_call_started_by")
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@map("venue_floor_states")
+}
+
+/// Single-row venue-scoped lock for bottle-presentation walk-outs (INV-F1).
+/// `SELECT … FOR UPDATE` prevents two concurrent startShow calls.
+model ActiveShowLock {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  orderId    String   @map("order_id")
+  tableCode  String   @map("table_code")
+  zoneName   String   @map("zone_name")
+  label      String
+  staffName  String   @map("staff_name")
+  startedAt  DateTime @default(now()) @map("started_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId])
+  @@map("active_show_locks")
+}
+
+/// Append-only chat ledger — INSERT only (DDD §6).
+model ChatMessage {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  channel    String
+  authorId   String   @map("author_id")
+  authorName String   @map("author_name")
+  authorRole String   @map("author_role")
+  body       String
+  sentAt     DateTime @default(now()) @map("sent_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, channel, sentAt])
+  @@map("chat_messages")
+}
+
+// ── Reservations, events & promotions (plan 08) ─────────────────────
+
+enum ReservationStatus {
+  requested
+  confirmed
+  seated
+  cancelled
+  completed
+}
+
+model Reservation {
+  id        String            @id @default(cuid())
+  venueId   String            @map("venue_id")
+  tableId   String?           @map("table_id")
+  zoneId    String?           @map("zone_id")
+  guestName String            @map("guest_name")
+  partySize Int               @map("party_size")
+  startsAt  DateTime          @map("starts_at") @db.Timestamptz
+  endsAt    DateTime?         @map("ends_at") @db.Timestamptz
+  status    ReservationStatus @default(requested)
+  note      String?
+  source    String            @default("manager")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, startsAt])
+  @@index([venueId, status])
+  @@map("reservations")
+}
+
+enum EventStatus {
+  draft
+  published
+  live
+  ended
+}
+
+model VenueEvent {
+  id               String      @id @default(cuid())
+  venueId          String      @map("venue_id")
+  name             String
+  description      String      @default("")
+  startsAt         DateTime    @map("starts_at") @db.Timestamptz
+  endsAt           DateTime    @map("ends_at") @db.Timestamptz
+  zoneId           String?     @map("zone_id")
+  capacity         Int
+  status           EventStatus @default(draft)
+  guestlistEnabled Boolean     @default(false) @map("guestlist_enabled")
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue  Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guests EventGuest[]
+
+  @@index([venueId, startsAt])
+  @@map("venue_events")
+}
+
+model EventGuest {
+  id        String   @id @default(cuid())
+  eventId   String   @map("event_id")
+  name      String
+  partySize Int      @map("party_size")
+  status    String   @default("invited")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  event VenueEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("event_guests")
+}
+
+/// Promotion status is derived from startsAt/endsAt — no stored status column.
+/// Active = now ∈ [startsAt, endsAt], scheduled = now < startsAt, expired = now > endsAt.
+model Promotion {
+  id                   String   @id @default(cuid())
+  venueId              String   @map("venue_id")
+  code                 String
+  name                 String
+  type                 String
+  value                Float
+  appliesToCategoryIds String[] @default([]) @map("applies_to_category_ids")
+  startsAt             DateTime @map("starts_at") @db.Timestamptz
+  endsAt               DateTime @map("ends_at") @db.Timestamptz
+  redemptionCount      Int      @default(0) @map("redemption_count")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, code])
+  @@index([venueId])
+  @@map("promotions")
+}
+
+// ── Analytics & reports (plan 09) ──────────────────────────────────
+
+/// One row per venue-night with pre-aggregated metrics. Idempotent upsert
+/// by (venueId, nightDate). JSONB columns carry a `v` field for shape versioning.
+model NightlyRollup {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  nightDate       String   @map("night_date")
+  revenueCents    Int      @map("revenue_cents")
+  orderCount      Int      @map("order_count")
+  avgOrderCents   Int      @map("avg_order_cents")
+  /// { v: 1, zones: [{ zoneId, zoneName, revenueCents, orderCount }] }
+  byZone          Json     @map("by_zone")
+  /// { v: 1, items: [{ name, count, revenueCents, categoryId? }] }
+  topItems        Json     @map("top_items")
+  /// { v: 1, staff: [{ staffId, name, role, ordersDelivered, avgDeliveryMinutes, revenueServedCents }] }
+  staffPerformance Json    @map("staff_performance")
+  /// { v: 1, categories: [{ categoryId, categoryName, unitsSold }] }
+  categoryDepletion Json   @map("category_depletion")
+  computedAt      DateTime @default(now()) @map("computed_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, nightDate])
+  @@map("nightly_rollups")
+}
+
+/// Saved report configuration — metrics to include, rolling window, optional schedule.
+model SavedReport {
+  id          String   @id @default(cuid())
+  venueId     String   @map("venue_id")
+  name        String
+  /// JSON array of metric ids: ["revenue","zones","top-items","staff","inventory"]
+  metrics     Json
+  rangeDays   Int      @map("range_days")
+  /// Null = on-demand only. { frequency: "daily"|"weekly"|"monthly", recipient: string }
+  schedule    Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  venue Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  runs  ReportRun[]
+
+  @@index([venueId])
+  @@map("saved_reports")
+}
+
+/// Append-only log of report executions. Tracks when and how reports ran.
+model ReportRun {
+  id        String   @id @default(cuid())
+  reportId  String   @map("report_id")
+  ranAt     DateTime @default(now()) @map("ran_at") @db.Timestamptz
+  trigger   String   @default("manual")
+  fromDate  String   @map("from_date")
+  toDate    String   @map("to_date")
+
+  report SavedReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("report_runs")
+}

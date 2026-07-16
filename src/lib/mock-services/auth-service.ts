@@ -1,6 +1,6 @@
 /**
  * mockAuthService — demo sign-in only. No real auth/session yet.
- * TODO(backend): replace with real authentication (password/PIN, sessions, RBAC).
+ * Permanent demo personas; live mode uses Better Auth sessions and RBAC.
  */
 import type { AuthUser, SignInInput } from "@/lib/types";
 import { mockPersonas } from "@/lib/mock-data/auth";

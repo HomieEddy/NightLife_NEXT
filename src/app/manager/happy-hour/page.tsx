@@ -16,7 +16,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { EntityChip } from "@/components/shared/entity-chip";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
+import { menuService } from "@/lib/services/menu-service";
 import { useHighlight } from "@/lib/use-highlight";
 import { cn } from "@/lib/utils";
 import type { HappyHourRule, MenuCategory } from "@/lib/types";
@@ -47,8 +47,8 @@ function HappyHourContent() {
 
   const refresh = useCallback(async () => {
     const [ruleList, catList] = await Promise.all([
-      mockMenuService.listHappyHourRules(),
-      mockMenuService.listCategories(true),
+      menuService.listHappyHourRules(),
+      menuService.listCategories(true),
     ]);
     setRules(ruleList);
     setCategories(catList);
@@ -59,8 +59,7 @@ function HappyHourContent() {
   }, [refresh]);
 
   async function toggle(rule: HappyHourRule) {
-    // TODO(backend): pricing engine applies active rules at order time.
-    await mockMenuService.toggleHappyHourRule(rule.id);
+    await menuService.toggleHappyHourRule(rule.id);
     toast.success(`${rule.name} ${rule.isActive ? "deactivated" : "activated"}`);
     await refresh();
   }
@@ -94,10 +93,10 @@ function HappyHourContent() {
     setSaving(true);
     const input = { ...draft, name: draft.name.trim() };
     if (editingId) {
-      await mockMenuService.updateHappyHourRule(editingId, input);
+      await menuService.updateHappyHourRule(editingId, input);
       toast.success(`${input.name} updated`);
     } else {
-      await mockMenuService.createHappyHourRule(input);
+      await menuService.createHappyHourRule(input);
       toast.success(`${input.name} created`);
     }
     setSaving(false);
@@ -106,7 +105,7 @@ function HappyHourContent() {
   }
 
   async function remove(rule: HappyHourRule) {
-    await mockMenuService.deleteHappyHourRule(rule.id);
+    await menuService.deleteHappyHourRule(rule.id);
     toast.info(`${rule.name} deleted`);
     await refresh();
   }

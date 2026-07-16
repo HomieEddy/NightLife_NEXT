@@ -1,31 +1,37 @@
 /**
  * mockOrdersService — future backend boundary for order lifecycle.
- * TODO(backend): replace with API routes backed by PostgreSQL + WebSocket pushes.
+ * The permanent demo counterpart to transactional live orders and SSE updates.
  */
 import type { CartLine, MenuItem, Order, OrderStatus } from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
-import { mockMenuService } from "./menu-service";
+import { bestHappyHourDiscount } from "@/lib/happy-hour";
+import { orderLineSubtotal } from "@/lib/order-line";
+import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
+import { mockGuestsService } from "./guests-service";
+import { mockMenuService, restoreSale } from "./menu-service";
 import { mockVenueService } from "./venue-service";
 import { clone, delay, uid } from "./delay";
+
+export { nextStatus, ORDER_FLOW };
 
 // Module-level in-memory store: mutations persist across pages within a session,
 // simulating shared state between guest and staff surfaces.
 let orders: Order[] = clone(mockOrders);
 let orderCounter = 39;
 
-export const ORDER_FLOW = [
-  "pending",
-  "accepted",
-  "preparing",
-  "ready",
-  "delivered",
-] as const satisfies readonly OrderStatus[];
-
-export function nextStatus(status: OrderStatus): OrderStatus | null {
-  const i = (ORDER_FLOW as readonly OrderStatus[]).indexOf(status);
-  return i >= 0 && i < ORDER_FLOW.length - 1 ? ORDER_FLOW[i + 1] : null;
+/** Once a tab closure is requested the session takes no new orders — UI gates are advisory, this is the wall. */
+async function assertSessionOrderable(sessionId: string | undefined): Promise<void> {
+  if (!sessionId) return;
+  const session = await mockGuestsService.getSession(sessionId);
+  if (!session) return;
+  if (session.status === "closure-requested") {
+    throw new Error("Your tab is being closed — ordering is paused until the host settles it.");
+  }
+  if (session.status === "closed") {
+    throw new Error("This tab is closed. Scan the table QR code to start a new session.");
+  }
 }
 
 export const mockOrdersService = {
@@ -58,17 +64,44 @@ export const mockOrdersService = {
     sessionId?: string;
     lines: CartLine[];
     tip: number;
+    promoCode?: string;
+    promoDiscount?: number;
+    promoId?: string;
   }): Promise<Order> {
     await delay(700);
-    const subtotal = input.lines.reduce((sum, line) => {
-      const modTotal = line.modifiers.reduce((s, m) => s + m.priceDelta, 0);
-      return sum + (line.menuItem.price + modTotal) * line.quantity;
-    }, 0);
+    await assertSessionOrderable(input.sessionId);
+    const subtotal = input.lines.reduce(
+      (sum, line) =>
+        sum + orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers),
+      0,
+    );
     // Live settings, so fee edits in /manager/settings apply to new orders.
-    const venue = mockVenueService.getVenueSnapshot();
-    const feeBreakdown = computeFeeLines(subtotal, venue);
-    const serviceFee = feeBreakdown.reduce((sum, l) => sum + l.amount, 0);
-    const now = new Date().toISOString();
+    const venue = await mockVenueService.getVenueSnapshot();
+
+    // Happy hour discounts covered category lines — same rule selection as the
+    // live pricing engine (src/server/pricing.ts), applied here in dollars.
+    const happyHourRules = await mockMenuService.listHappyHourRules();
+    const placedAt = new Date();
+    let happyHourDiscount = 0;
+    let happyHourRuleId: string | undefined;
+    for (const line of input.lines) {
+      const best = bestHappyHourDiscount(
+        happyHourRules,
+        line.menuItem.categoryId ?? "packages",
+        placedAt,
+      );
+      if (!best) continue;
+      const lineTotal = orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers);
+      happyHourDiscount += Math.round(lineTotal * best.discountPct) / 100;
+      happyHourRuleId = best.ruleId;
+    }
+    happyHourDiscount = Math.round(happyHourDiscount * 100) / 100;
+
+    // Promotions stack after happy hour, mirroring the live engine's order.
+    const afterDiscounts = subtotal - happyHourDiscount - (input.promoDiscount ?? 0);
+    const feeBreakdown = computeFeeLines(afterDiscounts, venue);
+    const serviceFee = computeServiceFee(afterDiscounts, venue);
+    const now = placedAt.toISOString();
     const order: Order = {
       id: uid("ord"),
       code: `A-${String(orderCounter++).padStart(3, "0")}`,
@@ -92,15 +125,40 @@ export const mockOrdersService = {
       serviceFee,
       feeBreakdown,
       tip: input.tip,
-      total: Math.round((subtotal + serviceFee + input.tip) * 100) / 100,
+      total: Math.round((afterDiscounts + serviceFee + input.tip) * 100) / 100,
+      promotionId: input.promoId,
+      promotionCode: input.promoCode,
+      promotionCents: input.promoDiscount ? Math.round(input.promoDiscount * 100) : undefined,
+      happyHourRuleId: happyHourDiscount > 0 ? happyHourRuleId : undefined,
+      happyHourCents: happyHourDiscount > 0 ? Math.round(happyHourDiscount * 100) : undefined,
       status: "pending",
       placedAt: now,
       updatedAt: now,
     };
     orders = [order, ...orders];
     // Business logic: selling bottles (or packages) draws down tonight's inventory.
+    const [categories, packages] = await Promise.all([
+      mockMenuService.listCategories(true),
+      mockMenuService.listPackages(true),
+    ]);
+    const washerLines = input.lines.flatMap((line) => {
+      const groups = packages.find((pkg) => pkg.id === line.menuItem.id)?.modifierGroups
+        ?? categories.find((category) => category.id === line.menuItem.categoryId)?.modifierGroups
+        ?? [];
+      return line.modifiers.flatMap((modifier) => {
+        const option = groups
+          .find((group) => group.id === modifier.groupId)
+          ?.options.find((candidate) => candidate.id === modifier.optionId);
+        return option?.inventoryItemId
+          ? [{ menuItemId: option.inventoryItemId, quantity: modifier.quantity }]
+          : [];
+      });
+    });
     await mockMenuService.recordSale(
-      order.items.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
+      [
+        ...order.items.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
+        ...washerLines,
+      ],
     );
     return clone(order);
   },
@@ -122,10 +180,11 @@ export const mockOrdersService = {
     note?: string;
   }): Promise<Order> {
     await delay(700);
+    await assertSessionOrderable(input.sessionId);
     const subtotal = input.menuItem.price;
-    const venue = mockVenueService.getVenueSnapshot();
+    const venue = await mockVenueService.getVenueSnapshot();
     const feeBreakdown = computeFeeLines(subtotal, venue);
-    const serviceFee = feeBreakdown.reduce((sum, l) => sum + l.amount, 0);
+    const serviceFee = computeServiceFee(subtotal, venue);
     const now = new Date().toISOString();
     const order: Order = {
       id: uid("ord"),
@@ -180,11 +239,11 @@ export const mockOrdersService = {
     return clone(order);
   },
 
-  /** Fails (returns null) if another staff member already claimed it. */
+  /** Fails (returns null) if another staff member already claimed it or the order is done. */
   async claimOrder(orderId: string, staffId: string, staffName: string): Promise<Order | null> {
     await delay(300);
     const order = orders.find((o) => o.id === orderId);
-    if (!order || order.claimedByStaffId) return null;
+    if (!order || order.claimedByStaffId || order.status === "delivered" || order.status === "cancelled") return null;
     order.claimedByStaffId = staffId;
     order.claimedByStaffName = staffName;
     return clone(order);
@@ -199,12 +258,39 @@ export const mockOrdersService = {
     return clone(order);
   },
 
+  /** Fails (returns null) once delivered — the bottles are on the table; use an adjustment instead. */
   async cancelOrder(orderId: string): Promise<Order | null> {
     await delay(300);
     const order = orders.find((o) => o.id === orderId);
-    if (!order) return null;
+    if (!order || order.status === "delivered" || order.status === "cancelled") return null;
     order.status = "cancelled";
     order.updatedAt = new Date().toISOString();
+    // Return the placement draw-down (bottles + linked washers) to stock.
+    const [categories, packages] = await Promise.all([
+      mockMenuService.listCategories(true),
+      mockMenuService.listPackages(true),
+    ]);
+    const groups = [
+      ...categories.flatMap((category) => category.modifierGroups ?? []),
+      ...packages.flatMap((pkg) => pkg.modifierGroups ?? []),
+    ];
+    const washerLines = order.items.flatMap((item) =>
+      item.modifiers.flatMap((modifier) => {
+        const option = groups
+          .find((group) => group.id === modifier.groupId)
+          ?.options.find((candidate) => candidate.id === modifier.optionId);
+        return option?.inventoryItemId
+          ? [{ menuItemId: option.inventoryItemId, quantity: modifier.quantity }]
+          : [];
+      }),
+    );
+    await restoreSale(
+      [
+        ...order.items.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
+        ...washerLines,
+      ],
+      `Order ${order.code} cancelled`,
+    );
     return clone(order);
   },
 };

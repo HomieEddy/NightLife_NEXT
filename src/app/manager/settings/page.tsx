@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
-import { mockVenueService } from "@/lib/mock-services/venue-service";
+import { venueService } from "@/lib/services/venue-service";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
 import { setManagerOnboarded } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
@@ -23,16 +23,21 @@ export default function ManagerSettingsPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    mockVenueService.getVenue().then(setVenue);
+    venueService.getVenue().then(setVenue);
   }, []);
 
   async function handleSave() {
     if (!venue) return;
     setSaving(true);
-    // TODO(backend): PATCH /api/venue — persist settings per tenant.
-    await mockVenueService.updateVenue(venue);
-    setSaving(false);
-    toast.success("Venue settings saved");
+    try {
+      const updated = await venueService.updateVenue(venue);
+      setVenue(updated);
+      toast.success("Venue settings saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save venue settings");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (venue === null) {
@@ -87,6 +92,18 @@ export default function ManagerSettingsPage() {
               value={venue.address}
               onChange={(e) => setVenue({ ...venue, address: e.target.value })}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="timezone">IANA timezone</Label>
+            <Input
+              id="timezone"
+              value={venue.timezone}
+              placeholder="America/Toronto"
+              onChange={(e) => setVenue({ ...venue, timezone: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Used to group orders, reports and operational nights at the venue.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -358,23 +375,119 @@ export default function ManagerSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Opening hours</CardTitle>
+          <CardTitle className="text-base">Operational hours</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {venue.openingHours.map((slot) => (
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="night-start">Night starts at</Label>
+              <Input
+                id="night-start"
+                type="number"
+                min={0}
+                max={23}
+                value={venue.nightStartHour}
+                onChange={(e) => setVenue({ ...venue, nightStartHour: Number(e.target.value) })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="night-end">Night ends at</Label>
+              <Input
+                id="night-end"
+                type="number"
+                min={0}
+                max={23}
+                value={venue.nightEndHour}
+                onChange={(e) => setVenue({ ...venue, nightEndHour: Number(e.target.value) })}
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <Label>Weekly opening hours</Label>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={venue.openingHours.length === 7}
+              onClick={() => {
+                const day = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+                  .find((candidate) => !venue.openingHours.some((slot) => slot.day === candidate));
+                if (day) {
+                  setVenue({
+                    ...venue,
+                    openingHours: [...venue.openingHours, { day, open: "20:00", close: "03:00" }],
+                  });
+                }
+              }}
+            >
+              <Plus className="size-3.5" /> Add day
+            </Button>
+          </div>
+          {venue.openingHours.map((slot, index) => (
             <div
               key={slot.day}
-              className="flex items-center justify-between rounded-lg border p-3 text-sm"
+              className="grid grid-cols-[1fr_7rem_7rem_auto] items-end gap-2 rounded-lg border p-3"
             >
-              <span className="font-medium">{slot.day}</span>
-              <span className="tabular-nums text-muted-foreground">
-                {slot.open} – {slot.close}
-              </span>
+              <div className="space-y-1">
+                <Label htmlFor={`day-${index}`} className="text-xs">Day</Label>
+                <select
+                  id={`day-${index}`}
+                  className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                  value={slot.day}
+                  onChange={(e) => setVenue({
+                    ...venue,
+                    openingHours: venue.openingHours.map((value, slotIndex) =>
+                      slotIndex === index ? { ...value, day: e.target.value } : value,
+                    ),
+                  })}
+                >
+                  {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
+                    <option key={day}>{day}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`open-${index}`} className="text-xs">Open</Label>
+                <Input
+                  id={`open-${index}`}
+                  type="time"
+                  value={slot.open}
+                  onChange={(e) => setVenue({
+                    ...venue,
+                    openingHours: venue.openingHours.map((value, slotIndex) =>
+                      slotIndex === index ? { ...value, open: e.target.value } : value,
+                    ),
+                  })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`close-${index}`} className="text-xs">Close</Label>
+                <Input
+                  id={`close-${index}`}
+                  type="time"
+                  value={slot.close}
+                  onChange={(e) => setVenue({
+                    ...venue,
+                    openingHours: venue.openingHours.map((value, slotIndex) =>
+                      slotIndex === index ? { ...value, close: e.target.value } : value,
+                    ),
+                  })}
+                />
+              </div>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                aria-label={`Remove ${slot.day} hours`}
+                onClick={() => setVenue({
+                  ...venue,
+                  openingHours: venue.openingHours.filter((_, slotIndex) => slotIndex !== index),
+                })}
+              >
+                <Trash2 className="size-4" />
+              </Button>
             </div>
           ))}
-          <p className="pt-1 text-xs text-muted-foreground">
-            Editing hours is out of scope for the prototype.
-          </p>
         </CardContent>
       </Card>
 

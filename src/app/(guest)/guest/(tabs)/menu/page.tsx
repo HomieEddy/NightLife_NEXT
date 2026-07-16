@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { Martini, QrCode, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MenuItemCard } from "@/components/shared/menu-item-card";
+import { ClosureGate } from "@/components/guest/closure-gate";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
 import { PackageCard, type PackageWithQuote } from "@/components/guest/package-card";
 import { CartSheet } from "@/components/guest/cart-sheet";
 import { useGuest } from "@/context/guest-context";
-import { mockMenuService } from "@/lib/mock-services/menu-service";
+import { menuService } from "@/lib/services/menu-service";
 import { cn } from "@/lib/utils";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
@@ -29,9 +29,9 @@ export default function GuestMenuPage() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      mockMenuService.listCategories(),
-      mockMenuService.listItems(),
-      mockMenuService.listPackages(),
+      menuService.listCategories(),
+      menuService.listItems(),
+      menuService.listPackages(),
     ]).then(([cats, its, pkgs]) => {
       if (!cancelled) {
         setCategories(cats);
@@ -64,17 +64,14 @@ export default function GuestMenuPage() {
           icon={QrCode}
           title="No table joined"
           description="Scan the QR code on your table to browse the menu."
-          action={
-            <Button asChild>
-              <Link href="/g/demo-table">Simulate scanning a QR</Link>
-            </Button>
-          }
+          action={<DemoQrScanAction />}
         />
       </div>
     );
   }
 
   return (
+    <ClosureGate>
     <div className="space-y-4 p-4 animate-fade-in">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -134,8 +131,15 @@ export default function GuestMenuPage() {
         </div>
       )}
 
-      <ItemDetailModal item={openItem} onClose={() => setOpenItem(null)} />
+      <ItemDetailModal
+        item={openItem}
+        modifierGroups={
+          categories.find((category) => category.id === openItem?.categoryId)?.modifierGroups ?? []
+        }
+        onClose={() => setOpenItem(null)}
+      />
       <CartSheet />
     </div>
+    </ClosureGate>
   );
 }
