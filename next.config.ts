@@ -35,7 +35,7 @@ const liveMockAliases = Object.fromEntries(
 
 const nextConfig: NextConfig = {
   /* config options here */
-  distDir: buildDirectoryForMode(appMode),
+  distDir: process.env.VERCEL ? ".next" : buildDirectoryForMode(appMode),
   reactCompiler: true,
   turbopack: {
     resolveAlias: appMode === "live"
