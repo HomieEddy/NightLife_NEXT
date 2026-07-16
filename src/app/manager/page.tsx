@@ -368,7 +368,7 @@ function SnapshotTab({
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.seated} <span className="text-xs text-muted-foreground">({pct(summary.reservations.seatedRate)})</span></p>
               </div>
               <div>
-                <p className="text-muted-foreground">No-shows</p>
+                <p className="text-muted-foreground">No-shows (of confirmed)</p>
                 <p className="text-lg font-semibold tabular-nums">{pct(summary.reservations.noShowRate)}</p>
               </div>
               <div>
@@ -376,7 +376,7 @@ function SnapshotTab({
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.totalCovers}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Cancelled</p>
+                <p className="text-muted-foreground">Cancelled (of requested)</p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.cancelled} <span className="text-xs text-muted-foreground">({pct(summary.reservations.cancellationRate)})</span></p>
               </div>
               <div>

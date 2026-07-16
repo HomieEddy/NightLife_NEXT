@@ -603,7 +603,7 @@ export default function ManagerAnalyticsPage() {
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   <MetricCard label="Requested" value={String(data.reservations.requested)} icon={CalendarCheck} />
                   <MetricCard label="Seated" value={String(data.reservations.seated)} icon={CalendarCheck} hint={`${pct(data.reservations.seatedRate)} of confirmed`} />
-                  <MetricCard label="No-show rate" value={pct(data.reservations.noShowRate)} icon={Users} />
+                  <MetricCard label="No-show rate" value={pct(data.reservations.noShowRate)} icon={Users} hint="of confirmed" />
                   <MetricCard label="Total covers" value={String(data.reservations.totalCovers)} icon={Users} />
                 </div>
 
@@ -616,7 +616,7 @@ export default function ManagerAnalyticsPage() {
                       <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
                         <div>
                           <p className="text-muted-foreground">Confirmed</p>
-                          <p className="text-lg font-semibold tabular-nums">{data.reservations.confirmed} <span className="text-xs text-muted-foreground">({pct(data.reservations.confirmRate)})</span></p>
+                          <p className="text-lg font-semibold tabular-nums">{data.reservations.confirmed} <span className="text-xs text-muted-foreground">({pct(data.reservations.confirmRate)} of requested)</span></p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Completed</p>
@@ -624,7 +624,7 @@ export default function ManagerAnalyticsPage() {
                         </div>
                         <div>
                           <p className="text-muted-foreground">Cancelled</p>
-                          <p className="text-lg font-semibold tabular-nums">{data.reservations.cancelled} <span className="text-xs text-muted-foreground">({pct(data.reservations.cancellationRate)})</span></p>
+                          <p className="text-lg font-semibold tabular-nums">{data.reservations.cancelled} <span className="text-xs text-muted-foreground">({pct(data.reservations.cancellationRate)} of requested)</span></p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Avg lead time</p>

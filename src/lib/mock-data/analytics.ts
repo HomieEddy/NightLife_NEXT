@@ -17,11 +17,12 @@ export const mockAnalytics: AnalyticsSummary = {
     { name: "Don Julio 1942", count: 6, revenue: 2040, categoryId: "cat-tequila" },
     { name: "Mr Ace (package)", count: 1, revenue: 2400 },
   ],
+  // Hour and zone splits must each sum to revenueTonight — they render beside it.
   revenueByHour: [
     { label: "22:00", revenue: 840, orders: 14 },
     { label: "23:00", revenue: 1580, orders: 22 },
     { label: "00:00", revenue: 2420, orders: 29 },
-    { label: "01:00", revenue: 2800, orders: 31 },
+    { label: "01:00", revenue: 2900, orders: 31 },
     { label: "02:00", revenue: 2610, orders: 26 },
     { label: "03:00", revenue: 1510, orders: 15 },
     { label: "04:00", revenue: 560, orders: 6 },
@@ -52,7 +53,7 @@ export const mockAnalytics: AnalyticsSummary = {
   ],
   revenueByZone: [
     { zoneId: "zone-vip", zoneName: "VIP Mezzanine", revenue: 7500 },
-    { zoneId: "zone-dance", zoneName: "Main Floor", revenue: 2400 },
+    { zoneId: "zone-dance", zoneName: "Main Floor", revenue: 2560 },
     { zoneId: "zone-terrace", zoneName: "Terrace", revenue: 1500 },
     { zoneId: "zone-bar", zoneName: "Back Bar", revenue: 860 },
   ],
@@ -80,8 +81,9 @@ export const mockAnalytics: AnalyticsSummary = {
     cancelled: 3,
     confirmRate: 0.78,
     seatedRate: 0.86,
+    // Denominators: confirmRate & cancellationRate over requested; seatedRate & noShowRate over confirmed.
     cancellationRate: 0.17,
-    noShowRate: 0.07,
+    noShowRate: 0.14,
     avgLeadDays: 3.2,
     totalCovers: 44,
     sourceSplit: [
