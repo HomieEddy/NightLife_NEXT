@@ -158,7 +158,7 @@ export function renderCsv(
     rows.push(["Revenue / session", String(s.revenuePerSession)]);
     rows.push(["Revenue / guest", String(s.revenuePerGuest)]);
     rows.push(["Avg closure min", String(s.avgClosureMinutes)]);
-    rows.push(["Settlement method", "Count", "Pct"]);
+    rows.push(["Tab settlement (staff-recorded)", "Count", "Pct"]);
     for (const m of s.settlementMix) rows.push([m.method, String(m.count), String(m.pct)]);
     rows.push([]);
   }

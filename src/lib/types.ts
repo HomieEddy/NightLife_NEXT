@@ -431,6 +431,7 @@ export interface SessionAnalytics {
   avgPartySize: number;
   revenuePerSession: number;
   revenuePerGuest: number;
+  // Staff-recorded at tab close (see staff approvals) — the app never processes payments.
   settlementMix: { method: SettlementMethod; count: number; pct: number }[];
   avgClosureMinutes: number;
 }

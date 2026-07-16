@@ -568,7 +568,10 @@ export default function ManagerAnalyticsPage() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Settlement mix</CardTitle>
+                      <CardTitle className="text-base">Tab settlement</CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        How staff recorded each closed tab — the app doesn&apos;t process payments.
+                      </p>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {data.sessions.settlementMix.map((s) => (

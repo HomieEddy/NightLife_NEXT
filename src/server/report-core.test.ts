@@ -149,7 +149,7 @@ describe("renderCsv", () => {
     expect(csv).toContain('"Total sessions","31"');
     expect(csv).toContain('"Approval rate","0.87"');
     expect(csv).toContain('"Revenue / session","400.65"');
-    expect(csv).toContain('"Settlement method","Count","Pct"');
+    expect(csv).toContain('"Tab settlement (staff-recorded)","Count","Pct"');
     expect(csv).toContain('"terminal","19","0.61"');
     expect(csv).toContain('"cash","8","0.26"');
   });
