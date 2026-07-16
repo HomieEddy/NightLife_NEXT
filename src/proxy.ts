@@ -8,6 +8,10 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // TODO(backend): plan 10 — when /admin graduates, replace its 404 with a
+  // session-cookie requirement (missing → /login); the admin layout becomes a
+  // server component calling requirePlatformAdmin(), and /api/platform/*
+  // mutations get per-IP + per-session rate limiting and AdminAction audit rows.
   if (
     request.nextUrl.pathname.startsWith("/admin") ||
     request.nextUrl.pathname.startsWith("/demo") ||

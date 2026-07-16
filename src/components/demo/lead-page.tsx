@@ -31,6 +31,8 @@ export default function LeadPage() {
     setSubmitting(true);
     try {
       // TODO(backend): POST /api/leads — also notify sales via email/Slack.
+      // Plan 10 security: the public handler gets per-IP rate limiting + a
+      // honeypot field; rejected submissions never reach the pipeline.
       await adminService.createLead({
         venueName,
         contactName,
