@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/feature-gate";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -86,6 +88,14 @@ interface ItemDraft {
 }
 
 export default function ManagerInventoryPage() {
+  return (
+    <FeatureGate feature="inventory">
+      <InventoryPageContent />
+    </FeatureGate>
+  );
+}
+
+function InventoryPageContent() {
   const [items, setItems] = useState<MenuItem[] | null>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);

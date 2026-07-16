@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/feature-gate";
+
 import { ChatPanel } from "@/components/shared/chat-panel";
 import { staffService } from "@/lib/services/staff-service";
 import { useEffect, useState } from "react";
@@ -11,5 +13,9 @@ export default function StaffChatPage() {
     staffService.getCurrentStaff().then((staff) => setUserId(staff?.id ?? ""));
   }, []);
 
-  return <ChatPanel currentUserId={userId} />;
+  return (
+    <FeatureGate feature="chat">
+      <ChatPanel currentUserId={userId} />
+    </FeatureGate>
+  );
 }

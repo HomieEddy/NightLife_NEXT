@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/feature-gate";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   CalendarClock, Download, Eye, FileText, Loader2, Pencil, Plus, Trash2, X,
@@ -79,6 +81,14 @@ function downloadCsv(report: SavedReport, data: HistoricalAnalytics) {
 }
 
 export default function ManagerReportsPage() {
+  return (
+    <FeatureGate feature="reports">
+      <ReportsPageContent />
+    </FeatureGate>
+  );
+}
+
+function ReportsPageContent() {
   const [reports, setReports] = useState<SavedReport[] | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [editingId, setEditingId] = useState<string | null>(null);

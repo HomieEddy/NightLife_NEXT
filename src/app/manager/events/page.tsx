@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/feature-gate";
+
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -336,8 +338,10 @@ function EventsContent() {
 
 export default function ManagerEventsPage() {
   return (
-    <Suspense fallback={<ListSkeleton rows={3} rowHeight="h-32" />}>
-      <EventsContent />
-    </Suspense>
+    <FeatureGate feature="events">
+      <Suspense fallback={<ListSkeleton rows={3} rowHeight="h-32" />}>
+        <EventsContent />
+      </Suspense>
+    </FeatureGate>
   );
 }

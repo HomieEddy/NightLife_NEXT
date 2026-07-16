@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/feature-gate";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -40,6 +42,14 @@ function pct(n: number) {
 }
 
 export default function ManagerAnalyticsPage() {
+  return (
+    <FeatureGate feature="analytics">
+      <AnalyticsPageContent />
+    </FeatureGate>
+  );
+}
+
+function AnalyticsPageContent() {
   const [preset, setPreset] = useState<string>("7");
   const [from, setFrom] = useState(isoDaysAgo(6));
   const [to, setTo] = useState(isoDaysAgo(0));

@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/feature-gate";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Inbox, Lock, LockOpen, Map, QrCode, Receipt, Users, X } from "lucide-react";
@@ -41,6 +43,14 @@ const CANVAS_PRESETS = [
 ];
 
 export default function ManagerFloorMapPage() {
+  return (
+    <FeatureGate feature="floor-map">
+      <FloorMapPageContent />
+    </FeatureGate>
+  );
+}
+
+function FloorMapPageContent() {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [tables, setTables] = useState<VenueTable[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
