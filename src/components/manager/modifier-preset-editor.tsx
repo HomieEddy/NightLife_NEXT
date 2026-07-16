@@ -106,11 +106,20 @@ export function ModifierPresetEditor({
           </div>
 
           <div className="space-y-2">
+            {group.options.length > 0 && (
+              <div className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem_1fr_auto]">
+                <span className="text-xs font-medium text-muted-foreground">Name</span>
+                <span className="text-xs font-medium text-muted-foreground">Price $</span>
+                <span className="text-xs font-medium text-muted-foreground">Max qty</span>
+                <span className="text-xs font-medium text-muted-foreground">{group.kind === "washer" ? "Stock link" : ""}</span>
+                <span />
+              </div>
+            )}
             {group.options.map((option, optionIndex) => (
               <div key={option.id} className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem_1fr_auto]">
                 <Input
                   aria-label="Option name"
-                  placeholder="Option name"
+                  placeholder="e.g. Lemon slice"
                   value={option.name}
                   onChange={(event) => updateGroup(groupIndex, {
                     options: group.options.map((entry, position) => position === optionIndex ? { ...entry, name: event.target.value } : entry),
@@ -118,6 +127,7 @@ export function ModifierPresetEditor({
                 />
                 <Input
                   aria-label="Price per unit"
+                  placeholder="0"
                   type="number"
                   min={0}
                   step={1}
@@ -128,6 +138,7 @@ export function ModifierPresetEditor({
                 />
                 <Input
                   aria-label="Maximum quantity"
+                  placeholder="1"
                   type="number"
                   min={1}
                   max={99}
