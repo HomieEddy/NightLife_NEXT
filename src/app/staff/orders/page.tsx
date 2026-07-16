@@ -81,8 +81,9 @@ function StaffOrdersContent() {
   async function cancel(order: Order) {
     setBusyId(order.id);
     try {
-      await ordersService.cancelOrder(order.id);
-      toast.info(`${order.code} cancelled`);
+      const updated = await ordersService.cancelOrder(order.id);
+      if (!updated) toast.error(`${order.code} is already delivered or cancelled.`);
+      else toast.info(`${order.code} cancelled — stock returned`);
       await refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : `Could not cancel ${order.code}`);

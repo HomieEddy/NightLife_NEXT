@@ -581,11 +581,40 @@ export async function cancelOrder(
     return toOrder(row);
   }
 
-  const updated = await db.order.update({
-    where: { id: orderId },
-    data: { status: "cancelled" },
-    include: ORDER_INCLUDE,
+  const updated = await db.$transaction(async (tx) => {
+    // Status guard inside the transaction so a concurrent cancel can't reverse stock twice.
+    const transitioned = await tx.order.updateMany({
+      where: { id: orderId, status: { notIn: TERMINAL_STATUSES } },
+      data: { status: "cancelled" },
+    });
+    if (transitioned.count === 0) return null;
+
+    // Reverse the exact sale movements recorded at placement — keeps inventory === Σ movements.
+    const sales = await tx.stockMovement.findMany({
+      where: { venueId: row.venueId, type: "sale", note: `Order ${row.code}` },
+    });
+    for (const movement of sales) {
+      if (!movement.menuItemId) continue;
+      await tx.$executeRawUnsafe(
+        `UPDATE menu_items SET inventory = inventory + $1, updated_at = NOW() WHERE id = $2`,
+        -movement.delta,
+        movement.menuItemId,
+      );
+      await tx.stockMovement.create({
+        data: {
+          venueId: row.venueId,
+          menuItemId: movement.menuItemId,
+          itemName: movement.itemName,
+          type: "adjustment",
+          delta: -movement.delta,
+          note: `Order ${row.code} cancelled`,
+        },
+      });
+    }
+
+    return tx.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
   });
+  if (!updated) return toOrder(row);
   const order = toOrder(updated);
   await publish({
     type: "OrderStatusChanged",

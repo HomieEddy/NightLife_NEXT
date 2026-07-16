@@ -407,8 +407,9 @@ describe("orders & fees integration (plan 05)", () => {
     expect(cancelled!.status).toBe("delivered");
   });
 
-  it("cancels from non-terminal status", async () => {
+  it("cancels from non-terminal status and returns the draw-down to stock", async () => {
     const db = getDb(sessionA);
+    const before = (await getItem(db, itemId))!.inventory;
     const result = await submitOrder(db, venueA, {
       tableId: "t1",
       tableCode: "VIP-01",
@@ -419,9 +420,33 @@ describe("orders & fees integration (plan 05)", () => {
       tipCents: 0,
     });
     if (!result.ok) return;
+    expect((await getItem(db, itemId))!.inventory).toBe(before - 1);
 
     const cancelled = await cancelOrder(db, result.order.id);
     expect(cancelled!.status).toBe("cancelled");
+
+    expect((await getItem(db, itemId))!.inventory).toBe(before);
+    const ledger = await checkLedger(db, itemId);
+    expect(ledger.balanced).toBe(true);
+  });
+
+  it("does not reverse stock twice when cancel is called again", async () => {
+    const db = getDb(sessionA);
+    const before = (await getItem(db, itemId))!.inventory;
+    const result = await submitOrder(db, venueA, {
+      tableId: "t1",
+      tableCode: "VIP-01",
+      zoneId: "z1",
+      zoneName: "VIP",
+      guestName: "Fred",
+      lines: [{ menuItemId: itemId, quantity: 2, modifiers: [] }],
+      tipCents: 0,
+    });
+    if (!result.ok) return;
+
+    await cancelOrder(db, result.order.id);
+    await cancelOrder(db, result.order.id);
+    expect((await getItem(db, itemId))!.inventory).toBe(before);
   });
 
   // ── Claims (atomic compare-and-set) ─────────────────────────────────

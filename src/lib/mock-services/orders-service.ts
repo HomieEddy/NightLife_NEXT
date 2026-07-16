@@ -5,10 +5,10 @@
 import type { CartLine, MenuItem, Order, OrderStatus } from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
-import { computeFeeLines } from "@/lib/fees";
+import { computeFeeLines, computeServiceFee } from "@/lib/fees";
 import { orderLineSubtotal } from "@/lib/order-line";
 import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
-import { mockMenuService } from "./menu-service";
+import { mockMenuService, restoreSale } from "./menu-service";
 import { mockVenueService } from "./venue-service";
 import { clone, delay, uid } from "./delay";
 
@@ -63,7 +63,7 @@ export const mockOrdersService = {
     const venue = await mockVenueService.getVenueSnapshot();
     const afterPromo = subtotal - (input.promoDiscount ?? 0);
     const feeBreakdown = computeFeeLines(afterPromo, venue);
-    const serviceFee = feeBreakdown.reduce((sum, l) => sum + l.amount, 0);
+    const serviceFee = computeServiceFee(afterPromo, venue);
     const now = new Date().toISOString();
     const order: Order = {
       id: uid("ord"),
@@ -144,7 +144,7 @@ export const mockOrdersService = {
     const subtotal = input.menuItem.price;
     const venue = await mockVenueService.getVenueSnapshot();
     const feeBreakdown = computeFeeLines(subtotal, venue);
-    const serviceFee = feeBreakdown.reduce((sum, l) => sum + l.amount, 0);
+    const serviceFee = computeServiceFee(subtotal, venue);
     const now = new Date().toISOString();
     const order: Order = {
       id: uid("ord"),
@@ -199,11 +199,11 @@ export const mockOrdersService = {
     return clone(order);
   },
 
-  /** Fails (returns null) if another staff member already claimed it. */
+  /** Fails (returns null) if another staff member already claimed it or the order is done. */
   async claimOrder(orderId: string, staffId: string, staffName: string): Promise<Order | null> {
     await delay(300);
     const order = orders.find((o) => o.id === orderId);
-    if (!order || order.claimedByStaffId) return null;
+    if (!order || order.claimedByStaffId || order.status === "delivered" || order.status === "cancelled") return null;
     order.claimedByStaffId = staffId;
     order.claimedByStaffName = staffName;
     return clone(order);
@@ -218,12 +218,39 @@ export const mockOrdersService = {
     return clone(order);
   },
 
+  /** Fails (returns null) once delivered — the bottles are on the table; use an adjustment instead. */
   async cancelOrder(orderId: string): Promise<Order | null> {
     await delay(300);
     const order = orders.find((o) => o.id === orderId);
-    if (!order) return null;
+    if (!order || order.status === "delivered" || order.status === "cancelled") return null;
     order.status = "cancelled";
     order.updatedAt = new Date().toISOString();
+    // Return the placement draw-down (bottles + linked washers) to stock.
+    const [categories, packages] = await Promise.all([
+      mockMenuService.listCategories(true),
+      mockMenuService.listPackages(true),
+    ]);
+    const groups = [
+      ...categories.flatMap((category) => category.modifierGroups ?? []),
+      ...packages.flatMap((pkg) => pkg.modifierGroups ?? []),
+    ];
+    const washerLines = order.items.flatMap((item) =>
+      item.modifiers.flatMap((modifier) => {
+        const option = groups
+          .find((group) => group.id === modifier.groupId)
+          ?.options.find((candidate) => candidate.id === modifier.optionId);
+        return option?.inventoryItemId
+          ? [{ menuItemId: option.inventoryItemId, quantity: modifier.quantity }]
+          : [];
+      }),
+    );
+    await restoreSale(
+      [
+        ...order.items.map((item) => ({ menuItemId: item.menuItemId, quantity: item.quantity })),
+        ...washerLines,
+      ],
+      `Order ${order.code} cancelled`,
+    );
     return clone(order);
   },
 };
