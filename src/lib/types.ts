@@ -629,6 +629,31 @@ export interface Lead {
 export type TenantPlan = "starter" | "pro" | "enterprise";
 export type TenantStatus = "active" | "trial" | "suspended";
 
+/** Operational counts only — never sales/revenue amounts (INV-P2). */
+export interface TenantMetrics {
+  orderCount30d: number;
+  sessionCount30d: number;
+  tableCount: number;
+  staffCount: number;
+  zoneCount: number;
+  lastActivityAt: string; // ISO
+}
+
+export interface TenantStaffMember {
+  id: string;
+  name: string;
+  role: StaffRole;
+  email: string;
+}
+
+/** Provisioning-time settings snapshot shown on the tenant detail page. */
+export interface TenantProvisioning {
+  timezone: string;
+  currency: string;
+  serviceFees: { name: string; type: "percentage" | "flat"; value: number }[];
+  menuCategories: string[];
+}
+
 export interface Tenant {
   id: string;
   slug: string;
@@ -636,9 +661,56 @@ export interface Tenant {
   plan: TenantPlan;
   status: TenantStatus;
   city: string;
-  tableCount: number;
-  monthlyRevenue: number;
+  /** What the tenant pays the platform per month — not the tenant's own sales. */
+  mrr: number;
+  metrics: TenantMetrics;
+  staff: TenantStaffMember[];
+  provisioning: TenantProvisioning;
   createdAt: string;
+}
+
+// ---------- Plan entitlements (platform-configured) ----------
+
+/** One key per gateable nav module; core modules (orders, menu, tables…) have no key. */
+export type FeatureKey =
+  | "analytics"
+  | "reports"
+  | "inventory"
+  | "floor-map"
+  | "happy-hour"
+  | "reservations"
+  | "events"
+  | "promotions"
+  | "chat"
+  | "multi-venue";
+
+export interface FeatureDef {
+  key: FeatureKey;
+  label: string;
+  description: string;
+}
+
+export interface PlanConfig {
+  id: TenantPlan;
+  name: string;
+  monthlyPrice: number;
+  tagline: string;
+  highlight: boolean;
+  tableLimit: number | null; // null = unlimited
+  staffLimit: number | null;
+  features: FeatureKey[];
+}
+
+// ---------- Platform settings ----------
+
+export type TelemetryCategory = "monitoring" | "logs" | "analytics" | "infra" | "other";
+
+/** External observability shortcut (Sentry, Grafana…) — a link, never embedded stats. */
+export interface TelemetryLink {
+  id: string;
+  name: string;
+  url: string;
+  category: TelemetryCategory;
 }
 
 // ---------- Auth (demo) ----------

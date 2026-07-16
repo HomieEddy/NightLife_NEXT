@@ -14,10 +14,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
 import { adminService } from "@/lib/services/admin-service";
-import { PLANS } from "@/lib/services/billing-service";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { TenantPlan } from "@/lib/types";
+import type { PlanConfig, TenantPlan } from "@/lib/types";
 
 /**
  * Admin-side provisioning: create the tenant, pick the plan, invite the
@@ -31,6 +30,11 @@ function ProvisioningContent() {
 
   const [prefilling, setPrefilling] = useState(leadId !== null);
   const [provisioning, setProvisioning] = useState(false);
+  const [plans, setPlans] = useState<PlanConfig[]>([]);
+
+  useEffect(() => {
+    adminService.getPlanConfigs().then(setPlans);
+  }, []);
 
   const [venueName, setVenueName] = useState("");
   const [city, setCity] = useState("");
@@ -134,7 +138,7 @@ function ProvisioningContent() {
           <div className="space-y-1.5">
             <Label>Plan</Label>
             <div className="grid gap-3 sm:grid-cols-3">
-              {PLANS.map((p) => (
+              {plans.map((p) => (
                 <button
                   key={p.id}
                   type="button"

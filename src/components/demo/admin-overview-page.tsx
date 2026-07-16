@@ -24,7 +24,7 @@ export default function AdminOverviewPage() {
     adminService.listTenants().then(setTenants);
   }, []);
 
-  const mrr = (tenants ?? []).reduce((sum, t) => sum + t.monthlyRevenue, 0);
+  const mrr = (tenants ?? []).reduce((sum, t) => sum + t.mrr, 0);
   const activeTenants = (tenants ?? []).filter((t) => t.status === "active").length;
   const openLeads = (leads ?? []).filter((l) => !["won", "lost"].includes(l.status)).length;
 

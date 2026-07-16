@@ -2,55 +2,13 @@
  * mockBillingService — future backend boundary for the venue's SaaS subscription.
  * TODO(backend): Stripe customer + subscription objects; invoices from Stripe API.
  */
-import type { TenantPlan } from "@/lib/types";
+import type { PlanConfig, TenantPlan } from "@/lib/types";
+// Plan definitions live in the admin mock (edited by /admin/plans); reading
+// through it keeps one mutable store so live selectors can't diverge.
+import { getPlanConfigsSync } from "./admin-service";
 import { clone, delay } from "./delay";
 
-export interface PlanInfo {
-  id: TenantPlan;
-  name: string;
-  monthlyPrice: number;
-  tableLimit: number | null; // null = unlimited
-  staffLimit: number | null;
-  features: string[];
-}
-
-export const PLANS: PlanInfo[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    monthlyPrice: 0.99,
-    tableLimit: 10,
-    staffLimit: 5,
-    features: ["QR ordering", "Basic menu & inventory", "Email support"],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    monthlyPrice: 1.99,
-    tableLimit: 40,
-    staffLimit: 25,
-    features: [
-      "Everything in Starter",
-      "Zones, floor map & scheduling",
-      "Full analytics",
-      "Happy hour engine",
-      "Priority support",
-    ],
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    monthlyPrice: 2.99,
-    tableLimit: null,
-    staffLimit: null,
-    features: [
-      "Everything in Pro",
-      "Multi-venue management",
-      "Custom integrations & API",
-      "Dedicated success manager",
-    ],
-  },
-];
+export type PlanInfo = PlanConfig;
 
 export interface Subscription {
   plan: TenantPlan;
@@ -82,6 +40,11 @@ const invoices: Invoice[] = [
 ];
 
 export const mockBillingService = {
+  async listPlans(): Promise<PlanInfo[]> {
+    await delay(200);
+    return getPlanConfigsSync();
+  },
+
   async getSubscription(): Promise<Subscription> {
     await delay(300);
     return clone(subscription);

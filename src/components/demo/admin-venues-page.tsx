@@ -64,7 +64,7 @@ export default function AdminVenuesPage() {
   const totals = useMemo(() => {
     const all = tenants ?? [];
     return {
-      mrr: all.reduce((s, t) => s + t.monthlyRevenue, 0),
+      mrr: all.reduce((s, t) => s + t.mrr, 0),
       active: all.filter((t) => t.status === "active").length,
       trials: all.filter((t) => t.status === "trial").length,
       suspended: all.filter((t) => t.status === "suspended").length,
@@ -206,9 +206,9 @@ export default function AdminVenuesPage() {
                   <TableCell>
                     <StatusBadge status={tenant.status} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{tenant.tableCount}</TableCell>
+                  <TableCell className="text-right tabular-nums">{tenant.metrics.tableCount}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(tenant.monthlyRevenue)}
+                    {formatMoney(tenant.mrr)}
                   </TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground">
                     {formatDate(tenant.createdAt)}
