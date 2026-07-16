@@ -29,6 +29,7 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { adminService } from "@/lib/services/admin-service";
+import { adminTenantHref } from "@/lib/entity-links";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { Tenant, TenantPlan, TenantStatus } from "@/lib/types";
 
@@ -179,10 +180,14 @@ export default function AdminVenuesPage() {
               {visible.map((tenant) => (
                 <TableRow key={tenant.id}>
                   <TableCell>
-                    <p className="font-medium">{tenant.venueName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {tenant.slug} · {tenant.city}
-                    </p>
+                    <Link href={adminTenantHref(tenant.id)} className="group block">
+                      <p className="font-medium group-hover:text-primary group-hover:underline">
+                        {tenant.venueName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {tenant.slug} · {tenant.city}
+                      </p>
+                    </Link>
                   </TableCell>
                   <TableCell>
                     <Select

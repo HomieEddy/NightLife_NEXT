@@ -5,4 +5,5 @@ export function AdminLeadsPage() { notFound(); }
 export function AdminOnboardingPage() { notFound(); }
 export function AdminOverviewPage() { notFound(); }
 export function AdminPlansPage() { notFound(); }
+export function AdminTenantDetailPage() { notFound(); }
 export function AdminVenuesPage() { notFound(); }

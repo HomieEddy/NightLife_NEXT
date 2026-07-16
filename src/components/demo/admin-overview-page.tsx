@@ -4,7 +4,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Building2, CircleDollarSign, Filter, TrendingUp } from "lucide-react";
+import {
+  Activity, ArrowRight, Building2, CircleDollarSign, Filter, Receipt, Table2, TrendingUp, Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,6 +29,16 @@ export default function AdminOverviewPage() {
   const mrr = (tenants ?? []).reduce((sum, t) => sum + t.mrr, 0);
   const activeTenants = (tenants ?? []).filter((t) => t.status === "active").length;
   const openLeads = (leads ?? []).filter((l) => !["won", "lost"].includes(l.status)).length;
+  // Operational counts only — INV-P2: never tenants' sales amounts.
+  const ops = (tenants ?? []).reduce(
+    (acc, t) => ({
+      orders: acc.orders + t.metrics.orderCount30d,
+      sessions: acc.sessions + t.metrics.sessionCount30d,
+      tables: acc.tables + t.metrics.tableCount,
+      staff: acc.staff + t.metrics.staffCount,
+    }),
+    { orders: 0, sessions: 0, tables: 0, staff: 0 },
+  );
 
   return (
     <div className="space-y-6">
@@ -39,12 +51,20 @@ export default function AdminOverviewPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <MetricCard label="MRR" value={formatMoney(mrr)} icon={CircleDollarSign} deltaPct={9.2} />
-          <MetricCard label="Active tenants" value={String(activeTenants)} icon={Building2} hint={`${tenants.length} total`} />
-          <MetricCard label="Open leads" value={String(openLeads)} icon={Filter} hint="in pipeline" />
-          <MetricCard label="Trial → paid" value="64%" icon={TrendingUp} hint="last 90 days" />
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <MetricCard label="MRR" value={formatMoney(mrr)} icon={CircleDollarSign} deltaPct={9.2} />
+            <MetricCard label="Active tenants" value={String(activeTenants)} icon={Building2} hint={`${tenants.length} total`} />
+            <MetricCard label="Open leads" value={String(openLeads)} icon={Filter} hint="in pipeline" />
+            <MetricCard label="Trial → paid" value="64%" icon={TrendingUp} hint="last 90 days" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <MetricCard label="Orders · 30d" value={ops.orders.toLocaleString()} icon={Receipt} hint="all tenants" />
+            <MetricCard label="Sessions · 30d" value={ops.sessions.toLocaleString()} icon={Activity} hint="all tenants" />
+            <MetricCard label="Tables" value={ops.tables.toLocaleString()} icon={Table2} hint="provisioned" />
+            <MetricCard label="Staff" value={ops.staff.toLocaleString()} icon={Users} hint="across venues" />
+          </div>
+        </>
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
