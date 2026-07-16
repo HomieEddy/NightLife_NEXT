@@ -56,8 +56,10 @@ export const mockAnalyticsService = {
     const bestNight = series.reduce((best, p) => (p.revenue > best.revenue ? p : best), series[0]);
 
     // Scale tonight's breakdown shapes to the range total — stable, plausible splits.
+    // Durations (sold-out minutes) accumulate per night, so they scale by night count.
     const scale = totalRevenue / mockAnalytics.revenueTonight;
     const countScale = totalOrders / mockAnalytics.ordersTonight;
+    const nights = series.length;
 
     return {
       from: fromISO,
@@ -86,7 +88,7 @@ export const mockAnalyticsService = {
       categoryDepletion: mockAnalytics.categoryDepletion.map((c) => ({
         ...c,
         unitsSold: Math.max(1, Math.round(c.unitsSold * countScale)),
-        soldOutMinutes: c.soldOutMinutes != null ? Math.round(c.soldOutMinutes * scale) : undefined,
+        soldOutMinutes: c.soldOutMinutes != null ? Math.round(c.soldOutMinutes * nights) : undefined,
         restockUnits: c.restockUnits != null ? Math.round(c.restockUnits * countScale) : undefined,
       })),
       sessions: mockAnalytics.sessions
@@ -158,7 +160,11 @@ export const mockAnalyticsService = {
           }
         : undefined,
       inventoryDepth: mockAnalytics.inventoryDepth
-        ? { ...mockAnalytics.inventoryDepth }
+        ? {
+            ...mockAnalytics.inventoryDepth,
+            // Matches the categoryDepletion rows, which also scale by nights.
+            totalSoldOutMinutes: Math.round(mockAnalytics.inventoryDepth.totalSoldOutMinutes * nights),
+          }
         : undefined,
     };
   },
