@@ -32,23 +32,26 @@ import { AuthBanner } from "@/components/shared/auth-banner";
 import { cn } from "@/lib/utils";
 import { isDemoMode } from "@/lib/app-mode";
 import { venueService } from "@/lib/services/venue-service";
+import { useEntitlements } from "@/lib/use-entitlements";
+import type { FeatureKey } from "@/lib/types";
 
-const NAV = [
+// Entries without a feature key are core and never hidden by the plan.
+const NAV: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; feature?: FeatureKey }[] = [
   { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
   { href: "/manager/orders", label: "Orders", icon: Receipt },
-  { href: "/manager/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/manager/reports", label: "Reports", icon: FileText },
+  { href: "/manager/analytics", label: "Analytics", icon: BarChart3, feature: "analytics" },
+  { href: "/manager/reports", label: "Reports", icon: FileText, feature: "reports" },
   { href: "/manager/menu", label: "Menu", icon: Martini },
-  { href: "/manager/inventory", label: "Inventory", icon: Boxes },
-  { href: "/manager/floor-map", label: "Floor map", icon: Map },
+  { href: "/manager/inventory", label: "Inventory", icon: Boxes, feature: "inventory" },
+  { href: "/manager/floor-map", label: "Floor map", icon: Map, feature: "floor-map" },
   { href: "/manager/zones", label: "Zones", icon: MapPin },
   { href: "/manager/tables", label: "Tables", icon: Table2 },
   { href: "/manager/staff", label: "Staff", icon: Users },
-  { href: "/manager/happy-hour", label: "Happy hour", icon: Clock },
-  { href: "/manager/reservations", label: "Reservations", icon: CalendarDays },
-  { href: "/manager/events", label: "Events", icon: PartyPopper },
-  { href: "/manager/promotions", label: "Promotions", icon: Tag },
-  { href: "/manager/chat", label: "Chat", icon: MessageSquare },
+  { href: "/manager/happy-hour", label: "Happy hour", icon: Clock, feature: "happy-hour" },
+  { href: "/manager/reservations", label: "Reservations", icon: CalendarDays, feature: "reservations" },
+  { href: "/manager/events", label: "Events", icon: PartyPopper, feature: "events" },
+  { href: "/manager/promotions", label: "Promotions", icon: Tag, feature: "promotions" },
+  { href: "/manager/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
   { href: "/manager/qr", label: "QR codes", icon: QrCode },
   ...(isDemoMode() ? [{ href: "/manager/subscription", label: "Subscription", icon: CreditCard }] : []),
   { href: "/manager/settings", label: "Settings", icon: Settings },
@@ -58,6 +61,8 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [venueName, setVenueName] = useState<string | null>(null);
+  const { hasFeature } = useEntitlements();
+  const nav = NAV.filter((item) => !item.feature || hasFeature(item.feature));
 
   useEffect(() => {
     venueService.getVenue().then((v) => setVenueName(v.name));
@@ -98,7 +103,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
           <ThemeToggle />
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -132,7 +137,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <nav className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}

@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/feature-gate";
+
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { Clock, Loader2, Pencil, Percent, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -353,8 +355,10 @@ function HappyHourContent() {
 
 export default function ManagerHappyHourPage() {
   return (
-    <Suspense fallback={<ListSkeleton rows={3} rowHeight="h-32" />}>
-      <HappyHourContent />
-    </Suspense>
+    <FeatureGate feature="happy-hour">
+      <Suspense fallback={<ListSkeleton rows={3} rowHeight="h-32" />}>
+        <HappyHourContent />
+      </Suspense>
+    </FeatureGate>
   );
 }

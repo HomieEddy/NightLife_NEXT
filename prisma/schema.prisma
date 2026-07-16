@@ -8,15 +8,18 @@ datasource db {
 
 /// Platform tenant — one per venue. Platform context (unscoped).
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  plan      String   @default("starter")
-  status    String   @default("active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id                    String   @id @default(cuid())
+  name                  String
+  slug                  String   @unique
+  plan                  String   @default("starter")
+  status                String   @default("active")
+  stripeCustomerId      String?  @unique @map("stripe_customer_id")
+  stripeSubscriptionId  String?  @unique @map("stripe_subscription_id")
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  jobRuns JobRun[]
+  jobRuns      JobRun[]
+  adminActions AdminAction[]
 
   @@map("tenants")
 }
@@ -818,4 +821,86 @@ model ReportRun {
 
   @@index([reportId])
   @@map("report_runs")
+}
+
+// ── Platform admin (plan 10) ──────────────────────────────────────
+
+/// Sales lead — pre-tenant prospect tracked through the pipeline.
+model Lead {
+  id          String   @id @default(cuid())
+  venueName   String   @map("venue_name")
+  contactName String   @map("contact_name")
+  email       String
+  phone       String   @default("")
+  city        String   @default("")
+  status      String   @default("new")
+  source      String   @default("landing-page")
+  dealValue   Int      @default(0) @map("deal_value")
+  notes       String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  activity LeadActivity[]
+
+  @@map("leads")
+}
+
+/// Append-only touchpoint log on a lead — calls, emails, stage moves.
+model LeadActivity {
+  id        String   @id @default(cuid())
+  leadId    String   @map("lead_id")
+  text      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("lead_activities")
+}
+
+/// One row per subscription tier — editable by platform admin.
+/// Seeded from DEFAULT_PLAN_CONFIGS; Stripe Prices keyed on id.
+model PlanConfig {
+  id           String  @id
+  name         String
+  monthlyPrice Int     @map("monthly_price")
+  tagline      String  @default("")
+  highlight    Boolean @default(false)
+  tableLimit   Int?    @map("table_limit")
+  staffLimit   Int?    @map("staff_limit")
+  features     String[] @default([])
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("plan_configs")
+}
+
+/// External observability shortcut — link only, never embedded stats.
+model TelemetryLink {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  category  String   @default("other")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("telemetry_links")
+}
+
+/// Append-only audit log of platform-admin tenant mutations.
+model AdminAction {
+  id         String   @id @default(cuid())
+  actorId    String   @map("actor_id")
+  actorEmail String   @map("actor_email")
+  tenantId   String?  @map("tenant_id")
+  action     String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([actorId])
+  @@map("admin_actions")
 }

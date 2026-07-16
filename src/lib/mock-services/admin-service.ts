@@ -1,14 +1,26 @@
 /**
- * mockAdminService — future backend boundary for platform administration.
- * TODO(backend): leads/tenants live in a platform-level schema; provisioning
- * becomes a job that creates the tenant DB schema + default venue.
+ * mockAdminService — demo-track platform administration. The live counterpart
+ * uses admin-core.ts with Postgres (platform-level schema, provisioning job).
  */
-import type { Lead, LeadActivity, LeadStatus, Tenant, TenantPlan, TenantStatus } from "@/lib/types";
-import { mockLeads, mockTenants } from "@/lib/mock-data/admin";
+import type {
+  Lead, LeadActivity, LeadStatus, PlanConfig, TelemetryLink, Tenant, TenantPlan,
+} from "@/lib/types";
+import { DEFAULT_PLAN_CONFIGS, tenantMrr } from "@/lib/plan-catalog";
+import { mockLeads, mockTelemetryLinks, mockTenants } from "@/lib/mock-data/admin";
 import { clone, delay, uid } from "./delay";
 
 let leads: Lead[] = clone(mockLeads);
 let tenants: Tenant[] = clone(mockTenants);
+const planConfigs: PlanConfig[] = clone(DEFAULT_PLAN_CONFIGS);
+let telemetryLinks: TelemetryLink[] = clone(mockTelemetryLinks);
+
+/**
+ * Sync read for the billing mock — plan state lives here only, so admin edits
+ * propagate to subscription/pricing consumers without a second store.
+ */
+export function getPlanConfigsSync(): PlanConfig[] {
+  return clone(planConfigs);
+}
 
 function logActivity(lead: Lead, text: string) {
   const entry: LeadActivity = { id: uid("act"), at: new Date().toISOString(), text };
@@ -37,8 +49,6 @@ export interface OnboardingConfig {
   managerEmail: string;
   leadId?: string; // set when onboarding a won lead
 }
-
-const PLAN_MRR: Record<TenantPlan, number> = { starter: 99, pro: 249, enterprise: 599 };
 
 export const mockAdminService = {
   // ---------- Leads ----------
@@ -110,6 +120,11 @@ export const mockAdminService = {
     return clone(tenants);
   },
 
+  async getTenant(tenantId: string): Promise<Tenant | null> {
+    await delay(200);
+    return clone(tenants.find((t) => t.id === tenantId) ?? null);
+  },
+
   async updateTenant(
     tenantId: string,
     patch: Partial<Pick<Tenant, "plan" | "status" | "venueName" | "city">>,
@@ -119,7 +134,7 @@ export const mockAdminService = {
     if (!tenant) return null;
     Object.assign(tenant, patch);
     // MRR follows the plan; trials and suspensions don't bill.
-    tenant.monthlyRevenue = tenant.status === "active" ? PLAN_MRR[tenant.plan] : 0;
+    tenant.mrr = tenantMrr(tenant.plan, tenant.status, planConfigs);
     return clone(tenant);
   },
 
@@ -138,8 +153,10 @@ export const mockAdminService = {
       plan: "starter",
       status: "trial",
       city: input.city,
-      tableCount: 0,
-      monthlyRevenue: 0,
+      mrr: 0,
+      metrics: emptyMetrics(),
+      staff: [],
+      provisioning: defaultProvisioningSnapshot(),
       createdAt: new Date().toISOString(),
     };
     tenants = [tenant, ...tenants];
@@ -148,18 +165,31 @@ export const mockAdminService = {
 
   /** Full onboarding: creates the tenant from the wizard config. */
   async onboardTenant(config: OnboardingConfig): Promise<Tenant> {
-    // TODO(backend): provisioning job — tenant schema, venue, zones/tables,
-    // menu seed, fee config, manager invite email.
+    // Live counterpart: provisionTenant() in admin-core.ts creates the
+    // tenant, org, venue and default zone via the platform DB.
     await delay(1500);
+    const status = config.startOnTrial ? "trial" : "active";
     const tenant: Tenant = {
       id: uid("ten"),
       venueName: config.venueName,
       slug: config.venueName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       plan: config.plan,
-      status: config.startOnTrial ? "trial" : "active",
+      status,
       city: config.city,
-      tableCount: config.zones.reduce((sum, z) => sum + z.tableCount, 0),
-      monthlyRevenue: config.startOnTrial ? 0 : PLAN_MRR[config.plan],
+      mrr: tenantMrr(config.plan, status, planConfigs),
+      metrics: {
+        ...emptyMetrics(),
+        tableCount: config.zones.reduce((sum, z) => sum + z.tableCount, 0),
+        zoneCount: config.zones.length,
+        staffCount: 1, // the invited manager
+      },
+      staff: [{ id: uid("ts"), name: config.managerName, role: "manager", email: config.managerEmail }],
+      provisioning: {
+        timezone: config.timezone,
+        currency: config.currency,
+        serviceFees: config.serviceFees.map((f) => ({ ...f })),
+        menuCategories: [...config.menuCategories],
+      },
       createdAt: new Date().toISOString(),
     };
     tenants = [tenant, ...tenants];
@@ -169,4 +199,79 @@ export const mockAdminService = {
     }
     return clone(tenant);
   },
+
+  // ---------- Plan configuration ----------
+
+  async getPlanConfigs(): Promise<PlanConfig[]> {
+    await delay(200);
+    return clone(planConfigs);
+  },
+
+  async updatePlanConfig(
+    id: TenantPlan,
+    patch: Partial<Omit<PlanConfig, "id">>,
+  ): Promise<PlanConfig | null> {
+    await delay(500);
+    const config = planConfigs.find((c) => c.id === id);
+    if (!config) return null;
+    if (patch.monthlyPrice !== undefined && patch.monthlyPrice < 0) {
+      throw new Error("Price must be zero or positive");
+    }
+    Object.assign(config, patch);
+    // MRR of every tenant follows its plan's price.
+    for (const tenant of tenants) {
+      tenant.mrr = tenantMrr(tenant.plan, tenant.status, planConfigs);
+    }
+    return clone(config);
+  },
+
+  // ---------- Telemetry links ----------
+
+  async listTelemetryLinks(): Promise<TelemetryLink[]> {
+    await delay(200);
+    return clone(telemetryLinks);
+  },
+
+  async createTelemetryLink(input: Omit<TelemetryLink, "id">): Promise<TelemetryLink> {
+    await delay(400);
+    const link: TelemetryLink = { id: uid("tel"), ...input };
+    telemetryLinks = [...telemetryLinks, link];
+    return clone(link);
+  },
+
+  async updateTelemetryLink(
+    id: string,
+    patch: Partial<Omit<TelemetryLink, "id">>,
+  ): Promise<TelemetryLink | null> {
+    await delay(400);
+    const link = telemetryLinks.find((l) => l.id === id);
+    if (!link) return null;
+    Object.assign(link, patch);
+    return clone(link);
+  },
+
+  async deleteTelemetryLink(id: string): Promise<void> {
+    await delay(300);
+    telemetryLinks = telemetryLinks.filter((l) => l.id !== id);
+  },
 };
+
+function emptyMetrics() {
+  return {
+    orderCount30d: 0,
+    sessionCount30d: 0,
+    tableCount: 0,
+    staffCount: 0,
+    zoneCount: 0,
+    lastActivityAt: new Date().toISOString(),
+  };
+}
+
+function defaultProvisioningSnapshot() {
+  return {
+    timezone: "America/Toronto",
+    currency: "CAD",
+    serviceFees: [{ name: "Service", type: "percentage" as const, value: 5 }],
+    menuCategories: ["Bottles", "Cocktails", "Beer & Wine", "Soft drinks"],
+  };
+}

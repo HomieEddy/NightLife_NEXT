@@ -26,6 +26,17 @@ async function livePOST(request: NextRequest) {
   const parsed = zStaffInvite.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   const venueId = sessionToDbContext(auth.session).venueId;
+
+  const { getPlatformDb } = await import("@/server/db");
+  const { checkStaffLimit } = await import("@/server/platform/admin-core");
+  const limitCheck = await checkStaffLimit(getPlatformDb(), venueId);
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      { error: `Staff limit reached (${limitCheck.current}/${limitCheck.limit}). Upgrade your plan.` },
+      { status: 403 },
+    );
+  }
+
   const api = betterAuth.api as Record<string, (...args: never[]) => Promise<unknown>>;
   const invitation = await api.createInvitation({
     headers: await headers(),

@@ -5,6 +5,8 @@ const liveSchema = z.object({
   DATABASE_URL: z.string().url(),
   AUTH_SECRET: z.string().min(16),
   QR_TOKEN_SECRET: z.string().min(16),
+  STRIPE_SECRET_KEY: z.string().min(1).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
 });
 
 export type LiveEnv = z.infer<typeof liveSchema>;
@@ -27,6 +29,8 @@ export function getLiveEnv(): LiveEnv {
     DATABASE_URL: process.env.DATABASE_URL,
     AUTH_SECRET: process.env.AUTH_SECRET,
     QR_TOKEN_SECRET: process.env.QR_TOKEN_SECRET,
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   });
   return _validated;
 }

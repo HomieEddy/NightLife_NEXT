@@ -29,6 +29,7 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { adminService } from "@/lib/services/admin-service";
+import { adminTenantHref } from "@/lib/entity-links";
 import { formatDate, formatMoney } from "@/lib/format";
 import type { Tenant, TenantPlan, TenantStatus } from "@/lib/types";
 
@@ -64,7 +65,7 @@ export default function AdminVenuesPage() {
   const totals = useMemo(() => {
     const all = tenants ?? [];
     return {
-      mrr: all.reduce((s, t) => s + t.monthlyRevenue, 0),
+      mrr: all.reduce((s, t) => s + t.mrr, 0),
       active: all.filter((t) => t.status === "active").length,
       trials: all.filter((t) => t.status === "trial").length,
       suspended: all.filter((t) => t.status === "suspended").length,
@@ -179,10 +180,14 @@ export default function AdminVenuesPage() {
               {visible.map((tenant) => (
                 <TableRow key={tenant.id}>
                   <TableCell>
-                    <p className="font-medium">{tenant.venueName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {tenant.slug} · {tenant.city}
-                    </p>
+                    <Link href={adminTenantHref(tenant.id)} className="group block">
+                      <p className="font-medium group-hover:text-primary group-hover:underline">
+                        {tenant.venueName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {tenant.slug} · {tenant.city}
+                      </p>
+                    </Link>
                   </TableCell>
                   <TableCell>
                     <Select
@@ -206,9 +211,9 @@ export default function AdminVenuesPage() {
                   <TableCell>
                     <StatusBadge status={tenant.status} />
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{tenant.tableCount}</TableCell>
+                  <TableCell className="text-right tabular-nums">{tenant.metrics.tableCount}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatMoney(tenant.monthlyRevenue)}
+                    {formatMoney(tenant.mrr)}
                   </TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground">
                     {formatDate(tenant.createdAt)}

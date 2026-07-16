@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/feature-gate";
+
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { Loader2, Pencil, Plus, Tag, Trash2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
@@ -330,8 +332,10 @@ function PromotionsContent() {
 
 export default function ManagerPromotionsPage() {
   return (
-    <Suspense fallback={<ListSkeleton rows={3} rowHeight="h-28" />}>
-      <PromotionsContent />
-    </Suspense>
+    <FeatureGate feature="promotions">
+      <Suspense fallback={<ListSkeleton rows={3} rowHeight="h-28" />}>
+        <PromotionsContent />
+      </Suspense>
+    </FeatureGate>
   );
 }
