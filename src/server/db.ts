@@ -36,6 +36,8 @@ export function getDb(session: SessionContext) {
         if (!model) return query(args);
         const platformModels = [
           "Tenant", "JobRun",
+          "Lead", "LeadActivity",
+          "PlanConfig", "TelemetryLink", "AdminAction",
           "User", "Session", "Account", "Verification",
           "Organization", "Member", "Invitation",
           "StaffProfile",
