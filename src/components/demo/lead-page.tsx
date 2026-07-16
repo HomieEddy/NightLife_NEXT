@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { isDemoMode } from "@/lib/app-mode";
 import { adminService } from "@/lib/services/admin-service";
 
 export default function LeadPage() {
@@ -30,19 +31,26 @@ export default function LeadPage() {
     }
     setSubmitting(true);
     try {
-      // TODO(backend): POST /api/leads — also notify sales via email/Slack.
-      // Plan 10 security: the public handler gets per-IP rate limiting + a
-      // honeypot field; rejected submissions never reach the pipeline.
-      await adminService.createLead({
+      const payload = {
         venueName,
         contactName,
         email,
         phone: String(data.get("phone") ?? ""),
         city: String(data.get("city") ?? ""),
-        source: "landing-page",
-        dealValue: 2988, // default: pro annual — refined during qualification
+        source: "landing-page" as const,
+        dealValue: 2988,
         notes: String(data.get("notes") ?? ""),
-      });
+      };
+      if (isDemoMode()) {
+        await adminService.createLead(payload);
+      } else {
+        const res = await fetch("/api/lead", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("Request failed");
+      }
       setSubmitted(true);
     } finally {
       setSubmitting(false);

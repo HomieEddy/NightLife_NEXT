@@ -1,4 +1,2 @@
-import { notFound } from "next/navigation";
-
-export function LeadPage() { notFound(); }
-export function SubscriptionPage() { notFound(); }
+export { default as LeadPage } from "@/components/demo/lead-page";
+export { default as SubscriptionPage } from "@/components/demo/subscription-page";

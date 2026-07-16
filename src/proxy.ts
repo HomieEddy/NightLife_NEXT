@@ -8,15 +8,25 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // TODO(backend): plan 10 — when /admin graduates, replace its 404 with a
-  // session-cookie requirement (missing → /login); the admin layout becomes a
-  // server component calling requirePlatformAdmin(), and /api/platform/*
-  // mutations get per-IP + per-session rate limiting and AdminAction audit rows.
+  // /admin requires a session cookie — the layout's requirePlatformAdmin()
+  // does the role check, but the proxy bounces unauthenticated requests early.
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    const sessionCookie = getSessionCookie(request);
+    if (!sessionCookie) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // /lead is a public page — no auth required.
+  if (request.nextUrl.pathname.startsWith("/lead")) {
+    return NextResponse.next();
+  }
+
+  // /demo and /manager/subscription stay 404 in the live build until their
+  // respective surfaces graduate.
   if (
-    request.nextUrl.pathname.startsWith("/admin") ||
-    request.nextUrl.pathname.startsWith("/demo") ||
-    request.nextUrl.pathname.startsWith("/lead") ||
-    request.nextUrl.pathname.startsWith("/manager/subscription")
+    request.nextUrl.pathname.startsWith("/demo")
   ) {
     return new NextResponse("Not Found", { status: 404 });
   }
