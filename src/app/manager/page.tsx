@@ -143,6 +143,20 @@ function pct(n: number) {
   return `${Math.round(n * 100)}%`;
 }
 
+/** Per-staff averages weighted by each staff's volume, not a mean of means. */
+function weightedAvg<T>(rows: T[], value: (row: T) => number | undefined, weight: (row: T) => number) {
+  let sum = 0;
+  let totalWeight = 0;
+  for (const row of rows) {
+    const v = value(row);
+    if (v == null) continue;
+    const w = weight(row);
+    sum += v * w;
+    totalWeight += w;
+  }
+  return totalWeight > 0 ? sum / totalWeight : 0;
+}
+
 function TonightTab({
   summary,
   orders,
@@ -500,7 +514,7 @@ function SnapshotTab({
               <div>
                 <p className="text-muted-foreground">Avg claim wait</p>
                 <p className="text-lg font-semibold tabular-nums">
-                  {(summary.staffPerformance.reduce((s, p) => s + (p.avgClaimMinutes ?? 0), 0) / summary.staffPerformance.length).toFixed(1)} min
+                  {weightedAvg(summary.staffPerformance, (p) => p.avgClaimMinutes, (p) => p.ordersDelivered).toFixed(1)} min
                 </p>
               </div>
               <div>
@@ -512,7 +526,7 @@ function SnapshotTab({
               <div>
                 <p className="text-muted-foreground">Avg help time</p>
                 <p className="text-lg font-semibold tabular-nums">
-                  {(summary.staffPerformance.reduce((s, p) => s + (p.avgHelpMinutes ?? 0), 0) / summary.staffPerformance.length).toFixed(1)} min
+                  {weightedAvg(summary.staffPerformance, (p) => p.avgHelpMinutes, (p) => p.helpResolved ?? 0).toFixed(1)} min
                 </p>
               </div>
             </div>
