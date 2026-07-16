@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MenuItemCard } from "@/components/shared/menu-item-card";
+import { ClosureGate } from "@/components/guest/closure-gate";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
 import { PackageCard, type PackageWithQuote } from "@/components/guest/package-card";
 import { CartSheet } from "@/components/guest/cart-sheet";
@@ -70,6 +71,7 @@ export default function GuestMenuPage() {
   }
 
   return (
+    <ClosureGate>
     <div className="space-y-4 p-4 animate-fade-in">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -138,5 +140,6 @@ export default function GuestMenuPage() {
       />
       <CartSheet />
     </div>
+    </ClosureGate>
   );
 }

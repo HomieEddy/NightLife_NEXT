@@ -130,8 +130,10 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
       toast.success(`Order ${order.code} sent to the team!`);
       onSubmitted?.();
       router.push("/guest/orders");
-    } catch {
-      toast.error("Could not submit your order. Please try again.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not submit your order. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }

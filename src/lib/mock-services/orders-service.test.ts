@@ -1,15 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { mockOrdersService } from "./orders-service";
 import { mockMenuService } from "./menu-service";
+import { mockGuestsService } from "./guests-service";
 import type { MenuItem } from "@/lib/types";
 
-async function placeOrder(menuItem: MenuItem) {
+async function placeOrder(menuItem: MenuItem, sessionId?: string) {
   return mockOrdersService.submitOrder({
     tableId: "tbl-vip-1",
     tableCode: "VIP-01",
     zoneId: "zone-vip",
     zoneName: "VIP Mezzanine",
     guestName: "Test Guest",
+    sessionId,
     lines: [{ lineId: "test-line", menuItem, quantity: 2, modifiers: [] }],
     tip: 10,
   });
@@ -79,6 +81,69 @@ describe("order claiming", () => {
     const delivered = all.find((o) => o.status === "delivered");
     expect(delivered).toBeDefined();
     expect(await mockOrdersService.claimOrder(delivered!.id, "st-a", "Ana")).toBeNull();
+  });
+});
+
+describe("session closure ordering wall", () => {
+  async function newSession() {
+    const session = await mockGuestsService.requestSession({
+      tableId: "tbl-vip-1",
+      tableCode: "VIP-01",
+      zoneName: "VIP Mezzanine",
+      displayName: "Wall Tester",
+      partySize: 2,
+    });
+    await mockGuestsService.setSessionStatus(session.id, "approved");
+    return session;
+  }
+
+  it("accepts orders on an approved session", async () => {
+    const session = await newSession();
+    const item = await stockedItem();
+    const order = await placeOrder(item, session.id);
+    expect(order.sessionId).toBe(session.id);
+  });
+
+  it("rejects new orders once closure is requested", async () => {
+    const session = await newSession();
+    await mockGuestsService.requestClosure(session.id);
+    const item = await stockedItem();
+    await expect(placeOrder(item, session.id)).rejects.toThrow(/being closed/);
+  });
+
+  it("rejects new orders on a closed session", async () => {
+    const session = await newSession();
+    await mockGuestsService.setSessionStatus(session.id, "closed", "terminal");
+    const item = await stockedItem();
+    await expect(placeOrder(item, session.id)).rejects.toThrow(/closed/);
+  });
+
+  it("rejects gifts once closure is requested", async () => {
+    const session = await newSession();
+    await mockGuestsService.requestClosure(session.id);
+    const item = await stockedItem();
+    await expect(
+      mockOrdersService.sendGift({
+        fromTableId: "tbl-vip-1",
+        fromTableCode: "VIP-01",
+        fromZoneId: "zone-vip",
+        fromZoneName: "VIP Mezzanine",
+        guestName: "Wall Tester",
+        sessionId: session.id,
+        menuItem: item,
+        toTableId: "tbl-mf-1",
+        toTableCode: "MF-01",
+      }),
+    ).rejects.toThrow(/being closed/);
+  });
+
+  it("does not deduct stock for a rejected order", async () => {
+    const session = await newSession();
+    await mockGuestsService.requestClosure(session.id);
+    const item = await stockedItem();
+    const before = (await mockMenuService.getItem(item.id))!.inventory;
+    await expect(placeOrder(item, session.id)).rejects.toThrow();
+    expect((await mockMenuService.getItem(item.id))!.inventory).toBe(before);
   });
 });
 

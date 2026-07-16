@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { PageHeader } from "@/components/shared/page-header";
+import { ClosureGate } from "@/components/guest/closure-gate";
 import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/lib/services/menu-service";
 import { ordersService } from "@/lib/services/orders-service";
@@ -85,6 +86,7 @@ export default function GuestGiftPage() {
   }
 
   return (
+    <ClosureGate>
     <div className="space-y-5 p-4 animate-fade-in">
       <PageHeader
         title="Send a bottle"
@@ -176,5 +178,6 @@ export default function GuestGiftPage() {
         }
       />
     </div>
+    </ClosureGate>
   );
 }

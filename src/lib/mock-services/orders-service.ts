@@ -9,6 +9,7 @@ import { computeFeeLines, computeServiceFee } from "@/lib/fees";
 import { bestHappyHourDiscount } from "@/lib/happy-hour";
 import { orderLineSubtotal } from "@/lib/order-line";
 import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
+import { mockGuestsService } from "./guests-service";
 import { mockMenuService, restoreSale } from "./menu-service";
 import { mockVenueService } from "./venue-service";
 import { clone, delay, uid } from "./delay";
@@ -19,6 +20,19 @@ export { nextStatus, ORDER_FLOW };
 // simulating shared state between guest and staff surfaces.
 let orders: Order[] = clone(mockOrders);
 let orderCounter = 39;
+
+/** Once a tab closure is requested the session takes no new orders — UI gates are advisory, this is the wall. */
+async function assertSessionOrderable(sessionId: string | undefined): Promise<void> {
+  if (!sessionId) return;
+  const session = await mockGuestsService.getSession(sessionId);
+  if (!session) return;
+  if (session.status === "closure-requested") {
+    throw new Error("Your tab is being closed — ordering is paused until the host settles it.");
+  }
+  if (session.status === "closed") {
+    throw new Error("This tab is closed. Scan the table QR code to start a new session.");
+  }
+}
 
 export const mockOrdersService = {
   async listOrders(filter?: { status?: OrderStatus[]; zoneIds?: string[] }): Promise<Order[]> {
@@ -55,6 +69,7 @@ export const mockOrdersService = {
     promoId?: string;
   }): Promise<Order> {
     await delay(700);
+    await assertSessionOrderable(input.sessionId);
     const subtotal = input.lines.reduce(
       (sum, line) =>
         sum + orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers),
@@ -165,6 +180,7 @@ export const mockOrdersService = {
     note?: string;
   }): Promise<Order> {
     await delay(700);
+    await assertSessionOrderable(input.sessionId);
     const subtotal = input.menuItem.price;
     const venue = await mockVenueService.getVenueSnapshot();
     const feeBreakdown = computeFeeLines(subtotal, venue);

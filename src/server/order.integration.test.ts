@@ -449,6 +449,72 @@ describe("orders & fees integration (plan 05)", () => {
     expect((await getItem(db, itemId))!.inventory).toBe(before);
   });
 
+  // ── Closure ordering wall ───────────────────────────────────────────
+
+  async function makeSession(status: "approved" | "closure_requested" | "closed") {
+    const row = await rawClient.guestSession.create({
+      data: {
+        venueId: venueA,
+        tableId: "t1",
+        tableCode: "VIP-01",
+        zoneName: "VIP",
+        displayName: "Wall Tester",
+        partySize: 2,
+        status,
+      },
+    });
+    return row.id;
+  }
+
+  it("accepts an order on an approved session", async () => {
+    const db = getDb(sessionA);
+    const result = await submitOrder(db, venueA, {
+      tableId: "t1",
+      tableCode: "VIP-01",
+      zoneId: "z1",
+      zoneName: "VIP",
+      guestName: "Wall Tester",
+      sessionId: await makeSession("approved"),
+      lines: [{ menuItemId: itemId, quantity: 1, modifiers: [] }],
+      tipCents: 0,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects an order once the session's closure is requested", async () => {
+    const db = getDb(sessionA);
+    const before = (await getItem(db, itemId))!.inventory;
+    const result = await submitOrder(db, venueA, {
+      tableId: "t1",
+      tableCode: "VIP-01",
+      zoneId: "z1",
+      zoneName: "VIP",
+      guestName: "Wall Tester",
+      sessionId: await makeSession("closure_requested"),
+      lines: [{ menuItemId: itemId, quantity: 1, modifiers: [] }],
+      tipCents: 0,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/being closed/);
+    expect((await getItem(db, itemId))!.inventory).toBe(before);
+  });
+
+  it("rejects an order on a closed session", async () => {
+    const db = getDb(sessionA);
+    const result = await submitOrder(db, venueA, {
+      tableId: "t1",
+      tableCode: "VIP-01",
+      zoneId: "z1",
+      zoneName: "VIP",
+      guestName: "Wall Tester",
+      sessionId: await makeSession("closed"),
+      lines: [{ menuItemId: itemId, quantity: 1, modifiers: [] }],
+      tipCents: 0,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/closed/);
+  });
+
   // ── Claims (atomic compare-and-set) ─────────────────────────────────
 
   it("exactly one staff wins a concurrent claim", async () => {

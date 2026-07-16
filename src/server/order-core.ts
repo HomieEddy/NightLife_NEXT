@@ -215,6 +215,18 @@ export async function submitOrder(
 
   if (!venueRow) return { ok: false, error: "Venue not found" };
 
+  // Once a closure is requested the session takes no new orders — the cookie-derived
+  // sessionId makes this the wall a manual URL or stale client can't route around.
+  if (input.sessionId) {
+    const guestSession = await db.guestSession.findUnique({ where: { id: input.sessionId } });
+    if (guestSession?.status === "closure_requested") {
+      return { ok: false, error: "Your tab is being closed — ordering is paused until the host settles it." };
+    }
+    if (guestSession?.status === "closed") {
+      return { ok: false, error: "This tab is closed. Scan the table QR code to start a new session." };
+    }
+  }
+
   // Validate promo code before entering the transaction
   let promoRow: { id: string; code: string; type: string; value: number; appliesToCategoryIds: string[] } | null = null;
   if (input.promoCode) {
