@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderCsv } from "./report-core";
+import { renderCsv } from "./report-csv";
 import type { HistoricalAnalytics } from "@/lib/types";
 
 const FIXTURE: HistoricalAnalytics = {
