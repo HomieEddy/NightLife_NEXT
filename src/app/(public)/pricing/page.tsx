@@ -11,9 +11,6 @@ import type { PlanConfig } from "@/lib/types";
 
 export const metadata = { title: "Pricing" };
 
-// Live mode reads PlanConfig from the platform DB; Stripe checkout and
-// billing portal are wired via the billing API routes.
-
 const TRIAL = {
   name: "Trial",
   price: "Free",
@@ -35,8 +32,17 @@ function limitRows(plan: PlanConfig): string[] {
   ];
 }
 
-export default function PricingPage() {
+async function getPlans(): Promise<PlanConfig[]> {
+  if (isDemoMode()) return DEFAULT_PLAN_CONFIGS;
+  const { getPlatformDb } = await import("@/server/db");
+  const { listPlanConfigs } = await import("@/server/platform/admin-core");
+  return listPlanConfigs(getPlatformDb());
+}
+
+export default async function PricingPage() {
   if (isDemoMode()) notFound();
+
+  const plans = await getPlans();
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-16 sm:py-20">
@@ -75,7 +81,7 @@ export default function PricingPage() {
           </CardFooter>
         </Card>
 
-        {DEFAULT_PLAN_CONFIGS.map((plan) => (
+        {plans.map((plan) => (
           <Card
             key={plan.id}
             className={plan.highlight ? "relative flex h-full flex-col overflow-visible border-primary/60 shadow-lg shadow-primary/10" : "flex h-full flex-col"}
