@@ -94,7 +94,7 @@ export default function ManagerDashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title={`Tonight at ${venue.name}`}
-        description="Saturday · Doors 22:00 — live operations overview"
+        description={`${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} · Doors 22:00 — live operations overview`}
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href="/manager/analytics">
@@ -305,11 +305,6 @@ function SnapshotTab({
                 <p className="text-muted-foreground">Rev / guest</p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.sessions.revenuePerGuest, currency)}</p>
               </div>
-            </div>
-            <div className="mt-3 flex gap-3 text-xs text-muted-foreground">
-              {summary.sessions.settlementMix.map((s) => (
-                <span key={s.method} className="capitalize">{s.method} {pct(s.pct)}</span>
-              ))}
             </div>
           </CardContent>
         </Card>
