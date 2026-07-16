@@ -6,6 +6,7 @@ import type { CartLine, MenuItem, Order, OrderStatus } from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
+import { bestHappyHourDiscount } from "@/lib/happy-hour";
 import { orderLineSubtotal } from "@/lib/order-line";
 import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
 import { mockMenuService, restoreSale } from "./menu-service";
@@ -61,10 +62,31 @@ export const mockOrdersService = {
     );
     // Live settings, so fee edits in /manager/settings apply to new orders.
     const venue = await mockVenueService.getVenueSnapshot();
-    const afterPromo = subtotal - (input.promoDiscount ?? 0);
-    const feeBreakdown = computeFeeLines(afterPromo, venue);
-    const serviceFee = computeServiceFee(afterPromo, venue);
-    const now = new Date().toISOString();
+
+    // Happy hour discounts covered category lines — same rule selection as the
+    // live pricing engine (src/server/pricing.ts), applied here in dollars.
+    const happyHourRules = await mockMenuService.listHappyHourRules();
+    const placedAt = new Date();
+    let happyHourDiscount = 0;
+    let happyHourRuleId: string | undefined;
+    for (const line of input.lines) {
+      const best = bestHappyHourDiscount(
+        happyHourRules,
+        line.menuItem.categoryId ?? "packages",
+        placedAt,
+      );
+      if (!best) continue;
+      const lineTotal = orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers);
+      happyHourDiscount += Math.round(lineTotal * best.discountPct) / 100;
+      happyHourRuleId = best.ruleId;
+    }
+    happyHourDiscount = Math.round(happyHourDiscount * 100) / 100;
+
+    // Promotions stack after happy hour, mirroring the live engine's order.
+    const afterDiscounts = subtotal - happyHourDiscount - (input.promoDiscount ?? 0);
+    const feeBreakdown = computeFeeLines(afterDiscounts, venue);
+    const serviceFee = computeServiceFee(afterDiscounts, venue);
+    const now = placedAt.toISOString();
     const order: Order = {
       id: uid("ord"),
       code: `A-${String(orderCounter++).padStart(3, "0")}`,
@@ -88,10 +110,12 @@ export const mockOrdersService = {
       serviceFee,
       feeBreakdown,
       tip: input.tip,
-      total: Math.round((afterPromo + serviceFee + input.tip) * 100) / 100,
+      total: Math.round((afterDiscounts + serviceFee + input.tip) * 100) / 100,
       promotionId: input.promoId,
       promotionCode: input.promoCode,
       promotionCents: input.promoDiscount ? Math.round(input.promoDiscount * 100) : undefined,
+      happyHourRuleId: happyHourDiscount > 0 ? happyHourRuleId : undefined,
+      happyHourCents: happyHourDiscount > 0 ? Math.round(happyHourDiscount * 100) : undefined,
       status: "pending",
       placedAt: now,
       updatedAt: now,

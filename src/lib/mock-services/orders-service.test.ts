@@ -89,4 +89,47 @@ describe("order money math", () => {
     expect(order.serviceFee).toBe(Math.round(order.serviceFee * 100) / 100);
     expect(order.total).toBe(Math.round(order.total * 100) / 100);
   });
+
+  it("applies the best active happy-hour rule and stamps attribution", async () => {
+    const item = await stockedItem();
+    // Always-on window (00:00–00:00 wraps the whole day); 50% beats every seeded rule.
+    const rule = await mockMenuService.createHappyHourRule({
+      name: "Test All Night",
+      daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      startTime: "00:00",
+      endTime: "00:00",
+      discountPct: 50,
+      appliesToCategoryIds: [item.categoryId],
+      isActive: true,
+    });
+
+    try {
+      const order = await placeOrder(item);
+      const lineTotal = item.price * 2;
+      const expectedDiscount = Math.round(lineTotal * 50) / 100;
+      expect(order.happyHourRuleId).toBe(rule.id);
+      expect(order.happyHourCents).toBe(Math.round(expectedDiscount * 100));
+      expect(order.total).toBe(
+        Math.round((order.subtotal - expectedDiscount + order.serviceFee + order.tip) * 100) / 100,
+      );
+    } finally {
+      await mockMenuService.deleteHappyHourRule(rule.id);
+    }
+  });
+
+  it("stamps no happy-hour attribution when no rule covers the order", async () => {
+    const rules = await mockMenuService.listHappyHourRules();
+    // Deactivate everything so the seeded windows can't fire regardless of wall clock.
+    const active = rules.filter((r) => r.isActive);
+    for (const r of active) await mockMenuService.toggleHappyHourRule(r.id);
+
+    try {
+      const item = await stockedItem();
+      const order = await placeOrder(item);
+      expect(order.happyHourRuleId).toBeUndefined();
+      expect(order.happyHourCents).toBeUndefined();
+    } finally {
+      for (const r of active) await mockMenuService.toggleHappyHourRule(r.id);
+    }
+  });
 });
