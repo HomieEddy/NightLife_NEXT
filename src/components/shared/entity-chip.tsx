@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Map, Martini, Table2, Users } from "lucide-react";
+import { CalendarCheck, Map, Martini, PartyPopper, Table2, Tag, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  eventHref,
   menuCategoryHref,
+  promotionHref,
+  reservationHref,
   tableHref,
   zoneHref,
   zoneStaffHref,
@@ -16,7 +19,10 @@ export type EntityChipType =
   | "zone-tables" // → tables filtered to zone
   | "zone-staff" // → staff filtered to zone
   | "table" // → tables page, highlighted
-  | "menu-category"; // → menu filtered to category
+  | "menu-category" // → menu filtered to category
+  | "reservation" // → reservations page, highlighted
+  | "event" // → events page, highlighted
+  | "promotion"; // → promotions page, highlighted
 
 const CONFIG: Record<EntityChipType, { icon: typeof Map; href: (id: string) => string }> = {
   zone: { icon: Map, href: zoneHref },
@@ -24,6 +30,9 @@ const CONFIG: Record<EntityChipType, { icon: typeof Map; href: (id: string) => s
   "zone-staff": { icon: Users, href: zoneStaffHref },
   table: { icon: Table2, href: tableHref },
   "menu-category": { icon: Martini, href: menuCategoryHref },
+  reservation: { icon: CalendarCheck, href: reservationHref },
+  event: { icon: PartyPopper, href: eventHref },
+  promotion: { icon: Tag, href: promotionHref },
 };
 
 /** Small link-wrapped badge for navigating entity relationships. */

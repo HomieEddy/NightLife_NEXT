@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Minus, Plus, ShoppingBag, Tag, Trash2, X } from "lucide-react";
@@ -13,14 +13,16 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { AnimatedMoney } from "@/components/fx/animated-money";
 import { useGuest } from "@/context/guest-context";
+import { menuService } from "@/lib/services/menu-service";
 import { ordersService } from "@/lib/services/orders-service";
 import { promotionsService } from "@/lib/services/promotions-service";
 import { computeFeeLines, feeLabel } from "@/lib/fees";
+import { bestHappyHourDiscount } from "@/lib/happy-hour";
 import { formatMoney } from "@/lib/format";
 import { useLastCall } from "@/lib/use-last-call";
 import { cn } from "@/lib/utils";
 import { orderLineSubtotal } from "@/lib/order-line";
-import type { Promotion } from "@/lib/types";
+import type { HappyHourRule, Promotion } from "@/lib/types";
 
 const TIP_PRESETS = [0, 10, 15, 20] as const;
 
@@ -44,7 +46,25 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
   const [promoInput, setPromoInput] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<Promotion | null>(null);
+  const [happyHourRules, setHappyHourRules] = useState<HappyHourRule[]>([]);
   const lastCallActive = useLastCall();
+
+  useEffect(() => {
+    menuService.listHappyHourRules().then(setHappyHourRules);
+  }, []);
+
+  // Preview of the discount the order service will apply — same rule selection.
+  const happyHourDiscount = useMemo(() => {
+    const now = new Date();
+    let discount = 0;
+    for (const line of cart) {
+      const best = bestHappyHourDiscount(happyHourRules, line.menuItem.categoryId ?? "packages", now);
+      if (!best) continue;
+      const lineTotal = orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers);
+      discount += Math.round(lineTotal * best.discountPct) / 100;
+    }
+    return Math.round(discount * 100) / 100;
+  }, [cart, happyHourRules]);
 
   const promoDiscount = useMemo(() => {
     if (!appliedPromo) return 0;
@@ -54,20 +74,20 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
     return Math.min(appliedPromo.value, cartSubtotal);
   }, [appliedPromo, cartSubtotal]);
 
-  const afterPromo = cartSubtotal - promoDiscount;
+  const afterDiscounts = cartSubtotal - happyHourDiscount - promoDiscount;
 
   // Snapshot taken at QR landing (see findTableByQrSlug) — fee edits made mid-session
   // won't retroactively apply to an already-open guest cart.
   const feeLines = useMemo(
-    () => (venue ? computeFeeLines(afterPromo, venue) : []),
-    [afterPromo, venue],
+    () => (venue ? computeFeeLines(afterDiscounts, venue) : []),
+    [afterDiscounts, venue],
   );
   const serviceFee = useMemo(
     () => Math.round(feeLines.reduce((sum, l) => sum + l.amount, 0) * 100) / 100,
     [feeLines],
   );
   const tip = useMemo(() => Math.round(cartSubtotal * tipPct) / 100, [cartSubtotal, tipPct]);
-  const total = afterPromo + serviceFee + tip;
+  const total = afterDiscounts + serviceFee + tip;
 
   async function handleApplyPromo() {
     if (!promoInput.trim()) return;
@@ -110,8 +130,10 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
       toast.success(`Order ${order.code} sent to the team!`);
       onSubmitted?.();
       router.push("/guest/orders");
-    } catch {
-      toast.error("Could not submit your order. Please try again.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not submit your order. Please try again.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -267,6 +289,12 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
           <span>Subtotal</span>
           <span className="tabular-nums">{formatMoney(cartSubtotal)}</span>
         </div>
+        {happyHourDiscount > 0 && (
+          <div className="flex justify-between text-primary">
+            <span>Happy hour</span>
+            <span className="tabular-nums">-{formatMoney(happyHourDiscount)}</span>
+          </div>
+        )}
         {promoDiscount > 0 && (
           <div className="flex justify-between text-primary">
             <span>{appliedPromo?.name ?? "Promo"}</span>

@@ -310,6 +310,9 @@ export interface Order {
   promotionId?: string;
   promotionCode?: string;
   promotionCents?: number;
+  // TODO(backend): becomes a real column — happy-hour attribution snapshot.
+  happyHourRuleId?: string;
+  happyHourCents?: number;
 }
 
 // ---------- Help requests ----------
@@ -400,6 +403,10 @@ export interface StaffPerformancePoint {
   ordersDelivered: number;
   avgDeliveryMinutes: number;
   revenueServed: number;
+  avgClaimMinutes?: number;
+  helpResolved?: number;
+  avgHelpMinutes?: number;
+  ordersPerShiftHour?: number;
 }
 
 export interface CategoryDepletionPoint {
@@ -407,6 +414,108 @@ export interface CategoryDepletionPoint {
   categoryName: string;
   unitsSold: number;
   unitsInStock: number;
+  sellThrough?: number;
+  soldOutMinutes?: number;
+  restockUnits?: number;
+  deadItem?: boolean;
+}
+
+// ---------- Analytics: new domain sections ----------
+
+export interface SessionAnalytics {
+  totalSessions: number;
+  approvalRate: number;
+  denialRate: number;
+  avgApprovalMinutes: number;
+  avgDurationMinutes: number;
+  avgPartySize: number;
+  revenuePerSession: number;
+  revenuePerGuest: number;
+  // Staff-recorded at tab close (see staff approvals) — the app never processes payments.
+  settlementMix: { method: SettlementMethod; count: number; pct: number }[];
+  avgClosureMinutes: number;
+}
+
+export interface ReservationAnalytics {
+  requested: number;
+  confirmed: number;
+  seated: number;
+  completed: number;
+  cancelled: number;
+  confirmRate: number;
+  seatedRate: number;
+  cancellationRate: number;
+  noShowRate: number;
+  avgLeadDays: number;
+  totalCovers: number;
+  sourceSplit: { source: "manager" | "public"; count: number; pct: number }[];
+  partySizeDistribution: { size: number; count: number }[];
+}
+
+export interface HappyHourAnalytics {
+  rules: {
+    ruleId: string;
+    ruleName: string;
+    orders: number;
+    revenue: number;
+    discountGiven: number;
+    categoryUpliftPct: number;
+  }[];
+  totalDiscountGiven: number;
+  totalHhOrders: number;
+  totalHhRevenue: number;
+}
+
+export interface EventAnalytics {
+  events: {
+    eventId: string;
+    eventName: string;
+    invited: number;
+    confirmed: number;
+    checkedIn: number;
+    capacityUtilization: number;
+    guestlistConversion: number;
+    eventRevenue: number;
+    avgWeekdayRevenue: number;
+  }[];
+  totalEvents: number;
+  avgCapacityUtilization: number;
+}
+
+export interface PromotionAnalytics {
+  promotions: {
+    promotionId: string;
+    code: string;
+    redemptions: number;
+    discountCost: number;
+    attributedRevenue: number;
+    aovWithPromo: number;
+    aovWithoutPromo: number;
+  }[];
+  totalRedemptions: number;
+  totalDiscountCost: number;
+}
+
+export interface OrderFunnelAnalytics {
+  placed: number;
+  accepted: number;
+  preparing: number;
+  delivered: number;
+  cancelled: number;
+  cancellationRate: number;
+  tipRate: number;
+  avgTip: number;
+  serviceFeeRevenue: number;
+  giftOrders: number;
+  giftRevenue: number;
+  modifierAttachRate: number;
+}
+
+export interface InventoryDepthAnalytics {
+  soldOutEventsPerNight: number;
+  totalSoldOutMinutes: number;
+  restockSaleRatio: number;
+  deadItems: number;
 }
 
 export interface AnalyticsSummary {
@@ -425,6 +534,13 @@ export interface AnalyticsSummary {
   revenueByZone: { zoneId: string; zoneName: string; revenue: number }[];
   staffPerformance: StaffPerformancePoint[];
   categoryDepletion: CategoryDepletionPoint[];
+  sessions?: SessionAnalytics;
+  reservations?: ReservationAnalytics;
+  happyHours?: HappyHourAnalytics;
+  events?: EventAnalytics;
+  promotions?: PromotionAnalytics;
+  orderFunnel?: OrderFunnelAnalytics;
+  inventoryDepth?: InventoryDepthAnalytics;
 }
 
 export interface HistoricalAnalytics {
@@ -440,6 +556,13 @@ export interface HistoricalAnalytics {
   topItems: { name: string; count: number; revenue: number; categoryId?: string }[];
   staffPerformance: StaffPerformancePoint[];
   categoryDepletion: CategoryDepletionPoint[];
+  sessions?: SessionAnalytics;
+  reservations?: ReservationAnalytics;
+  happyHours?: HappyHourAnalytics;
+  events?: EventAnalytics;
+  promotions?: PromotionAnalytics;
+  orderFunnel?: OrderFunnelAnalytics;
+  inventoryDepth?: InventoryDepthAnalytics;
 }
 
 export const REPORT_METRICS = [
@@ -448,6 +571,13 @@ export const REPORT_METRICS = [
   { id: "top-items", label: "Top items" },
   { id: "staff", label: "Staff performance" },
   { id: "inventory", label: "Inventory depletion" },
+  { id: "sessions", label: "Guest sessions" },
+  { id: "reservations", label: "Reservations" },
+  { id: "happy-hours", label: "Happy hours" },
+  { id: "events", label: "Events" },
+  { id: "promotions", label: "Promotions" },
+  { id: "order-funnel", label: "Order funnel" },
+  { id: "service-fees", label: "Service fees" },
 ] as const;
 
 export type ReportMetric = (typeof REPORT_METRICS)[number]["id"];

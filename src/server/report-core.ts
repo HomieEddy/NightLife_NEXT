@@ -3,7 +3,7 @@
  * and scheduled-report due selection.
  */
 import type { getDb } from "./db";
-import type { HistoricalAnalytics, ReportMetric, SavedReport, ReportSchedule } from "@/lib/types";
+import type { ReportMetric, SavedReport, ReportSchedule } from "@/lib/types";
 
 type ScopedDb = ReturnType<typeof getDb>;
 
@@ -104,50 +104,9 @@ export async function recordRun(
 
 // ── CSV rendering ────────────────────────────────────────────────────
 
-function escapeCell(value: string): string {
-  return `"${value.replaceAll('"', '""')}"`;
-}
+// Pure and client-safe — implementation lives in src/lib/report-csv.ts.
+export { renderCsv } from "@/lib/report-csv";
 
-export function renderCsv(
-  reportName: string,
-  metrics: ReportMetric[],
-  data: HistoricalAnalytics,
-): string {
-  const rows: string[][] = [
-    ["Report", reportName],
-    ["Range", `${data.from} → ${data.to} (${data.days} nights)`],
-    [],
-  ];
-
-  if (metrics.includes("revenue")) {
-    rows.push(["Night", "Revenue", "Orders"]);
-    for (const p of data.series) rows.push([p.label, String(p.revenue), String(p.orders)]);
-    rows.push(["Total", String(data.totalRevenue), String(data.totalOrders)], []);
-  }
-  if (metrics.includes("zones")) {
-    rows.push(["Zone", "Revenue"]);
-    for (const z of data.revenueByZone) rows.push([z.zoneName, String(z.revenue)]);
-    rows.push([]);
-  }
-  if (metrics.includes("top-items")) {
-    rows.push(["Item", "Sold", "Revenue"]);
-    for (const t of data.topItems) rows.push([t.name, String(t.count), String(t.revenue)]);
-    rows.push([]);
-  }
-  if (metrics.includes("staff")) {
-    rows.push(["Staff", "Role", "Orders delivered", "Avg minutes", "Revenue served"]);
-    for (const s of data.staffPerformance)
-      rows.push([s.name, s.role, String(s.ordersDelivered), String(s.avgDeliveryMinutes), String(s.revenueServed)]);
-    rows.push([]);
-  }
-  if (metrics.includes("inventory")) {
-    rows.push(["Category", "Units sold", "In stock"]);
-    for (const c of data.categoryDepletion)
-      rows.push([c.categoryName, String(c.unitsSold), String(c.unitsInStock)]);
-  }
-
-  return rows.map((r) => r.map(escapeCell).join(",")).join("\n");
-}
 
 // ── Scheduled report selection ───────────────────────────────────────
 

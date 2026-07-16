@@ -313,3 +313,27 @@ export const mockMenuService = {
     happyHourRules = happyHourRules.filter((r) => r.id !== ruleId);
   },
 };
+
+/**
+ * Demo-track internal (not part of the cross-track service contract — the live
+ * order core reverses its own ledger rows): credits a cancelled order's draw-down
+ * back as adjustment movements, with recordSale's package expansion. May over-credit
+ * if the original draw-down was clamped at zero stock; acceptable in the sandbox.
+ */
+export async function restoreSale(
+  lines: { menuItemId: string; quantity: number }[],
+  note = "Order cancelled",
+): Promise<void> {
+  for (const line of lines) {
+    const pkg = packages.find((p) => p.id === line.menuItemId);
+    const components: PackageComponent[] = pkg
+      ? pkg.components.map((c) => ({ ...c, quantity: c.quantity * line.quantity }))
+      : [{ menuItemId: line.menuItemId, quantity: line.quantity }];
+    for (const component of components) {
+      const item = items.find((i) => i.id === component.menuItemId);
+      if (!item) continue;
+      item.inventory += component.quantity;
+      logMovement(item, "adjustment", component.quantity, note);
+    }
+  }
+}

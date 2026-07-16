@@ -3,6 +3,7 @@
  * rules + tip → cents breakdown. No I/O, no side effects — exhaustively
  * unit-tested. Ports src/lib/fees.ts logic and adds happy-hour discounts.
  */
+import { isInHappyHourWindow, type HappyHourDiscountRule } from "@/lib/happy-hour";
 
 // ── Input types ───────────────────────────────────────────────────────
 
@@ -33,15 +34,7 @@ export interface FlatFeeInput {
 
 export type FeeInput = PercentageFeeInput | FlatFeeInput;
 
-export interface HappyHourInput {
-  id: string;
-  isActive: boolean;
-  daysOfWeek: number[];
-  startTime: string; // "HH:MM"
-  endTime: string;
-  discountPct: number;
-  appliesToCategoryIds: string[];
-}
+export type HappyHourInput = HappyHourDiscountRule;
 
 export interface PromotionInput {
   type: "percentage" | "flat";
@@ -77,35 +70,6 @@ export interface PricingResult {
   totalFeeCents: number;
   tipCents: number;
   totalCents: number;
-}
-
-// ── Happy-hour time matching ──────────────────────────────────────────
-
-function timeToMinutes(time: string): number {
-  const [h, m] = time.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function isInHappyHourWindow(rule: HappyHourInput, now: Date): boolean {
-  if (!rule.isActive) return false;
-
-  const dayOfWeek = now.getDay();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const start = timeToMinutes(rule.startTime);
-  const end = timeToMinutes(rule.endTime);
-
-  const crossesMidnight = end <= start;
-
-  if (crossesMidnight) {
-    // Window like 22:00–02:00: check if we're in the late part (22:00–23:59)
-    // on a matching day, or in the early part (00:00–02:00) on the day after.
-    if (nowMinutes >= start && rule.daysOfWeek.includes(dayOfWeek)) return true;
-    const yesterday = (dayOfWeek + 6) % 7;
-    if (nowMinutes < end && rule.daysOfWeek.includes(yesterday)) return true;
-    return false;
-  }
-
-  return rule.daysOfWeek.includes(dayOfWeek) && nowMinutes >= start && nowMinutes < end;
 }
 
 function pricingLineTotal(line: PricingLineInput): number {

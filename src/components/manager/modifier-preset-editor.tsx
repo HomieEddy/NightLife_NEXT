@@ -77,7 +77,7 @@ export function ModifierPresetEditor({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={`${group.id}-max`}>Distinct choices</Label>
+              <Label htmlFor={`${group.id}-max`}>Max picks</Label>
               <Input
                 id={`${group.id}-max`}
                 type="number"
@@ -105,19 +105,37 @@ export function ModifierPresetEditor({
             </Button>
           </div>
 
+          <p className="text-xs text-muted-foreground">
+            Guests can pick up to {group.maxSelections} option{group.maxSelections > 1 ? "s" : ""} from this group
+            {group.required ? " and must pick at least one" : ""}.
+            {group.kind === "washer"
+              ? " Link an option to inventory so each serving deducts stock."
+              : ""}
+          </p>
+
           <div className="space-y-2">
+            {group.options.length > 0 && (
+              <div className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem_1fr_auto]">
+                <span className="text-xs font-medium text-muted-foreground">Option shown to guests</span>
+                <span className="text-xs font-medium text-muted-foreground">Price each ($)</span>
+                <span className="text-xs font-medium text-muted-foreground">Max per order</span>
+                <span className="text-xs font-medium text-muted-foreground">{group.kind === "washer" ? "Deducts stock from" : ""}</span>
+                <span />
+              </div>
+            )}
             {group.options.map((option, optionIndex) => (
               <div key={option.id} className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem_1fr_auto]">
                 <Input
                   aria-label="Option name"
-                  placeholder="Option name"
+                  placeholder={group.kind === "washer" ? "e.g. Red Bull, cranberry juice" : "e.g. Sparklers, LED sign"}
                   value={option.name}
                   onChange={(event) => updateGroup(groupIndex, {
                     options: group.options.map((entry, position) => position === optionIndex ? { ...entry, name: event.target.value } : entry),
                   })}
                 />
                 <Input
-                  aria-label="Price per unit"
+                  aria-label="Price per unit, 0 for free"
+                  placeholder="0 = free"
                   type="number"
                   min={0}
                   step={1}
@@ -128,6 +146,7 @@ export function ModifierPresetEditor({
                 />
                 <Input
                   aria-label="Maximum quantity"
+                  placeholder="1"
                   type="number"
                   min={1}
                   max={99}

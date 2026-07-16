@@ -215,6 +215,18 @@ export async function submitOrder(
 
   if (!venueRow) return { ok: false, error: "Venue not found" };
 
+  // Once a closure is requested the session takes no new orders — the cookie-derived
+  // sessionId makes this the wall a manual URL or stale client can't route around.
+  if (input.sessionId) {
+    const guestSession = await db.guestSession.findUnique({ where: { id: input.sessionId } });
+    if (guestSession?.status === "closure_requested") {
+      return { ok: false, error: "Your tab is being closed — ordering is paused until the host settles it." };
+    }
+    if (guestSession?.status === "closed") {
+      return { ok: false, error: "This tab is closed. Scan the table QR code to start a new session." };
+    }
+  }
+
   // Validate promo code before entering the transaction
   let promoRow: { id: string; code: string; type: string; value: number; appliesToCategoryIds: string[] } | null = null;
   if (input.promoCode) {
@@ -581,11 +593,40 @@ export async function cancelOrder(
     return toOrder(row);
   }
 
-  const updated = await db.order.update({
-    where: { id: orderId },
-    data: { status: "cancelled" },
-    include: ORDER_INCLUDE,
+  const updated = await db.$transaction(async (tx) => {
+    // Status guard inside the transaction so a concurrent cancel can't reverse stock twice.
+    const transitioned = await tx.order.updateMany({
+      where: { id: orderId, status: { notIn: TERMINAL_STATUSES } },
+      data: { status: "cancelled" },
+    });
+    if (transitioned.count === 0) return null;
+
+    // Reverse the exact sale movements recorded at placement — keeps inventory === Σ movements.
+    const sales = await tx.stockMovement.findMany({
+      where: { venueId: row.venueId, type: "sale", note: `Order ${row.code}` },
+    });
+    for (const movement of sales) {
+      if (!movement.menuItemId) continue;
+      await tx.$executeRawUnsafe(
+        `UPDATE menu_items SET inventory = inventory + $1, updated_at = NOW() WHERE id = $2`,
+        -movement.delta,
+        movement.menuItemId,
+      );
+      await tx.stockMovement.create({
+        data: {
+          venueId: row.venueId,
+          menuItemId: movement.menuItemId,
+          itemName: movement.itemName,
+          type: "adjustment",
+          delta: -movement.delta,
+          note: `Order ${row.code} cancelled`,
+        },
+      });
+    }
+
+    return tx.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
   });
+  if (!updated) return toOrder(row);
   const order = toOrder(updated);
   await publish({
     type: "OrderStatusChanged",

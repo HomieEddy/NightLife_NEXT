@@ -56,8 +56,10 @@ export const mockAnalyticsService = {
     const bestNight = series.reduce((best, p) => (p.revenue > best.revenue ? p : best), series[0]);
 
     // Scale tonight's breakdown shapes to the range total — stable, plausible splits.
+    // Durations (sold-out minutes) accumulate per night, so they scale by night count.
     const scale = totalRevenue / mockAnalytics.revenueTonight;
     const countScale = totalOrders / mockAnalytics.ordersTonight;
+    const nights = series.length;
 
     return {
       from: fromISO,
@@ -81,11 +83,89 @@ export const mockAnalyticsService = {
         ...s,
         ordersDelivered: Math.max(1, Math.round(s.ordersDelivered * countScale)),
         revenueServed: Math.round(s.revenueServed * scale),
+        helpResolved: s.helpResolved != null ? Math.max(0, Math.round(s.helpResolved * countScale)) : undefined,
       })),
       categoryDepletion: mockAnalytics.categoryDepletion.map((c) => ({
         ...c,
         unitsSold: Math.max(1, Math.round(c.unitsSold * countScale)),
+        soldOutMinutes: c.soldOutMinutes != null ? Math.round(c.soldOutMinutes * nights) : undefined,
+        restockUnits: c.restockUnits != null ? Math.round(c.restockUnits * countScale) : undefined,
       })),
+      sessions: mockAnalytics.sessions
+        ? {
+            ...mockAnalytics.sessions,
+            totalSessions: Math.max(1, Math.round(mockAnalytics.sessions.totalSessions * countScale)),
+            revenuePerSession: Math.round(mockAnalytics.sessions.revenuePerSession * 100) / 100,
+            revenuePerGuest: Math.round(mockAnalytics.sessions.revenuePerGuest * 100) / 100,
+          }
+        : undefined,
+      reservations: mockAnalytics.reservations
+        ? {
+            ...mockAnalytics.reservations,
+            requested: Math.max(1, Math.round(mockAnalytics.reservations.requested * countScale)),
+            confirmed: Math.max(1, Math.round(mockAnalytics.reservations.confirmed * countScale)),
+            seated: Math.max(1, Math.round(mockAnalytics.reservations.seated * countScale)),
+            completed: Math.max(1, Math.round(mockAnalytics.reservations.completed * countScale)),
+            cancelled: Math.round(mockAnalytics.reservations.cancelled * countScale),
+            totalCovers: Math.round(mockAnalytics.reservations.totalCovers * countScale),
+          }
+        : undefined,
+      happyHours: mockAnalytics.happyHours
+        ? {
+            ...mockAnalytics.happyHours,
+            rules: mockAnalytics.happyHours.rules.map((r) => ({
+              ...r,
+              orders: Math.max(1, Math.round(r.orders * countScale)),
+              revenue: Math.round(r.revenue * scale),
+              discountGiven: Math.round(r.discountGiven * scale * 100) / 100,
+            })),
+            totalHhOrders: Math.round(mockAnalytics.happyHours.totalHhOrders * countScale),
+            totalHhRevenue: Math.round(mockAnalytics.happyHours.totalHhRevenue * scale),
+            totalDiscountGiven: Math.round(mockAnalytics.happyHours.totalDiscountGiven * scale * 100) / 100,
+          }
+        : undefined,
+      events: mockAnalytics.events
+        ? {
+            ...mockAnalytics.events,
+            events: mockAnalytics.events.events.map((e) => ({
+              ...e,
+              eventRevenue: Math.round(e.eventRevenue * scale),
+              avgWeekdayRevenue: Math.round(e.avgWeekdayRevenue * scale),
+            })),
+          }
+        : undefined,
+      promotions: mockAnalytics.promotions
+        ? {
+            ...mockAnalytics.promotions,
+            promotions: mockAnalytics.promotions.promotions.map((p) => ({
+              ...p,
+              redemptions: Math.max(1, Math.round(p.redemptions * countScale)),
+              discountCost: Math.round(p.discountCost * scale * 100) / 100,
+              attributedRevenue: Math.round(p.attributedRevenue * scale),
+            })),
+            totalRedemptions: Math.round(mockAnalytics.promotions.totalRedemptions * countScale),
+            totalDiscountCost: Math.round(mockAnalytics.promotions.totalDiscountCost * scale * 100) / 100,
+          }
+        : undefined,
+      orderFunnel: mockAnalytics.orderFunnel
+        ? {
+            ...mockAnalytics.orderFunnel,
+            placed: Math.round(mockAnalytics.orderFunnel.placed * countScale),
+            accepted: Math.round(mockAnalytics.orderFunnel.accepted * countScale),
+            delivered: Math.round(mockAnalytics.orderFunnel.delivered * countScale),
+            cancelled: Math.round(mockAnalytics.orderFunnel.cancelled * countScale),
+            serviceFeeRevenue: Math.round(mockAnalytics.orderFunnel.serviceFeeRevenue * scale * 100) / 100,
+            giftOrders: Math.round(mockAnalytics.orderFunnel.giftOrders * countScale),
+            giftRevenue: Math.round(mockAnalytics.orderFunnel.giftRevenue * scale),
+          }
+        : undefined,
+      inventoryDepth: mockAnalytics.inventoryDepth
+        ? {
+            ...mockAnalytics.inventoryDepth,
+            // Matches the categoryDepletion rows, which also scale by nights.
+            totalSoldOutMinutes: Math.round(mockAnalytics.inventoryDepth.totalSoldOutMinutes * nights),
+          }
+        : undefined,
     };
   },
 };

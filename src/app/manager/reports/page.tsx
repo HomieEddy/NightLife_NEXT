@@ -30,6 +30,7 @@ import {
 import {
   reportService, REPORT_METRICS, type ReportMetric, type SavedReport,
 } from "@/lib/services/report-service";
+import { renderCsv } from "@/lib/report-csv";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -67,40 +68,9 @@ function metricLabel(id: ReportMetric): string {
   return REPORT_METRICS.find((m) => m.id === id)?.label ?? id;
 }
 
-/** Client-side CSV export — the backend report engine will render real files. */
+/** Demo-mode export; the live build downloads the same CSV from the report API. */
 function downloadCsv(report: SavedReport, data: HistoricalAnalytics) {
-  const rows: string[][] = [
-    ["Report", report.name],
-    ["Range", `${data.from} → ${data.to} (${data.days} nights)`],
-    [],
-  ];
-  if (report.metrics.includes("revenue")) {
-    rows.push(["Night", "Revenue", "Orders"]);
-    for (const p of data.series) rows.push([p.label, String(p.revenue), String(p.orders)]);
-    rows.push(["Total", String(data.totalRevenue), String(data.totalOrders)], []);
-  }
-  if (report.metrics.includes("zones")) {
-    rows.push(["Zone", "Revenue"]);
-    for (const z of data.revenueByZone) rows.push([z.zoneName, String(z.revenue)]);
-    rows.push([]);
-  }
-  if (report.metrics.includes("top-items")) {
-    rows.push(["Item", "Sold", "Revenue"]);
-    for (const t of data.topItems) rows.push([t.name, String(t.count), String(t.revenue)]);
-    rows.push([]);
-  }
-  if (report.metrics.includes("staff")) {
-    rows.push(["Staff", "Role", "Orders delivered", "Avg minutes", "Revenue served"]);
-    for (const s of data.staffPerformance)
-      rows.push([s.name, s.role, String(s.ordersDelivered), String(s.avgDeliveryMinutes), String(s.revenueServed)]);
-    rows.push([]);
-  }
-  if (report.metrics.includes("inventory")) {
-    rows.push(["Category", "Units sold", "In stock"]);
-    for (const c of data.categoryDepletion)
-      rows.push([c.categoryName, String(c.unitsSold), String(c.unitsInStock)]);
-  }
-  const csv = rows.map((r) => r.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
+  const csv = renderCsv(report.name, report.metrics, data);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
   a.download = `${report.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
@@ -438,9 +408,90 @@ export default function ManagerReportsPage() {
                     <span>{c.categoryName}</span>
                     <span className="text-muted-foreground">
                       {c.unitsSold} sold · {c.unitsInStock} in stock
+                      {c.sellThrough != null && ` · ${Math.round(c.sellThrough * 100)}% sell-through`}
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+            {viewing.report.metrics.includes("sessions") && viewing.data.sessions && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Guest sessions</p>
+                <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
+                  <div><span className="text-muted-foreground">Sessions:</span> {viewing.data.sessions.totalSessions}</div>
+                  <div><span className="text-muted-foreground">Approval:</span> {Math.round(viewing.data.sessions.approvalRate * 100)}%</div>
+                  <div><span className="text-muted-foreground">Avg duration:</span> {viewing.data.sessions.avgDurationMinutes} min</div>
+                  <div><span className="text-muted-foreground">Rev/session:</span> {formatMoney(viewing.data.sessions.revenuePerSession)}</div>
+                </div>
+              </div>
+            )}
+            {viewing.report.metrics.includes("reservations") && viewing.data.reservations && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Reservations</p>
+                <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
+                  <div><span className="text-muted-foreground">Requested:</span> {viewing.data.reservations.requested}</div>
+                  <div><span className="text-muted-foreground">Seated:</span> {viewing.data.reservations.seated}</div>
+                  <div><span className="text-muted-foreground">No-show:</span> {Math.round(viewing.data.reservations.noShowRate * 100)}%</div>
+                  <div><span className="text-muted-foreground">Covers:</span> {viewing.data.reservations.totalCovers}</div>
+                </div>
+              </div>
+            )}
+            {viewing.report.metrics.includes("happy-hours") && viewing.data.happyHours && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Happy hours</p>
+                <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-3">
+                  <div><span className="text-muted-foreground">HH orders:</span> {viewing.data.happyHours.totalHhOrders}</div>
+                  <div><span className="text-muted-foreground">HH revenue:</span> {formatMoney(viewing.data.happyHours.totalHhRevenue)}</div>
+                  <div><span className="text-muted-foreground">Discount:</span> {formatMoney(viewing.data.happyHours.totalDiscountGiven)}</div>
+                </div>
+              </div>
+            )}
+            {viewing.report.metrics.includes("events") && viewing.data.events && viewing.data.events.events.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Events</p>
+                {viewing.data.events.events.map((e) => (
+                  <div key={e.eventId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
+                    <span>{e.eventName}</span>
+                    <span className="text-muted-foreground">
+                      {e.checkedIn} checked in · {Math.round(e.capacityUtilization * 100)}% util ·{" "}
+                      <span className="font-medium text-foreground tabular-nums">{formatMoney(e.eventRevenue)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {viewing.report.metrics.includes("promotions") && viewing.data.promotions && viewing.data.promotions.promotions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Promotions</p>
+                {viewing.data.promotions.promotions.map((p) => (
+                  <div key={p.promotionId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
+                    <span>{p.code}</span>
+                    <span className="text-muted-foreground">
+                      {p.redemptions} used · {formatMoney(p.discountCost)} discount ·{" "}
+                      <span className="font-medium text-foreground tabular-nums">{formatMoney(p.attributedRevenue)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {viewing.report.metrics.includes("order-funnel") && viewing.data.orderFunnel && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Order funnel</p>
+                <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
+                  <div><span className="text-muted-foreground">Placed:</span> {viewing.data.orderFunnel.placed}</div>
+                  <div><span className="text-muted-foreground">Delivered:</span> {viewing.data.orderFunnel.delivered}</div>
+                  <div><span className="text-muted-foreground">Cancelled:</span> {viewing.data.orderFunnel.cancelled} ({Math.round(viewing.data.orderFunnel.cancellationRate * 100)}%)</div>
+                  <div><span className="text-muted-foreground">Fee revenue:</span> {formatMoney(viewing.data.orderFunnel.serviceFeeRevenue)}</div>
+                </div>
+              </div>
+            )}
+            {viewing.report.metrics.includes("service-fees") && viewing.data.orderFunnel && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Service fees</p>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Total fee revenue:</span>{" "}
+                  <span className="font-medium tabular-nums">{formatMoney(viewing.data.orderFunnel.serviceFeeRevenue)}</span>
+                </div>
               </div>
             )}
           </CardContent>
