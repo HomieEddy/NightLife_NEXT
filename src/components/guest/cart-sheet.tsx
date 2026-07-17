@@ -44,7 +44,7 @@ export function CartSheet() {
         <button
           ref={pillRef}
           type="button"
-          className="fixed inset-x-0 bottom-16 z-40 mx-auto flex w-[calc(100%-2rem)] max-w-md items-center justify-between rounded-full bg-primary px-5 py-3.5 font-medium text-primary-foreground shadow-lg glow-primary transition-transform active:scale-[0.98] animate-pop-in will-change-transform"
+          className="foil foil-shimmer glow-gold fixed inset-x-0 bottom-16 z-40 mx-auto flex w-[calc(100%-2rem)] max-w-md items-center justify-between rounded-full px-5 py-3.5 font-semibold transition-transform active:scale-[0.98] animate-pop-in will-change-transform"
         >
           <span className="flex items-center gap-2">
             <ShoppingBag className="size-4" />
