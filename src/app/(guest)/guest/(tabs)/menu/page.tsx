@@ -92,7 +92,7 @@ export default function GuestMenuPage() {
             className={cn(
               "shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
               activeCategory === cat.id
-                ? "border-primary bg-primary/15 text-primary"
+                ? "border-gold/60 bg-gold/12 text-gold-deep dark:text-gold"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -112,8 +112,8 @@ export default function GuestMenuPage() {
           />
         ) : (
           <div key="packages" className="space-y-3 stagger-children">
-            {packages.map((pkg) => (
-              <PackageCard key={pkg.id} pkg={pkg} />
+            {packages.map((pkg, i) => (
+              <PackageCard key={pkg.id} pkg={pkg} featured={i === 0} />
             ))}
           </div>
         )

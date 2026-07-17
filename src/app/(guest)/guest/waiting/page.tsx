@@ -107,7 +107,7 @@ export default function WaitingPage() {
           </div>
 
           <div className="relative space-y-2 animate-fade-up">
-            <h1 className="text-2xl font-semibold">Hang tight, {guestName}</h1>
+            <h1 className="text-display text-2xl">Hang tight, {guestName}</h1>
             <p className="max-w-xs text-muted-foreground">
               Your host is confirming <span className="font-medium text-foreground">{table.tableCode}</span> in{" "}
               {table.zoneName}. This usually takes under a minute.

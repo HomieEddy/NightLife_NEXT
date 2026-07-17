@@ -48,8 +48,8 @@ export default async function PricingPage() {
     <div className="mx-auto max-w-7xl px-4 py-16 sm:py-20">
       <div className="text-center">
         <Badge variant="secondary">Simple venue pricing</Badge>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Pricing that scales with your night</h1>
-        <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+        <h1 className="text-display mt-4 text-3xl sm:text-4xl">Pricing that scales with your night</h1>
+        <p className="text-voice mx-auto mt-3 max-w-xl text-lg text-muted-foreground">
           Start with every feature for three days, then choose the operating toolkit your venue needs.
         </p>
       </div>
@@ -84,10 +84,10 @@ export default async function PricingPage() {
         {plans.map((plan) => (
           <Card
             key={plan.id}
-            className={plan.highlight ? "relative flex h-full flex-col overflow-visible border-primary/60 shadow-lg shadow-primary/10" : "flex h-full flex-col"}
+            className={plan.highlight ? "focal-halo relative flex h-full flex-col overflow-visible" : "flex h-full flex-col"}
           >
             {plan.highlight && (
-              <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Best value</Badge>
+              <Badge variant="foil" className="absolute -top-3 left-1/2 -translate-x-1/2">Best value</Badge>
             )}
             <CardHeader className="space-y-3 pb-4">
               <CardTitle>{plan.name}</CardTitle>
@@ -121,7 +121,7 @@ export default async function PricingPage() {
               </ul>
             </CardContent>
             <CardFooter className="pt-6">
-              <Button className="w-full" variant={plan.highlight ? "default" : "outline"} asChild>
+              <Button className="w-full" variant={plan.highlight ? "foil" : "outline"} asChild>
                 <Link href="/login">Choose {plan.name}</Link>
               </Button>
             </CardFooter>

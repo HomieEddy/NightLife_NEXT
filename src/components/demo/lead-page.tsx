@@ -63,7 +63,7 @@ export default function LeadPage() {
         <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500/15">
           <CheckCircle2 className="size-8 text-emerald-600 dark:text-emerald-400" />
         </div>
-        <h1 className="mt-5 text-2xl font-semibold">You&apos;re on the list</h1>
+        <h1 className="text-display mt-5 text-2xl">You&apos;re on the list</h1>
         <p className="mt-2 text-muted-foreground">
           Our team will reach out within one business day to schedule your walkthrough. It just
           landed in the <Link href="/admin/leads" className="text-primary underline">admin lead pipeline</Link>.
@@ -78,8 +78,8 @@ export default function LeadPage() {
   return (
     <div className="mx-auto max-w-lg px-4 py-14">
       <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Request a demo</h1>
-        <p className="mt-2 text-muted-foreground">
+        <h1 className="text-display text-3xl">Request a demo</h1>
+        <p className="text-voice mt-2 text-lg text-muted-foreground">
           Tell us about your venue — we&apos;ll tailor the walkthrough to your floor plan.
         </p>
       </div>
@@ -124,7 +124,7 @@ export default function LeadPage() {
               />
             </div>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-            <Button type="submit" className="w-full" size="lg" disabled={submitting}>
+            <Button type="submit" variant="foil" className="w-full" size="lg" disabled={submitting}>
               {submitting && <Loader2 className="size-4 animate-spin" />}
               {submitting ? "Sending…" : "Request demo"}
             </Button>

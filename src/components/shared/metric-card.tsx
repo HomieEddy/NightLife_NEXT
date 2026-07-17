@@ -10,6 +10,7 @@ export function MetricCard({
   icon: Icon,
   hint,
   className,
+  featured = false,
 }: {
   label: string;
   value: string;
@@ -17,18 +18,27 @@ export function MetricCard({
   icon?: LucideIcon;
   hint?: string;
   className?: string;
+  /** The night's headline metric — poster number + gold halo. One per view. */
+  featured?: boolean;
 }) {
   const positive = deltaPct !== undefined && deltaPct >= 0;
   return (
-    <Card className={cn("py-4", className)}>
+    <Card className={cn("py-4", featured && "focal-halo", className)}>
       <CardContent className="px-4">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {label}
-          </p>
-          {Icon && <Icon className="size-4 text-primary" />}
+          <p className="label-luxe text-muted-foreground">{label}</p>
+          {Icon && <Icon className={cn("size-4", featured ? "text-gold" : "text-primary")} />}
         </div>
-        <p className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">{value}</p>
+        <p
+          className={cn(
+            "mt-2 tabular-nums",
+            featured
+              ? "text-display text-gradient-gold text-4xl"
+              : "text-2xl font-semibold tracking-tight",
+          )}
+        >
+          {value}
+        </p>
         {deltaPct !== undefined && (
           <p
             className={cn(

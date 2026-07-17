@@ -43,8 +43,8 @@ export function MockChart({
             )}
             <div
               className={cn(
-                "w-full rounded-t-md bg-gradient-to-t from-primary/50 to-primary transition-all",
-                active === i ? "opacity-100 glow-primary" : "opacity-70 group-hover:opacity-100",
+                "w-full rounded-t-md bg-gradient-to-t from-primary/60 via-primary to-gold transition-all",
+                active === i ? "opacity-100 glow-gold" : "opacity-70 group-hover:opacity-100",
               )}
               style={{ height: `${Math.max(4, (point.revenue / max) * 100)}%` }}
             />

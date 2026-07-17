@@ -14,22 +14,23 @@ export default function GuestTabsLayout({ children }: { children: React.ReactNod
     <>
       <div className="sticky top-0 z-30">
         {lastCallActive && (
-          <div className="flex items-center justify-center gap-1.5 bg-amber-500 px-4 py-2 text-center text-xs font-semibold text-black">
+          <div className="foil flex items-center justify-center gap-1.5 px-4 py-2 text-center text-xs font-semibold">
             <Clock className="size-3.5" /> Last call — no new orders tonight. Thanks for being here!
           </div>
         )}
-        <header className="border-b bg-background/90 backdrop-blur-lg">
+        <header className="grain-overlay bg-background/90 backdrop-blur-lg">
           <div className="flex h-12 items-center justify-between px-4">
-            <span className="text-sm font-semibold tracking-tight">{venue?.name}</span>
+            <span className="text-display text-gradient-gold text-base">{venue?.name}</span>
             <div className="flex items-center gap-1">
               {table && (
-                <span className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 font-mono text-xs text-primary">
+                <span className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 font-mono text-xs text-gold-deep dark:text-gold">
                   {table.tableCode}
                 </span>
               )}
               <ThemeToggle className="size-8" />
             </div>
           </div>
+          <hr className="rule-gold" aria-hidden="true" />
         </header>
       </div>
       <main className="flex-1 pb-24">{children}</main>

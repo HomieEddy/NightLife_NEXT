@@ -361,7 +361,7 @@ function NightReceipt() {
         <div className="flex size-16 items-center justify-center rounded-full bg-primary/15 glow-primary">
           <Moon className="size-8 text-primary" />
         </div>
-        <h1 className="text-xl font-semibold">Tab closed — thanks for the night!</h1>
+        <h1 className="text-display text-xl">Tab closed — thanks for the night!</h1>
         <p className="text-sm text-muted-foreground">
           {guestName}, here&apos;s everything from tonight.
         </p>
@@ -543,7 +543,7 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-2 py-4 text-center animate-pop-in">
         <CheckCircle2 className="size-10 text-emerald-600 dark:text-emerald-400" />
-        <h1 className="text-xl font-semibold">Thanks for the night!</h1>
+        <h1 className="text-display text-xl">Thanks for the night!</h1>
         <p className="text-sm text-muted-foreground">
           Order {order.code} · {formatTime(order.placedAt)}
         </p>

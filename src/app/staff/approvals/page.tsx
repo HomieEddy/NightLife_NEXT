@@ -77,7 +77,7 @@ export default function StaffApprovalsPage() {
 
   return (
     <div className="space-y-5 p-4">
-      <h1 className="text-xl font-semibold">Guest approvals</h1>
+      <h1 className="text-display text-xl">Guest approvals</h1>
 
       {sessions === null ? (
         <ListSkeleton rows={3} rowHeight="h-28" />
