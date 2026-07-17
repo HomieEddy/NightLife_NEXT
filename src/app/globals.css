@@ -40,6 +40,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-gold-bright: var(--gold-bright);
+  --color-gold: var(--gold);
+  --color-gold-deep: var(--gold-deep);
+  --color-surface-elevated: var(--surface-elevated);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -84,12 +88,18 @@
   --sidebar-accent-foreground: oklch(0.27 0.03 50);
   --sidebar-border: oklch(0.9 0.015 70);
   --sidebar-ring: oklch(0.6 0.19 45 / 50%);
+  /* Champagne-gold ramp — foil gradients, rules, and gold text share these stops.
+     Light mode runs darker than dark mode so gold-as-text passes AA on ivory. */
+  --gold-bright: oklch(0.64 0.115 82);
+  --gold: oklch(0.54 0.115 78);
+  --gold-deep: oklch(0.45 0.105 70);
+  --surface-elevated: oklch(0.97 0.01 78);
 }
 
 .dark {
-  --background: oklch(0.145 0.015 55);
+  --background: oklch(0.135 0.016 60);
   --foreground: oklch(0.96 0.012 75);
-  --card: oklch(0.185 0.02 55);
+  --card: oklch(0.18 0.02 58);
   --card-foreground: oklch(0.96 0.012 75);
   --popover: oklch(0.185 0.02 55);
   --popover-foreground: oklch(0.96 0.012 75);
@@ -118,6 +128,11 @@
   --sidebar-accent-foreground: oklch(0.96 0.012 75);
   --sidebar-border: oklch(0.96 0.02 75 / 9%);
   --sidebar-ring: oklch(0.72 0.175 55 / 60%);
+  /* Champagne-gold ramp on charcoal — bright enough that gold text clears AA. */
+  --gold-bright: oklch(0.87 0.08 88);
+  --gold: oklch(0.8 0.095 84);
+  --gold-deep: oklch(0.68 0.105 76);
+  --surface-elevated: oklch(0.215 0.022 60);
 }
 
 /* Guest-facing animations */
