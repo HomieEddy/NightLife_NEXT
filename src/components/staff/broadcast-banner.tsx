@@ -67,7 +67,7 @@ export function BroadcastBanner() {
         </div>
       )}
       {lastCallActive && (
-        <div className="bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-black">
+        <div className="foil px-4 py-2 text-center text-sm font-semibold">
           Last call — no new orders are being accepted
         </div>
       )}

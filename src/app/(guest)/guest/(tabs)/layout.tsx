@@ -14,7 +14,7 @@ export default function GuestTabsLayout({ children }: { children: React.ReactNod
     <>
       <div className="sticky top-0 z-30">
         {lastCallActive && (
-          <div className="flex items-center justify-center gap-1.5 bg-amber-500 px-4 py-2 text-center text-xs font-semibold text-black">
+          <div className="foil flex items-center justify-center gap-1.5 px-4 py-2 text-center text-xs font-semibold">
             <Clock className="size-3.5" /> Last call — no new orders tonight. Thanks for being here!
           </div>
         )}

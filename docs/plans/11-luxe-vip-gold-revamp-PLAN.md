@@ -11,6 +11,14 @@ Spec: `docs/superpowers/specs/2026-07-16-luxe-vip-gold-design.md`.
 Preconditions: none functional — this rides on top of every shipped plan (01–10).
 Both demo and live builds share this chrome, so both inherit the revamp.
 
+> **Deviation (post-review):** the original design kept ember (`--primary`)
+> as a co-accent beside the gold ramp. User review asked for the orange tone
+> to be removed entirely, so `--primary`, `--chart-1`, sidebar accents, all
+> glow helpers, ambient keyframes, hero radials and the ClubLights particle
+> palette now sit on the champagne-gold ramp. Ember survives nowhere in the
+> chrome; semantic status colors (destructive red, warning amber on SLA
+> chips, success emerald) and the cool zone/data palette are unchanged.
+
 ## Reasoning
 
 The identity already exists in `src/app/globals.css` (Ember system: warm charcoal

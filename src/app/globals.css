@@ -63,7 +63,7 @@
   --card-foreground: oklch(0.22 0.03 50);
   --popover: oklch(0.995 0.004 80);
   --popover-foreground: oklch(0.22 0.03 50);
-  --primary: oklch(0.6 0.19 45);
+  --primary: oklch(0.54 0.115 78);
   --primary-foreground: oklch(0.99 0.005 80);
   --secondary: oklch(0.95 0.012 75);
   --secondary-foreground: oklch(0.27 0.03 50);
@@ -75,7 +75,7 @@
   --border: oklch(0.88 0.03 80);
   --input: oklch(0.88 0.03 80);
   --ring: oklch(0.54 0.115 78 / 50%);
-  --chart-1: oklch(0.6 0.19 45);
+  --chart-1: oklch(0.54 0.115 78);
   --chart-2: oklch(0.7 0.15 85);
   --chart-3: oklch(0.55 0.24 300);
   --chart-4: oklch(0.6 0.13 200);
@@ -83,12 +83,12 @@
   --radius: 0.625rem;
   --sidebar: oklch(0.965 0.01 78);
   --sidebar-foreground: oklch(0.22 0.03 50);
-  --sidebar-primary: oklch(0.6 0.19 45);
+  --sidebar-primary: oklch(0.54 0.115 78);
   --sidebar-primary-foreground: oklch(0.99 0.005 80);
   --sidebar-accent: oklch(0.93 0.03 65);
   --sidebar-accent-foreground: oklch(0.27 0.03 50);
   --sidebar-border: oklch(0.9 0.015 70);
-  --sidebar-ring: oklch(0.6 0.19 45 / 50%);
+  --sidebar-ring: oklch(0.54 0.115 78 / 50%);
   /* Champagne-gold ramp — foil gradients, rules, and gold text share these stops.
      Light mode runs darker than dark mode so gold-as-text passes AA on ivory. */
   --gold-bright: oklch(0.64 0.115 82);
@@ -104,7 +104,7 @@
   --card-foreground: oklch(0.96 0.012 75);
   --popover: oklch(0.185 0.02 55);
   --popover-foreground: oklch(0.96 0.012 75);
-  --primary: oklch(0.72 0.175 55);
+  --primary: oklch(0.8 0.095 84);
   --primary-foreground: oklch(0.17 0.03 55);
   --secondary: oklch(0.24 0.025 55);
   --secondary-foreground: oklch(0.96 0.012 75);
@@ -116,19 +116,19 @@
   --border: oklch(0.8 0.095 84 / 16%);
   --input: oklch(0.8 0.095 84 / 30%);
   --ring: oklch(0.8 0.095 84 / 60%);
-  --chart-1: oklch(0.72 0.175 55);
+  --chart-1: oklch(0.8 0.095 84);
   --chart-2: oklch(0.8 0.15 85);
   --chart-3: oklch(0.62 0.24 300);
   --chart-4: oklch(0.75 0.15 200);
   --chart-5: oklch(0.7 0.2 340);
   --sidebar: oklch(0.165 0.017 55);
   --sidebar-foreground: oklch(0.96 0.012 75);
-  --sidebar-primary: oklch(0.72 0.175 55);
+  --sidebar-primary: oklch(0.8 0.095 84);
   --sidebar-primary-foreground: oklch(0.17 0.03 55);
   --sidebar-accent: oklch(0.25 0.035 50);
   --sidebar-accent-foreground: oklch(0.96 0.012 75);
   --sidebar-border: oklch(0.96 0.02 75 / 9%);
-  --sidebar-ring: oklch(0.72 0.175 55 / 60%);
+  --sidebar-ring: oklch(0.8 0.095 84 / 60%);
   /* Champagne-gold ramp on charcoal — bright enough that gold text clears AA. */
   --gold-bright: oklch(0.87 0.08 88);
   --gold: oklch(0.8 0.095 84);
@@ -263,15 +263,15 @@
   font-weight: 600;
 }
 
-/* Nightlife glow helpers — warm ember light */
+/* Nightlife glow helpers — champagne light, no ember remnants */
 .glow-primary {
-  box-shadow: 0 0 28px -6px oklch(0.72 0.19 50 / 45%);
+  box-shadow: 0 0 28px -6px oklch(from var(--gold) l c h / 45%);
 }
 .glow-gold {
   box-shadow: 0 0 30px -8px oklch(from var(--gold) l c h / 50%);
 }
 .glow-ember {
-  box-shadow: 0 0 34px -8px oklch(0.64 0.21 38 / 40%);
+  box-shadow: 0 0 34px -8px oklch(from var(--gold-deep) l c h / 45%);
 }
 /* Focal halo — the one elevated element per view. One per view, not wallpaper. */
 .focal-halo {
@@ -342,14 +342,14 @@
   transform: translateY(0);
 }
 
-/* Ambient ember pulse — venue lighting, not a screensaver: slow, low amplitude. */
+/* Ambient gold pulse — venue lighting, not a screensaver: slow, low amplitude. */
 @keyframes nln-glow-pulse {
   0%,
   100% {
-    box-shadow: 0 0 26px -8px oklch(0.64 0.21 38 / 30%);
+    box-shadow: 0 0 26px -8px oklch(from var(--gold) l c h / 28%);
   }
   50% {
-    box-shadow: 0 0 40px -6px oklch(0.7 0.19 45 / 48%);
+    box-shadow: 0 0 40px -6px oklch(from var(--gold) l c h / 48%);
   }
 }
 .animate-glow-pulse {
@@ -365,7 +365,7 @@
 }
 /* Gold-foil gradient text on the champagne ramp — adapts per mode via tokens. */
 .text-gradient-brand {
-  background: linear-gradient(100deg, var(--gold-bright), var(--gold), oklch(0.64 0.21 32));
+  background: linear-gradient(100deg, var(--gold-bright), var(--gold), var(--gold-deep));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

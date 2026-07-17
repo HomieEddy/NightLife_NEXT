@@ -88,7 +88,7 @@ const FEED = [
   { t: "00:41", zone: "VIP", color: "#a855f7", text: "Booth 7 — 2× Dom Pérignon → Alex" },
   { t: "00:42", zone: "BAR", color: "#22d3ee", text: "Ticket #214 ready for pickup" },
   { t: "00:44", zone: "FLOOR", color: "#d946ef", text: "Table 3 asked for ice → Sam" },
-  { t: "00:45", zone: "DOOR", color: "#f59e0b", text: "Security ping, section B — resolved" },
+  { t: "00:45", zone: "DOOR", color: "var(--gold)", text: "Security ping, section B — resolved" },
 ];
 
 function LiveFeedVignette() {
@@ -104,7 +104,7 @@ function LiveFeedVignette() {
             <span className="text-muted-foreground">{row.t}</span>
             <span
               className="flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] tracking-wider"
-              style={{ borderColor: `${row.color}66` }}
+              style={{ borderColor: `color-mix(in oklab, ${row.color} 40%, transparent)` }}
             >
               <span className="size-1.5 rounded-full" style={{ background: row.color }} />
               {row.zone}
@@ -191,7 +191,7 @@ const PHASES: Phase[] = [
   {
     time: "03:00",
     tag: "Last call",
-    accent: "#f59e0b",
+    accent: "var(--gold)",
     title: "Last call tells the truth.",
     body: "Revenue by hour, zone and bottle — see what tonight actually did before the lights come up, not Monday afternoon.",
     vignette: <ReportVignette />,

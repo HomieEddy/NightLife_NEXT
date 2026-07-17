@@ -45,14 +45,14 @@ export function ClubLights({
     renderer.setSize(el.clientWidth, el.clientHeight);
     el.appendChild(renderer.domElement);
 
-    // Ember palette: warm amber/orange dominant, with sparse cool
+    // Champagne palette: golds dominant, with sparse cool
     // "club laser" accents (violet, cyan) for depth against the warm ground.
     const palette = [
-      new THREE.Color("#f59e0b"),
-      new THREE.Color("#fb923c"),
-      new THREE.Color("#f97316"),
-      new THREE.Color("#fbbf24"),
-      new THREE.Color("#fb923c"),
+      new THREE.Color("#ebce93"),
+      new THREE.Color("#d8b673"),
+      new THREE.Color("#c9a45c"),
+      new THREE.Color("#f0dcb0"),
+      new THREE.Color("#d8b673"),
       new THREE.Color("#a855f7"),
       new THREE.Color("#22d3ee"),
     ];

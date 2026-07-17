@@ -14,10 +14,10 @@ import { cn } from "@/lib/utils";
 import type { BottleIconKey } from "@/lib/types";
 
 const ICON_MAP: Record<BottleIconKey, { icon: LucideIcon; className: string }> = {
-  champagne: { icon: Sparkles, className: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+  champagne: { icon: Sparkles, className: "bg-gold/15 text-gold-deep dark:text-gold" },
   tequila: { icon: Citrus, className: "bg-lime-500/15 text-lime-600 dark:text-lime-400" },
   vodka: { icon: Snowflake, className: "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" },
-  cognac: { icon: Grape, className: "bg-orange-500/15 text-orange-600 dark:text-orange-400" },
+  cognac: { icon: Grape, className: "bg-gold-deep/15 text-gold-deep" },
   rum: { icon: Sailboat, className: "bg-teal-500/15 text-teal-600 dark:text-teal-400" },
   whisky: { icon: Wheat, className: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400" },
   gin: { icon: Leaf, className: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
