@@ -13,7 +13,7 @@ export function RoleBadge({ role, className }: { role: StaffRole; className?: st
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize",
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] shadow-[inset_0_1px_0_oklch(1_0_0/12%)] backdrop-blur",
         ROLE_STYLES[role],
         className,
       )}
