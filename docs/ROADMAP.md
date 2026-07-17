@@ -22,6 +22,7 @@ method bodies behind a stable interface (R1).
 | 09b | V1 operational closure — complete | [09b-v1-operational-closure-PLAN](plans/09b-v1-operational-closure-PLAN.md) | 02–07, 09 | Med | category/add-on ordering, live `staff-service`, session/table closure, venue time, strict mode isolation, fulfilled migration markers |
 | 09c | Analytics depth & reporting expansion | [09c-analytics-depth-reporting-PLAN](plans/09c-analytics-depth-reporting-PLAN.md) | 08, 09, 09b | Low‑Med | session/reservation/happy-hour/event/promotion metrics, deepened staff/order/inventory analytics, new report metrics + CSV sections |
 | 10 | Platform admin & billing — complete | [10-platform-admin-billing-PLAN](plans/10-platform-admin-billing-PLAN.md) | 02, 09b | Med | `admin-service`, `billing-service`, `subscription`, `pricing`, `lead` pages |
+| 11 | Luxe VIP Gold visual revamp — complete | [11-luxe-vip-gold-revamp-PLAN](plans/11-luxe-vip-gold-revamp-PLAN.md) | — (presentation-layer) | Low | none — design-system tokens, shared primitives, guest/public/ops reskin |
 
 Rationale for the two deviations from a naive order: **auth before venue CRUD**
 because R2 (tenant scoping) needs a session to scope by, and retrofitting auth
