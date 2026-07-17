@@ -72,7 +72,7 @@ export default function AdminOverviewPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricCard label="MRR" value={formatMoney(mrr)} icon={CircleDollarSign} deltaPct={9.2} />
+            <MetricCard label="MRR" value={formatMoney(mrr)} icon={CircleDollarSign} deltaPct={9.2} featured />
             <MetricCard label="Active tenants" value={String(activeTenants)} icon={Building2} hint={`${tenants.length} total`} />
             <MetricCard label="Open leads" value={String(openLeads)} icon={Filter} hint="in pipeline" />
             <MetricCard label="Trial → paid" value="64%" icon={TrendingUp} hint="last 90 days" />

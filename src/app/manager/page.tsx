@@ -181,6 +181,7 @@ function TonightTab({
             value={formatMoney(summary.revenueTonight, currency)}
             deltaPct={summary.revenueDeltaPct}
             icon={CircleDollarSign}
+            featured
           />
           <MetricCard
             label="Orders"
