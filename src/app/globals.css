@@ -222,8 +222,15 @@
   .animate-pop-in,
   .animate-bounce-soft,
   .animate-marquee,
-  .stagger-children > * {
+  .stagger-children > *,
+  .animate-glow-pulse,
+  .foil-shimmer:hover::after {
     animation: none;
+  }
+  .hover-lift,
+  .hover-lift:hover {
+    transition: none;
+    transform: none;
   }
 }
 
@@ -259,6 +266,102 @@
 /* Nightlife glow helpers — warm ember light */
 .glow-primary {
   box-shadow: 0 0 28px -6px oklch(0.72 0.19 50 / 45%);
+}
+.glow-gold {
+  box-shadow: 0 0 30px -8px oklch(from var(--gold) l c h / 50%);
+}
+.glow-ember {
+  box-shadow: 0 0 34px -8px oklch(0.64 0.21 38 / 40%);
+}
+/* Focal halo — the one elevated element per view. One per view, not wallpaper. */
+.focal-halo {
+  border-color: oklch(from var(--gold) l c h / 45%);
+  box-shadow:
+    0 0 0 1px oklch(from var(--gold) l c h / 25%),
+    0 0 36px -6px oklch(from var(--gold) l c h / 40%);
+}
+
+/* Grain overlay — decorative atmosphere only; add aria-hidden in markup. */
+.grain-overlay {
+  position: relative;
+}
+.grain-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Gold hairline rule — section divider fading to transparent at both ends. */
+.rule-gold {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, transparent, oklch(from var(--gold) l c h / 65%), transparent);
+}
+
+/* Foil CTA/pill — champagne gradient surface. Light mode runs the darker
+   stops under ivory ink, dark mode the full ramp under charcoal ink; both AA. */
+.foil {
+  background: linear-gradient(115deg, var(--gold), var(--gold-deep));
+  color: oklch(0.99 0.005 80);
+}
+.dark .foil {
+  background: linear-gradient(115deg, var(--gold-bright), var(--gold) 55%, var(--gold-deep));
+  color: oklch(0.17 0.03 55);
+}
+.foil-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.foil-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, oklch(1 0 0 / 35%) 50%, transparent 65%);
+  transform: translateX(-120%);
+}
+.foil-shimmer:hover::after {
+  animation: nln-shimmer 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Gold-halo lift on hover/press — premium timing, no overshoot. */
+.hover-lift {
+  transition:
+    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px -8px oklch(from var(--gold) l c h / 45%);
+}
+.hover-lift:active {
+  transform: translateY(0);
+}
+
+/* Ambient ember pulse — venue lighting, not a screensaver: slow, low amplitude. */
+@keyframes nln-glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 26px -8px oklch(0.64 0.21 38 / 30%);
+  }
+  50% {
+    box-shadow: 0 0 40px -6px oklch(0.7 0.19 45 / 48%);
+  }
+}
+.animate-glow-pulse {
+  animation: nln-glow-pulse 4.5s ease-in-out infinite;
+}
+@keyframes nln-shimmer {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(120%);
+  }
 }
 /* Gold-foil gradient text on the champagne ramp — adapts per mode via tokens. */
 .text-gradient-brand {
