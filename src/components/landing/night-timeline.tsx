@@ -34,7 +34,7 @@ function GuestPhoneVignette() {
             Velvet Room
           </span>
         </div>
-        <p className="mt-4 text-lg font-semibold">Bottles</p>
+        <p className="text-display mt-4 text-lg">Bottles</p>
         <ul className="mt-3 space-y-2">
           {items.map((item) => (
             <li
@@ -45,13 +45,13 @@ function GuestPhoneVignette() {
                 <p className="text-xs font-medium leading-tight">{item.name}</p>
                 <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{item.price}</p>
               </div>
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gold/15 text-sm font-semibold text-gold-deep dark:text-gold">
                 +
               </span>
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex items-center justify-between rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground">
+        <div className="foil glow-gold mt-4 flex items-center justify-between rounded-full px-4 py-3 text-sm font-semibold">
           <span>View order</span>
           <span className="font-mono">$500</span>
         </div>
@@ -76,9 +76,7 @@ function ApprovalVignette() {
           Party of 8 · hosted by Maya · min. spend $1,500
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-          <span className="rounded-xl bg-[#a855f7] py-2.5 text-sm font-semibold text-white">
-            Approve
-          </span>
+          <span className="foil rounded-xl py-2.5 text-sm font-semibold">Approve</span>
           <span className="rounded-xl border py-2.5 text-sm font-medium">Hold</span>
         </div>
       </div>
@@ -127,14 +125,18 @@ function ReportVignette() {
       <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
         Saturday · closed 03:04
       </p>
-      <p className="mt-3 font-mono text-4xl font-semibold tabular-nums">$18,240</p>
+      <p className="text-display text-gradient-gold mt-3 text-4xl tabular-nums">$18,240</p>
       <p className="mt-1 text-sm text-muted-foreground">214 orders · 41 bottles · 9 comps</p>
       <div className="mt-5 flex h-20 items-end gap-1">
         {BARS.map((h, i) => (
           <div
             key={i}
             className="flex-1 rounded-sm"
-            style={{ height: `${h}%`, background: h === 100 ? "#f59e0b" : "#f59e0b55" }}
+            style={{
+              height: `${h}%`,
+              background:
+                h === 100 ? "var(--gold)" : "oklch(from var(--gold) l c h / 35%)",
+            }}
           />
         ))}
       </div>
@@ -247,11 +249,14 @@ export function NightTimeline() {
               <span ref={dayRef} className="font-mono text-sm text-muted-foreground">
                 SAT
               </span>
-              <span ref={clockRef} className="font-mono text-5xl font-bold tabular-nums tracking-tight">
+              <span
+                ref={clockRef}
+                className="text-gradient-gold font-mono text-5xl font-bold tabular-nums tracking-tight"
+              >
                 22:00
               </span>
             </p>
-            <div className="mt-8 hidden h-40 w-px bg-gradient-to-b from-border to-transparent lg:block" />
+            <div className="mt-8 hidden h-40 w-px bg-gradient-to-b from-gold/50 to-transparent lg:block" />
           </div>
         </div>
 
