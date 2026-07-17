@@ -84,7 +84,7 @@ export default function StaffHomePage() {
   return (
     <div className="space-y-4 p-4">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
+        <h1 className="text-display flex items-center gap-2 text-xl">
           Good evening{me ? `, ${me.name.split(" ")[0]}` : ""}
           <Moon className="size-4 text-primary" />
         </h1>

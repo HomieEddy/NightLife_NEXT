@@ -63,7 +63,7 @@ export default function LeadPage() {
         <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500/15">
           <CheckCircle2 className="size-8 text-emerald-600 dark:text-emerald-400" />
         </div>
-        <h1 className="mt-5 text-2xl font-semibold">You&apos;re on the list</h1>
+        <h1 className="text-display mt-5 text-2xl">You&apos;re on the list</h1>
         <p className="mt-2 text-muted-foreground">
           Our team will reach out within one business day to schedule your walkthrough. It just
           landed in the <Link href="/admin/leads" className="text-primary underline">admin lead pipeline</Link>.

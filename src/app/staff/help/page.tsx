@@ -56,7 +56,7 @@ export default function StaffHelpPage() {
 
   return (
     <div className="space-y-5 p-4">
-      <h1 className="text-xl font-semibold">Help requests</h1>
+      <h1 className="text-display text-xl">Help requests</h1>
 
       {requests === null ? (
         <ListSkeleton rows={3} rowHeight="h-28" />
