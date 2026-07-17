@@ -317,10 +317,10 @@ export default function DemoTourPage() {
           >
             <Sparkles className="size-3" /> Fully interactive — mock data, real flows
           </Badge>
-          <h1 className="mx-auto max-w-3xl text-3xl font-bold tracking-tight sm:text-5xl">
-            Take the <span className="text-gradient-brand">live demo</span> tour
+          <h1 className="text-display mx-auto max-w-3xl text-3xl sm:text-5xl">
+            Take the <span className="text-gradient-gold">live demo</span> tour
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+          <p className="text-voice mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
             NightLifeNext has three surfaces — one for the manager, one for the floor crew, and
             one for the guest at the table. This page walks you through each, with links straight
             into the demo.
@@ -474,7 +474,7 @@ export default function DemoTourPage() {
           <p className="text-sm text-muted-foreground">
             Like what you see? Tell us about your venue.
           </p>
-          <Button size="lg" className="mt-4 h-12 px-7 glow-primary" asChild>
+          <Button size="lg" variant="foil" className="mt-4 h-12 px-7 glow-gold" asChild>
             <Link href="/lead">
               Request a personalized demo <ArrowRight className="size-4" />
             </Link>
