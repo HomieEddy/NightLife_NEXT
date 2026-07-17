@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Reveal } from "@/components/fx/reveal";
+import { ClubLights } from "@/components/fx/club-lights";
 
 interface DemoFeature {
   icon: LucideIcon;
@@ -308,19 +309,29 @@ const WALKTHROUGH = [
 export default function DemoTourPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
-      {/* ---------- Hero ---------- */}
-      <section className="py-16 text-center sm:py-20">
-        <Reveal>
+      {/* ---------- Hero: poster type over the ambient light field ---------- */}
+      <section className="grain-overlay relative -mx-4 overflow-hidden px-4 py-20 text-center sm:py-28">
+        <ClubLights density={320} className="opacity-70" />
+        <div
+          className="pointer-events-none absolute inset-0"
+          aria-hidden="true"
+          style={{
+            background:
+              "radial-gradient(640px 340px at 50% 0%, oklch(from var(--gold) l c h / 16%), transparent), radial-gradient(ellipse at bottom, var(--background) 25%, transparent 65%)",
+          }}
+        />
+        <Reveal className="relative">
           <Badge
             variant="outline"
-            className="mb-5 gap-1.5 border-primary/40 bg-background/50 text-primary backdrop-blur"
+            className="mb-6 gap-1.5 border-gold/40 bg-background/50 text-gold-deep backdrop-blur dark:text-gold"
           >
             <Sparkles className="size-3" /> Fully interactive — mock data, real flows
           </Badge>
-          <h1 className="text-display mx-auto max-w-3xl text-3xl sm:text-5xl">
-            Take the <span className="text-gradient-gold">live demo</span> tour
+          <h1 className="text-display mx-auto max-w-4xl text-[clamp(2.75rem,8vw,6rem)]">
+            Take the <span className="text-gradient-gold">live demo</span>{" "}
+            <span className="text-outline">tour</span>
           </h1>
-          <p className="text-voice mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
+          <p className="text-voice mx-auto mt-5 max-w-2xl text-lg text-muted-foreground sm:text-xl">
             NightLifeNext has three surfaces — one for the manager, one for the floor crew, and
             one for the guest at the table. This page walks you through each, with links straight
             into the demo.
@@ -328,12 +339,15 @@ export default function DemoTourPage() {
         </Reveal>
 
         {/* Segment quick-jump */}
-        <Reveal delay={0.1} className="mt-8 flex flex-wrap items-center justify-center gap-2">
+        <Reveal
+          delay={0.1}
+          className="relative mt-9 flex flex-wrap items-center justify-center gap-2"
+        >
           {SEGMENTS.map((segment) => (
             <a
               key={segment.id}
               href={`#${segment.id}`}
-              className="flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+              className="flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:border-gold/60 hover:text-gold-deep dark:hover:text-gold"
             >
               <segment.icon className="size-3.5" />
               {segment.name}
@@ -341,11 +355,12 @@ export default function DemoTourPage() {
           ))}
           <a
             href="#walkthrough"
-            className="flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20"
+            className="flex items-center gap-1.5 rounded-full border border-gold/50 bg-gold/10 px-4 py-1.5 text-sm font-medium text-gold-deep transition-colors hover:bg-gold/20 dark:text-gold"
           >
             <Megaphone className="size-3.5" /> 5-minute walkthrough
           </a>
         </Reveal>
+        <hr className="rule-gold absolute inset-x-8 bottom-0" aria-hidden="true" />
       </section>
 
       {/* ---------- How the demo works ---------- */}
