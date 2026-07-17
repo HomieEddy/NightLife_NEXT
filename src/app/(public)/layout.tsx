@@ -8,7 +8,7 @@ import { isDemoMode } from "@/lib/app-mode";
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-lg">
+      <header className="sticky top-0 z-40 border-b border-gold/20 bg-background/80 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <BrandLogo href={isDemoMode() ? "/demo" : "/"} />
           <nav className="flex items-center gap-1 sm:gap-2">

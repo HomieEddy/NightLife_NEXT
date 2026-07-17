@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Minus, Plus, ShoppingBag, Tag, Trash2, X } from "lucide-react";
+import { Loader2, Minus, Pencil, Plus, ShoppingBag, Tag, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { orderLineSubtotal } from "@/lib/order-line";
 import type { HappyHourRule, Promotion } from "@/lib/types";
 
-const TIP_PRESETS = [0, 10, 15, 20] as const;
+const TIP_PRESETS = [15, 20] as const;
 
 /** Cart line list + tip selector + submit. Shared by the bottom sheet and /guest/cart. */
 export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
@@ -41,7 +41,9 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
     clearCart,
     setLastOrderId,
   } = useGuest();
-  const [tipPct, setTipPct] = useState<number>(10);
+  const [tipPct, setTipPct] = useState<number>(15);
+  const [customTip, setCustomTip] = useState(false);
+  const [customTipPct, setCustomTipPct] = useState(15);
   const [submitting, setSubmitting] = useState(false);
   const [promoInput, setPromoInput] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
@@ -86,7 +88,11 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
     () => Math.round(feeLines.reduce((sum, l) => sum + l.amount, 0) * 100) / 100,
     [feeLines],
   );
-  const tip = useMemo(() => Math.round(cartSubtotal * tipPct) / 100, [cartSubtotal, tipPct]);
+  const effectiveTipPct = customTip ? customTipPct : tipPct;
+  const tip = useMemo(
+    () => Math.round(cartSubtotal * effectiveTipPct) / 100,
+    [cartSubtotal, effectiveTipPct],
+  );
   const total = afterDiscounts + serviceFee + tip;
 
   async function handleApplyPromo() {
@@ -224,23 +230,66 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
 
       <div className="space-y-2">
         <p className="text-sm font-medium">Add a tip for the team</p>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {TIP_PRESETS.map((pct) => (
             <button
               key={pct}
               type="button"
-              onClick={() => setTipPct(pct)}
+              onClick={() => { setTipPct(pct); setCustomTip(false); }}
               className={cn(
                 "rounded-lg border py-2.5 text-sm font-semibold transition-colors",
-                tipPct === pct
+                !customTip && tipPct === pct
                   ? "border-primary bg-primary/15 text-primary"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {pct === 0 ? "None" : `${pct}%`}
+              {pct}%
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setCustomTip(true)}
+            className={cn(
+              "flex items-center justify-center gap-1.5 rounded-lg border py-2.5 text-sm font-semibold transition-colors",
+              customTip
+                ? "border-primary bg-primary/15 text-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Pencil className="size-3.5" />
+            Custom
+          </button>
         </div>
+        {customTip && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-md border">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() => setCustomTipPct((prev) => Math.max(0, prev - 1))}
+                aria-label="Decrease tip"
+              >
+                <Minus className="size-3.5" />
+              </Button>
+              <span className="w-10 text-center text-sm font-semibold tabular-nums">
+                {customTipPct}%
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                onClick={() => setCustomTipPct((prev) => prev + 1)}
+                aria-label="Increase tip"
+              >
+                <Plus className="size-3.5" />
+              </Button>
+            </div>
+            <span className="text-sm text-muted-foreground tabular-nums">
+              {formatMoney(tip)}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">

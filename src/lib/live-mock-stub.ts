@@ -23,5 +23,8 @@ export const mockShowQueueService = mockService;
 export const mockStaffService = mockService;
 export const mockVenueService = mockService;
 
-// Plan 10 owns moving billing plan metadata into the live product surface.
-export const PLANS = [];
+// Plan 10 owns moving plan configuration into the live product surface.
+export function getPlanConfigsSync(): never {
+  assertDemoMode();
+  throw new Error("Mock services are unavailable in the live build");
+}

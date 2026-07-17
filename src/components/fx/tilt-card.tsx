@@ -68,7 +68,7 @@ export function TiltCard({
           className="pointer-events-none absolute -top-16 -left-16 size-32 rounded-full opacity-0"
           style={{
             background:
-              "radial-gradient(circle, oklch(0.72 0.18 55 / 30%), transparent 70%)",
+              "radial-gradient(circle, oklch(from var(--gold) l c h / 30%), transparent 70%)",
           }}
         />
         {children}

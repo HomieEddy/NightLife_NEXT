@@ -1,5 +1,7 @@
 "use client";
 
+import { FeatureGate } from "@/components/shared/feature-gate";
+
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
@@ -367,8 +369,10 @@ function ReservationsContent() {
 
 export default function ManagerReservationsPage() {
   return (
-    <Suspense fallback={<ListSkeleton rows={4} rowHeight="h-24" />}>
-      <ReservationsContent />
-    </Suspense>
+    <FeatureGate feature="reservations">
+      <Suspense fallback={<ListSkeleton rows={4} rowHeight="h-24" />}>
+        <ReservationsContent />
+      </Suspense>
+    </FeatureGate>
   );
 }

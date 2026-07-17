@@ -17,7 +17,8 @@ export type PackageWithQuote = BottlePackage & { quote: PackageQuote };
  * Guest-facing bottle package. Adding it creates a single cart line whose
  * "Includes" modifiers carry the contents so staff see exactly what to pour.
  */
-export function PackageCard({ pkg }: { pkg: PackageWithQuote }) {
+/** featured — the house pour: gold halo + foil CTA. One per list. */
+export function PackageCard({ pkg, featured = false }: { pkg: PackageWithQuote; featured?: boolean }) {
   const [open, setOpen] = useState(false);
   const soldOut = pkg.quote.maxQuantity === 0;
   const syntheticItem: MenuItem = {
@@ -33,7 +34,9 @@ export function PackageCard({ pkg }: { pkg: PackageWithQuote }) {
   };
 
   return (
-    <Card className={`border-primary/40 py-4 ${soldOut ? "opacity-50" : ""}`}>
+    <Card
+      className={`py-4 ${featured && !soldOut ? "focal-halo" : "border-primary/40"} ${soldOut ? "opacity-50" : ""}`}
+    >
       <CardContent className="space-y-3 px-4">
         <div className="flex items-start gap-3">
           <BottleIcon icon="package" />
@@ -46,7 +49,7 @@ export function PackageCard({ pkg }: { pkg: PackageWithQuote }) {
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">{pkg.description}</p>
+            <p className="text-voice text-sm text-muted-foreground">{pkg.description}</p>
           </div>
         </div>
 
@@ -73,7 +76,12 @@ export function PackageCard({ pkg }: { pkg: PackageWithQuote }) {
               </p>
             )}
           </div>
-          <Button onClick={() => setOpen(true)} disabled={soldOut} className="h-11">
+          <Button
+            onClick={() => setOpen(true)}
+            disabled={soldOut}
+            variant={featured ? "foil" : "default"}
+            className="h-11"
+          >
             Add to cart
           </Button>
         </div>

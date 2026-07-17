@@ -74,7 +74,7 @@ function LandingContent() {
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(700px 380px at 30% 15%, oklch(0.72 0.18 55 / 22%), transparent), radial-gradient(520px 340px at 85% 70%, oklch(0.6 0.21 30 / 13%), transparent), radial-gradient(ellipse at bottom, var(--background) 20%, transparent 60%)",
+              "radial-gradient(700px 380px at 30% 15%, oklch(from var(--gold) l c h / 20%), transparent), radial-gradient(520px 340px at 85% 70%, oklch(from var(--gold-deep) l c h / 14%), transparent), radial-gradient(ellipse at bottom, var(--background) 20%, transparent 60%)",
           }}
         />
 
@@ -94,13 +94,13 @@ function LandingContent() {
             </span>
           </h1>
 
-          <p className="hero-item mt-7 max-w-xl text-base text-muted-foreground sm:text-lg">
+          <p className="hero-item text-voice mt-7 max-w-xl text-lg text-muted-foreground sm:text-xl">
             QR ordering at the booth, bottle-service approvals, runner routing and live night
             analytics — one system built for nightclubs, not restaurants.
           </p>
 
           <div className="hero-item mt-9 flex flex-col gap-3 sm:flex-row">
-            <Button size="lg" className="h-12 px-7 text-base glow-primary" asChild>
+            <Button size="lg" variant="foil" className="h-12 px-7 text-base glow-gold" asChild>
               <Link href={leadHref}>
                 Request a demo <ArrowRight className="size-4" />
               </Link>
@@ -148,7 +148,7 @@ function LandingContent() {
             <div className="mt-5 flex flex-wrap gap-x-7 gap-y-3 font-mono text-sm text-foreground/70">
               {MODULES.map((module) => (
                 <span key={module}>
-                  <span className="text-primary/70">/</span>
+                  <span className="text-gold/80">/</span>
                   {module}
                 </span>
               ))}
@@ -175,14 +175,18 @@ function LandingContent() {
             {PLANS.map((plan) => (
               <div key={plan.name} className={cn("relative bg-card p-6", plan.highlight && "bg-card/95")}>
                 {plan.highlight && (
-                  <span className="absolute inset-x-0 top-0 h-0.5 bg-primary" aria-hidden />
+                  <span
+                    className="absolute inset-x-0 top-0 h-0.5"
+                    style={{ background: "linear-gradient(90deg, transparent, var(--gold), transparent)" }}
+                    aria-hidden
+                  />
                 )}
                 <div className="flex items-center justify-between">
                   <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                     {plan.name}
                   </p>
                   {plan.highlight && (
-                    <span className="rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-primary">
+                    <span className="rounded-full bg-gold/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-gold-deep dark:text-gold">
                       Most clubs
                     </span>
                   )}
@@ -213,14 +217,15 @@ function LandingContent() {
         <div className="relative mx-auto max-w-6xl px-4 py-28 text-center">
           <Reveal>
             <h2 className="font-display text-4xl uppercase leading-[0.95] tracking-[0.01em] sm:text-7xl">
-              Saturday <span className="text-outline">is coming.</span>
+              <span className="text-gradient-gold">Saturday</span>{" "}
+              <span className="text-outline">is coming.</span>
             </h2>
             <p className="mx-auto mt-5 max-w-md text-muted-foreground">
               Tell us about your venue and we&apos;ll walk you through a full night — doors to
               close — before the weekend.
             </p>
             <div className="mt-8">
-              <Button size="lg" className="h-13 px-8 text-base glow-primary" asChild>
+              <Button size="lg" variant="foil" className="h-13 px-8 text-base glow-gold" asChild>
                 <Link href={leadHref}>
                   Request a demo <ArrowRight className="size-4" />
                 </Link>

@@ -123,7 +123,7 @@ export default function QrEntryPage({
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(360px 240px at 50% 0%, oklch(0.72 0.18 55 / 18%), transparent)",
+            "radial-gradient(360px 240px at 50% 0%, oklch(from var(--gold) l c h / 18%), transparent)",
         }}
       />
       <div className="relative flex justify-center pt-6 animate-pop-in">
@@ -137,7 +137,7 @@ export default function QrEntryPage({
 
       <div className="relative mt-8 text-center animate-fade-up">
         <p className="text-sm text-muted-foreground">Welcome to</p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">{result.venue.name}</h1>
+        <h1 className="text-display text-gradient-gold mt-1 text-3xl">{result.venue.name}</h1>
         <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-sm text-primary">
           <MapPin className="size-3.5" />
           {result.table.code} · {result.zone.name}

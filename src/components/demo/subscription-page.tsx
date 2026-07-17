@@ -12,25 +12,33 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import {
-  billingService, PLANS, type Invoice, type Subscription,
+  billingService, type Invoice, type Subscription,
 } from "@/lib/services/billing-service";
+import { FEATURE_CATALOG } from "@/lib/plan-catalog";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { TenantPlan } from "@/lib/types";
+import type { PlanConfig, TenantPlan } from "@/lib/types";
 
 const PLAN_ORDER: TenantPlan[] = ["starter", "pro", "enterprise"];
 
+function featureLabel(key: string): string {
+  return FEATURE_CATALOG.find((f) => f.key === key)?.label ?? key;
+}
+
 export default function ManagerSubscriptionPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [plans, setPlans] = useState<PlanConfig[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [changing, setChanging] = useState<TenantPlan | null>(null);
 
   const refresh = useCallback(async () => {
-    const [sub, inv] = await Promise.all([
+    const [sub, planList, inv] = await Promise.all([
       billingService.getSubscription(),
+      billingService.listPlans(),
       billingService.listInvoices(),
     ]);
     setSubscription(sub);
+    setPlans(planList);
     setInvoices(inv);
   }, []);
 
@@ -40,14 +48,14 @@ export default function ManagerSubscriptionPage() {
 
   async function changePlan(plan: TenantPlan) {
     setChanging(plan);
-    // TODO(backend): Stripe checkout / proration flow.
+    // Live mode: billingService.changePlan() returns a Stripe checkout/portal URL.
     await billingService.changePlan(plan);
     setChanging(null);
-    toast.success(`Switched to the ${PLANS.find((p) => p.id === plan)?.name} plan`);
+    toast.success(`Switched to the ${plans.find((p) => p.id === plan)?.name} plan`);
     await refresh();
   }
 
-  if (subscription === null) {
+  if (subscription === null || plans.length === 0) {
     return (
       <div className="space-y-4">
         <PageHeader title="Subscription" />
@@ -56,7 +64,7 @@ export default function ManagerSubscriptionPage() {
     );
   }
 
-  const currentPlan = PLANS.find((p) => p.id === subscription.plan)!;
+  const currentPlan = plans.find((p) => p.id === subscription.plan)!;
 
   return (
     <div className="space-y-6">
@@ -126,7 +134,7 @@ export default function ManagerSubscriptionPage() {
       {/* ---------- Plans ---------- */}
       <div className="grid gap-3 lg:grid-cols-3">
         {PLAN_ORDER.map((planId) => {
-          const plan = PLANS.find((p) => p.id === planId)!;
+          const plan = plans.find((p) => p.id === planId)!;
           const isCurrent = plan.id === subscription.plan;
           const isUpgrade =
             PLAN_ORDER.indexOf(plan.id) > PLAN_ORDER.indexOf(subscription.plan);
@@ -161,7 +169,7 @@ export default function ManagerSubscriptionPage() {
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-2 text-sm">
                       <Check className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                      {feature}
+                      {featureLabel(feature)}
                     </li>
                   ))}
                 </ul>

@@ -32,6 +32,17 @@ async function livePOST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
   const { venueId } = sessionToDbContext(auth.session);
+
+  const { getPlatformDb } = await import("@/server/db");
+  const { checkTableLimit } = await import("@/server/platform/admin-core");
+  const limitCheck = await checkTableLimit(getPlatformDb(), venueId);
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      { error: `Table limit reached (${limitCheck.current}/${limitCheck.limit}). Upgrade your plan.` },
+      { status: 403 },
+    );
+  }
+
   const db = getDb({ venueId });
   const table = await createTable(db, venueId, parsed.data);
   return NextResponse.json(table, { status: 201 });

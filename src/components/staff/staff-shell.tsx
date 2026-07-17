@@ -10,6 +10,7 @@ import { RequireAuth } from "@/components/shared/require-auth";
 import { BroadcastBanner } from "@/components/staff/broadcast-banner";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
+import { useEntitlements } from "@/lib/use-entitlements";
 import type { StaffMember } from "@/lib/types";
 import { Home, LifeBuoy, MessageSquare, Receipt, UserCheck } from "lucide-react";
 
@@ -20,6 +21,7 @@ import { Home, LifeBuoy, MessageSquare, Receipt, UserCheck } from "lucide-react"
 export function StaffShell({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<StaffMember | null>(null);
   const [venueName, setVenueName] = useState<string | null>(null);
+  const { hasFeature } = useEntitlements();
 
   useEffect(() => {
     staffService.getCurrentStaff().then(setMe);
@@ -60,7 +62,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
           { href: "/staff/orders", label: "Orders", icon: Receipt },
           { href: "/staff/approvals", label: "Approvals", icon: UserCheck },
           { href: "/staff/help", label: "Help", icon: LifeBuoy },
-          { href: "/staff/chat", label: "Chat", icon: MessageSquare },
+          ...(hasFeature("chat") ? [{ href: "/staff/chat", label: "Chat", icon: MessageSquare }] : []),
         ]}
       />
     </div>

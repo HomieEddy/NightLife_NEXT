@@ -100,6 +100,16 @@ export async function requirePlatformAdmin(): Promise<AuthSession> {
   return session;
 }
 
+export async function requireApiPlatformAdmin(): Promise<
+  { session: AuthSession } | { status: number; error: string }
+> {
+  const session = await getSession();
+  if (!session) return { status: 401, error: "Not authenticated" };
+  if (session.user.banned) return { status: 403, error: "Account suspended" };
+  if (!session.user.isPlatformAdmin) return { status: 403, error: "Forbidden" };
+  return { session };
+}
+
 export function sessionToDbContext(session: AuthSession): SessionContext {
   const orgId = session.session.activeOrganizationId;
   if (!orgId) throw new Error("No active organization");

@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Filter, LayoutDashboard, LockKeyhole, Rocket, ShieldCheck } from "lucide-react";
+import { Building2, Filter, Layers, LayoutDashboard, LockKeyhole, Rocket, Settings, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +24,8 @@ const NAV = [
   { href: "/admin/leads", label: "Lead pipeline", icon: Filter },
   { href: "/admin/venues", label: "Tenants", icon: Building2 },
   { href: "/admin/onboarding", label: "Provisioning", icon: Rocket },
+  { href: "/admin/plans", label: "Plans", icon: Layers },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 function AdminGate({ onUnlock }: { onUnlock: () => void }) {
@@ -54,7 +56,7 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
               <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-red-500/15 text-red-600 dark:text-red-400">
                 <LockKeyhole className="size-5" />
               </div>
-              <h1 className="text-lg font-semibold tracking-tight">Platform admin</h1>
+              <h1 className="text-display text-lg">Platform admin</h1>
               <p className="text-sm text-muted-foreground">
                 This area is restricted in the live demo. Enter the access password to continue.
               </p>

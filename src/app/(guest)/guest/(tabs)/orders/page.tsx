@@ -195,7 +195,7 @@ export default function GuestOrdersPage() {
   return (
     <div className="space-y-4 p-4 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Your orders</h1>
+        <h1 className="text-display text-xl">Your orders</h1>
         {hasActive && <DemoOrderProgressControl busy={advancing} onProgress={simulateProgress} />}
       </div>
 
