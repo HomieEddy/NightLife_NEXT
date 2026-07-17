@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Anton, Geist, Geist_Mono } from "next/font/google";
+import { Anton, Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/auth-context";
@@ -20,6 +20,15 @@ const geistMono = Geist_Mono({
 const anton = Anton({
   weight: "400",
   variable: "--font-anton",
+  subsets: ["latin"],
+});
+
+/** Serif "voice" face — italic descriptive/atmospheric copy (menu descriptions,
+    empty-state invitations, editorial lines). */
+const cormorant = Cormorant_Garamond({
+  weight: ["500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-cormorant",
   subsets: ["latin"],
 });
 
@@ -48,7 +57,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
         {/* Dark is the brand default; light is opt-in via the header toggle. */}
