@@ -24,8 +24,6 @@ import { cn } from "@/lib/utils";
 import { orderLineSubtotal } from "@/lib/order-line";
 import type { HappyHourRule, Promotion } from "@/lib/types";
 
-const TIP_PRESETS = [15, 20] as const;
-
 /** Cart line list + tip selector + submit. Shared by the bottom sheet and /guest/cart. */
 export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
   const router = useRouter();
@@ -41,7 +39,8 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
     clearCart,
     setLastOrderId,
   } = useGuest();
-  const [tipPct, setTipPct] = useState<number>(15);
+  const tipPresets = venue?.tipPresets ?? [15, 20];
+  const [tipPct, setTipPct] = useState<number>(venue?.defaultTipPct ?? 15);
   const [customTip, setCustomTip] = useState(false);
   const [customTipPct, setCustomTipPct] = useState(15);
   const [submitting, setSubmitting] = useState(false);
@@ -231,7 +230,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
       <div className="space-y-2">
         <p className="text-sm font-medium">Add a tip for the team</p>
         <div className="grid grid-cols-3 gap-2">
-          {TIP_PRESETS.map((pct) => (
+          {tipPresets.map((pct) => (
             <button
               key={pct}
               type="button"
