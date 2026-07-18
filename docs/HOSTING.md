@@ -71,11 +71,46 @@ bugs that only surface in production: connection pooling behavior, SSE
 persistence under load, cron execution timing, and cold-start latency. Staging
 must be prod-identical to catch these before customers do.
 
+## Local development topology
+
+Three local loops, fastest to most prod-shaped:
+
+| Loop | Command | Database | HMR | When to use |
+|---|---|---|---|---|
+| **Native demo** | `npm run dev:demo` | None (mock data) | Native | UI work, demo-only features |
+| **PGlite live** | `npm run dev:pglite` | In-process PGlite | Native | Live features, fastest iteration |
+| **Compose stack** | `npm run dev:stack` | Real Postgres 17 | Via bind mount | Mode-pair testing, LISTEN/NOTIFY, migration validation |
+
+The compose stack (`compose.yaml`) runs four services:
+
+- `db` — Postgres 17 on port 5432
+- `migrate` — one-shot: applies migrations + idempotent seed
+- `app-live` — Next.js dev server on port 3000 (`NEXT_PUBLIC_APP_MODE=live`)
+- `app-demo` — Next.js dev server on port 3001 (`NEXT_PUBLIC_APP_MODE=demo`, no DB)
+
+Dev-grade secrets are embedded in the compose file — `docker compose up` works
+on a clean clone with no `.env`. The `app-demo` service has no `DATABASE_URL`
+so the demo resource guard is exercised exactly as it would be on Vercel.
+
+Helper scripts:
+
+- `npm run dev:stack` — start everything
+- `npm run dev:stack:reset` — `down -v` (wipes DB) then `up` (factory reset)
+- `npm run dev:stack:prod-shape` — builds and serves via the `runner` Dockerfile
+  stage (port 3100), catching static-generation and Suspense errors that dev
+  mode forgives
+
+An optional `prod-shape` compose profile builds the `runner` Dockerfile stage
+and serves on port 3100 — useful for verifying `next build` behavior locally.
+
+Integration tests (`npm run test:integration`) use PGlite in-process and never
+require Docker.
+
 ## Environment mapping
 
 | Environment | Host | Branch | DB | Stripe |
 |---|---|---|---|---|
-| `dev` | Local machine | any | PGlite or local PG | Test keys |
+| `dev` | Local machine | any | PGlite, compose Postgres, or external PG | Test keys |
 | `staging` | Hetzner/Coolify | `dev` | Staging Postgres | Test keys |
 | `production` | Hetzner/Coolify | `master` | Production Postgres | Live keys |
 | `demo` | Vercel | `master` | None | None |

@@ -493,8 +493,9 @@ makes it obsolete.
 - Venue/zones/tables/shifts (plan 03) persist across reload **in live mode
   only** — real Postgres via `venueService`'s live branch. Demo mode still
   resets on reload; that's the permanent sandbox behavior (AD-14), not a bug.
-  Local live testing: use `npm run dev:pglite` to start PGlite in-process Postgres
-  (no Docker needed), or connect to real Postgres at `DATABASE_URL` for external DBs.
+  Local live testing: `npm run dev:pglite` (PGlite in-process, fastest),
+  `npm run dev:stack` (compose stack: real Postgres 17 + both live/demo apps),
+  or connect to real Postgres at `DATABASE_URL` for external DBs.
 - Guest flow entry: **demo mode** — `/g/demo-table` → join → "Simulate host
   approval" (prototype control, demo-only) → menu. **Live mode** — QR URL is
   `/g/<tableId>.<sig>` (signed token); guest joins via API, sets httpOnly
