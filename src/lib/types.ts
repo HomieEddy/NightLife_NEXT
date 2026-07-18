@@ -40,6 +40,10 @@ export interface Venue {
   };
   /** At last call, synthesize a closeout nudge for every occupied table. */
   lastCallAutoFlagTables: boolean;
+  /** Tip percentage presets shown to guests (e.g. [15, 20]). */
+  tipPresets: number[];
+  /** The default-selected tip percentage when the cart opens. */
+  defaultTipPct: number;
 }
 
 export interface Zone {

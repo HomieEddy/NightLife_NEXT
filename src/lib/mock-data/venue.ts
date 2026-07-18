@@ -30,6 +30,8 @@ export const mockVenue: Venue = {
     helpCriticalMinutes: 8,
   },
   lastCallAutoFlagTables: true,
+  tipPresets: [15, 20],
+  defaultTipPct: 15,
 };
 
 export const mockZones: Zone[] = [
