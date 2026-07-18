@@ -381,11 +381,59 @@ readable; they codify how this repo has actually been built.
    counterpart; AGENTS.md/docs edits ride with the change that made them stale
    (§9.9); the plan file updates in the same PR that departs from it
    (ROADMAP definition-of-done).
-8. **Branching:** `dev` is the integration branch — all feature work branches
-   from it and merges back to it via PR. `master` is the release branch;
-   `dev` merges to `master` only for releases. Feature branches:
-   `feature/NN-short-name` matching the plan number (`feature/01-foundation`,
-   `feature/05-orders-fees`). No direct pushes to `dev` or `master`.
+8. **Branching strategy** — two permanent branches, short-lived work branches,
+   tied to the hosting topology (AD-15, `docs/HOSTING.md`):
+
+   **Permanent branches:**
+
+   | Branch | Deploys to | Accepts merges from |
+   |---|---|---|
+   | `dev` | Hetzner staging (auto-deploy) | Feature, fix, refactor, chore branches |
+   | `master` | Hetzner production + Vercel demo (auto-deploy) | `dev` only (release PRs) |
+
+   **Work branches** — branch from `dev`, merge back to `dev` via PR:
+
+   | Prefix | When | Example |
+   |---|---|---|
+   | `feature/` | New functionality (plan-driven or standalone) | `feature/12-waitlist` |
+   | `fix/` | Bug fixes | `fix/cart-rounding-error` |
+   | `refactor/` | Code quality, no behavior change | `refactor/extract-receipt-math` |
+   | `chore/` | Docs, deps, CI, config | `chore/coolify-deploy-config` |
+
+   Plan-numbered features keep the `NN-` prefix (`feature/12-waitlist`);
+   non-plan work uses a descriptive slug. Branches are deleted after merge
+   (locally and remote).
+
+   **Flow:**
+
+   ```
+   feature/12-waitlist ──PR──► dev (staging) ──PR──► master (prod + demo)
+   fix/cart-rounding   ──PR──►     │                     │
+   refactor/receipts   ──PR──►     │                     │
+                                   │                     │
+                            auto-deploys to         auto-deploys to
+                            Hetzner staging         Hetzner prod +
+                                                    Vercel demo
+   ```
+
+   **Release cadence:** when `dev` is stable and QA'd on staging, open a PR
+   from `dev` → `master`. The PR description is the release summary (what
+   shipped, what was tested). Merge triggers production and demo deploys.
+
+   **Hotfixes** (production-critical bugs that can't wait for the next
+   release): branch `hotfix/description` from `master`, fix, PR to `master`.
+   After merge, immediately cherry-pick or merge `master` back into `dev` so
+   the branches don't diverge. Hotfixes are rare — most fixes go through the
+   normal `dev` flow.
+
+   **Rules:**
+   - No direct pushes to `dev` or `master` — always via PR.
+   - Every PR to `dev` must pass `tsc`, eslint, and the test suite.
+   - Every PR to `master` (release) must have been validated on staging.
+   - Feature branches are short-lived: days, not weeks. Long-lived branches
+     accumulate merge pain.
+   - Rebase feature branches onto `dev` before opening the PR if they've
+     diverged significantly. Never rebase `dev` or `master`.
 9. **Hygiene:** never commit secrets, `.env*` (except `.env.example`),
    generated artifacts, or `node_modules`; extend `.gitignore` in the same
    commit that introduces a new artifact type. Before any commit: `git status`

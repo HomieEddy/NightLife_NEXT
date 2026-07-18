@@ -82,19 +82,25 @@ must be prod-identical to catch these before customers do.
 
 ## Deployment flow
 
+Full branching strategy is in `AGENTS.md` §10.8.
+
 ```
-feature branch → PR to dev
-                   ↓
-              dev (staging on Hetzner) ← QA here
-                   ↓
-              PR to master
-                   ↓
-              master → prod (Hetzner) + demo (Vercel)
+feature/NN-name ──PR──► dev (staging on Hetzner) ──PR──► master (prod + demo)
+fix/bug-name    ──PR──►          │                              │
+refactor/name   ──PR──►          │                              │
+                          auto-deploy                    auto-deploy
+                          Hetzner staging               Hetzner prod +
+                                                        Vercel demo
+
+hotfix/critical ─────────────────────────────────PR──► master
+                                                        │
+                                              cherry-pick back to dev
 ```
 
 - Staging auto-deploys on push to `dev`.
 - Production auto-deploys on push to `master`.
 - Demo auto-deploys on push to `master` (separate Vercel project, same repo).
+- Hotfixes branch from `master`, merge to `master`, then cherry-pick to `dev`.
 - The demo and live builds share no infrastructure or databases.
 
 ## Cost projection
