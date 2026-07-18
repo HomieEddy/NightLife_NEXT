@@ -29,6 +29,7 @@ services:
       DATABASE_URL: postgresql://nightlife:nightlife@db:5432/nightlife
       AUTH_SECRET: dev-secret-at-least-32-characters-long-ok
       QR_TOKEN_SECRET: dev-qr-token-secret-key-minimum-16
+      SEED_STAGING: ${SEED_STAGING:-false}
     depends_on:
       db:
         condition: service_healthy

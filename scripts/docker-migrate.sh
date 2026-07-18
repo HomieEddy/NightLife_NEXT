@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+echo "[docker-migrate] Generating Prisma client..."
+npx prisma generate
+
 echo "[docker-migrate] Running prisma migrate deploy..."
 npx prisma migrate deploy
 

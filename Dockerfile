@@ -14,7 +14,11 @@ FROM node:22-alpine AS dev
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package.json ./
+COPY --from=deps /app/package-lock.json ./
 COPY --from=deps /app/prisma ./prisma/
+COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["npx", "next", "dev"]
 
 # ── builder: production build (used by prod-shape profile) ─
