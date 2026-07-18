@@ -23,6 +23,12 @@ async function main() {
   console.log("[docker-migrate] Database empty — seeding...");
   const { execSync } = await import("node:child_process");
   execSync("npx tsx prisma/seed.ts", { stdio: "inherit" });
+
+  if (process.env.SEED_STAGING === "true") {
+    console.log("[docker-migrate] Running staging seed...");
+    execSync("npx tsx prisma/seed-staging.ts", { stdio: "inherit" });
+  }
+
   console.log("[docker-migrate] Seed complete.");
 }
 

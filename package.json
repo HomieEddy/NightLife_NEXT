@@ -18,7 +18,8 @@
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
     "db:migrate": "dotenv -e .env -- npx prisma migrate deploy",
-    "db:seed": "dotenv -e .env -- npx tsx prisma/seed.ts"
+    "db:seed": "dotenv -e .env -- npx tsx prisma/seed.ts",
+    "db:seed:staging": "dotenv -e .env -- npx tsx prisma/seed-staging.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
