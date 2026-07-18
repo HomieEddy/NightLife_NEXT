@@ -18,6 +18,7 @@ import { ordersService } from "@/lib/services/orders-service";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { orderLineSubtotal } from "@/lib/order-line";
+import { evenShares, summarizeReceipt } from "@/lib/receipt";
 import type { Order, Venue } from "@/lib/types";
 import { isDemoMode } from "@/lib/app-mode";
 
@@ -115,14 +116,6 @@ function VenueHeader({
       )}
     </div>
   );
-}
-
-/** Distributes `total` across `count` shares in whole cents, so they always sum exactly. */
-function evenShares(total: number, count: number): number[] {
-  const totalCents = Math.round(total * 100);
-  const base = Math.floor(totalCents / count);
-  const remainder = totalCents - base * count;
-  return Array.from({ length: count }, (_, i) => (base + (i < remainder ? 1 : 0)) / 100);
 }
 
 interface CustomShare {
@@ -337,24 +330,8 @@ function NightReceipt() {
 
   if (orders === null) return <ListSkeleton rows={1} rowHeight="h-96" />;
 
-  const subtotal = orders.reduce((s, o) => s + o.subtotal, 0);
-  const tip = orders.reduce((s, o) => s + o.tip, 0);
-  const total = orders.reduce((s, o) => s + o.total, 0);
+  const { subtotal, tip, total, promoCents, feeLines } = summarizeReceipt(orders);
   const firstAt = orders[0]?.placedAt;
-
-  // Merge fee breakdowns across all orders
-  const feeMap = new Map<string, { name: string; type: "percentage" | "flat"; value: number; amount: number }>();
-  for (const order of orders) {
-    for (const line of order.feeBreakdown ?? []) {
-      const existing = feeMap.get(line.fee.id);
-      if (existing) {
-        existing.amount += line.amount;
-      } else {
-        feeMap.set(line.fee.id, { name: line.fee.name, type: line.fee.type, value: line.fee.value, amount: line.amount });
-      }
-    }
-  }
-  const feeLines = Array.from(feeMap.values());
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-2 py-4 text-center animate-pop-in">
@@ -451,15 +428,12 @@ function NightReceipt() {
               <span>SUBTOTAL</span>
               <span className="tabular-nums">{formatMoney(subtotal)}</span>
             </div>
-            {(() => {
-              const totalPromoCents = orders.reduce((s, o) => s + (o.promotionCents ?? 0), 0);
-              return totalPromoCents > 0 ? (
-                <div className="flex justify-between text-zinc-600">
-                  <span>PROMO DISCOUNT</span>
-                  <span className="tabular-nums">−{formatMoney(totalPromoCents / 100)}</span>
-                </div>
-              ) : null;
-            })()}
+            {promoCents > 0 && (
+              <div className="flex justify-between text-zinc-600">
+                <span>PROMO DISCOUNT</span>
+                <span className="tabular-nums">−{formatMoney(promoCents / 100)}</span>
+              </div>
+            )}
             {feeLines.map((line) => (
               <div key={line.name} className="flex justify-between text-zinc-600">
                 <span>{line.name.toUpperCase()} {line.type === "percentage" ? `(${line.value}%)` : "(flat)"}</span>
