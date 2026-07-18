@@ -47,7 +47,8 @@ export default function GuestMenuPage() {
 
   const visible = useMemo(() => {
     let result = items;
-    if (activeCategory !== "all") result = result.filter((i) => i.categoryId === activeCategory);
+    if (activeCategory !== "all" && activeCategory !== "packages")
+      result = result.filter((i) => i.categoryId === activeCategory);
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       result = result.filter(
@@ -56,6 +57,14 @@ export default function GuestMenuPage() {
     }
     return result;
   }, [items, activeCategory, query]);
+
+  const visiblePackages = useMemo(() => {
+    if (!query.trim()) return packages;
+    const q = query.trim().toLowerCase();
+    return packages.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
+    );
+  }, [packages, query]);
 
   if (!table) {
     return (
@@ -103,6 +112,23 @@ export default function GuestMenuPage() {
 
       {loading ? (
         <ListSkeleton rows={5} rowHeight="h-20" />
+      ) : query.trim() ? (
+        visiblePackages.length === 0 && visible.length === 0 ? (
+          <EmptyState
+            icon={Martini}
+            title="Nothing matches"
+            description="Try a different search or category."
+          />
+        ) : (
+          <div key={`search-${query}`} className="space-y-3 stagger-children">
+            {visiblePackages.map((pkg, i) => (
+              <PackageCard key={pkg.id} pkg={pkg} featured={i === 0} />
+            ))}
+            {visible.map((item) => (
+              <MenuItemCard key={item.id} item={item} onClick={() => setOpenItem(item)} />
+            ))}
+          </div>
+        )
       ) : activeCategory === "packages" ? (
         packages.length === 0 ? (
           <EmptyState
