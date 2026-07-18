@@ -345,6 +345,8 @@ export async function provisionTenant(
       logoInitials: input.venueName.slice(0, 2).toUpperCase(),
       slaThresholds: { orderWarnMinutes: 6, orderCriticalMinutes: 12, helpWarnMinutes: 4, helpCriticalMinutes: 8 },
       lastCallAutoFlagTables: true,
+      tipPresets: [15, 20],
+      defaultTipPct: 15,
     },
   });
 

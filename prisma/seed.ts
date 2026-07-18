@@ -148,6 +148,8 @@ async function main() {
       logoInitials: mockVenue.logoInitials,
       slaThresholds: mockVenue.slaThresholds as unknown as Prisma.InputJsonValue,
       lastCallAutoFlagTables: mockVenue.lastCallAutoFlagTables,
+      tipPresets: mockVenue.tipPresets as unknown as Prisma.InputJsonValue,
+      defaultTipPct: mockVenue.defaultTipPct,
       nightStartHour: mockVenue.nightStartHour,
       nightEndHour: mockVenue.nightEndHour,
     },
