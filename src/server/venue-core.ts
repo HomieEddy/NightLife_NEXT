@@ -29,6 +29,8 @@ function toVenue(
     logoInitials: string;
     slaThresholds: unknown;
     lastCallAutoFlagTables: boolean;
+    tipPresets: unknown;
+    defaultTipPct: number;
     nightStartHour: number;
     nightEndHour: number;
   },
@@ -49,6 +51,8 @@ function toVenue(
     logoInitials: row.logoInitials,
     slaThresholds: row.slaThresholds as Venue["slaThresholds"],
     lastCallAutoFlagTables: row.lastCallAutoFlagTables,
+    tipPresets: row.tipPresets as number[],
+    defaultTipPct: row.defaultTipPct,
     nightStartHour: row.nightStartHour,
     nightEndHour: row.nightEndHour,
   };

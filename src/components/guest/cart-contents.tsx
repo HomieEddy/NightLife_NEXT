@@ -17,14 +17,12 @@ import { menuService } from "@/lib/services/menu-service";
 import { ordersService } from "@/lib/services/orders-service";
 import { promotionsService } from "@/lib/services/promotions-service";
 import { computeFeeLines, feeLabel } from "@/lib/fees";
-import { bestHappyHourDiscount } from "@/lib/happy-hour";
+import { cartHappyHourDiscount } from "@/lib/happy-hour";
 import { formatMoney } from "@/lib/format";
 import { useLastCall } from "@/lib/use-last-call";
 import { cn } from "@/lib/utils";
 import { orderLineSubtotal } from "@/lib/order-line";
 import type { HappyHourRule, Promotion } from "@/lib/types";
-
-const TIP_PRESETS = [15, 20] as const;
 
 /** Cart line list + tip selector + submit. Shared by the bottom sheet and /guest/cart. */
 export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
@@ -41,7 +39,8 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
     clearCart,
     setLastOrderId,
   } = useGuest();
-  const [tipPct, setTipPct] = useState<number>(15);
+  const tipPresets = venue?.tipPresets ?? [15, 20];
+  const [tipPct, setTipPct] = useState<number>(venue?.defaultTipPct ?? 15);
   const [customTip, setCustomTip] = useState(false);
   const [customTipPct, setCustomTipPct] = useState(15);
   const [submitting, setSubmitting] = useState(false);
@@ -55,18 +54,21 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
     menuService.listHappyHourRules().then(setHappyHourRules);
   }, []);
 
-  // Preview of the discount the order service will apply — same rule selection.
-  const happyHourDiscount = useMemo(() => {
-    const now = new Date();
-    let discount = 0;
-    for (const line of cart) {
-      const best = bestHappyHourDiscount(happyHourRules, line.menuItem.categoryId ?? "packages", now);
-      if (!best) continue;
-      const lineTotal = orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers);
-      discount += Math.round(lineTotal * best.discountPct) / 100;
-    }
-    return Math.round(discount * 100) / 100;
-  }, [cart, happyHourRules]);
+  // Preview of the discount the order service will apply — same computation.
+  const happyHourDiscount = useMemo(
+    () =>
+      cartHappyHourDiscount(
+        happyHourRules,
+        cart.map((line) => ({
+          unitPrice: line.menuItem.price,
+          quantity: line.quantity,
+          categoryId: line.menuItem.categoryId,
+          addOns: line.modifiers,
+        })),
+        new Date(),
+      ).discount,
+    [cart, happyHourRules],
+  );
 
   const promoDiscount = useMemo(() => {
     if (!appliedPromo) return 0;
@@ -231,7 +233,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
       <div className="space-y-2">
         <p className="text-sm font-medium">Add a tip for the team</p>
         <div className="grid grid-cols-3 gap-2">
-          {TIP_PRESETS.map((pct) => (
+          {tipPresets.map((pct) => (
             <button
               key={pct}
               type="button"

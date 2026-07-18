@@ -25,7 +25,7 @@ import { pulseService } from "@/lib/services/pulse-service";
 import { venueService } from "@/lib/services/venue-service";
 import { computeAttentionItems } from "@/lib/pulse";
 import { useLiveEvents } from "@/lib/use-live-events";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatPct } from "@/lib/format";
 import type { AnalyticsSummary, AttentionItem, Order } from "@/lib/types";
 
 export default function ManagerDashboardPage() {
@@ -137,10 +137,6 @@ export default function ManagerDashboardPage() {
       </Tabs>
     </div>
   );
-}
-
-function pct(n: number) {
-  return `${Math.round(n * 100)}%`;
 }
 
 /** Per-staff averages weighted by each staff's volume, not a mean of means. */
@@ -302,7 +298,7 @@ function SnapshotTab({
               </div>
               <div>
                 <p className="text-muted-foreground">Approval</p>
-                <p className="text-lg font-semibold tabular-nums">{pct(summary.sessions.approvalRate)}</p>
+                <p className="text-lg font-semibold tabular-nums">{formatPct(summary.sessions.approvalRate)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Avg duration</p>
@@ -345,11 +341,11 @@ function SnapshotTab({
               </div>
               <div>
                 <p className="text-muted-foreground">Cancelled</p>
-                <p className="text-lg font-semibold tabular-nums">{summary.orderFunnel.cancelled} <span className="text-xs text-muted-foreground">({pct(summary.orderFunnel.cancellationRate)})</span></p>
+                <p className="text-lg font-semibold tabular-nums">{summary.orderFunnel.cancelled} <span className="text-xs text-muted-foreground">({formatPct(summary.orderFunnel.cancellationRate)})</span></p>
               </div>
               <div>
                 <p className="text-muted-foreground">Tip rate</p>
-                <p className="text-lg font-semibold tabular-nums">{pct(summary.orderFunnel.tipRate)}</p>
+                <p className="text-lg font-semibold tabular-nums">{formatPct(summary.orderFunnel.tipRate)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Fee revenue</p>
@@ -380,11 +376,11 @@ function SnapshotTab({
               </div>
               <div>
                 <p className="text-muted-foreground">Seated</p>
-                <p className="text-lg font-semibold tabular-nums">{summary.reservations.seated} <span className="text-xs text-muted-foreground">({pct(summary.reservations.seatedRate)})</span></p>
+                <p className="text-lg font-semibold tabular-nums">{summary.reservations.seated} <span className="text-xs text-muted-foreground">({formatPct(summary.reservations.seatedRate)})</span></p>
               </div>
               <div>
                 <p className="text-muted-foreground">No-shows (of confirmed)</p>
-                <p className="text-lg font-semibold tabular-nums">{pct(summary.reservations.noShowRate)}</p>
+                <p className="text-lg font-semibold tabular-nums">{formatPct(summary.reservations.noShowRate)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Covers</p>
@@ -392,7 +388,7 @@ function SnapshotTab({
               </div>
               <div>
                 <p className="text-muted-foreground">Cancelled (of requested)</p>
-                <p className="text-lg font-semibold tabular-nums">{summary.reservations.cancelled} <span className="text-xs text-muted-foreground">({pct(summary.reservations.cancellationRate)})</span></p>
+                <p className="text-lg font-semibold tabular-nums">{summary.reservations.cancelled} <span className="text-xs text-muted-foreground">({formatPct(summary.reservations.cancellationRate)})</span></p>
               </div>
               <div>
                 <p className="text-muted-foreground">Avg lead</p>
@@ -431,7 +427,7 @@ function SnapshotTab({
                 {summary.happyHours.rules.map((r) => (
                   <div key={r.ruleId} className="flex justify-between">
                     <span>{r.ruleName}</span>
-                    <span className="tabular-nums">{r.orders} orders · {formatMoney(r.revenue, currency)} · +{pct(r.categoryUpliftPct)} uplift</span>
+                    <span className="tabular-nums">{r.orders} orders · {formatMoney(r.revenue, currency)} · +{formatPct(r.categoryUpliftPct)} uplift</span>
                   </div>
                 ))}
               </div>
@@ -456,14 +452,14 @@ function SnapshotTab({
               </div>
               <div>
                 <p className="text-muted-foreground">Avg utilization</p>
-                <p className="text-lg font-semibold tabular-nums">{pct(summary.events.avgCapacityUtilization)}</p>
+                <p className="text-lg font-semibold tabular-nums">{formatPct(summary.events.avgCapacityUtilization)}</p>
               </div>
             </div>
             <div className="mt-3 space-y-1 text-xs text-muted-foreground">
               {summary.events.events.map((e) => (
                 <div key={e.eventId} className="flex justify-between">
                   <span>{e.eventName}</span>
-                  <span className="tabular-nums">{e.checkedIn} in · {pct(e.capacityUtilization)} cap · {formatMoney(e.eventRevenue, currency)}</span>
+                  <span className="tabular-nums">{e.checkedIn} in · {formatPct(e.capacityUtilization)} cap · {formatMoney(e.eventRevenue, currency)}</span>
                 </div>
               ))}
             </div>

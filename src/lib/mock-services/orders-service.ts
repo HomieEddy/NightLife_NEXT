@@ -6,7 +6,7 @@ import type { CartLine, MenuItem, Order, OrderStatus } from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
-import { bestHappyHourDiscount } from "@/lib/happy-hour";
+import { cartHappyHourDiscount } from "@/lib/happy-hour";
 import { orderLineSubtotal } from "@/lib/order-line";
 import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
 import { mockGuestsService } from "./guests-service";
@@ -82,20 +82,16 @@ export const mockOrdersService = {
     // live pricing engine (src/server/pricing.ts), applied here in dollars.
     const happyHourRules = await mockMenuService.listHappyHourRules();
     const placedAt = new Date();
-    let happyHourDiscount = 0;
-    let happyHourRuleId: string | undefined;
-    for (const line of input.lines) {
-      const best = bestHappyHourDiscount(
-        happyHourRules,
-        line.menuItem.categoryId ?? "packages",
-        placedAt,
-      );
-      if (!best) continue;
-      const lineTotal = orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers);
-      happyHourDiscount += Math.round(lineTotal * best.discountPct) / 100;
-      happyHourRuleId = best.ruleId;
-    }
-    happyHourDiscount = Math.round(happyHourDiscount * 100) / 100;
+    const { discount: happyHourDiscount, ruleId: happyHourRuleId } = cartHappyHourDiscount(
+      happyHourRules,
+      input.lines.map((line) => ({
+        unitPrice: line.menuItem.price,
+        quantity: line.quantity,
+        categoryId: line.menuItem.categoryId,
+        addOns: line.modifiers,
+      })),
+      placedAt,
+    );
 
     // Promotions stack after happy hour, mirroring the live engine's order.
     const afterDiscounts = subtotal - happyHourDiscount - (input.promoDiscount ?? 0);
@@ -174,14 +170,22 @@ export const mockOrdersService = {
     fromZoneName: string;
     guestName: string;
     sessionId?: string;
-    menuItem: MenuItem;
+    items: { menuItem: MenuItem; quantity: number }[];
     toTableId: string;
     toTableCode: string;
     note?: string;
   }): Promise<Order> {
     await delay(700);
     await assertSessionOrderable(input.sessionId);
-    const subtotal = input.menuItem.price;
+    const orderItems = input.items.map((line) => ({
+      id: uid("oi"),
+      menuItemId: line.menuItem.id,
+      name: line.menuItem.name,
+      quantity: line.quantity,
+      unitPrice: line.menuItem.price,
+      modifiers: [] as Order["items"][number]["modifiers"],
+    }));
+    const subtotal = orderItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
     const venue = await mockVenueService.getVenueSnapshot();
     const feeBreakdown = computeFeeLines(subtotal, venue);
     const serviceFee = computeServiceFee(subtotal, venue);
@@ -196,16 +200,7 @@ export const mockOrdersService = {
       zoneId: input.fromZoneId,
       zoneName: input.fromZoneName,
       guestName: input.guestName,
-      items: [
-        {
-          id: uid("oi"),
-          menuItemId: input.menuItem.id,
-          name: input.menuItem.name,
-          quantity: 1,
-          unitPrice: input.menuItem.price,
-          modifiers: [],
-        },
-      ],
+      items: orderItems,
       subtotal,
       serviceFee,
       feeBreakdown,
@@ -219,7 +214,9 @@ export const mockOrdersService = {
       giftNote: input.note,
     };
     orders = [order, ...orders];
-    await mockMenuService.recordSale([{ menuItemId: input.menuItem.id, quantity: 1 }]);
+    await mockMenuService.recordSale(
+      input.items.map((line) => ({ menuItemId: line.menuItem.id, quantity: line.quantity })),
+    );
     return clone(order);
   },
 

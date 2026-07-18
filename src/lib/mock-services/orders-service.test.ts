@@ -130,7 +130,7 @@ describe("session closure ordering wall", () => {
         fromZoneName: "VIP Mezzanine",
         guestName: "Wall Tester",
         sessionId: session.id,
-        menuItem: item,
+        items: [{ menuItem: item, quantity: 1 }],
         toTableId: "tbl-mf-1",
         toTableCode: "MF-01",
       }),

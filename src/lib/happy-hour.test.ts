@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isInHappyHourWindow, bestHappyHourDiscount, type HappyHourDiscountRule } from "./happy-hour";
+import { isInHappyHourWindow, bestHappyHourDiscount, cartHappyHourDiscount, type HappyHourDiscountRule, type DiscountableLine } from "./happy-hour";
 
 // Wednesday July 15 2026, local time — day 3.
 const wed = (hour: number, minute = 0) => new Date(2026, 6, 15, hour, minute);
@@ -70,5 +70,38 @@ describe("bestHappyHourDiscount", () => {
       ruleId: "hh-big",
       discountPct: 25,
     });
+  });
+});
+
+describe("cartHappyHourDiscount", () => {
+  const line = (patch: Partial<DiscountableLine> = {}): DiscountableLine => ({
+    unitPrice: 100,
+    quantity: 2,
+    categoryId: "cat-vodka",
+    addOns: [],
+    ...patch,
+  });
+
+  it("rounds each covered line to cents and sums", () => {
+    const { discount, ruleId } = cartHappyHourDiscount([rule()], [line(), line({ quantity: 1 })], wed(19));
+    expect(discount).toBe(60); // 20% of 300
+    expect(ruleId).toBe("hh-test");
+  });
+
+  it("includes add-ons in the discounted line total", () => {
+    const withAddOn = line({ addOns: [{ priceDelta: 10, quantity: 3 }] });
+    expect(cartHappyHourDiscount([rule()], [withAddOn], wed(19)).discount).toBe(46); // 20% of 230
+  });
+
+  it("treats undefined categoryId as the packages pseudo-category", () => {
+    const champagneOnly = rule({ appliesToCategoryIds: ["cat-champagne"] });
+    const packages = rule({ id: "hh-pack", appliesToCategoryIds: ["packages"] });
+    const packageLine = line({ categoryId: undefined });
+    expect(cartHappyHourDiscount([champagneOnly], [packageLine], wed(19)).discount).toBe(0);
+    expect(cartHappyHourDiscount([packages], [packageLine], wed(19)).discount).toBe(40);
+  });
+
+  it("returns zero outside every window", () => {
+    expect(cartHappyHourDiscount([rule()], [line()], wed(12)).discount).toBe(0);
   });
 });

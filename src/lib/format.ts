@@ -21,6 +21,11 @@ export function formatMoney(amount: number, currency = "CAD"): string {
     : formatterFor(currency, 2).format(amount);
 }
 
+/** Ratio → whole percent: 0.125 → "13%". */
+export function formatPct(ratio: number): string {
+  return `${Math.round(ratio * 100)}%`;
+}
+
 export function timeAgo(iso: string): string {
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
   if (seconds < 60) return "just now";

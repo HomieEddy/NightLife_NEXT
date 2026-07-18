@@ -33,7 +33,7 @@ import {
   reportService, REPORT_METRICS, type ReportMetric, type SavedReport,
 } from "@/lib/services/report-service";
 import { renderCsv } from "@/lib/report-csv";
-import { formatMoney, timeAgo } from "@/lib/format";
+import { formatMoney, formatPct, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const RANGE_OPTIONS = [
@@ -418,7 +418,7 @@ function ReportsPageContent() {
                     <span>{c.categoryName}</span>
                     <span className="text-muted-foreground">
                       {c.unitsSold} sold · {c.unitsInStock} in stock
-                      {c.sellThrough != null && ` · ${Math.round(c.sellThrough * 100)}% sell-through`}
+                      {c.sellThrough != null && ` · ${formatPct(c.sellThrough)} sell-through`}
                     </span>
                   </div>
                 ))}
@@ -429,7 +429,7 @@ function ReportsPageContent() {
                 <p className="text-sm font-medium">Guest sessions</p>
                 <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
                   <div><span className="text-muted-foreground">Sessions:</span> {viewing.data.sessions.totalSessions}</div>
-                  <div><span className="text-muted-foreground">Approval:</span> {Math.round(viewing.data.sessions.approvalRate * 100)}%</div>
+                  <div><span className="text-muted-foreground">Approval:</span> {formatPct(viewing.data.sessions.approvalRate)}</div>
                   <div><span className="text-muted-foreground">Avg duration:</span> {viewing.data.sessions.avgDurationMinutes} min</div>
                   <div><span className="text-muted-foreground">Rev/session:</span> {formatMoney(viewing.data.sessions.revenuePerSession)}</div>
                 </div>
@@ -441,7 +441,7 @@ function ReportsPageContent() {
                 <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
                   <div><span className="text-muted-foreground">Requested:</span> {viewing.data.reservations.requested}</div>
                   <div><span className="text-muted-foreground">Seated:</span> {viewing.data.reservations.seated}</div>
-                  <div><span className="text-muted-foreground">No-show:</span> {Math.round(viewing.data.reservations.noShowRate * 100)}%</div>
+                  <div><span className="text-muted-foreground">No-show:</span> {formatPct(viewing.data.reservations.noShowRate)}</div>
                   <div><span className="text-muted-foreground">Covers:</span> {viewing.data.reservations.totalCovers}</div>
                 </div>
               </div>
@@ -463,7 +463,7 @@ function ReportsPageContent() {
                   <div key={e.eventId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
                     <span>{e.eventName}</span>
                     <span className="text-muted-foreground">
-                      {e.checkedIn} checked in · {Math.round(e.capacityUtilization * 100)}% util ·{" "}
+                      {e.checkedIn} checked in · {formatPct(e.capacityUtilization)} util ·{" "}
                       <span className="font-medium text-foreground tabular-nums">{formatMoney(e.eventRevenue)}</span>
                     </span>
                   </div>
@@ -490,7 +490,7 @@ function ReportsPageContent() {
                 <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
                   <div><span className="text-muted-foreground">Placed:</span> {viewing.data.orderFunnel.placed}</div>
                   <div><span className="text-muted-foreground">Delivered:</span> {viewing.data.orderFunnel.delivered}</div>
-                  <div><span className="text-muted-foreground">Cancelled:</span> {viewing.data.orderFunnel.cancelled} ({Math.round(viewing.data.orderFunnel.cancellationRate * 100)}%)</div>
+                  <div><span className="text-muted-foreground">Cancelled:</span> {viewing.data.orderFunnel.cancelled} ({formatPct(viewing.data.orderFunnel.cancellationRate)})</div>
                   <div><span className="text-muted-foreground">Fee revenue:</span> {formatMoney(viewing.data.orderFunnel.serviceFeeRevenue)}</div>
                 </div>
               </div>

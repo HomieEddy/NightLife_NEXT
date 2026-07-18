@@ -213,6 +213,57 @@ export default function ManagerSettingsPage() {
             </div>
           )}
 
+          <div className="space-y-1.5">
+            <Label>Tip presets</Label>
+            <p className="text-xs text-muted-foreground">
+              Percentage options shown to guests at checkout. The first preset is
+              the default.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {venue.tipPresets.map((pct, index) => (
+                <div key={index} className="flex items-center gap-1 rounded-lg border px-2 py-1.5">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={pct}
+                    onChange={(e) => {
+                      const next = [...venue.tipPresets];
+                      next[index] = Math.max(0, Math.min(100, Number(e.target.value)));
+                      setVenue({ ...venue, tipPresets: next, defaultTipPct: next[0] ?? 0 });
+                    }}
+                    className="w-16 pr-5 tabular-nums"
+                    aria-label={`Tip preset ${index + 1}`}
+                  />
+                  <span className="text-xs text-muted-foreground">%</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+                    aria-label={`Remove ${pct}% preset`}
+                    onClick={() => {
+                      const next = venue.tipPresets.filter((_, i) => i !== index);
+                      setVenue({ ...venue, tipPresets: next, defaultTipPct: next[0] ?? 0 });
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const next = [...venue.tipPresets, 0];
+                  setVenue({ ...venue, tipPresets: next });
+                }}
+              >
+                <Plus className="size-3.5" /> Add preset
+              </Button>
+            </div>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Currency</Label>
