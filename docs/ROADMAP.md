@@ -23,6 +23,7 @@ method bodies behind a stable interface (R1).
 | 09c | Analytics depth & reporting expansion | [09c-analytics-depth-reporting-PLAN](plans/09c-analytics-depth-reporting-PLAN.md) | 08, 09, 09b | Low‑Med | session/reservation/happy-hour/event/promotion metrics, deepened staff/order/inventory analytics, new report metrics + CSV sections |
 | 10 | Platform admin & billing — complete | [10-platform-admin-billing-PLAN](plans/10-platform-admin-billing-PLAN.md) | 02, 09b | Med | `admin-service`, `billing-service`, `subscription`, `pricing`, `lead` pages |
 | 11 | Luxe VIP Gold visual revamp — complete | [11-luxe-vip-gold-revamp-PLAN](plans/11-luxe-vip-gold-revamp-PLAN.md) | — (presentation-layer) | Low | none — design-system tokens, shared primitives, guest/public/ops reskin |
+| 12 | Containerized local dev (compose stack: live + demo + Postgres) | [12-local-dev-containers-PLAN](plans/12-local-dev-containers-PLAN.md) | — (tooling-only) | Low | none — Dockerfile, compose.yaml, npm scripts, docs |
 
 Rationale for the two deviations from a naive order: **auth before venue CRUD**
 because R2 (tenant scoping) needs a session to scope by, and retrofitting auth
