@@ -344,6 +344,10 @@ where this section and docs/ disagree, docs/ wins and this file gets fixed.
     branch `satisfies` the mock's type, wire the selector, drop the demo gate
     — one PR per the roadmap's definition of done. Sketching costs no backend
     work; features killed in the sandbox cost nothing at all.
+11. **Hosting topology (ARD AD-15):** the demo build deploys to Vercel (free,
+    stateless, CDN-cached). Staging and production deploy to Hetzner VPS via
+    Coolify (git-push deploys, same infrastructure for both). Never test live
+    features against Vercel infrastructure — staging must be prod-identical.
 
 ## 10. Version control
 
