@@ -22,7 +22,7 @@ import { RoleBadge } from "@/components/shared/role-badge";
 import {
   aggregateWeekly, analyticsService, type HistoricalAnalytics,
 } from "@/lib/services/analytics-service";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const isoDaysAgo = (days: number) => {
@@ -37,8 +37,40 @@ const PRESETS = [
   { id: "90", label: "Last 90 days", days: 90 },
 ] as const;
 
-function pct(n: number) {
-  return `${Math.round(n * 100)}%`;
+/** One cell in a stat grid: muted label over a big tabular number. */
+function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold tabular-nums">{children}</p>
+    </div>
+  );
+}
+
+/** Labeled horizontal bar — `ratio` is 0..1 of the widest row. */
+function BarRow({
+  left,
+  right,
+  ratio,
+}: {
+  left: React.ReactNode;
+  right: React.ReactNode;
+  ratio: number;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        {left}
+        {right}
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-primary/60 to-primary"
+          style={{ width: `${ratio * 100}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function ManagerAnalyticsPage() {
@@ -74,6 +106,21 @@ function AnalyticsPageContent() {
     if (!data) return [];
     return data.days > 21 ? aggregateWeekly(data.series) : data.series;
   }, [data]);
+
+  const fastestRunner = useMemo(
+    () =>
+      data
+        ? [...data.staffPerformance].sort((a, b) => a.avgDeliveryMinutes - b.avgDeliveryMinutes)[0]
+        : undefined,
+    [data],
+  );
+  const topEarner = useMemo(
+    () =>
+      data
+        ? [...data.staffPerformance].sort((a, b) => b.revenueServed - a.revenueServed)[0]
+        : undefined,
+    [data],
+  );
 
   const zoneMax = data ? Math.max(...data.revenueByZone.map((z) => z.revenue)) : 1;
   const staffMax = data ? Math.max(...data.staffPerformance.map((s) => s.ordersDelivered)) : 1;
@@ -220,18 +267,12 @@ function AnalyticsPageContent() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {data.revenueByZone.map((zone) => (
-                    <div key={zone.zoneId} className="space-y-1">
-                      <div className="flex items-center justify-between text-sm">
-                        <EntityChip type="zone-tables" id={zone.zoneId} label={zone.zoneName} />
-                        <span className="font-medium tabular-nums">{formatMoney(zone.revenue)}</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-primary/60 to-primary"
-                          style={{ width: `${(zone.revenue / zoneMax) * 100}%` }}
-                        />
-                      </div>
-                    </div>
+                    <BarRow
+                      key={zone.zoneId}
+                      left={<EntityChip type="zone-tables" id={zone.zoneId} label={zone.zoneName} />}
+                      right={<span className="font-medium tabular-nums">{formatMoney(zone.revenue)}</span>}
+                      ratio={zone.revenue / zoneMax}
+                    />
                   ))}
                 </CardContent>
               </Card>
@@ -271,44 +312,16 @@ function AnalyticsPageContent() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm lg:grid-cols-4">
-                    <div>
-                      <p className="text-muted-foreground">Placed</p>
-                      <p className="text-lg font-semibold tabular-nums">{data.orderFunnel.placed}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Delivered</p>
-                      <p className="text-lg font-semibold tabular-nums">{data.orderFunnel.delivered}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Cancelled</p>
-                      <p className="text-lg font-semibold tabular-nums">
-                        {data.orderFunnel.cancelled}{" "}
-                        <span className="text-xs text-muted-foreground">({pct(data.orderFunnel.cancellationRate)})</span>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Service fee revenue</p>
-                      <p className="text-lg font-semibold tabular-nums">{formatMoney(data.orderFunnel.serviceFeeRevenue)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Tip rate</p>
-                      <p className="text-lg font-semibold tabular-nums">{pct(data.orderFunnel.tipRate)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Avg tip</p>
-                      <p className="text-lg font-semibold tabular-nums">{formatMoney(data.orderFunnel.avgTip)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Gift orders</p>
-                      <p className="text-lg font-semibold tabular-nums">
-                        {data.orderFunnel.giftOrders}{" "}
-                        <span className="text-xs text-muted-foreground">({formatMoney(data.orderFunnel.giftRevenue)})</span>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Modifier attach</p>
-                      <p className="text-lg font-semibold tabular-nums">{pct(data.orderFunnel.modifierAttachRate)}</p>
-                    </div>
+                    <Stat label="Placed">{data.orderFunnel.placed}</Stat>
+                    <Stat label="Delivered">{data.orderFunnel.delivered}</Stat>
+                    <Stat label="Cancelled">{data.orderFunnel.cancelled}{" "}
+                        <span className="text-xs text-muted-foreground">({formatPct(data.orderFunnel.cancellationRate)})</span></Stat>
+                    <Stat label="Service fee revenue">{formatMoney(data.orderFunnel.serviceFeeRevenue)}</Stat>
+                    <Stat label="Tip rate">{formatPct(data.orderFunnel.tipRate)}</Stat>
+                    <Stat label="Avg tip">{formatMoney(data.orderFunnel.avgTip)}</Stat>
+                    <Stat label="Gift orders">{data.orderFunnel.giftOrders}{" "}
+                        <span className="text-xs text-muted-foreground">({formatMoney(data.orderFunnel.giftRevenue)})</span></Stat>
+                    <Stat label="Modifier attach">{formatPct(data.orderFunnel.modifierAttachRate)}</Stat>
                   </div>
                 </CardContent>
               </Card>
@@ -331,20 +344,13 @@ function AnalyticsPageContent() {
               />
               <MetricCard
                 label="Fastest runner"
-                value={
-                  [...data.staffPerformance].sort(
-                    (a, b) => a.avgDeliveryMinutes - b.avgDeliveryMinutes,
-                  )[0]?.name.split(" ")[0] ?? "—"
-                }
+                value={fastestRunner?.name.split(" ")[0] ?? "—"}
                 icon={Users}
-                hint={`${[...data.staffPerformance].sort((a, b) => a.avgDeliveryMinutes - b.avgDeliveryMinutes)[0]?.avgDeliveryMinutes ?? 0} min avg`}
+                hint={`${fastestRunner?.avgDeliveryMinutes ?? 0} min avg`}
               />
               <MetricCard
                 label="Top earner"
-                value={
-                  [...data.staffPerformance].sort((a, b) => b.revenueServed - a.revenueServed)[0]
-                    ?.name.split(" ")[0] ?? "—"
-                }
+                value={topEarner?.name.split(" ")[0] ?? "—"}
                 icon={Trophy}
                 hint="By revenue served"
               />
@@ -359,26 +365,24 @@ function AnalyticsPageContent() {
                   .slice()
                   .sort((a, b) => b.ordersDelivered - a.ordersDelivered)
                   .map((perf) => (
-                    <div key={perf.staffId} className="space-y-1">
-                      <div className="flex items-center justify-between gap-2 text-sm">
+                    <BarRow
+                      key={perf.staffId}
+                      left={
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="truncate">{perf.name}</span>
                           <RoleBadge role={perf.role} className="px-1.5 py-0 text-[10px]" />
                         </span>
+                      }
+                      right={
                         <span className="shrink-0 text-xs text-muted-foreground">
                           {perf.ordersDelivered} orders · {perf.avgDeliveryMinutes} min avg ·{" "}
                           <span className="font-medium text-foreground tabular-nums">
                             {formatMoney(perf.revenueServed)}
                           </span>
                         </span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-primary/60 to-primary"
-                          style={{ width: `${(perf.ordersDelivered / staffMax) * 100}%` }}
-                        />
-                      </div>
-                    </div>
+                      }
+                      ratio={perf.ordersDelivered / staffMax}
+                    />
                   ))}
               </CardContent>
             </Card>
@@ -474,7 +478,7 @@ function AnalyticsPageContent() {
                       <EntityChip type="menu-category" id={cat.categoryId} label={cat.categoryName} />
                       <span className="text-xs text-muted-foreground">
                         {cat.unitsSold} sold · {cat.unitsInStock} left
-                        {cat.sellThrough != null && ` · ${pct(cat.sellThrough)} sell-through`}
+                        {cat.sellThrough != null && ` · ${formatPct(cat.sellThrough)} sell-through`}
                       </span>
                     </div>
                     <div className="flex h-2 overflow-hidden rounded-full bg-muted">
@@ -504,22 +508,10 @@ function AnalyticsPageContent() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm lg:grid-cols-4">
-                    <div>
-                      <p className="text-muted-foreground">Sold-out events / night</p>
-                      <p className="text-lg font-semibold tabular-nums">{data.inventoryDepth.soldOutEventsPerNight}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Total sold-out minutes</p>
-                      <p className="text-lg font-semibold tabular-nums">{data.inventoryDepth.totalSoldOutMinutes}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Restock / sale ratio</p>
-                      <p className="text-lg font-semibold tabular-nums">{pct(data.inventoryDepth.restockSaleRatio)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Dead items</p>
-                      <p className="text-lg font-semibold tabular-nums">{data.inventoryDepth.deadItems}</p>
-                    </div>
+                    <Stat label="Sold-out events / night">{data.inventoryDepth.soldOutEventsPerNight}</Stat>
+                    <Stat label="Total sold-out minutes">{data.inventoryDepth.totalSoldOutMinutes}</Stat>
+                    <Stat label="Restock / sale ratio">{formatPct(data.inventoryDepth.restockSaleRatio)}</Stat>
+                    <Stat label="Dead items">{data.inventoryDepth.deadItems}</Stat>
                   </div>
                 </CardContent>
               </Card>
@@ -540,7 +532,7 @@ function AnalyticsPageContent() {
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   <MetricCard label="Sessions" value={String(data.sessions.totalSessions)} icon={Users} hint={`${data.days} nights`} />
-                  <MetricCard label="Approval rate" value={pct(data.sessions.approvalRate)} icon={Users} />
+                  <MetricCard label="Approval rate" value={formatPct(data.sessions.approvalRate)} icon={Users} />
                   <MetricCard label="Avg duration" value={`${data.sessions.avgDurationMinutes} min`} icon={Clock} />
                   <MetricCard label="Rev / session" value={formatMoney(data.sessions.revenuePerSession)} icon={CircleDollarSign} />
                 </div>
@@ -552,26 +544,11 @@ function AnalyticsPageContent() {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Denial rate</p>
-                          <p className="text-lg font-semibold tabular-nums">{pct(data.sessions.denialRate)}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Avg approval wait</p>
-                          <p className="text-lg font-semibold tabular-nums">{data.sessions.avgApprovalMinutes} min</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Avg party size</p>
-                          <p className="text-lg font-semibold tabular-nums">{data.sessions.avgPartySize}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Rev / guest</p>
-                          <p className="text-lg font-semibold tabular-nums">{formatMoney(data.sessions.revenuePerGuest)}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Avg closure time</p>
-                          <p className="text-lg font-semibold tabular-nums">{data.sessions.avgClosureMinutes} min</p>
-                        </div>
+                        <Stat label="Denial rate">{formatPct(data.sessions.denialRate)}</Stat>
+                        <Stat label="Avg approval wait">{data.sessions.avgApprovalMinutes} min</Stat>
+                        <Stat label="Avg party size">{data.sessions.avgPartySize}</Stat>
+                        <Stat label="Rev / guest">{formatMoney(data.sessions.revenuePerGuest)}</Stat>
+                        <Stat label="Avg closure time">{data.sessions.avgClosureMinutes} min</Stat>
                       </div>
                     </CardContent>
                   </Card>
@@ -585,20 +562,16 @@ function AnalyticsPageContent() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {data.sessions.settlementMix.map((s) => (
-                        <div key={s.method} className="space-y-1">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="capitalize">{s.method}</span>
+                        <BarRow
+                          key={s.method}
+                          left={<span className="capitalize">{s.method}</span>}
+                          right={
                             <span className="text-xs tabular-nums text-muted-foreground">
-                              {s.count} ({pct(s.pct)})
+                              {s.count} ({formatPct(s.pct)})
                             </span>
-                          </div>
-                          <div className="h-2 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-primary/60 to-primary"
-                              style={{ width: `${s.pct * 100}%` }}
-                            />
-                          </div>
-                        </div>
+                          }
+                          ratio={s.pct}
+                        />
                       ))}
                     </CardContent>
                   </Card>
@@ -615,8 +588,8 @@ function AnalyticsPageContent() {
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   <MetricCard label="Requested" value={String(data.reservations.requested)} icon={CalendarCheck} />
-                  <MetricCard label="Seated" value={String(data.reservations.seated)} icon={CalendarCheck} hint={`${pct(data.reservations.seatedRate)} of confirmed`} />
-                  <MetricCard label="No-show rate" value={pct(data.reservations.noShowRate)} icon={Users} hint="of confirmed" />
+                  <MetricCard label="Seated" value={String(data.reservations.seated)} icon={CalendarCheck} hint={`${formatPct(data.reservations.seatedRate)} of confirmed`} />
+                  <MetricCard label="No-show rate" value={formatPct(data.reservations.noShowRate)} icon={Users} hint="of confirmed" />
                   <MetricCard label="Total covers" value={String(data.reservations.totalCovers)} icon={Users} />
                 </div>
 
@@ -627,22 +600,10 @@ function AnalyticsPageContent() {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Confirmed</p>
-                          <p className="text-lg font-semibold tabular-nums">{data.reservations.confirmed} <span className="text-xs text-muted-foreground">({pct(data.reservations.confirmRate)} of requested)</span></p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Completed</p>
-                          <p className="text-lg font-semibold tabular-nums">{data.reservations.completed}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Cancelled</p>
-                          <p className="text-lg font-semibold tabular-nums">{data.reservations.cancelled} <span className="text-xs text-muted-foreground">({pct(data.reservations.cancellationRate)} of requested)</span></p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Avg lead time</p>
-                          <p className="text-lg font-semibold tabular-nums">{data.reservations.avgLeadDays} days</p>
-                        </div>
+                        <Stat label="Confirmed">{data.reservations.confirmed} <span className="text-xs text-muted-foreground">({formatPct(data.reservations.confirmRate)} of requested)</span></Stat>
+                        <Stat label="Completed">{data.reservations.completed}</Stat>
+                        <Stat label="Cancelled">{data.reservations.cancelled} <span className="text-xs text-muted-foreground">({formatPct(data.reservations.cancellationRate)} of requested)</span></Stat>
+                        <Stat label="Avg lead time">{data.reservations.avgLeadDays} days</Stat>
                       </div>
                     </CardContent>
                   </Card>
@@ -653,20 +614,16 @@ function AnalyticsPageContent() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {data.reservations.sourceSplit.map((s) => (
-                        <div key={s.source} className="space-y-1">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="capitalize">{s.source}</span>
+                        <BarRow
+                          key={s.source}
+                          left={<span className="capitalize">{s.source}</span>}
+                          right={
                             <span className="text-xs tabular-nums text-muted-foreground">
-                              {s.count} ({pct(s.pct)})
+                              {s.count} ({formatPct(s.pct)})
                             </span>
-                          </div>
-                          <div className="h-2 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-primary/60 to-primary"
-                              style={{ width: `${s.pct * 100}%` }}
-                            />
-                          </div>
-                        </div>
+                          }
+                          ratio={s.pct}
+                        />
                       ))}
                     </CardContent>
                   </Card>
@@ -742,7 +699,7 @@ function AnalyticsPageContent() {
                               <td className="py-2 pr-4 text-right tabular-nums">{r.orders}</td>
                               <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(r.revenue)}</td>
                               <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(r.discountGiven)}</td>
-                              <td className="py-2 text-right tabular-nums">{pct(r.categoryUpliftPct)}</td>
+                              <td className="py-2 text-right tabular-nums">{formatPct(r.categoryUpliftPct)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -762,7 +719,7 @@ function AnalyticsPageContent() {
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   <MetricCard label="Events" value={String(data.events.totalEvents)} icon={PartyPopper} />
-                  <MetricCard label="Avg utilization" value={pct(data.events.avgCapacityUtilization)} icon={Users} />
+                  <MetricCard label="Avg utilization" value={formatPct(data.events.avgCapacityUtilization)} icon={Users} />
                 </div>
 
                 <Card>
@@ -792,7 +749,7 @@ function AnalyticsPageContent() {
                               <td className="py-2 pr-4 text-right tabular-nums">{e.invited}</td>
                               <td className="py-2 pr-4 text-right tabular-nums">{e.confirmed}</td>
                               <td className="py-2 pr-4 text-right tabular-nums">{e.checkedIn}</td>
-                              <td className="py-2 pr-4 text-right tabular-nums">{pct(e.capacityUtilization)}</td>
+                              <td className="py-2 pr-4 text-right tabular-nums">{formatPct(e.capacityUtilization)}</td>
                               <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(e.eventRevenue)}</td>
                               <td className="py-2 text-right tabular-nums">{formatMoney(e.avgWeekdayRevenue)}</td>
                             </tr>
