@@ -17,7 +17,7 @@ import { menuService } from "@/lib/services/menu-service";
 import { ordersService } from "@/lib/services/orders-service";
 import { promotionsService } from "@/lib/services/promotions-service";
 import { computeFeeLines, feeLabel } from "@/lib/fees";
-import { bestHappyHourDiscount } from "@/lib/happy-hour";
+import { cartHappyHourDiscount } from "@/lib/happy-hour";
 import { formatMoney } from "@/lib/format";
 import { useLastCall } from "@/lib/use-last-call";
 import { cn } from "@/lib/utils";
@@ -54,18 +54,21 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
     menuService.listHappyHourRules().then(setHappyHourRules);
   }, []);
 
-  // Preview of the discount the order service will apply — same rule selection.
-  const happyHourDiscount = useMemo(() => {
-    const now = new Date();
-    let discount = 0;
-    for (const line of cart) {
-      const best = bestHappyHourDiscount(happyHourRules, line.menuItem.categoryId ?? "packages", now);
-      if (!best) continue;
-      const lineTotal = orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers);
-      discount += Math.round(lineTotal * best.discountPct) / 100;
-    }
-    return Math.round(discount * 100) / 100;
-  }, [cart, happyHourRules]);
+  // Preview of the discount the order service will apply — same computation.
+  const happyHourDiscount = useMemo(
+    () =>
+      cartHappyHourDiscount(
+        happyHourRules,
+        cart.map((line) => ({
+          unitPrice: line.menuItem.price,
+          quantity: line.quantity,
+          categoryId: line.menuItem.categoryId,
+          addOns: line.modifiers,
+        })),
+        new Date(),
+      ).discount,
+    [cart, happyHourRules],
+  );
 
   const promoDiscount = useMemo(() => {
     if (!appliedPromo) return 0;

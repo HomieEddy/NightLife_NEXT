@@ -6,7 +6,7 @@ import type { CartLine, MenuItem, Order, OrderStatus } from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
-import { bestHappyHourDiscount } from "@/lib/happy-hour";
+import { cartHappyHourDiscount } from "@/lib/happy-hour";
 import { orderLineSubtotal } from "@/lib/order-line";
 import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
 import { mockGuestsService } from "./guests-service";
@@ -82,20 +82,16 @@ export const mockOrdersService = {
     // live pricing engine (src/server/pricing.ts), applied here in dollars.
     const happyHourRules = await mockMenuService.listHappyHourRules();
     const placedAt = new Date();
-    let happyHourDiscount = 0;
-    let happyHourRuleId: string | undefined;
-    for (const line of input.lines) {
-      const best = bestHappyHourDiscount(
-        happyHourRules,
-        line.menuItem.categoryId ?? "packages",
-        placedAt,
-      );
-      if (!best) continue;
-      const lineTotal = orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers);
-      happyHourDiscount += Math.round(lineTotal * best.discountPct) / 100;
-      happyHourRuleId = best.ruleId;
-    }
-    happyHourDiscount = Math.round(happyHourDiscount * 100) / 100;
+    const { discount: happyHourDiscount, ruleId: happyHourRuleId } = cartHappyHourDiscount(
+      happyHourRules,
+      input.lines.map((line) => ({
+        unitPrice: line.menuItem.price,
+        quantity: line.quantity,
+        categoryId: line.menuItem.categoryId,
+        addOns: line.modifiers,
+      })),
+      placedAt,
+    );
 
     // Promotions stack after happy hour, mirroring the live engine's order.
     const afterDiscounts = subtotal - happyHourDiscount - (input.promoDiscount ?? 0);
