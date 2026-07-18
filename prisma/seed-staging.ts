@@ -332,9 +332,11 @@ async function main() {
 
     // ── Menu categories + items ──────────────────────────────────
     const catIds: Record<string, string> = {};
+    const catNameById: Record<string, string> = {};
     for (const cat of CATEGORIES) {
       const catId = `${tenantDef.slug}-cat-${cat.suffix}`;
       catIds[cat.suffix] = catId;
+      catNameById[catId] = cat.name;
       await prisma.menuCategory.upsert({
         where: { id: catId },
         update: {},
@@ -418,6 +420,8 @@ async function main() {
       let nightOrderCount = 0;
       const zoneRevenue: Record<string, { revenueCents: number; orderCount: number }> = {};
       const itemSales: Record<string, { name: string; count: number; revenueCents: number }> = {};
+      const staffDeliveries: Record<string, { name: string; role: string; ordersDelivered: number; totalMinutes: number; revenueServedCents: number }> = {};
+      const categorySales: Record<string, { categoryName: string; unitsSold: number }> = {};
 
       for (let si = 0; si < sessionsTonight; si++) {
         const table = pick(allTables);
@@ -495,7 +499,8 @@ async function main() {
           const tipCents = Math.round(subtotalCents * tipPct / 100);
           const totalCents = subtotalCents + totalFeeCents + tipCents;
 
-          const claimedStaff = staffUsers.find((s) => s.role === "runner") ?? staffUsers[1];
+          const deliveryStaff = staffUsers.filter((s) => s.role !== "manager");
+          const claimedStaff = deliveryStaff[orderSeq % deliveryStaff.length];
 
           await prisma.order.upsert({
             where: { id: orderId },
@@ -556,7 +561,22 @@ async function main() {
             }
             itemSales[oi.item.id].count += oi.qty;
             itemSales[oi.item.id].revenueCents += oi.item.priceCents * oi.qty;
+
+            // Track category sales
+            if (!categorySales[oi.item.catId]) {
+              categorySales[oi.item.catId] = { categoryName: catNameById[oi.item.catId], unitsSold: 0 };
+            }
+            categorySales[oi.item.catId].unitsSold += oi.qty;
           }
+
+          // Track staff deliveries
+          const sid = claimedStaff.userId;
+          if (!staffDeliveries[sid]) {
+            staffDeliveries[sid] = { name: claimedStaff.name, role: claimedStaff.role as string, ordersDelivered: 0, totalMinutes: 0, revenueServedCents: 0 };
+          }
+          staffDeliveries[sid].ordersDelivered++;
+          staffDeliveries[sid].totalMinutes += randInt(3, 12);
+          staffDeliveries[sid].revenueServedCents += totalCents;
         }
 
         // Some sessions have help requests
@@ -624,6 +644,26 @@ async function main() {
           .map((i) => ({ name: i.name, count: i.count, revenueCents: i.revenueCents })),
       };
 
+      const staffPerf = {
+        v: 1,
+        staff: Object.entries(staffDeliveries).map(([staffId, s]) => ({
+          staffId,
+          name: s.name,
+          role: s.role,
+          ordersDelivered: s.ordersDelivered,
+          avgDeliveryMinutes: s.ordersDelivered > 0 ? Math.round(s.totalMinutes / s.ordersDelivered) : 0,
+          revenueServedCents: s.revenueServedCents,
+        })),
+      };
+      const catDepletion = {
+        v: 1,
+        categories: Object.entries(categorySales).map(([categoryId, c]) => ({
+          categoryId,
+          categoryName: c.categoryName,
+          unitsSold: c.unitsSold,
+        })),
+      };
+
       await prisma.nightlyRollup.upsert({
         where: { venueId_nightDate: { venueId, nightDate: nightStr } },
         update: {
@@ -632,8 +672,8 @@ async function main() {
           avgOrderCents: nightOrderCount > 0 ? Math.round(nightRevenue / nightOrderCount) : 0,
           byZone: byZone as unknown as Prisma.InputJsonValue,
           topItems: topItems as unknown as Prisma.InputJsonValue,
-          staffPerformance: { v: 1, staff: [] } as unknown as Prisma.InputJsonValue,
-          categoryDepletion: { v: 1, categories: [] } as unknown as Prisma.InputJsonValue,
+          staffPerformance: staffPerf as unknown as Prisma.InputJsonValue,
+          categoryDepletion: catDepletion as unknown as Prisma.InputJsonValue,
         },
         create: {
           id: rollupId,
@@ -644,8 +684,8 @@ async function main() {
           avgOrderCents: nightOrderCount > 0 ? Math.round(nightRevenue / nightOrderCount) : 0,
           byZone: byZone as unknown as Prisma.InputJsonValue,
           topItems: topItems as unknown as Prisma.InputJsonValue,
-          staffPerformance: { v: 1, staff: [] } as unknown as Prisma.InputJsonValue,
-          categoryDepletion: { v: 1, categories: [] } as unknown as Prisma.InputJsonValue,
+          staffPerformance: staffPerf as unknown as Prisma.InputJsonValue,
+          categoryDepletion: catDepletion as unknown as Prisma.InputJsonValue,
         },
       });
 
