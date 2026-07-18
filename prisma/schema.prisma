@@ -213,6 +213,8 @@ model Venue {
   logoInitials           String   @map("logo_initials")
   slaThresholds          Json     @map("sla_thresholds")
   lastCallAutoFlagTables Boolean  @default(true) @map("last_call_auto_flag_tables")
+  tipPresets             Json     @default("[15, 20]") @map("tip_presets")
+  defaultTipPct          Int      @default(15) @map("default_tip_pct")
   nightStartHour         Int      @default(18) @map("night_start_hour")
   nightEndHour           Int      @default(10) @map("night_end_hour")
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz

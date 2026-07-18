@@ -79,7 +79,7 @@ export const liveOrdersService = {
     fromZoneName: string;
     guestName: string;
     sessionId?: string;
-    menuItem: MenuItem;
+    items: { menuItem: MenuItem; quantity: number }[];
     toTableId: string;
     toTableCode: string;
     note?: string;
@@ -93,7 +93,7 @@ export const liveOrdersService = {
         fromZoneName: input.fromZoneName,
         guestName: input.guestName,
         sessionId: input.sessionId,
-        menuItemId: input.menuItem.id,
+        items: input.items.map((l) => ({ menuItemId: l.menuItem.id, quantity: l.quantity })),
         toTableId: input.toTableId,
         toTableCode: input.toTableCode,
         note: input.note,

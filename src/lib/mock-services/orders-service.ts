@@ -174,14 +174,22 @@ export const mockOrdersService = {
     fromZoneName: string;
     guestName: string;
     sessionId?: string;
-    menuItem: MenuItem;
+    items: { menuItem: MenuItem; quantity: number }[];
     toTableId: string;
     toTableCode: string;
     note?: string;
   }): Promise<Order> {
     await delay(700);
     await assertSessionOrderable(input.sessionId);
-    const subtotal = input.menuItem.price;
+    const orderItems = input.items.map((line) => ({
+      id: uid("oi"),
+      menuItemId: line.menuItem.id,
+      name: line.menuItem.name,
+      quantity: line.quantity,
+      unitPrice: line.menuItem.price,
+      modifiers: [] as Order["items"][number]["modifiers"],
+    }));
+    const subtotal = orderItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
     const venue = await mockVenueService.getVenueSnapshot();
     const feeBreakdown = computeFeeLines(subtotal, venue);
     const serviceFee = computeServiceFee(subtotal, venue);
@@ -196,16 +204,7 @@ export const mockOrdersService = {
       zoneId: input.fromZoneId,
       zoneName: input.fromZoneName,
       guestName: input.guestName,
-      items: [
-        {
-          id: uid("oi"),
-          menuItemId: input.menuItem.id,
-          name: input.menuItem.name,
-          quantity: 1,
-          unitPrice: input.menuItem.price,
-          modifiers: [],
-        },
-      ],
+      items: orderItems,
       subtotal,
       serviceFee,
       feeBreakdown,
@@ -219,7 +218,9 @@ export const mockOrdersService = {
       giftNote: input.note,
     };
     orders = [order, ...orders];
-    await mockMenuService.recordSale([{ menuItemId: input.menuItem.id, quantity: 1 }]);
+    await mockMenuService.recordSale(
+      input.items.map((line) => ({ menuItemId: line.menuItem.id, quantity: line.quantity })),
+    );
     return clone(order);
   },
 

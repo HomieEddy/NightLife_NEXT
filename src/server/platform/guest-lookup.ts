@@ -65,6 +65,8 @@ export async function findTableByQrSlug(
       logoInitials: venueRow.logoInitials,
       slaThresholds: venueRow.slaThresholds as unknown as Venue["slaThresholds"],
       lastCallAutoFlagTables: venueRow.lastCallAutoFlagTables,
+      tipPresets: venueRow.tipPresets as number[],
+      defaultTipPct: venueRow.defaultTipPct,
       nightStartHour: venueRow.nightStartHour,
       nightEndHour: venueRow.nightEndHour,
     },
