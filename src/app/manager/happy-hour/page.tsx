@@ -19,6 +19,7 @@ import { EntityChip } from "@/components/shared/entity-chip";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { menuService } from "@/lib/services/menu-service";
+import { SearchInput } from "@/components/shared/search-input";
 import { useHighlight } from "@/lib/use-highlight";
 import { cn } from "@/lib/utils";
 import type { HappyHourRule, MenuCategory } from "@/lib/types";
@@ -40,6 +41,9 @@ const EMPTY_DRAFT: RuleDraft = {
 function HappyHourContent() {
   const [rules, setRules] = useState<HappyHourRule[] | null>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
+  const [dayFilter, setDayFilter] = useState<number | "all">("all");
+  const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<RuleDraft>(EMPTY_DRAFT);
@@ -132,6 +136,18 @@ function HappyHourContent() {
 
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
 
+  const visible = (rules ?? []).filter((rule) => {
+    if (activeFilter === "active" && !rule.isActive) return false;
+    if (activeFilter === "inactive" && rule.isActive) return false;
+    if (dayFilter !== "all" && !rule.daysOfWeek.includes(dayFilter)) return false;
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      const haystack = [rule.name, ...rule.appliesToCategoryIds.map(categoryName)].join(" ").toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -144,17 +160,74 @@ function HappyHourContent() {
         }
       />
 
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search rules…"
+            className="w-full sm:w-56"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "active", "inactive"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setActiveFilter(s)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                  activeFilter === s
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {s === "all" ? "All" : s}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setDayFilter("all")}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              dayFilter === "all"
+                ? "border-primary bg-primary/15 text-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            All days
+          </button>
+          {DAY_LABELS.map((label, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setDayFilter(i)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                dayFilter === i
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {rules === null ? (
         <ListSkeleton rows={3} rowHeight="h-32" />
-      ) : rules.length === 0 ? (
+      ) : visible.length === 0 ? (
         <EmptyState
           icon={Clock}
-          title="No rules yet"
-          description="Create a rule to discount categories during set hours."
+          title="No rules match"
+          description={rules.length === 0 ? "Create a rule to discount categories during set hours." : "Try adjusting the filters."}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {rules.map((rule) => (
+          {visible.map((rule) => (
             <Card
               key={rule.id}
               id={`highlight-${rule.id}`}

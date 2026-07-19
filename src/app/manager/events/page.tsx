@@ -25,6 +25,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { eventsService } from "@/lib/services/events-service";
 import { venueService } from "@/lib/services/venue-service";
+import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
+import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
+import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
 import type { EventGuest, EventStatus, VenueEvent, Zone } from "@/lib/types";
 
@@ -66,6 +69,10 @@ function EventsContent() {
   const [events, setEvents] = useState<VenueEvent[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [guestsByEvent, setGuestsByEvent] = useState<Record<string, EventGuest[]>>({});
+  const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all");
+  const [dateRange, setDateRange] = useState<DateRange>("week");
+  const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
+  const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -161,6 +168,17 @@ function EventsContent() {
     await refresh();
   }
 
+  const visible = (events ?? []).filter((ev) => {
+    if (statusFilter !== "all" && ev.status !== statusFilter) return false;
+    if (!isInDateRange(ev.startsAt, dateRange)) return false;
+    if ((customRange.from || customRange.to) && !isInCustomDateRange(ev.startsAt, customRange)) return false;
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      if (!`${ev.name} ${ev.description} ${zoneName(ev.zoneId)}`.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -173,17 +191,51 @@ function EventsContent() {
         }
       />
 
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search events…"
+            className="w-full sm:w-56"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "draft", "published", "live", "ended"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                  statusFilter === s
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {s === "all" ? "All" : s}
+              </button>
+            ))}
+          </div>
+          <div className="h-4 w-px bg-border" />
+          <DateFilter value={dateRange} onChange={setDateRange} />
+          <div className="h-4 w-px bg-border" />
+          <DateRangePicker value={customRange} onChange={setCustomRange} />
+        </div>
+      </div>
+
       {events === null ? (
         <ListSkeleton rows={3} rowHeight="h-32" />
-      ) : events.length === 0 ? (
+      ) : visible.length === 0 ? (
         <EmptyState
           icon={PartyPopper}
-          title="No events yet"
-          description="Create an event to promote it to guests and build a guestlist."
+          title="No events match"
+          description={events.length === 0 ? "Create an event to promote it to guests and build a guestlist." : "Try adjusting the filters."}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {events.map((ev) => {
+          {visible.map((ev) => {
             const guests = guestsByEvent[ev.id] ?? [];
             const expanded = openId === ev.id;
             return (

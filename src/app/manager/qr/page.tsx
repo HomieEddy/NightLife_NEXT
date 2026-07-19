@@ -16,7 +16,9 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { venueService } from "@/lib/services/venue-service";
-import type { VenueTable, Zone } from "@/lib/types";
+import { SearchInput } from "@/components/shared/search-input";
+import { cn } from "@/lib/utils";
+import type { TableStatus, VenueTable, Zone } from "@/lib/types";
 
 /** Real, scannable QR rendered as inline SVG. */
 function QrSvg({ url, className }: { url: string; className?: string }) {
@@ -37,6 +39,8 @@ export default function ManagerQrPage() {
   const [tables, setTables] = useState<VenueTable[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [zoneFilter, setZoneFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<TableStatus | "all">("all");
+  const [query, setQuery] = useState("");
   const [origin, setOrigin] = useState("");
 
   useEffect(() => {
@@ -85,8 +89,16 @@ export default function ManagerQrPage() {
 
   const zoneName = (id: string) => zones.find((z) => z.id === id)?.name ?? "";
   const visible = useMemo(
-    () => (tables ?? []).filter((t) => zoneFilter === "all" || t.zoneId === zoneFilter),
-    [tables, zoneFilter],
+    () => (tables ?? []).filter((t) => {
+      if (zoneFilter !== "all" && t.zoneId !== zoneFilter) return false;
+      if (statusFilter !== "all" && t.status !== statusFilter) return false;
+      if (query.trim()) {
+        const q = query.trim().toLowerCase();
+        if (!`${t.code} ${t.label} ${zoneName(t.zoneId)}`.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    }),
+    [tables, zoneFilter, statusFilter, query],
   );
 
   return (
@@ -117,6 +129,32 @@ export default function ManagerQrPage() {
             </div>
           }
         />
+
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search tables…"
+            className="w-full sm:w-56"
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "open", "occupied", "reserved", "closed"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                  statusFilter === s
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {s === "all" ? "All" : s}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {tables === null || !origin ? (
           <ListSkeleton rows={6} rowHeight="h-24" />

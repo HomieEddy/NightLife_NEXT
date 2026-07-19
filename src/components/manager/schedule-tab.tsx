@@ -18,6 +18,7 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { staffService } from "@/lib/services/staff-service";
 import { cn } from "@/lib/utils";
+import type { DateRangeValue } from "@/components/shared/date-range-picker";
 import type { StaffMember, StaffShift, Zone } from "@/lib/types";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -32,8 +33,22 @@ interface ShiftDraft {
   zoneId: string; // "none" = unassigned
 }
 
+function getDaysInRange(range?: DateRangeValue): Set<number> | null {
+  if (!range || (!range.from && !range.to)) return null;
+  const days = new Set<number>();
+  const start = range.from ? new Date(range.from + "T00:00:00") : new Date(0);
+  const end = range.to ? new Date(range.to + "T23:59:59") : new Date("2100-01-01");
+  const cursor = new Date(start);
+  // Collect unique days-of-week within range (cap at 7 iterations for safety)
+  for (let i = 0; i < 7 && cursor <= end; i++) {
+    days.add(cursor.getDay());
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days.size > 0 ? days : null;
+}
+
 /** Weekly recurring schedule: shifts grouped by night, add/remove per staff. */
-export function ScheduleTab({ staff, zones }: { staff: StaffMember[]; zones: Zone[] }) {
+export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[]; zones: Zone[]; dateRange?: DateRangeValue }) {
   const [shifts, setShifts] = useState<StaffShift[] | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState<ShiftDraft>({
@@ -94,7 +109,11 @@ export function ScheduleTab({ staff, zones }: { staff: StaffMember[]; zones: Zon
     await refresh();
   }
 
+  const activeDays = getDaysInRange(dateRange);
+
   if (shifts === null) return <ListSkeleton rows={4} rowHeight="h-28" />;
+
+  const filteredDays = activeDays ? DAY_ORDER.filter((d) => activeDays.has(d)) : DAY_ORDER;
 
   return (
     <div className="space-y-4">
@@ -105,7 +124,7 @@ export function ScheduleTab({ staff, zones }: { staff: StaffMember[]; zones: Zon
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {DAY_ORDER.map((day) => {
+        {filteredDays.map((day) => {
           const dayShifts = shifts
             .filter((sh) => sh.dayOfWeek === day)
             .sort((a, b) => a.startTime.localeCompare(b.startTime));

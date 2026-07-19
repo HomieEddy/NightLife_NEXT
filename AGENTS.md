@@ -344,6 +344,10 @@ where this section and docs/ disagree, docs/ wins and this file gets fixed.
     branch `satisfies` the mock's type, wire the selector, drop the demo gate
     — one PR per the roadmap's definition of done. Sketching costs no backend
     work; features killed in the sandbox cost nothing at all.
+11. **Hosting topology (ARD AD-15):** the demo build deploys to Vercel (free,
+    stateless, CDN-cached). Staging and production deploy to Hetzner VPS via
+    Coolify (git-push deploys, same infrastructure for both). Never test live
+    features against Vercel infrastructure — staging must be prod-identical.
 
 ## 10. Version control
 
@@ -377,11 +381,59 @@ readable; they codify how this repo has actually been built.
    counterpart; AGENTS.md/docs edits ride with the change that made them stale
    (§9.9); the plan file updates in the same PR that departs from it
    (ROADMAP definition-of-done).
-8. **Branching:** `dev` is the integration branch — all feature work branches
-   from it and merges back to it via PR. `master` is the release branch;
-   `dev` merges to `master` only for releases. Feature branches:
-   `feature/NN-short-name` matching the plan number (`feature/01-foundation`,
-   `feature/05-orders-fees`). No direct pushes to `dev` or `master`.
+8. **Branching strategy** — two permanent branches, short-lived work branches,
+   tied to the hosting topology (AD-15, `docs/HOSTING.md`):
+
+   **Permanent branches:**
+
+   | Branch | Deploys to | Accepts merges from |
+   |---|---|---|
+   | `dev` | Hetzner staging (auto-deploy) | Feature, fix, refactor, chore branches |
+   | `master` | Hetzner production + Vercel demo (auto-deploy) | `dev` only (release PRs) |
+
+   **Work branches** — branch from `dev`, merge back to `dev` via PR:
+
+   | Prefix | When | Example |
+   |---|---|---|
+   | `feature/` | New functionality (plan-driven or standalone) | `feature/12-waitlist` |
+   | `fix/` | Bug fixes | `fix/cart-rounding-error` |
+   | `refactor/` | Code quality, no behavior change | `refactor/extract-receipt-math` |
+   | `chore/` | Docs, deps, CI, config | `chore/coolify-deploy-config` |
+
+   Plan-numbered features keep the `NN-` prefix (`feature/12-waitlist`);
+   non-plan work uses a descriptive slug. Branches are deleted after merge
+   (locally and remote).
+
+   **Flow:**
+
+   ```
+   feature/12-waitlist ──PR──► dev (staging) ──PR──► master (prod + demo)
+   fix/cart-rounding   ──PR──►     │                     │
+   refactor/receipts   ──PR──►     │                     │
+                                   │                     │
+                            auto-deploys to         auto-deploys to
+                            Hetzner staging         Hetzner prod +
+                                                    Vercel demo
+   ```
+
+   **Release cadence:** when `dev` is stable and QA'd on staging, open a PR
+   from `dev` → `master`. The PR description is the release summary (what
+   shipped, what was tested). Merge triggers production and demo deploys.
+
+   **Hotfixes** (production-critical bugs that can't wait for the next
+   release): branch `hotfix/description` from `master`, fix, PR to `master`.
+   After merge, immediately cherry-pick or merge `master` back into `dev` so
+   the branches don't diverge. Hotfixes are rare — most fixes go through the
+   normal `dev` flow.
+
+   **Rules:**
+   - No direct pushes to `dev` or `master` — always via PR.
+   - Every PR to `dev` must pass `tsc`, eslint, and the test suite.
+   - Every PR to `master` (release) must have been validated on staging.
+   - Feature branches are short-lived: days, not weeks. Long-lived branches
+     accumulate merge pain.
+   - Rebase feature branches onto `dev` before opening the PR if they've
+     diverged significantly. Never rebase `dev` or `master`.
 9. **Hygiene:** never commit secrets, `.env*` (except `.env.example`),
    generated artifacts, or `node_modules`; extend `.gitignore` in the same
    commit that introduces a new artifact type. Before any commit: `git status`
@@ -441,8 +493,9 @@ makes it obsolete.
 - Venue/zones/tables/shifts (plan 03) persist across reload **in live mode
   only** — real Postgres via `venueService`'s live branch. Demo mode still
   resets on reload; that's the permanent sandbox behavior (AD-14), not a bug.
-  Local live testing: use `npm run dev:pglite` to start PGlite in-process Postgres
-  (no Docker needed), or connect to real Postgres at `DATABASE_URL` for external DBs.
+  Local live testing: `npm run dev:pglite` (PGlite in-process, fastest),
+  `npm run dev:stack` (compose stack: real Postgres 17 + both live/demo apps),
+  or connect to real Postgres at `DATABASE_URL` for external DBs.
 - Guest flow entry: **demo mode** — `/g/demo-table` → join → "Simulate host
   approval" (prototype control, demo-only) → menu. **Live mode** — QR URL is
   `/g/<tableId>.<sig>` (signed token); guest joins via API, sets httpOnly

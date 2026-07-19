@@ -8,6 +8,9 @@
     "dev:live": "dotenv -e .env -- next dev",
     "dev:pglite": "tsx scripts/pglite-dev.ts",
     "dev:pglite:seed": "tsx scripts/pglite-dev.ts --seed",
+    "dev:stack": "docker compose up",
+    "dev:stack:reset": "docker compose down -v && docker compose up",
+    "dev:stack:prod-shape": "docker compose --profile prod-shape up",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -15,7 +18,8 @@
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
     "db:migrate": "dotenv -e .env -- npx prisma migrate deploy",
-    "db:seed": "dotenv -e .env -- npx tsx prisma/seed.ts"
+    "db:seed": "dotenv -e .env -- npx tsx prisma/seed.ts",
+    "db:seed:staging": "dotenv -e .env -- npx tsx prisma/seed-staging.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

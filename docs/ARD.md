@@ -154,9 +154,10 @@ service layer (table/staff counts). Guest order payment stays out of scope (PRD 
 ## AD-13 · Environments & config
 
 **Choice:** `dev` (local PG or Neon branch, seeded from mock data), `preview`
-(per-PR, seeded, Stripe test mode), `prod`. All secrets via env vars validated at
-boot with a Zod env schema (`src/lib/env.ts`). The public Live Demo is **not** an
-environment of the real backend — see AD-14.
+(per-PR on Hetzner staging, seeded, Stripe test mode), `prod` (Hetzner production).
+All secrets via env vars validated at boot with a Zod env schema (`src/lib/env.ts`).
+The public Live Demo is **not** an environment of the real backend — see AD-14.
+Hosting provider choices are in AD-15.
 
 ## AD-14 · Dual-mode: the mock demo is a permanent product surface AND the sandbox
 
@@ -219,6 +220,56 @@ source (AD-10) *and* a shipped product.
 4. **Graduate** — when the UX is settled: write `docs/plans/NN-name-PLAN.md`
    (same template), implement the real branch `satisfies` the mock's type, wire
    the selector, remove the gate — one PR, per the roadmap's definition of done.
+
+## AD-15 · Hosting: Vercel (demo) + Hetzner/Coolify (staging & prod)
+
+**Context:** the app has two distinct deployment profiles. The demo build
+(`NEXT_PUBLIC_APP_MODE=demo`) is a stateless marketing tool — no database, no
+secrets, pure client-side mock data. The live build is a multi-tenant backend
+with Postgres, SSE real-time, persistent connections and predictable nightclub
+traffic patterns (Friday/Saturday peaks, quiet weekdays).
+
+**Choice:** three deployment targets, two hosting providers:
+
+| Target | Host | Mode | Database | Purpose |
+|---|---|---|---|---|
+| **Demo** | Vercel | `demo` | None | Marketing tour, public sandbox |
+| **Staging** | Hetzner VPS + Coolify | `live` | Postgres (separate DB) | QA, 2 test venues, feature validation |
+| **Production** | Hetzner VPS + Coolify | `live` | Postgres (separate DB) | Customer venues, revenue |
+
+- **Demo stays on Vercel** — it's lightweight, stateless, and fits the free/hobby
+  tier indefinitely. No database cost. Vercel's edge CDN makes the demo fast
+  globally with zero ops. This is the only Vercel deployment.
+- **Staging and production share a Hetzner VPS** (or separate VPSes as load
+  grows), managed via Coolify — git-push deploys, Let's Encrypt, Docker
+  orchestration. Staging runs against its own Postgres database with 2 dummy
+  tenants for end-to-end feature testing in prod-identical infrastructure.
+- **Coolify provides the deployment DX** — GitHub auto-deploy on push, preview
+  deployments per branch, rollbacks, environment variable management, and
+  monitoring. It fills the gap between raw VPS and Vercel's managed experience.
+
+**Alternatives considered:**
+
+- *Vercel for everything* — pay-per-invocation pricing scales poorly with
+  predictable evening-peak traffic; serverless cold starts hurt SSE real-time
+  (AD-6); connection pooling churn between Lambda invocations and Postgres;
+  cost crosses VPS breakeven at ~3–5 paying venues (~$500–2k/mo vs $30–50/mo
+  Hetzner).
+- *Vercel for staging, Hetzner for prod* — staging would not catch
+  infrastructure-parity issues (connection behavior, SSE persistence, cron
+  execution). Testing on Vercel then shipping on VPS introduces a class of
+  bugs that only surface in production.
+- *Hetzner for everything including demo* — unnecessary ops burden for a
+  stateless marketing page; Vercel's CDN + zero-config is strictly better for
+  static-ish content with no database.
+
+**Consequences:**
+- CI deploys the demo build to Vercel and the live build to Hetzner/Coolify —
+  same repo, different build commands (`NEXT_PUBLIC_APP_MODE=demo|live`).
+- Staging is the gate before production; features must pass there first.
+- The demo and live builds never share infrastructure or databases.
+- AD-13 environments map: `dev` = local, `preview` = Hetzner staging,
+  `prod` = Hetzner production, demo = Vercel (not a backend environment).
 
 ## System sketch
 

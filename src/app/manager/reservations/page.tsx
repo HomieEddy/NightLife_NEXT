@@ -33,6 +33,9 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { reservationService } from "@/lib/services/reservation-service";
 import { venueService } from "@/lib/services/venue-service";
 import { formatTime } from "@/lib/format";
+import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
+import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
+import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
 import type { Reservation, ReservationStatus, VenueTable, Zone } from "@/lib/types";
 
@@ -82,6 +85,10 @@ function ReservationsContent() {
   const [zones, setZones] = useState<Zone[]>([]);
   const [tables, setTables] = useState<VenueTable[]>([]);
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
+  const [dateRange, setDateRange] = useState<DateRange>("today");
+  const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
+  const [zoneFilter, setZoneFilter] = useState("all");
+  const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ReservationDraft>(EMPTY_DRAFT);
@@ -171,7 +178,17 @@ function ReservationsContent() {
   }
 
   const visible =
-    reservations?.filter((r) => statusFilter === "all" || r.status === statusFilter) ?? null;
+    reservations?.filter((r) => {
+      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (zoneFilter !== "all" && r.zoneId !== zoneFilter) return false;
+      if (!isInDateRange(r.startsAt, dateRange)) return false;
+      if ((customRange.from || customRange.to) && !isInCustomDateRange(r.startsAt, customRange)) return false;
+      if (query.trim()) {
+        const q = query.trim().toLowerCase();
+        if (!`${r.guestName} ${zoneName(r.zoneId)} ${tableName(r.tableId)}`.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    }) ?? null;
 
   return (
     <div className="space-y-5">
@@ -185,22 +202,48 @@ function ReservationsContent() {
         }
       />
 
-      <div className="flex flex-wrap gap-1.5">
-        {(["all", "requested", "confirmed", "seated", "completed", "cancelled"] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setStatusFilter(s)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              statusFilter === s
-                ? "border-primary bg-primary/15 text-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search by guest or zone…"
+            className="w-full sm:w-56"
+          />
+          <select
+            value={zoneFilter}
+            onChange={(e) => setZoneFilter(e.target.value)}
+            className={cn(selectCls, "w-40")}
           >
-            {s === "all" ? "All" : s}
-          </button>
-        ))}
+            <option value="all">All zones</option>
+            {zones.map((z) => (
+              <option key={z.id} value={z.id}>{z.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "requested", "confirmed", "seated", "completed", "cancelled"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  statusFilter === s
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {s === "all" ? "All" : s}
+              </button>
+            ))}
+          </div>
+          <div className="h-4 w-px bg-border" />
+          <DateFilter value={dateRange} onChange={setDateRange} />
+          <div className="h-4 w-px bg-border" />
+          <DateRangePicker value={customRange} onChange={setCustomRange} />
+        </div>
       </div>
 
       {visible === null ? (
