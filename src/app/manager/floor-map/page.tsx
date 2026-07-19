@@ -22,6 +22,7 @@ import { guestsService } from "@/lib/services/guests-service";
 import { venueService } from "@/lib/services/venue-service";
 import { ZONE_SWATCH } from "@/lib/zone-colors";
 import { formatMoney } from "@/lib/format";
+import { FloorMapCanvas } from "@/components/shared/floor-map-canvas";
 import { SessionOverview } from "@/components/shared/session-overview";
 import { cn } from "@/lib/utils";
 import type { GuestSession, Order, TableStatus, Venue, VenueTable, Zone } from "@/lib/types";
@@ -59,7 +60,6 @@ function FloorMapPageContent() {
   const [tableOrders, setTableOrders] = useState<Order[] | null>(null); // null = panel closed
   const [tableSessions, setTableSessions] = useState<GuestSession[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
-  const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
 
   const refresh = useCallback(async () => {
@@ -95,22 +95,21 @@ function FloorMapPageContent() {
   // ---------- Drag handling (edit mode) ----------
 
   function onPointerDown(e: React.PointerEvent, table: VenueTable) {
-    if (!editMode) {
-      const next = table.id === selectedId ? null : table.id;
-      setSelectedId(next);
-      setTableOrders(null); // close the orders panel when switching tables
-      return;
-    }
     dragRef.current = { id: table.id, moved: false };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }
 
+  function handleSelectTable(table: VenueTable) {
+    const next = table.id === selectedId ? null : table.id;
+    setSelectedId(next);
+    setTableOrders(null);
+  }
+
   function onPointerMove(e: React.PointerEvent) {
     const drag = dragRef.current;
-    const canvas = canvasRef.current;
-    if (!drag || !canvas) return;
+    if (!drag) return;
     drag.moved = true;
-    const rect = canvas.getBoundingClientRect();
+    const rect = e.currentTarget.getBoundingClientRect();
     const x = Math.min(98, Math.max(2, ((e.clientX - rect.left) / rect.width) * 100));
     const y = Math.min(98, Math.max(2, ((e.clientY - rect.top) / rect.height) * 100));
     setTables((prev) =>
@@ -231,47 +230,17 @@ function FloorMapPageContent() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_290px]">
           {/* ---------- Canvas ---------- */}
-          <div
-            ref={canvasRef}
-            style={{ aspectRatio: aspect }}
-            className={cn(
-              "relative w-full touch-none overflow-hidden rounded-xl border bg-accent/30",
-              "bg-[radial-gradient(circle,var(--border)_1px,transparent_1px)] [background-size:24px_24px]",
-              editMode && "border-primary/50 border-dashed",
-            )}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-          >
-            {tables.map((table) => {
-              const zone = zoneOf(table.zoneId);
-              return (
-                <button
-                  key={table.id}
-                  type="button"
-                  onPointerDown={(e) => onPointerDown(e, table)}
-                  style={{ left: `${table.mapX}%`, top: `${table.mapY}%` }}
-                  className={cn(
-                    "absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-lg border-2 px-2 py-1.5 text-[10px] font-semibold shadow-sm transition-shadow",
-                    STATUS_NODE[table.status],
-                    editMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
-                    selectedId === table.id && !editMode && "ring-2 ring-primary shadow-lg",
-                  )}
-                  aria-label={`${table.code} — ${table.status}`}
-                >
-                  <span className="font-mono">{table.code}</span>
-                  <span className="flex items-center gap-1 font-normal opacity-80">
-                    <span
-                      className={cn(
-                        "inline-block size-1.5 rounded-full",
-                        zone ? ZONE_SWATCH[zone.color] ?? "bg-muted-foreground" : "bg-muted-foreground",
-                      )}
-                    />
-                    {table.seats}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <FloorMapCanvas
+            tables={tables}
+            zones={zones}
+            aspectRatio={aspect}
+            selectedId={selectedId}
+            editMode={editMode}
+            onSelectTable={handleSelectTable}
+            onDragStart={onPointerDown}
+            onDragMove={onPointerMove}
+            onDragEnd={onPointerUp}
+          />
 
           {/* ---------- Side panel ---------- */}
           <div className="space-y-3">
