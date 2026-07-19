@@ -20,6 +20,7 @@ export const mockVenue: Venue = {
     { id: "fee-tps", name: "TPS", type: "percentage", value: 5 },
     { id: "fee-tvq", name: "TVQ", type: "percentage", value: 9.975 },
   ],
+  publicSlug: "velvet-montreal",
   autoApproveGuests: false,
   floorMap: { width: 16, height: 9 },
   logoInitials: "VM",

@@ -112,6 +112,7 @@ export async function getSummaryForVenue(
       avgLeadDays: 3,
       totalCovers,
       sourceSplit: [],
+      channelSplit: [],
       partySizeDistribution: [],
     };
   }
@@ -554,6 +555,20 @@ export async function getHistoricalForVenue(
       }))
       .sort((a, b) => b.count - a.count);
 
+    // TODO(backend): add channel column to reservations table (plan 13 migration)
+    const channelCounts: Record<string, number> = {};
+    for (const r of reservations) {
+      const ch = r.source === "manager" ? "manager" : ((r as Record<string, unknown>).channel as string ?? "direct");
+      channelCounts[ch] = (channelCounts[ch] ?? 0) + 1;
+    }
+    const channelSplit = Object.entries(channelCounts)
+      .map(([channel, count]) => ({
+        channel: channel as "manager" | "embed" | "direct" | "walk-in",
+        count,
+        pct: reservations.length > 0 ? count / reservations.length : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
     const sizeMap: Record<number, number> = {};
     for (const r of reservations) {
       sizeMap[r.partySize] = (sizeMap[r.partySize] ?? 0) + 1;
@@ -575,6 +590,7 @@ export async function getHistoricalForVenue(
       avgLeadDays: 3,
       totalCovers,
       sourceSplit,
+      channelSplit,
       partySizeDistribution,
     };
   }

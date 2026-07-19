@@ -64,6 +64,8 @@ export async function findTableByQrSlug(
       autoApproveGuests: venueRow.autoApproveGuests,
       logoInitials: venueRow.logoInitials,
       slaThresholds: venueRow.slaThresholds as unknown as Venue["slaThresholds"],
+      // TODO(backend): add publicSlug column to venue table (plan 13 migration)
+      publicSlug: (venueRow as Record<string, unknown>).publicSlug as string ?? venueRow.organization.slug,
       lastCallAutoFlagTables: venueRow.lastCallAutoFlagTables,
       tipPresets: venueRow.tipPresets as number[],
       defaultTipPct: venueRow.defaultTipPct,

@@ -90,6 +90,12 @@ export const mockAnalytics: AnalyticsSummary = {
       { source: "manager", count: 11, pct: 0.61 },
       { source: "public", count: 7, pct: 0.39 },
     ],
+    channelSplit: [
+      { channel: "manager", count: 11, pct: 0.61 },
+      { channel: "embed", count: 4, pct: 0.22 },
+      { channel: "direct", count: 2, pct: 0.11 },
+      { channel: "walk-in", count: 1, pct: 0.06 },
+    ],
     partySizeDistribution: [
       { size: 2, count: 5 },
       { size: 4, count: 7 },

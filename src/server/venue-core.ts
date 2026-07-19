@@ -33,6 +33,7 @@ function toVenue(
     defaultTipPct: number;
     nightStartHour: number;
     nightEndHour: number;
+    publicSlug?: string | null;
   },
   org: OrgIdentity,
 ): Venue {
@@ -50,6 +51,8 @@ function toVenue(
     autoApproveGuests: row.autoApproveGuests,
     logoInitials: row.logoInitials,
     slaThresholds: row.slaThresholds as Venue["slaThresholds"],
+    // TODO(backend): add publicSlug column to venue table (plan 13 migration)
+    publicSlug: row.publicSlug ?? org.slug,
     lastCallAutoFlagTables: row.lastCallAutoFlagTables,
     tipPresets: row.tipPresets as number[],
     defaultTipPct: row.defaultTipPct,
