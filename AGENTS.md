@@ -147,9 +147,9 @@ Rules that follow from it:
 ## 5. Verification — evidence before assertions
 
 Claiming "done" requires having *watched it work*. The ladder, cheapest first
-(**Phase 2 adds** the test suite between steps 2 and 3, and API-level checks —
-hit the route handler with real payloads, inspect the DB row — before trusting
-the UI):
+(on the live track the test suite runs between steps 2 and 3, and API-level
+checks — hit the route handler with real payloads, inspect the DB row — come
+before trusting the UI):
 
 1. `npx tsc --noEmit` — after every workstream. Non-negotiable.
 2. `npx eslint src` — fix what you introduced; the repo's pre-existing
@@ -193,8 +193,10 @@ When reviewing (or before finishing your own diff), hunt in this order:
 
 ## 7. Testing philosophy
 
-**Phase 1 (prototype):** there is no test suite, deliberately — the mock
-services *are* the fixtures and the preview browser is the harness.
+**Phase 1 (prototype):** there is no UI test suite, deliberately — the mock
+services *are* the fixtures and the preview browser is the harness. Unit tests
+exist where money/logic purity justifies them (`src/lib/*.test.ts`, the
+mock-service math), not for rendering.
 
 - **Behavioral verification replaces unit tests**: every feature must be
   driven end-to-end in the preview before it's "done" (see §5).
@@ -235,7 +237,7 @@ feature's plan names its required tests; don't invent a different set silently.
 1. **Harness:** Vitest, two projects — `unit` (node, no I/O) and `integration`
    (route handlers against real Postgres via PGlite in-process database, no Docker needed).
    Playwright for the E2E flows named in §7.3 and the plans. Commands: `npm run test`,
-   `test:integration`, `test:e2e`. (Configured by plan 01; until then, §5 governs.)
+   `test:integration`, `test:e2e`.
 2. **Layout & naming:** tests live next to the code they test —
    `src/server/pricing.ts` → `src/server/pricing.test.ts`;
    `*.integration.test.ts` for DB-backed suites; `e2e/*.spec.ts` for Playwright.
@@ -459,8 +461,9 @@ makes it obsolete.
   chat and shows derive attribution from the authenticated profile, never JSON.
 - Each build owns its home: the **demo** build's `/` redirects to `/demo` (the
   tour) and `/pricing` 404s; the **live** build's `/` is the marketing landing,
-  `/demo`, `/lead`, `/admin` and `/manager/subscription` 404 until plan 10, and
-  its "Request a demo" CTAs cross-link to the demo app's `/lead`
+  `/demo` 404s (the tour is demo-only), and `/lead`, `/admin` and
+  `/manager/subscription` are real live surfaces (plan 10). The live landing's
+  "Request a demo" CTAs cross-link to the demo app's `/lead`
   (`NEXT_PUBLIC_DEMO_URL`). Don't add a link without checking which build
   renders it.
 - Login routes by role: `signIn()` resolves the authenticated `AuthUser` and the
@@ -468,7 +471,7 @@ makes it obsolete.
   org member (owner/admin → manager, member → staff, `isPlatformAdmin` → admin)
   — Better Auth org roles are never "manager", don't compare against it.
 - Direct-URL guards (live mode only): `src/proxy.ts` requires a session cookie
-  for `/manager|/staff` and the `nln-guest-session` cookie for `/guest/*`
+  for `/manager|/staff|/admin` and the `nln-guest-session` cookie for `/guest/*`
   (missing → back to `/` to rescan); the manager/staff **layouts are server
   components** calling `requireArea()` so a wrong-role paste bounces to
   `/login?error=forbidden`. Their client chrome lives in
@@ -490,8 +493,8 @@ makes it obsolete.
   points (`aggregateWeekly`).
 - The dev server module graph re-instantiates service state on HMR of any file
   in the import chain. If a manual test spans an edit, re-run the test.
-- Venue/zones/tables/shifts (plan 03) persist across reload **in live mode
-  only** — real Postgres via `venueService`'s live branch. Demo mode still
+- All graduated services (plans 03–10) persist across reload **in live mode
+  only** — real Postgres behind each selector's live branch. Demo mode still
   resets on reload; that's the permanent sandbox behavior (AD-14), not a bug.
   Local live testing: `npm run dev:pglite` (PGlite in-process, fastest),
   `npm run dev:stack` (compose stack: real Postgres 17 + both live/demo apps),
@@ -502,7 +505,9 @@ makes it obsolete.
   cookie, receives real host approval via SSE (`useLiveEvents`). Simulate buttons
   are gated behind `isDemoMode()` and never render in the live build.
   `QR_TOKEN_SECRET` env var is required in live mode (distinct from
-  `AUTH_SECRET`). The manager area gates on first run: clear
+  `AUTH_SECRET`). A table with an active confirmed reservation is gated behind
+  its 6-digit reservation PIN (plan 13 — demo track only until it graduates).
+  The manager area gates on first run: clear
   `localStorage["nlx-manager-onboarded"]` to see onboarding.
 - Realtime (plan 07): **demo mode** uses fallback polling only (no SSE server).
   **Live mode** uses SSE via `useLiveEvents` → `/api/live/{manager,staff,guest}`

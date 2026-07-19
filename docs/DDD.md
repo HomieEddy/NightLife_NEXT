@@ -1,8 +1,10 @@
 # DDD — Domain Model
 
-Status: draft for Phase 2 · The domain language below is already spoken by the
-prototype (`src/lib/types.ts`); this document organizes it into bounded contexts,
-aggregates and invariants so the Prisma schema and tests have one authority.
+Status: living document · The domain language below is spoken by
+`src/lib/types.ts` and materialized in `prisma/schema.prisma`; this document
+organizes it into bounded contexts, aggregates and invariants so the schema and
+tests have one authority. Where the two drift, the schema wins and this file
+gets fixed (AGENTS.md §9.9).
 
 ## 1. Bounded contexts
 
@@ -82,8 +84,10 @@ time inside the order transaction (happy-hour TODO; wired in plan 05).
 ### Venue Config context
 
 **Venue** (root) — identity, `ServiceFee[]` (ordered), floor-map canvas, SLA
-thresholds, last-call auto-flag. **Zone**, **VenueTable** (roots) — table carries
-status + map position + `tokenVersion`.
+thresholds, last-call auto-flag, tip presets (`tipPresets`, `defaultTipPct`),
+night-window hours (`nightStartHour`/`nightEndHour`, venue timezone), and
+`publicSlug` for the embeddable public reservation page (plan 13). **Zone**,
+**VenueTable** (roots) — table carries status + map position + `tokenVersion`.
 - INV-V1: deleting a zone with tables is rejected (existing service behavior).
 - INV-V2: table status is the single source for floor map, guest QR flow and
   reservation seating.
@@ -105,7 +109,12 @@ stays a pure function fed by queries.
 ### Hospitality Calendar context
 
 **Reservation** (root) — requested → confirmed → seated → completed | cancelled;
-seating flips the table to reserved/occupied.
+seating flips the table to reserved/occupied. Carries `channel` attribution
+(embed/direct/walk-in/manager), optional guest contact (`guestEmail`,
+`guestPhone`) and a 6-digit `reservationPin` (plan 13): a table with an active
+confirmed reservation is QR-gated behind that PIN, so a random scan can't
+hijack it. Public embed-page creation writes reservations only — never table
+status directly.
 **VenueEvent** (root) + `EventGuest[]` guestlist. **Promotion** (root) —
 `redemptionCount` increments only inside an order transaction that applied it.
 
@@ -117,14 +126,21 @@ derive from the subscription, not hand-edited. **Lead** (root) + append-only
 
 ## 3. Domain events (the realtime vocabulary, AD-6)
 
+Implemented and published today (`DomainEventType` in `src/server/events.ts`):
+
 `OrderPlaced, OrderStatusChanged, OrderClaimed, OrderReleased, GiftSent,
 SessionRequested, SessionApproved, SessionDenied, ClosureRequested, SessionClosed,
 HelpRequested, HelpStatusChanged, SoldOut, StockRestocked, BroadcastSent,
-LastCallStarted, LastCallEnded, ShowStarted, ShowFinished, ReservationSeated,
-GuestCheckedIn, TenantProvisioned, SubscriptionChanged`
+LastCallStarted, LastCallEnded, ShowStarted, ShowFinished`
+
+Planned but not yet published (add to the union when their producer lands):
+
+`ReservationSeated, GuestCheckedIn, TenantProvisioned, SubscriptionChanged`
 
 Events carry `venueId`, aggregate id, and a minimal payload; they are the *only*
-things published on NOTIFY and the only things UIs react to live.
+things published on NOTIFY and the only things UIs react to live. Each is also
+persisted to the `domain_events` table (audit) in the same transaction as the
+NOTIFY.
 
 ## 4. Denormalizations — decided per field (AGENTS.md §9.3)
 
