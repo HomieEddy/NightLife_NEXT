@@ -10,11 +10,13 @@
  */
 
 import type { Prisma, StaffRole } from "@prisma/client";
+import { EventStatus } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { toCents } from "../src/server/money";
-import { getRawPrisma } from "../src/server/db";
+import { getDb, getRawPrisma } from "../src/server/db";
+import { ensureMapPositions } from "../src/server/venue-core";
 
 const DEMO_PASSWORD = "demo1234";
 
@@ -393,6 +395,135 @@ async function main() {
       });
     }
     console.log(`${CATEGORIES.length} categories, ${allItems.length} items seeded`);
+
+    // ── Floor map positions ──────────────────────────────────────
+    await ensureMapPositions(getDb({ venueId }));
+
+    // ── Happy hour rules ─────────────────────────────────────────
+    const hhRules = [
+      {
+        id: `${tenantDef.slug}-hh-early`,
+        name: "Early Bird Bottles",
+        daysOfWeek: [4, 5, 6], // Thu-Sat
+        startTime: "22:00",
+        endTime: "23:30",
+        discountPct: 15,
+        appliesToCategoryIds: [catIds["vodka"], catIds["gin"]],
+      },
+      {
+        id: `${tenantDef.slug}-hh-champagne`,
+        name: "Champagne Thursdays",
+        daysOfWeek: [4],
+        startTime: "22:00",
+        endTime: "00:00",
+        discountPct: 20,
+        appliesToCategoryIds: [catIds["champagne"]],
+      },
+      {
+        id: `${tenantDef.slug}-hh-weekend`,
+        name: "Weekend Warmup",
+        daysOfWeek: [5, 6],
+        startTime: "22:30",
+        endTime: "23:30",
+        discountPct: 10,
+        appliesToCategoryIds: [catIds["tequila"], catIds["whisky"]],
+      },
+    ];
+    for (const rule of hhRules) {
+      await prisma.happyHourRule.upsert({
+        where: { id: rule.id },
+        update: {},
+        create: { ...rule, venueId, isActive: true },
+      });
+    }
+
+    // ── Events (mix of ended + upcoming) ─────────────────────────
+    const eventDefs = [
+      { suffix: "latin-night", name: "Latin Night", daysAgo: 21, capacity: 200, status: EventStatus.ended },
+      { suffix: "ladies-night", name: "Ladies' Night", daysAgo: 14, capacity: 150, status: EventStatus.ended },
+      { suffix: "dj-showcase", name: "DJ Showcase", daysAgo: 7, capacity: 250, status: EventStatus.ended },
+      { suffix: "vip-launch", name: "VIP Launch Party", daysAgo: -3, capacity: 120, status: EventStatus.published },
+      { suffix: "nye-preview", name: "Summer Solstice", daysAgo: -10, capacity: 300, status: EventStatus.draft },
+    ];
+    for (const ev of eventDefs) {
+      const eventId = `${tenantDef.slug}-event-${ev.suffix}`;
+      const startsAt = new Date(endDate);
+      startsAt.setDate(startsAt.getDate() - ev.daysAgo);
+      startsAt.setHours(22, 0, 0, 0);
+      const endsAt = new Date(startsAt);
+      endsAt.setHours(endsAt.getHours() + 5);
+
+      await prisma.venueEvent.upsert({
+        where: { id: eventId },
+        update: {},
+        create: {
+          id: eventId,
+          venueId,
+          name: ev.name,
+          description: `${ev.name} at ${tenantDef.orgName}`,
+          startsAt,
+          endsAt,
+          zoneId: pick([...zoneIds]),
+          capacity: ev.capacity,
+          status: ev.status,
+          guestlistEnabled: ev.status !== EventStatus.draft,
+        },
+      });
+
+      // Add guests to ended/published events
+      if (ev.status !== EventStatus.draft) {
+        const guestCount = Math.floor(ev.capacity * (0.5 + rand() * 0.4));
+        for (let gi = 0; gi < guestCount; gi++) {
+          const guestStatus = ev.status === "ended"
+            ? pick(["confirmed", "confirmed", "confirmed", "checked_in", "checked_in", "checked_in", "checked_in", "no_show"])
+            : pick(["invited", "invited", "confirmed", "confirmed", "confirmed"]);
+          await prisma.eventGuest.upsert({
+            where: { id: `${eventId}-g-${gi}` },
+            update: {},
+            create: {
+              id: `${eventId}-g-${gi}`,
+              eventId,
+              name: `Guest ${gi + 1}`,
+              partySize: randInt(1, 4),
+              status: guestStatus,
+            },
+          });
+        }
+      }
+    }
+
+    // ── Promotions (mix of active + expired) ─────────────────────
+    const promoDefs = [
+      { code: "WELCOME20", name: "Welcome 20%", type: "percentage", value: 20, daysAgo: 25, duration: 30 },
+      { code: "FRIENDS10", name: "Friends & Family", type: "percentage", value: 10, daysAgo: 15, duration: 20 },
+      { code: "VIP50OFF", name: "VIP $50 Off", type: "flat", value: 50, daysAgo: 10, duration: 14 },
+      { code: "WEEKEND15", name: "Weekend Special", type: "percentage", value: 15, daysAgo: -2, duration: 7 },
+    ];
+    for (const promo of promoDefs) {
+      const promoId = `${tenantDef.slug}-promo-${promo.code.toLowerCase()}`;
+      const startsAt = new Date(endDate);
+      startsAt.setDate(startsAt.getDate() - promo.daysAgo);
+      const endsAt = new Date(startsAt);
+      endsAt.setDate(endsAt.getDate() + promo.duration);
+
+      await prisma.promotion.upsert({
+        where: { venueId_code: { venueId, code: promo.code } },
+        update: {},
+        create: {
+          id: promoId,
+          venueId,
+          code: promo.code,
+          name: promo.name,
+          type: promo.type,
+          value: promo.value,
+          appliesToCategoryIds: [],
+          startsAt,
+          endsAt,
+          redemptionCount: promo.daysAgo > 0 ? randInt(5, 30) : 0,
+        },
+      });
+    }
+    console.log(`Happy hours, events, promotions seeded`);
 
     // ── 30 days of business activity ─────────────────────────────
     const fees = tenantDef.serviceFees;
