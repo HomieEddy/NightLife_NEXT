@@ -1,5 +1,7 @@
 # 10 — Platform Admin & Billing · PLAN
 
+**Status: complete.**
+
 Goal: the cross-tenant context — leads, tenant management, the provisioning job,
 Stripe subscription billing (R9), and the platform **control center**: per-tenant
 operational visibility, dynamic plan/entitlement configuration, telemetry

@@ -1,0 +1,107 @@
+services:
+  # ── Postgres ───────────────────────────────────────────────
+  db:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: nightlife
+      POSTGRES_PASSWORD: nightlife
+      POSTGRES_DB: nightlife
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nightlife"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # ── One-shot: migrate + idempotent seed ────────────────────
+  migrate:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+    environment:
+      NEXT_PUBLIC_APP_MODE: live
+      DATABASE_URL: postgresql://nightlife:nightlife@db:5432/nightlife
+      AUTH_SECRET: dev-secret-at-least-32-characters-long-ok
+      QR_TOKEN_SECRET: dev-qr-token-secret-key-minimum-16
+      SEED_STAGING: ${SEED_STAGING:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["sh", "scripts/docker-migrate.sh"]
+    restart: "no"
+
+  # ── Live app (port 3000) ───────────────────────────────────
+  app-live:
+    build:
+      context: .
+      target: dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+      - app_next_live:/app/.next-live
+    environment:
+      NEXT_PUBLIC_APP_MODE: live
+      DATABASE_URL: postgresql://nightlife:nightlife@db:5432/nightlife
+      AUTH_SECRET: dev-secret-at-least-32-characters-long-ok
+      QR_TOKEN_SECRET: dev-qr-token-secret-key-minimum-16
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_DEMO_URL: http://localhost:3001
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["npx", "next", "dev", "--hostname", "0.0.0.0"]
+
+  # ── Demo app (port 3001) ───────────────────────────────────
+  app-demo:
+    build:
+      context: .
+      target: dev
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+      - app_next_demo:/app/.next-demo
+    environment:
+      NEXT_PUBLIC_APP_MODE: demo
+      NEXT_PUBLIC_LIVE_URL: http://localhost:3000
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    command: ["npx", "next", "dev", "--hostname", "0.0.0.0", "--port", "3001"]
+
+  # ── Prod-shape: build + serve (optional profile) ───────────
+  app-prod:
+    profiles: ["prod-shape"]
+    build:
+      context: .
+      target: runner
+      args:
+        NEXT_PUBLIC_APP_MODE: live
+    ports:
+      - "3100:3000"
+    environment:
+      NEXT_PUBLIC_APP_MODE: live
+      DATABASE_URL: postgresql://nightlife:nightlife@db:5432/nightlife
+      AUTH_SECRET: dev-secret-at-least-32-characters-long-ok
+      QR_TOKEN_SECRET: dev-qr-token-secret-key-minimum-16
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["npx", "next", "start"]
+
+volumes:
+  pgdata:
+  app_node_modules:
+  app_next_live:
+  app_next_demo:

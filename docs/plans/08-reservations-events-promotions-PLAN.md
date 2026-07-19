@@ -1,5 +1,7 @@
 # 08 — Reservations, Events & Promotions · PLAN
 
+**Status: complete.**
+
 Goal: the hospitality-calendar context — three low-risk CRUD services that follow
 the plan-03 template, with two real integration points (table status, order
 pricing).

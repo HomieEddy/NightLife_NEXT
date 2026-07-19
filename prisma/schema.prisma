@@ -217,6 +217,7 @@ model Venue {
   defaultTipPct          Int      @default(15) @map("default_tip_pct")
   nightStartHour         Int      @default(18) @map("night_start_hour")
   nightEndHour           Int      @default(10) @map("night_end_hour")
+  publicSlug             String?  @unique @map("public_slug")
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -677,19 +678,24 @@ enum ReservationStatus {
 }
 
 model Reservation {
-  id        String            @id @default(cuid())
-  venueId   String            @map("venue_id")
-  tableId   String?           @map("table_id")
-  zoneId    String?           @map("zone_id")
-  guestName String            @map("guest_name")
-  partySize Int               @map("party_size")
-  startsAt  DateTime          @map("starts_at") @db.Timestamptz
-  endsAt    DateTime?         @map("ends_at") @db.Timestamptz
-  status    ReservationStatus @default(requested)
-  note      String?
-  source    String            @default("manager")
-  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  id             String            @id @default(cuid())
+  venueId        String            @map("venue_id")
+  tableId        String?           @map("table_id")
+  zoneId         String?           @map("zone_id")
+  guestName      String            @map("guest_name")
+  partySize      Int               @map("party_size")
+  startsAt       DateTime          @map("starts_at") @db.Timestamptz
+  endsAt         DateTime?         @map("ends_at") @db.Timestamptz
+  status         ReservationStatus @default(requested)
+  note           String?
+  source         String            @default("manager")
+  channel        String?
+  guestEmail     String?           @map("guest_email")
+  guestPhone     String?           @map("guest_phone")
+  reservationPin String?           @map("reservation_pin")
+  eventId        String?           @map("event_id")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
   venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 

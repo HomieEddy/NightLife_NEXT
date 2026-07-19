@@ -1,5 +1,7 @@
 # 02 — Authentication & Authorization · PLAN
 
+**Status: complete.**
+
 Goal: real accounts, roles and sessions for staff-side users and platform admins;
 the request context every later plan scopes by. Guest QR tokens are **not** here —
 they belong to plan 06 with the session domain.

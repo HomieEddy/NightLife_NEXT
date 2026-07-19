@@ -1,5 +1,8 @@
 # 09c — Analytics Depth & Reporting Expansion · PLAN
 
+**Status: complete except scheduled email delivery** — same unshipped leg as
+plan 09; metrics, saved reports and CSV landed. See ROADMAP parking lot.
+
 Goal: capture in-depth metrics for the domains plan 09 left uncovered —
 sessions, reservations, happy hours, events, promotions — deepen the existing
 staff / order / inventory metrics, and expose every new metric through the

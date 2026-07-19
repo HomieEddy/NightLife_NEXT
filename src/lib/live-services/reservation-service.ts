@@ -1,6 +1,7 @@
 "use client";
 
-import type { Reservation, ReservationStatus } from "@/lib/types";
+import type { Reservation, ReservationChannel, ReservationStatus } from "@/lib/types";
+import type { PublicAvailability } from "@/lib/mock-services/reservation-service";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await liveFetch(path, {
@@ -44,6 +45,10 @@ export const liveReservationService = {
     endsAt?: string;
     note?: string;
     source: "manager" | "public";
+    channel?: ReservationChannel;
+    guestEmail?: string;
+    guestPhone?: string;
+    eventId?: string;
   }): Promise<Reservation> {
     return api<Reservation>("/api/reservations", {
       method: "POST",
@@ -70,6 +75,51 @@ export const liveReservationService = {
 
   async cancelReservation(id: string): Promise<Reservation | null> {
     return this.setStatus(id, "cancelled");
+  },
+
+  // TODO(backend): implement public reservation API routes (plan 13)
+  async getPublicAvailability(
+    venueSlug: string,
+    opts: { date: string; eventId?: string },
+  ): Promise<PublicAvailability | null> {
+    const params = new URLSearchParams({ date: opts.date });
+    if (opts.eventId) params.set("eventId", opts.eventId);
+    return api<PublicAvailability>(`/api/public/reservations/${encodeURIComponent(venueSlug)}/availability?${params}`);
+  },
+
+  async createPublicReservation(input: {
+    venueSlug: string;
+    tableId: string;
+    zoneId: string;
+    guestName: string;
+    partySize: number;
+    date: string;
+    guestEmail?: string;
+    guestPhone?: string;
+    note?: string;
+    eventId?: string;
+  }): Promise<Reservation> {
+    return api<Reservation>(`/api/public/reservations/${encodeURIComponent(input.venueSlug)}`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  async getActiveReservationForTable(tableId: string): Promise<Reservation | null> {
+    const res = await liveFetch(`/api/public/reservations/table/${encodeURIComponent(tableId)}/active`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("Failed to check table reservation");
+    return res.json();
+  },
+
+  async validatePinAndSeat(
+    tableId: string,
+    pin: string,
+  ): Promise<{ ok: boolean; error?: string }> {
+    return api<{ ok: boolean; error?: string }>(`/api/public/reservations/table/${encodeURIComponent(tableId)}/pin`, {
+      method: "POST",
+      body: JSON.stringify({ pin }),
+    });
   },
 };
 import { liveFetch } from "./live-fetch";

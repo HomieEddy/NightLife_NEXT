@@ -22,6 +22,8 @@ import { formatMoney } from "@/lib/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { SessionOverview } from "@/components/shared/session-overview";
 import { cn } from "@/lib/utils";
+import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
+import { DateRangePicker, getDefaultDateRange, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import type {
   GuestSession, MenuCategory, MenuItem, Order, OrderStatus, StaffMember, VenueTable, Zone,
 } from "@/lib/types";
@@ -53,6 +55,8 @@ export default function ManagerOrdersPage() {
   const [tableFilter, setTableFilter] = useState("all");
   const [staffFilter, setStaffFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<DateRange>("today");
+  const [sessionDateRange, setSessionDateRange] = useState<DateRangeValue>(getDefaultDateRange);
 
   const refresh = useCallback(async () => {
     setOrders(await ordersService.listOrders());
@@ -106,6 +110,8 @@ export default function ManagerOrdersPage() {
           if (!hasCategory) return false;
         }
 
+        if (!isInDateRange(order.placedAt, dateRange)) return false;
+
         if (query.trim()) {
           const q = query.trim().toLowerCase();
           const haystack = [
@@ -122,7 +128,7 @@ export default function ManagerOrdersPage() {
         return true;
       })
       .sort((a, b) => b.placedAt.localeCompare(a.placedAt));
-  }, [orders, status, zoneFilter, tableFilter, staffFilter, categoryFilter, query, staff, itemCategory]);
+  }, [orders, status, zoneFilter, tableFilter, staffFilter, categoryFilter, query, staff, itemCategory, dateRange]);
 
   const hasFilters =
     query !== "" ||
@@ -130,7 +136,8 @@ export default function ManagerOrdersPage() {
     zoneFilter !== "all" ||
     tableFilter !== "all" ||
     staffFilter !== "all" ||
-    categoryFilter !== "all";
+    categoryFilter !== "all" ||
+    dateRange !== "today";
 
   function clearFilters() {
     setQuery("");
@@ -139,6 +146,7 @@ export default function ManagerOrdersPage() {
     setTableFilter("all");
     setStaffFilter("all");
     setCategoryFilter("all");
+    setDateRange("today");
   }
 
   const visibleTotal = visible.reduce((s, o) => s + o.total, 0);
@@ -180,148 +188,158 @@ export default function ManagerOrdersPage() {
       {/* ---------- Queue ---------- */}
       {view === "orders" ? (
         <>
-          {orders === null ? (
-        <ListSkeleton rows={4} rowHeight="h-36" />
-      ) : visible.length === 0 ? (
-        <EmptyState
-          icon={Inbox}
-          title="No orders match"
-          description={hasFilters ? "Try loosening the filters below." : "The night is young."}
-        />
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {visible.map((order) => (
-            <OrderCard key={order.id} order={order} />
-          ))}
-        </div>
-      )}
-
-      {/* ---------- Filters ---------- */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center justify-between text-base">
-            <span className="flex items-center gap-2">
-              <ListFilter className="size-4 text-primary" /> Filters
-            </span>
-            {hasFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="size-3.5" /> Clear all
-              </Button>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by order code, table, guest or item…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {STATUS_FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setStatus(f.id)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
-                  status === f.id
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:text-foreground",
+          {/* ---------- Filters (top) ---------- */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center justify-between text-base">
+                <span className="flex items-center gap-2">
+                  <ListFilter className="size-4 text-primary" /> Filters
+                </span>
+                {hasFilters && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    <X className="size-3.5" /> Clear all
+                  </Button>
                 )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search by order code, table, guest or item…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Select
-              value={zoneFilter}
-              onValueChange={(v) => {
-                setZoneFilter(v);
-                setTableFilter("all"); // table list narrows with the zone
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Zone" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All zones</SelectItem>
-                {zones.map((zone) => (
-                  <SelectItem key={zone.id} value={zone.id}>
-                    {zone.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={tableFilter} onValueChange={setTableFilter}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Table" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All tables</SelectItem>
-                {zoneTables.map((table) => (
-                  <SelectItem key={table.id} value={table.id}>
-                    {table.code} · {table.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={staffFilter} onValueChange={setStaffFilter}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Staff" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All staff</SelectItem>
-                {staff
-                  .filter((s) => s.assignedZoneIds.length > 0)
-                  .map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name} · {member.role}
-                    </SelectItem>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {STATUS_FILTERS.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setStatus(f.id)}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                        status === f.id
+                          ? "border-primary bg-primary/15 text-primary"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {f.label}
+                    </button>
                   ))}
-              </SelectContent>
-            </Select>
+                </div>
+                <div className="h-4 w-px bg-border" />
+                <DateFilter value={dateRange} onChange={setDateRange} />
+              </div>
 
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Select
+                  value={zoneFilter}
+                  onValueChange={(v) => {
+                    setZoneFilter(v);
+                    setTableFilter("all");
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Zone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All zones</SelectItem>
+                    {zones.map((zone) => (
+                      <SelectItem key={zone.id} value={zone.id}>
+                        {zone.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-          <p className="text-xs text-muted-foreground">
-            Staff filter shows orders in that team member&apos;s assigned zones.{" "}
-            {hasFilters && (
-              <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px]">
-                {visible.length} matches
-              </Badge>
-            )}
-          </p>
-        </CardContent>
-      </Card>
+                <Select value={tableFilter} onValueChange={setTableFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Table" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All tables</SelectItem>
+                    {zoneTables.map((table) => (
+                      <SelectItem key={table.id} value={table.id}>
+                        {table.code} · {table.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={staffFilter} onValueChange={setStaffFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Staff" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All staff</SelectItem>
+                    {staff
+                      .filter((s) => s.assignedZoneIds.length > 0)
+                      .map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name} · {member.role}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All categories</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Staff filter shows orders in that team member&apos;s assigned zones.{" "}
+                {hasFilters && (
+                  <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px]">
+                    {visible.length} matches
+                  </Badge>
+                )}
+              </p>
+            </CardContent>
+          </Card>
+
+          {orders === null ? (
+            <ListSkeleton rows={4} rowHeight="h-36" />
+          ) : visible.length === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              title="No orders match"
+              description={hasFilters ? "Try adjusting the filters above." : "The night is young."}
+            />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {visible.map((order) => (
+                <OrderCard key={order.id} order={order} />
+              ))}
+            </div>
+          )}
         </>
       ) : (
-        sessions === null ? (
-          <ListSkeleton rows={4} rowHeight="h-32" />
-        ) : (
-          <SessionOverview sessions={sessions} orders={orders ?? []} />
-        )
+        <>
+          <DateRangePicker value={sessionDateRange} onChange={setSessionDateRange} />
+          {sessions === null ? (
+            <ListSkeleton rows={4} rowHeight="h-32" />
+          ) : (
+            <SessionOverview
+              sessions={sessions.filter((s) => isInCustomDateRange(s.createdAt, sessionDateRange))}
+              orders={orders ?? []}
+            />
+          )}
+        </>
       )}
     </div>
   );

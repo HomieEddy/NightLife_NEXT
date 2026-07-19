@@ -1,5 +1,7 @@
 # 04 — Menu, Inventory & Packages · PLAN
 
+**Status: complete.**
+
 Goal: the catalog context with its **append-only stock ledger** — the first plan
 with a real invariant (INV-I1) and therefore the first tests-before-code plan.
 

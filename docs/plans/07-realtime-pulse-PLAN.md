@@ -1,5 +1,7 @@
 # 07 — Realtime & Floor Pulse · PLAN
 
+**Status: complete.**
+
 Goal: replace every poll with live push (R6) and make the floor-coordination
 state real — broadcasts, last call, show lock, chat. The plan that makes two
 phones feel like one floor.

@@ -1,11 +1,15 @@
 # PRD — NightLifeNext Backend
 
-Status: draft for Phase 2 (backend) · Owner: Eddy · Last updated: 2026-07-11
+Status: Phase 2 shipped through plan 12 (see `docs/ROADMAP.md` for per-feature
+status); plan 13 (embedded reservations & QR gate) is demo-complete, live
+graduation pending · Owner: Eddy · Last updated: 2026-07-19
 
 ## 1. What we're building
 
-NightLifeNext is a nightclub-operations platform. The Phase 1 prototype (complete)
-proved the product across four surfaces with mock data:
+NightLifeNext is a nightclub-operations platform. The Phase 1 prototype proved
+the product across four surfaces with mock data, and Phase 2 has since landed
+the real backend behind the same interface — the surfaces below now run on
+Postgres in the live build and on the permanent mock sandbox in the demo build:
 
 - **/manager** — venue control room: live pulse, orders, floor map, menu/inventory,
   staff & scheduling, reservations/events/promotions, analytics & reports, settings.
@@ -15,9 +19,10 @@ proved the product across four surfaces with mock data:
   bottle gifting, tab closure, receipt with bill splitting.
 - **/admin** — platform SaaS: lead pipeline, tenant management, provisioning.
 
-Phase 2 replaces the in-memory mock services with a real backend **without changing
+Phase 2 replaced the in-memory mock services with a real backend **without changing
 the product**. The prototype is the spec for how the product feels (AGENTS.md §9.8);
-the backend must be invisible to a demo viewer.
+the backend is invisible to a demo viewer. The migration mechanism is the
+selector layer (AD-14): mock and real implementations co-exist permanently.
 
 ## 2. Users & jobs
 

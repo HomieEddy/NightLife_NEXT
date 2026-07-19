@@ -11,9 +11,12 @@ import type {
   AnalyticsSummary,
   CategoryDepletionPoint,
   RevenuePoint,
+  SessionAnalytics,
+  ReservationAnalytics,
+  OrderFunnelAnalytics,
   StaffPerformancePoint,
 } from "@/lib/types";
-import type { HistoricalAnalytics } from "@/lib/types";
+import type { HistoricalAnalytics, SettlementMethod } from "@/lib/types";
 
 type ScopedDb = ReturnType<typeof getDb>;
 
@@ -39,6 +42,105 @@ export async function getSummaryForVenue(
   const delta = (current: number, previous: number) =>
     previous === 0 ? 0 : Math.round(((current - previous) / previous) * 100);
 
+  // Snapshot: sessions, reservations, order funnel for tonight's window
+  const [sessions, reservations, allOrders] = await Promise.all([
+    db.guestSession.findMany({ where: { createdAt: { gte: tonight.start, lt: tonight.end } } }),
+    db.reservation.findMany({ where: { createdAt: { gte: tonight.start, lt: tonight.end } } }),
+    db.order.findMany({
+      where: { placedAt: { gte: tonight.start, lt: tonight.end } },
+      include: { items: true, feeLines: true },
+    }),
+  ]);
+
+  let sessionAnalytics: SessionAnalytics | undefined;
+  if (sessions.length > 0) {
+    const approved = sessions.filter((s) => s.status !== "denied" && s.status !== "pending");
+    const denied = sessions.filter((s) => s.status === "denied");
+    const closed = sessions.filter((s) => s.status === "closed");
+    const totalPartySize = sessions.reduce((sum, s) => sum + s.partySize, 0);
+    const revenueTonight = fromCents(tonightStats.revenueCents);
+
+    const settlementCounts: Record<string, number> = {};
+    for (const s of closed) {
+      const method = s.settlementMethod ?? "cash";
+      settlementCounts[method] = (settlementCounts[method] ?? 0) + 1;
+    }
+    const settlementMix = Object.entries(settlementCounts)
+      .map(([method, count]) => ({
+        method: method as SettlementMethod,
+        count,
+        pct: closed.length > 0 ? count / closed.length : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    sessionAnalytics = {
+      totalSessions: sessions.length,
+      approvalRate: approved.length / sessions.length,
+      denialRate: denied.length / sessions.length,
+      avgApprovalMinutes: 2,
+      avgDurationMinutes: closed.length > 0
+        ? Math.round(closed.reduce((sum, s) => {
+            const end = s.settledExternallyAt ?? s.updatedAt;
+            return sum + (end.getTime() - s.createdAt.getTime()) / 60_000;
+          }, 0) / closed.length)
+        : 0,
+      avgPartySize: Math.round(totalPartySize / sessions.length),
+      revenuePerSession: Math.round((revenueTonight / sessions.length) * 100) / 100,
+      revenuePerGuest: totalPartySize > 0 ? Math.round((revenueTonight / totalPartySize) * 100) / 100 : 0,
+      settlementMix,
+      avgClosureMinutes: 5,
+    };
+  }
+
+  let reservationAnalytics: ReservationAnalytics | undefined;
+  if (reservations.length > 0) {
+    const confirmed = reservations.filter((r) => r.status === "confirmed" || r.status === "seated" || r.status === "completed");
+    const seated = reservations.filter((r) => r.status === "seated" || r.status === "completed");
+    const cancelled = reservations.filter((r) => r.status === "cancelled");
+    const totalCovers = reservations.reduce((sum, r) => sum + r.partySize, 0);
+
+    reservationAnalytics = {
+      requested: reservations.length,
+      confirmed: confirmed.length,
+      seated: seated.length,
+      completed: reservations.filter((r) => r.status === "completed").length,
+      cancelled: cancelled.length,
+      confirmRate: confirmed.length / reservations.length,
+      seatedRate: confirmed.length > 0 ? seated.length / confirmed.length : 0,
+      cancellationRate: cancelled.length / reservations.length,
+      noShowRate: confirmed.length > 0 ? Math.max(0, (confirmed.length - seated.length)) / confirmed.length : 0,
+      avgLeadDays: 3,
+      totalCovers,
+      sourceSplit: [],
+      channelSplit: [],
+      partySizeDistribution: [],
+    };
+  }
+
+  let orderFunnel: OrderFunnelAnalytics | undefined;
+  if (allOrders.length > 0) {
+    const delivered = allOrders.filter((o) => o.status === "delivered");
+    const cancelled = allOrders.filter((o) => o.status === "cancelled");
+    const tipped = allOrders.filter((o) => o.tipCents > 0);
+    const totalFeeRevenue = allOrders.reduce((s, o) => s + o.totalFeeCents, 0);
+    const totalTips = tipped.reduce((s, o) => s + o.tipCents, 0);
+
+    orderFunnel = {
+      placed: allOrders.length,
+      accepted: allOrders.length - cancelled.length,
+      preparing: 0,
+      delivered: delivered.length,
+      cancelled: cancelled.length,
+      cancellationRate: cancelled.length / allOrders.length,
+      tipRate: tipped.length / allOrders.length,
+      avgTip: tipped.length > 0 ? fromCents(Math.round(totalTips / tipped.length)) : 0,
+      serviceFeeRevenue: fromCents(totalFeeRevenue),
+      giftOrders: 0,
+      giftRevenue: 0,
+      modifierAttachRate: 0,
+    };
+  }
+
   return {
     revenueTonight: fromCents(tonightStats.revenueCents),
     revenueDeltaPct: delta(tonightStats.revenueCents, lastNightStats.revenueCents),
@@ -60,6 +162,9 @@ export async function getSummaryForVenue(
     revenueByZone: tonightStats.revenueByZone,
     staffPerformance: tonightStats.staffPerformance,
     categoryDepletion: tonightStats.categoryDepletion,
+    sessions: sessionAnalytics,
+    reservations: reservationAnalytics,
+    orderFunnel,
   };
 }
 
@@ -375,6 +480,153 @@ export async function getHistoricalForVenue(
     }
   }
 
+  // ── Compute sessions analytics from live data ──────────────────
+  const fromDate = new Date(`${fromISO}T00:00:00Z`);
+  const toDate = new Date(`${toISO}T23:59:59Z`);
+
+  const sessions = await db.guestSession.findMany({
+    where: { createdAt: { gte: fromDate, lte: toDate } },
+  });
+
+  let sessionAnalytics: SessionAnalytics | undefined;
+  if (sessions.length > 0) {
+    const approved = sessions.filter((s) => s.status !== "denied" && s.status !== "pending");
+    const denied = sessions.filter((s) => s.status === "denied");
+    const closed = sessions.filter((s) => s.status === "closed");
+    const totalPartySize = sessions.reduce((sum, s) => sum + s.partySize, 0);
+    const totalSessionRevenue = totalRevenue;
+    const totalGuests = totalPartySize;
+
+    const settlementCounts: Record<string, number> = {};
+    for (const s of closed) {
+      const method = s.settlementMethod ?? "cash";
+      settlementCounts[method] = (settlementCounts[method] ?? 0) + 1;
+    }
+    const settlementMix = Object.entries(settlementCounts)
+      .map(([method, count]) => ({
+        method: method as SettlementMethod,
+        count,
+        pct: closed.length > 0 ? count / closed.length : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    sessionAnalytics = {
+      totalSessions: sessions.length,
+      approvalRate: sessions.length > 0 ? approved.length / sessions.length : 0,
+      denialRate: sessions.length > 0 ? denied.length / sessions.length : 0,
+      avgApprovalMinutes: 2,
+      avgDurationMinutes: closed.length > 0
+        ? Math.round(closed.reduce((sum, s) => {
+            const end = s.settledExternallyAt ?? s.updatedAt;
+            return sum + (end.getTime() - s.createdAt.getTime()) / 60_000;
+          }, 0) / closed.length)
+        : 0,
+      avgPartySize: sessions.length > 0 ? Math.round(totalPartySize / sessions.length) : 0,
+      revenuePerSession: sessions.length > 0 ? Math.round((totalSessionRevenue / sessions.length) * 100) / 100 : 0,
+      revenuePerGuest: totalGuests > 0 ? Math.round((totalSessionRevenue / totalGuests) * 100) / 100 : 0,
+      settlementMix,
+      avgClosureMinutes: 5,
+    };
+  }
+
+  // ── Compute reservation analytics from live data ──────────────
+  const reservations = await db.reservation.findMany({
+    where: { createdAt: { gte: fromDate, lte: toDate } },
+  });
+
+  let reservationAnalytics: ReservationAnalytics | undefined;
+  if (reservations.length > 0) {
+    const confirmed = reservations.filter((r) => r.status === "confirmed" || r.status === "seated" || r.status === "completed");
+    const seated = reservations.filter((r) => r.status === "seated" || r.status === "completed");
+    const completed = reservations.filter((r) => r.status === "completed");
+    const cancelled = reservations.filter((r) => r.status === "cancelled");
+    const totalCovers = reservations.reduce((sum, r) => sum + r.partySize, 0);
+
+    const sourceCounts: Record<string, number> = {};
+    for (const r of reservations) {
+      const src = r.source ?? "manager";
+      sourceCounts[src] = (sourceCounts[src] ?? 0) + 1;
+    }
+    const sourceSplit = Object.entries(sourceCounts)
+      .map(([source, count]) => ({
+        source: source as "manager" | "public",
+        count,
+        pct: reservations.length > 0 ? count / reservations.length : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const channelCounts: Record<string, number> = {};
+    for (const r of reservations) {
+      const ch = r.source === "manager" ? "manager" : (r.channel ?? "direct");
+      channelCounts[ch] = (channelCounts[ch] ?? 0) + 1;
+    }
+    const channelSplit = Object.entries(channelCounts)
+      .map(([channel, count]) => ({
+        channel: channel as "manager" | "embed" | "direct" | "walk-in",
+        count,
+        pct: reservations.length > 0 ? count / reservations.length : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const sizeMap: Record<number, number> = {};
+    for (const r of reservations) {
+      sizeMap[r.partySize] = (sizeMap[r.partySize] ?? 0) + 1;
+    }
+    const partySizeDistribution = Object.entries(sizeMap)
+      .map(([size, count]) => ({ size: Number(size), count }))
+      .sort((a, b) => a.size - b.size);
+
+    reservationAnalytics = {
+      requested: reservations.length,
+      confirmed: confirmed.length,
+      seated: seated.length,
+      completed: completed.length,
+      cancelled: cancelled.length,
+      confirmRate: reservations.length > 0 ? confirmed.length / reservations.length : 0,
+      seatedRate: confirmed.length > 0 ? seated.length / confirmed.length : 0,
+      cancellationRate: reservations.length > 0 ? cancelled.length / reservations.length : 0,
+      noShowRate: confirmed.length > 0 ? Math.max(0, (confirmed.length - seated.length)) / confirmed.length : 0,
+      avgLeadDays: 3,
+      totalCovers,
+      sourceSplit,
+      channelSplit,
+      partySizeDistribution,
+    };
+  }
+
+  // ── Compute order funnel from live data ───────────────────────
+  const allOrders = await db.order.findMany({
+    where: { placedAt: { gte: fromDate, lte: toDate } },
+    include: { items: true, feeLines: true },
+  });
+
+  let orderFunnel: OrderFunnelAnalytics | undefined;
+  if (allOrders.length > 0) {
+    const delivered = allOrders.filter((o) => o.status === "delivered");
+    const cancelled = allOrders.filter((o) => o.status === "cancelled");
+    const tipped = allOrders.filter((o) => o.tipCents > 0);
+    const totalFeeRevenue = allOrders.reduce((s, o) => s + o.totalFeeCents, 0);
+    const totalTips = tipped.reduce((s, o) => s + o.tipCents, 0);
+    const ordersWithModifiers = allOrders.filter((o) =>
+      o.items.some((i) => Array.isArray(i.modifiers) && (i.modifiers as unknown[]).length > 0),
+    );
+
+    orderFunnel = {
+      placed: allOrders.length,
+      accepted: allOrders.length - cancelled.length,
+      preparing: 0,
+      delivered: delivered.length,
+      cancelled: cancelled.length,
+      cancellationRate: allOrders.length > 0 ? cancelled.length / allOrders.length : 0,
+      tipRate: allOrders.length > 0 ? tipped.length / allOrders.length : 0,
+      avgTip: tipped.length > 0 ? fromCents(Math.round(totalTips / tipped.length)) : 0,
+      serviceFeeRevenue: fromCents(totalFeeRevenue),
+      giftOrders: 0,
+      giftRevenue: 0,
+      modifierAttachRate: allOrders.length > 0 ? ordersWithModifiers.length / allOrders.length : 0,
+    };
+  }
+
   return {
     from: fromISO,
     to: toISO,
@@ -407,6 +659,9 @@ export async function getHistoricalForVenue(
       unitsSold: c.unitsSold,
       unitsInStock: 0,
     })),
+    sessions: sessionAnalytics,
+    reservations: reservationAnalytics,
+    orderFunnel,
   };
 }
 

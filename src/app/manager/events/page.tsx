@@ -3,7 +3,7 @@
 import { FeatureGate } from "@/components/shared/feature-gate";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { Code, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,8 +25,12 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { eventsService } from "@/lib/services/events-service";
 import { venueService } from "@/lib/services/venue-service";
+import { publicReservationHref } from "@/lib/entity-links";
+import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
+import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
+import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
-import type { EventGuest, EventStatus, VenueEvent, Zone } from "@/lib/types";
+import type { EventGuest, EventStatus, Venue, VenueEvent, Zone } from "@/lib/types";
 
 const selectCls =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -65,7 +69,12 @@ const EMPTY_DRAFT: EventDraft = {
 function EventsContent() {
   const [events, setEvents] = useState<VenueEvent[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
+  const [venue, setVenue] = useState<Venue | null>(null);
   const [guestsByEvent, setGuestsByEvent] = useState<Record<string, EventGuest[]>>({});
+  const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all");
+  const [dateRange, setDateRange] = useState<DateRange>("week");
+  const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
+  const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -74,12 +83,14 @@ function EventsContent() {
   const [newGuestName, setNewGuestName] = useState("");
 
   const refresh = useCallback(async () => {
-    const [list, z] = await Promise.all([
+    const [list, z, v] = await Promise.all([
       eventsService.listEvents(),
       venueService.listZones(),
+      venueService.getVenue(),
     ]);
     setEvents(list);
     setZones(z);
+    setVenue(v);
     const entries = await Promise.all(
       list.filter((e) => e.guestlistEnabled).map(async (e) => [e.id, await eventsService.listEventGuests(e.id)] as const),
     );
@@ -161,29 +172,90 @@ function EventsContent() {
     await refresh();
   }
 
+  const visible = (events ?? []).filter((ev) => {
+    if (statusFilter !== "all" && ev.status !== statusFilter) return false;
+    if (!isInDateRange(ev.startsAt, dateRange)) return false;
+    if ((customRange.from || customRange.to) && !isInCustomDateRange(ev.startsAt, customRange)) return false;
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      if (!`${ev.name} ${ev.description} ${zoneName(ev.zoneId)}`.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-5">
       <PageHeader
         title="Events"
         description="Promotions, parties and guestlists for the venue."
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="size-4" /> New event
-          </Button>
+          <div className="flex items-center gap-2">
+            {venue && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
+                  const snippet = `<iframe src="${url}" width="100%" height="700" frameborder="0"></iframe>`;
+                  navigator.clipboard.writeText(snippet);
+                  toast.success("Embed snippet copied");
+                }}
+              >
+                <Code className="size-4" /> Embed reservations
+              </Button>
+            )}
+            <Button onClick={openCreate}>
+              <Plus className="size-4" /> New event
+            </Button>
+          </div>
         }
       />
 
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchInput
+            value={query}
+            onChange={setQuery}
+            placeholder="Search events…"
+            className="w-full sm:w-56"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "draft", "published", "live", "ended"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                  statusFilter === s
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {s === "all" ? "All" : s}
+              </button>
+            ))}
+          </div>
+          <div className="h-4 w-px bg-border" />
+          <DateFilter value={dateRange} onChange={setDateRange} />
+          <div className="h-4 w-px bg-border" />
+          <DateRangePicker value={customRange} onChange={setCustomRange} />
+        </div>
+      </div>
+
       {events === null ? (
         <ListSkeleton rows={3} rowHeight="h-32" />
-      ) : events.length === 0 ? (
+      ) : visible.length === 0 ? (
         <EmptyState
           icon={PartyPopper}
-          title="No events yet"
-          description="Create an event to promote it to guests and build a guestlist."
+          title="No events match"
+          description={events.length === 0 ? "Create an event to promote it to guests and build a guestlist." : "Try adjusting the filters."}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {events.map((ev) => {
+          {visible.map((ev) => {
             const guests = guestsByEvent[ev.id] ?? [];
             const expanded = openId === ev.id;
             return (

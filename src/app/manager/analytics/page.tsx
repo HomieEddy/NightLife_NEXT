@@ -631,6 +631,26 @@ function AnalyticsPageContent() {
 
                 <Card>
                   <CardHeader>
+                    <CardTitle className="text-base">Channel breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {data.reservations.channelSplit.map((c) => (
+                      <BarRow
+                        key={c.channel}
+                        left={<span className="capitalize">{c.channel}</span>}
+                        right={
+                          <span className="text-xs tabular-nums text-muted-foreground">
+                            {c.count} ({formatPct(c.pct)})
+                          </span>
+                        }
+                        ratio={c.pct}
+                      />
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
                     <CardTitle className="text-base">Party size distribution</CardTitle>
                   </CardHeader>
                   <CardContent>

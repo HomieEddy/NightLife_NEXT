@@ -1,5 +1,7 @@
 # 01 — Foundation · PLAN
 
+**Status: complete.**
+
 Goal: the rails every later plan runs on — database, scoped data access, money
 convention, test infrastructure, seeds. Ships **zero user-visible change**.
 

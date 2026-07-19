@@ -23,6 +23,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { promotionsService } from "@/lib/services/promotions-service";
 import { menuService } from "@/lib/services/menu-service";
+import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
 import type { MenuCategory, Promotion, PromotionStatus, PromotionType } from "@/lib/types";
 
@@ -63,6 +64,8 @@ const EMPTY_DRAFT: PromoDraft = {
 function PromotionsContent() {
   const [promos, setPromos] = useState<Promotion[] | null>(null);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const [statusFilter, setStatusFilter] = useState<PromotionStatus | "all">("all");
+  const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<PromoDraft>(EMPTY_DRAFT);
@@ -194,17 +197,53 @@ function PromotionsContent() {
         </CardContent>
       </Card>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search by code or name…"
+          className="w-full sm:w-56"
+        />
+        <div className="flex flex-wrap gap-1.5">
+          {(["all", "active", "scheduled", "expired"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                statusFilter === s
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {s === "all" ? "All" : s}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {promos === null ? (
         <ListSkeleton rows={3} rowHeight="h-28" />
-      ) : promos.length === 0 ? (
-        <EmptyState
-          icon={Tag}
-          title="No promotions yet"
-          description="Create a promo code to discount orders at checkout."
-        />
-      ) : (
+      ) : (() => {
+        const visible = promos.filter((p) => {
+          if (statusFilter !== "all" && p.status !== statusFilter) return false;
+          if (query.trim()) {
+            const q = query.trim().toLowerCase();
+            if (!`${p.code} ${p.name}`.toLowerCase().includes(q)) return false;
+          }
+          return true;
+        });
+        if (visible.length === 0) return (
+          <EmptyState
+            icon={Tag}
+            title="No promotions match"
+            description={promos.length === 0 ? "Create a promo code to discount orders at checkout." : "Try adjusting the filters."}
+          />
+        );
+        return (
         <div className="grid gap-3 md:grid-cols-2">
-          {promos.map((p) => (
+          {visible.map((p) => (
             <Card key={p.id} className="py-4">
               <CardContent className="space-y-3 px-4">
                 <div className="flex items-start justify-between gap-2">
@@ -246,7 +285,8 @@ function PromotionsContent() {
             </Card>
           ))}
         </div>
-      )}
+        );
+      })()}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
