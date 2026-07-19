@@ -1,5 +1,7 @@
 # 05 — Orders & Fees · PLAN (CORE)
 
+**Status: complete.**
+
 Goal: the order lifecycle server-side — pricing engine, one transaction for
 money + inventory, the state machine, claims and gifts. The highest-risk plan;
 tests are written **before** implementation, per AGENTS.md §7.2/§9.4.
