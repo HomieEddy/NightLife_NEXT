@@ -3,7 +3,7 @@
 import { FeatureGate } from "@/components/shared/feature-gate";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { Code, Link2, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,11 +25,12 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { eventsService } from "@/lib/services/events-service";
 import { venueService } from "@/lib/services/venue-service";
+import { publicReservationHref } from "@/lib/entity-links";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
-import type { EventGuest, EventStatus, VenueEvent, Zone } from "@/lib/types";
+import type { EventGuest, EventStatus, Venue, VenueEvent, Zone } from "@/lib/types";
 
 const selectCls =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -68,6 +69,7 @@ const EMPTY_DRAFT: EventDraft = {
 function EventsContent() {
   const [events, setEvents] = useState<VenueEvent[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
+  const [venue, setVenue] = useState<Venue | null>(null);
   const [guestsByEvent, setGuestsByEvent] = useState<Record<string, EventGuest[]>>({});
   const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("week");
@@ -81,12 +83,14 @@ function EventsContent() {
   const [newGuestName, setNewGuestName] = useState("");
 
   const refresh = useCallback(async () => {
-    const [list, z] = await Promise.all([
+    const [list, z, v] = await Promise.all([
       eventsService.listEvents(),
       venueService.listZones(),
+      venueService.getVenue(),
     ]);
     setEvents(list);
     setZones(z);
+    setVenue(v);
     const entries = await Promise.all(
       list.filter((e) => e.guestlistEnabled).map(async (e) => [e.id, await eventsService.listEventGuests(e.id)] as const),
     );
@@ -185,9 +189,25 @@ function EventsContent() {
         title="Events"
         description="Promotions, parties and guestlists for the venue."
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="size-4" /> New event
-          </Button>
+          <div className="flex items-center gap-2">
+            {venue && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
+                  const snippet = `<iframe src="${url}" width="100%" height="700" frameborder="0"></iframe>`;
+                  navigator.clipboard.writeText(snippet);
+                  toast.success("Embed snippet copied");
+                }}
+              >
+                <Code className="size-4" /> Embed reservations
+              </Button>
+            )}
+            <Button onClick={openCreate}>
+              <Plus className="size-4" /> New event
+            </Button>
+          </div>
         }
       />
 

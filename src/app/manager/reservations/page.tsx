@@ -6,6 +6,10 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   Check,
+  Code,
+  Copy,
+  KeyRound,
+  Link2,
   Loader2,
   Pencil,
   Plus,
@@ -32,12 +36,26 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { reservationService } from "@/lib/services/reservation-service";
 import { venueService } from "@/lib/services/venue-service";
+import { isDemoMode } from "@/lib/app-mode";
+import { publicReservationHref } from "@/lib/entity-links";
 import { formatTime } from "@/lib/format";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
-import type { Reservation, ReservationStatus, VenueTable, Zone } from "@/lib/types";
+import type { Reservation, ReservationStatus, Venue, VenueTable, Zone } from "@/lib/types";
+
+const CHANNEL_LABEL: Record<string, string> = {
+  embed: "Embed",
+  direct: "Direct",
+  "walk-in": "Walk-in",
+};
+
+const CHANNEL_CLS: Record<string, string> = {
+  embed: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+  direct: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  "walk-in": "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+};
 
 const selectCls =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -84,6 +102,7 @@ function ReservationsContent() {
   const [reservations, setReservations] = useState<Reservation[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [tables, setTables] = useState<VenueTable[]>([]);
+  const [venue, setVenue] = useState<Venue | null>(null);
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
@@ -95,14 +114,16 @@ function ReservationsContent() {
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [list, z, t] = await Promise.all([
+    const [list, z, t, v] = await Promise.all([
       reservationService.listReservations(),
       venueService.listZones(),
       venueService.listTables(),
+      venueService.getVenue(),
     ]);
     setReservations(list);
     setZones(z);
     setTables(t);
+    setVenue(v);
   }, []);
 
   useEffect(() => {
@@ -196,9 +217,38 @@ function ReservationsContent() {
         title="Reservations"
         description="Table bookings and guest lists for the night."
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="size-4" /> New reservation
-          </Button>
+          <div className="flex items-center gap-2">
+            {venue && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
+                    navigator.clipboard.writeText(url);
+                    toast.success("Reservation link copied");
+                  }}
+                >
+                  <Link2 className="size-4" /> Copy link
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
+                    const snippet = `<iframe src="${url}" width="100%" height="700" frameborder="0"></iframe>`;
+                    navigator.clipboard.writeText(snippet);
+                    toast.success("Embed snippet copied");
+                  }}
+                >
+                  <Code className="size-4" /> Embed
+                </Button>
+              </>
+            )}
+            <Button onClick={openCreate}>
+              <Plus className="size-4" /> New reservation
+            </Button>
+          </div>
         }
       />
 
@@ -266,12 +316,38 @@ function ReservationsContent() {
                       {zoneName(res.zoneId)} · {tableName(res.tableId)} · {res.partySize} guests
                     </p>
                   </div>
-                  <StatusBadge status={res.status} />
+                  <div className="flex items-center gap-1.5">
+                    {res.channel && (
+                      <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", CHANNEL_CLS[res.channel] ?? "bg-muted text-muted-foreground")}>
+                        {CHANNEL_LABEL[res.channel] ?? res.channel}
+                      </span>
+                    )}
+                    <StatusBadge status={res.status} />
+                  </div>
                 </div>
                 <p className="text-sm">
                   {new Date(res.startsAt).toLocaleDateString()} · {formatTime(res.startsAt)}
                 </p>
                 {res.note && <p className="text-xs text-muted-foreground">{res.note}</p>}
+                {res.guestEmail && <p className="text-xs text-muted-foreground">{res.guestEmail}</p>}
+                {res.guestPhone && <p className="text-xs text-muted-foreground">{res.guestPhone}</p>}
+                {isDemoMode() && res.reservationPin && (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <KeyRound className="size-3 text-amber-600 dark:text-amber-400" />
+                    <span className="font-mono tracking-widest">{res.reservationPin}</span>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        navigator.clipboard.writeText(res.reservationPin!);
+                        toast.success("PIN copied");
+                      }}
+                      aria-label="Copy PIN"
+                    >
+                      <Copy className="size-3" />
+                    </button>
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-1.5 border-t pt-2">
                   {STATUS_ACTIONS[res.status] !== "—" && (
                     <Button size="sm" variant="default" onClick={() => advance(res)}>
