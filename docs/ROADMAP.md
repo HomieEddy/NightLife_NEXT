@@ -10,20 +10,28 @@ method bodies behind a stable interface (R1).
 
 | # | Feature | Plan | Depends on | Risk | Consumes TODOs in |
 |---|---------|------|-----------|------|-------------------|
-| 01 | Foundation: Postgres, Prisma, scoped client, cents, test infra, seeds | [01-foundation-PLAN](plans/01-foundation-PLAN.md) | — | Low | `types.ts` |
-| 02 | Authentication & authorization | [02-authentication-PLAN](plans/02-authentication-PLAN.md) | 01 | Med | `auth-service`, `auth-context`, `admin-gate`, `staff/layout`, `staff-edit-dialog` |
-| 03 | Venue, zones & tables | [03-venue-zones-tables-PLAN](plans/03-venue-zones-tables-PLAN.md) | 01, 02 | Low | `venue-service`, `settings`, `qr` (tokens land in 06) |
-| 04 | Menu, inventory & packages | [04-menu-inventory-PLAN](plans/04-menu-inventory-PLAN.md) | 03 | Med | `menu-service` (ledger), `inventory`, `menu` pages |
-| 05 | Orders & fees (CORE) | [05-orders-fees-PLAN](plans/05-orders-fees-PLAN.md) | 04 | **High** | `orders-service`, `cart-contents`, `happy-hour` pricing, `package-card` |
-| 06 | Guest sessions, QR tokens & help | [06-guest-sessions-help-PLAN](plans/06-guest-sessions-help-PLAN.md) | 05 | Med | `guests-service`, `guest-context`, `g/[tableCode]`, `approvals` |
-| 07 | Realtime & floor pulse | [07-realtime-pulse-PLAN](plans/07-realtime-pulse-PLAN.md) | 05, 06 | Med | all 6 polling TODOs, `pulse-service`, `show-queue-service`, `staff-service` chat |
-| 08 | Reservations, events & promotions | [08-reservations-events-promotions-PLAN](plans/08-reservations-events-promotions-PLAN.md) | 03, 05 | Low | `reservation-service`, `events-service`, `promotions-service` |
-| 09 | Analytics & report engine | [09-analytics-reports-PLAN](plans/09-analytics-reports-PLAN.md) | 05 | Med | `analytics-service`, `report-service`, `mock-chart` |
+| 01 | Foundation: Postgres, Prisma, scoped client, cents, test infra, seeds — complete | [01-foundation-PLAN](plans/01-foundation-PLAN.md) | — | Low | `types.ts` |
+| 02 | Authentication & authorization — complete | [02-authentication-PLAN](plans/02-authentication-PLAN.md) | 01 | Med | `auth-service`, `auth-context`, `admin-gate`, `staff/layout`, `staff-edit-dialog` |
+| 03 | Venue, zones & tables — complete | [03-venue-zones-tables-PLAN](plans/03-venue-zones-tables-PLAN.md) | 01, 02 | Low | `venue-service`, `settings`, `qr` (tokens land in 06) |
+| 04 | Menu, inventory & packages — complete | [04-menu-inventory-PLAN](plans/04-menu-inventory-PLAN.md) | 03 | Med | `menu-service` (ledger), `inventory`, `menu` pages |
+| 05 | Orders & fees (CORE) — complete | [05-orders-fees-PLAN](plans/05-orders-fees-PLAN.md) | 04 | **High** | `orders-service`, `cart-contents`, `happy-hour` pricing, `package-card` |
+| 06 | Guest sessions, QR tokens & help — complete | [06-guest-sessions-help-PLAN](plans/06-guest-sessions-help-PLAN.md) | 05 | Med | `guests-service`, `guest-context`, `g/[tableCode]`, `approvals` |
+| 07 | Realtime & floor pulse — complete | [07-realtime-pulse-PLAN](plans/07-realtime-pulse-PLAN.md) | 05, 06 | Med | all 6 polling TODOs, `pulse-service`, `show-queue-service`, `staff-service` chat |
+| 08 | Reservations, events & promotions — complete | [08-reservations-events-promotions-PLAN](plans/08-reservations-events-promotions-PLAN.md) | 03, 05 | Low | `reservation-service`, `events-service`, `promotions-service` |
+| 09 | Analytics & report engine — complete except scheduled email* | [09-analytics-reports-PLAN](plans/09-analytics-reports-PLAN.md) | 05 | Med | `analytics-service`, `report-service`, `mock-chart` |
 | 09b | V1 operational closure — complete | [09b-v1-operational-closure-PLAN](plans/09b-v1-operational-closure-PLAN.md) | 02–07, 09 | Med | category/add-on ordering, live `staff-service`, session/table closure, venue time, strict mode isolation, fulfilled migration markers |
-| 09c | Analytics depth & reporting expansion | [09c-analytics-depth-reporting-PLAN](plans/09c-analytics-depth-reporting-PLAN.md) | 08, 09, 09b | Low‑Med | session/reservation/happy-hour/event/promotion metrics, deepened staff/order/inventory analytics, new report metrics + CSV sections |
+| 09c | Analytics depth & reporting expansion — complete except scheduled email* | [09c-analytics-depth-reporting-PLAN](plans/09c-analytics-depth-reporting-PLAN.md) | 08, 09, 09b | Low‑Med | session/reservation/happy-hour/event/promotion metrics, deepened staff/order/inventory analytics, new report metrics + CSV sections |
 | 10 | Platform admin & billing — complete | [10-platform-admin-billing-PLAN](plans/10-platform-admin-billing-PLAN.md) | 02, 09b | Med | `admin-service`, `billing-service`, `subscription`, `pricing`, `lead` pages |
 | 11 | Luxe VIP Gold visual revamp — complete | [11-luxe-vip-gold-revamp-PLAN](plans/11-luxe-vip-gold-revamp-PLAN.md) | — (presentation-layer) | Low | none — design-system tokens, shared primitives, guest/public/ops reskin |
-| 12 | Containerized local dev (compose stack: live + demo + Postgres) | [12-local-dev-containers-PLAN](plans/12-local-dev-containers-PLAN.md) | — (tooling-only) | Low | none — Dockerfile, compose.yaml, npm scripts, docs |
+| 12 | Containerized local dev — complete | [12-local-dev-containers-PLAN](plans/12-local-dev-containers-PLAN.md) | — (tooling-only) | Low | none — Dockerfile, compose.yaml, npm scripts, docs |
+| 13 | Embedded reservations & QR gate — demo complete | [13-embedded-reservations-PLAN](plans/13-embedded-reservations-PLAN.md) | 03, 06, 08, 09 | Low | `reservation-service` (channel, PIN, public avail), `venue-service` (publicSlug), `entity-links`, floor-map canvas extraction |
+
+\* **Scheduled email is the one unshipped leg of plans 09/09c.** The report
+engine stores `schedule` and computes due-selection, rollups have
+`computeRollup`/`upsertRollup`, and the `job_runs` table exists — but no cron
+handler (`/api/jobs/*`) invokes them and no email sender is wired (AD-8 Resend
+never landed; staff invites currently surface as copyable links via Better
+Auth). Tracked in the parking lot below.
 
 Rationale for the two deviations from a naive order: **auth before venue CRUD**
 because R2 (tenant scoping) needs a session to scope by, and retrofitting auth
@@ -48,6 +56,16 @@ almost entirely reads over data plans 05–09b already record — the one new
 write is happy-hour attribution snapshots on orders. It can land before or
 after plan 10; it depends on 09b only for live staff identity and venue night
 config.
+
+Plan 13 is a demo-track feature addition (AD-14): it adds an embeddable public
+reservation page at `/r/[venueSlug]` with a floor-map table picker, channel
+attribution (embed/direct/walk-in) on reservations, and a QR gate that demands
+a 6-digit PIN when a guest scans a table with an active confirmed reservation.
+The demo-track work (types, mock service, UI, FloorMapCanvas extraction) is
+complete; the Prisma schema migration for `channel`, `guestEmail`, `guestPhone`,
+`reservationPin` and `publicSlug` is committed. Graduation to live requires
+implementing the public reservation API routes and wiring the live service
+selector branch.
 
 ## Demo co-existence (AD-14) — how to read the plans
 
@@ -84,7 +102,7 @@ the migration — follow the permanent loop (AD-14):
    review checklist, exit criteria), implement the real branch, wire the
    selector, drop the gate — one PR, this definition of done.
 
-Numbering continues from 11. UI sketching for new features can proceed in
+Numbering continues from 14. UI sketching for new features can proceed in
 parallel with backend plans — the two tracks only meet at graduation.
 
 ## Definition of done — every feature, no exceptions
@@ -103,6 +121,9 @@ parallel with backend plans — the two tracks only meet at graduation.
 
 ## Phase 3 parking lot (not planned, recorded so they stop haunting scope talks)
 
-Guest card payments (Stripe Connect) · multi-venue owner accounts · POS/KDS
+Scheduled report email delivery (AD-8/AD-9: Resend + cron handlers for
+due-schedule runs and the nightly rollup — the only unshipped leg of plans
+09/09c) · reservation PIN delivery via SMS/email (plan 13 TODO) · guest card
+payments (Stripe Connect) · multi-venue owner accounts · POS/KDS
 integrations · printer hardware · native apps · offline mode · RLS
 defense-in-depth (AD-3) · real charting lib (`mock-chart` TODO).

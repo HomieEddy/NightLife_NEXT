@@ -1,5 +1,7 @@
 # 12 — Containerized Local Dev · PLAN
 
+**Status: complete.**
+
 Goal: one `docker compose up` boots the entire local environment — the **live**
 app, the **demo** app, and Postgres — so testing a feature across both build
 modes stops requiring two terminals, a hand-managed database, and a

@@ -1,5 +1,7 @@
 # 06 — Guest Sessions, QR Tokens & Help · PLAN
 
+**Status: complete.**
+
 Goal: the guest's server-side identity — signed table tokens, durable sessions
 with the approval/closure state machine, help requests. Removes the last guest-side
 simulations.

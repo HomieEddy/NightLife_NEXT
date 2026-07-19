@@ -81,12 +81,14 @@ Three local loops, fastest to most prod-shaped:
 | **PGlite live** | `npm run dev:pglite` | In-process PGlite | Native | Live features, fastest iteration |
 | **Compose stack** | `npm run dev:stack` | Real Postgres 17 | Via bind mount | Mode-pair testing, LISTEN/NOTIFY, migration validation |
 
-The compose stack (`compose.yaml`) runs four services:
+The compose stack (`compose.yaml`) runs four services by default:
 
 - `db` — Postgres 17 on port 5432
 - `migrate` — one-shot: applies migrations + idempotent seed
 - `app-live` — Next.js dev server on port 3000 (`NEXT_PUBLIC_APP_MODE=live`)
 - `app-demo` — Next.js dev server on port 3001 (`NEXT_PUBLIC_APP_MODE=demo`, no DB)
+
+A fifth service, `app-prod`, runs only under the `prod-shape` profile (below).
 
 Dev-grade secrets are embedded in the compose file — `docker compose up` works
 on a clean clone with no `.env`. The `app-demo` service has no `DATABASE_URL`

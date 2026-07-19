@@ -38,6 +38,8 @@ export interface Venue {
     helpWarnMinutes: number;
     helpCriticalMinutes: number;
   };
+  /** Public slug for the embeddable reservation page (/r/[venueSlug]). */
+  publicSlug: string;
   /** At last call, synthesize a closeout nudge for every occupied table. */
   lastCallAutoFlagTables: boolean;
   /** Tip percentage presets shown to guests (e.g. [15, 20]). */
@@ -453,6 +455,7 @@ export interface ReservationAnalytics {
   avgLeadDays: number;
   totalCovers: number;
   sourceSplit: { source: "manager" | "public"; count: number; pct: number }[];
+  channelSplit: { channel: ReservationChannel | "manager"; count: number; pct: number }[];
   partySizeDistribution: { size: number; count: number }[];
 }
 
@@ -745,11 +748,14 @@ export type ReservationStatus =
   | "cancelled"
   | "completed";
 
+export type ReservationChannel = "embed" | "direct" | "walk-in";
+
 export interface Reservation {
   id: string;
   venueId: string;
   tableId?: string;
   zoneId?: string;
+  eventId?: string;
   guestName: string;
   partySize: number;
   startsAt: string; // ISO
@@ -757,6 +763,10 @@ export interface Reservation {
   status: ReservationStatus;
   note?: string;
   source: "manager" | "public";
+  channel?: ReservationChannel;
+  guestEmail?: string;
+  guestPhone?: string;
+  reservationPin?: string;
   createdAt: string; // ISO
 }
 

@@ -1,5 +1,7 @@
 # 03 — Venue, Zones & Tables · PLAN
 
+**Status: complete.**
+
 Goal: first real feature service — pure CRUD, no money math, the safest place to
 prove the migration pattern end-to-end (schema → handlers → service body swap →
 tests) before the risky plans copy it.

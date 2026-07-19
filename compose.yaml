@@ -55,6 +55,8 @@ services:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       BETTER_AUTH_URL: http://localhost:3000
       NEXT_PUBLIC_DEMO_URL: http://localhost:3001
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -74,6 +76,8 @@ services:
     environment:
       NEXT_PUBLIC_APP_MODE: demo
       NEXT_PUBLIC_LIVE_URL: http://localhost:3000
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     command: ["npx", "next", "dev", "--hostname", "0.0.0.0", "--port", "3001"]
 
   # ── Prod-shape: build + serve (optional profile) ───────────

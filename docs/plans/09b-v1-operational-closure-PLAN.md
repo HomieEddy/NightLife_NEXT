@@ -1,5 +1,7 @@
 # 09b — V1 Operational Closure · PLAN
 
+**Status: complete.**
+
 Goal: close the live-mode seams left by plans 02–09 so staff identity is real,
 guest sessions own table occupancy through external settlement, venue-local time
 rules are configurable, category-owned washer/presentation choices price correctly,

@@ -1,6 +1,8 @@
 # ARD — Architecture Requirements & Decisions
 
-Status: draft for Phase 2 · Companion to `docs/PRD.md` and `docs/DDD.md`
+Status: living document · Companion to `docs/PRD.md` and `docs/DDD.md`.
+Phase 2 has shipped plans 01–12 (see ROADMAP); decisions below are implemented
+unless an "Implementation status" note says otherwise.
 
 Each decision: context → choice → alternatives considered → consequences. These are
 defaults, not dogma — overturn one by editing this file in the same PR that departs
@@ -22,9 +24,13 @@ webhooks are route handlers; scheduled runs use platform cron (AD-9).
 
 ## AD-2 · Database: PostgreSQL (managed) + Prisma
 
-**Choice:** PostgreSQL on a managed provider (Neon; any managed PG works). Prisma
-as ORM — the codebase already annotates types with "mirror as Prisma models"
-(`src/lib/types.ts` TODO).
+**Choice:** PostgreSQL + Prisma as ORM — the codebase already annotates types
+with "mirror as Prisma models" (`src/lib/types.ts` TODO).
+
+**Implementation status:** shipped. Postgres 17 self-hosted on Hetzner via
+Docker/Coolify per AD-15 (supersedes the original "managed provider (Neon)"
+leaning — HOSTING.md is the authority); PGlite in-process for local dev and
+integration tests; `prisma/schema.prisma` is the deployed source of truth.
 
 **Alternatives:** Drizzle (fine choice; Prisma wins on the existing TODO contract,
 migration tooling and team familiarity); SQLite/Turso (multi-tenant + concurrent
@@ -116,13 +122,25 @@ TypeScript signatures (R1) — Zod guards the wire, Prisma guards the DB.
 send (currently a toast stub), scheduled report deliveries, lead notifications.
 Templates in React Email. Dev mode logs to console instead of sending.
 
+**Implementation status:** not landed — no Resend dependency exists. Staff
+invites go through Better Auth `createInvitation` and surface as copyable
+invite links in the manager UI (`/invite/<id>` acceptance page); scheduled
+report email is the unshipped leg of plans 09/09c (see ROADMAP parking lot).
+Adopt Resend when the first mail must actually send.
+
 ## AD-9 · Background work: platform cron + idempotent jobs
 
-**Choice:** Vercel Cron (or equivalent) hitting authenticated route handlers:
+**Choice:** a scheduled trigger hitting authenticated route handlers (Coolify
+cron on the Hetzner deploy per AD-15 — the live app no longer runs on Vercel):
 `/api/jobs/run-scheduled-reports` (report-service TODO) and the nightly rollup
 (AD-11). Jobs are idempotent and record runs in a `job_runs` table — rerunning is
 always safe. (Promotion expiry needs no job — status derives from dates; see
 plan 08.)
+
+**Implementation status:** partial. The `job_runs` model exists,
+`computeRollup`/`upsertRollup` are implemented and tested, and the report
+engine computes due-schedule selection — but no `/api/jobs/*` handlers or
+cron wiring exist yet. Ships with the AD-8 email leg (ROADMAP parking lot).
 
 **Alternatives:** Queue infra (Inngest/BullMQ+Redis) — YAGNI until a job needs
 retries/fan-out beyond what idempotent cron gives.
@@ -130,8 +148,10 @@ retries/fan-out beyond what idempotent cron gives.
 ## AD-10 · Testing infrastructure
 
 **Choice:** **Vitest** for unit + integration; integration tests hit route handlers
-against a real Postgres (Testcontainers locally/CI; `.env.test` database).
-**Playwright** for the E2E flows named in AGENTS.md §7. Mock-data literals become
+against a real Postgres via **PGlite in-process** (`src/server/test-pglite.ts` —
+no Docker, no external database; this replaced the original Testcontainers
+idea, which was heavier for the same guarantee). **Playwright** for the E2E
+flows named in AGENTS.md §7 (`e2e/`). Mock-data literals become
 seed fixtures (`prisma/seed.ts` imports from `src/lib/mock-data/`) — reuse, don't
 rewrite (AGENTS.md §9.4). Full strategy: AGENTS.md §7 & §10.
 
@@ -153,7 +173,8 @@ service layer (table/staff counts). Guest order payment stays out of scope (PRD 
 
 ## AD-13 · Environments & config
 
-**Choice:** `dev` (local PG or Neon branch, seeded from mock data), `preview`
+**Choice:** `dev` (PGlite in-process, compose-stack Postgres, or external PG —
+seeded from mock data), `preview`
 (per-PR on Hetzner staging, seeded, Stripe test mode), `prod` (Hetzner production).
 All secrets via env vars validated at boot with a Zod env schema (`src/lib/env.ts`).
 The public Live Demo is **not** an environment of the real backend — see AD-14.
@@ -177,17 +198,20 @@ principle stands, the mechanism changes.
   error, so the mock and real APIs cannot diverge silently.
 - **Selector layer:** `src/lib/services/x-service.ts` exports the plain name:
   `export const xService: XService = isDemoMode() ? mockXService : realXService`.
-  Pages import **only** from `src/lib/services/`; an ESLint
-  `no-restricted-imports` rule confines `mock-services/*` imports to selectors,
-  tests and seeds. Call sites change imports once (mechanical), then never again.
+  Pages import **only** from `src/lib/services/`. Enforcement is build-time, not
+  lint-time (amends the original ESLint-rule plan): `next.config.ts` Turbopack
+  aliases rewrite `@/lib/mock-services/*` to a throwing stub in live builds and
+  `@/server/{auth,db}` to a throwing stub in demo builds, so the wrong
+  implementation physically cannot execute — or even bundle — in the wrong mode.
+  Call sites change imports once (mechanical), then never again.
 - **Mode = build-time env:** `NEXT_PUBLIC_APP_MODE=demo|live`, one repo, two
   deploy targets. The landing page's "Live demo" links to the demo deployment.
   Build-time inlining lets the bundler drop the unused implementation from each
-  build (live ships no mocks; demo ships no fetch layer). Runtime
-  hostname-switching in a single deployment is the documented fallback if two
-  deployments prove annoying. **Unset defaults to `demo`** — `npm run dev`
-  boots the sandbox with zero setup (no DB, no env); backend work opts in via
-  a `dev:live` script.
+  build (live ships no mocks; demo ships no fetch layer). **The variable is
+  required — `parseAppMode` throws on unset/invalid values** (fail-closed, so a
+  misconfigured deploy can never silently boot the wrong mode). Local loops are
+  explicit scripts: `dev:demo` (sandbox, no DB), `dev:pglite` (live, in-process
+  DB), `dev:stack` (compose: Postgres + both modes), `dev:live` (external DB).
 - **Demo-only until graduated:** a feature whose real branch doesn't exist yet
   hides its UI entry points (nav links, pages, buttons) behind `isDemoMode()` —
   the live build never shows a feature backed by vanishing in-memory state.

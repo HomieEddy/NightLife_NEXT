@@ -23,8 +23,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // /demo and /manager/subscription stay 404 in the live build until their
-  // respective surfaces graduate.
+  // /demo stays 404 in the live build — the tour is a demo-only surface.
   if (
     request.nextUrl.pathname.startsWith("/demo")
   ) {

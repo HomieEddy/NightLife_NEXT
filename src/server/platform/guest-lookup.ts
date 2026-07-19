@@ -64,6 +64,7 @@ export async function findTableByQrSlug(
       autoApproveGuests: venueRow.autoApproveGuests,
       logoInitials: venueRow.logoInitials,
       slaThresholds: venueRow.slaThresholds as unknown as Venue["slaThresholds"],
+      publicSlug: venueRow.publicSlug ?? venueRow.organization.slug,
       lastCallAutoFlagTables: venueRow.lastCallAutoFlagTables,
       tipPresets: venueRow.tipPresets as number[],
       defaultTipPct: venueRow.defaultTipPct,

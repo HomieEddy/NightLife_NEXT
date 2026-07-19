@@ -1,5 +1,9 @@
 # 09 — Analytics & Report Engine · PLAN
 
+**Status: complete except scheduled email delivery** — cron handlers + Resend
+never landed (rollups, due-selection and `job_runs` exist); see ROADMAP
+parking lot.
+
 Goal: every number derives from real orders (R8) — live "tonight" queries, a
 nightly rollup for history, and a report engine with scheduled email delivery.
 
