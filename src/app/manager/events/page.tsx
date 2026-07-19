@@ -3,7 +3,7 @@
 import { FeatureGate } from "@/components/shared/feature-gate";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { Code, Link2, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { Code, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";

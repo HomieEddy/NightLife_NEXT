@@ -286,13 +286,15 @@ export const mockReservationService = {
   /** Check if a table has an active confirmed reservation right now (for QR gate). */
   async getActiveReservationForTable(tableId: string): Promise<Reservation | null> {
     await delay(200);
-    const today = new Date().toISOString().slice(0, 10);
-    const active = reservations.find(
-      (r) =>
-        r.tableId === tableId &&
-        r.startsAt.slice(0, 10) === today &&
-        r.status === "confirmed",
-    );
+    const now = new Date();
+    const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const active = reservations.find((r) => {
+      if (r.tableId !== tableId || r.status !== "confirmed") return false;
+      // Compare using local date of the reservation start
+      const d = new Date(r.startsAt);
+      const resLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return resLocal === localToday;
+    });
     return active ? clone(active) : null;
   },
 
@@ -302,13 +304,14 @@ export const mockReservationService = {
     pin: string,
   ): Promise<{ ok: boolean; error?: string }> {
     await delay(300);
-    const today = new Date().toISOString().slice(0, 10);
-    const active = reservations.find(
-      (r) =>
-        r.tableId === tableId &&
-        r.startsAt.slice(0, 10) === today &&
-        r.status === "confirmed",
-    );
+    const now = new Date();
+    const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const active = reservations.find((r) => {
+      if (r.tableId !== tableId || r.status !== "confirmed") return false;
+      const d = new Date(r.startsAt);
+      const resLocal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      return resLocal === localToday;
+    });
     if (!active) return { ok: false, error: "No active reservation" };
     if (active.reservationPin !== pin) return { ok: false, error: "Invalid PIN" };
 
