@@ -10,7 +10,7 @@
  */
 
 import type { Prisma, StaffRole } from "@prisma/client";
-import { EventStatus } from "@prisma/client";
+import { EventStatus, ReservationStatus } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
@@ -148,6 +148,26 @@ const RESERVATION_NAMES = [
   "O'Brien corporate", "Nakamura anniversary", "Singh engagement",
   "Thompson reunion", "Garcia bridal", "Wilson launch party",
 ];
+
+const RESERVATION_CHANNELS = ["walk-in", "embed", "direct", "embed", "direct"] as const;
+const RESERVATION_EMAILS = [
+  "dubois@example.com", "martinez@example.com", "kim.j@example.com",
+  "group.chen@corp.ca", null, "nakamura@example.com",
+  null, "reunion@example.com", "garcia.bridal@example.com", null,
+];
+const RESERVATION_PHONES = [
+  null, null, "+1 514 555 0101",
+  null, "+1 416 555 0202", null,
+  "+33 6 12 34 56 78", null, null, "+1 438 555 0303",
+];
+
+function seededPin(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  }
+  return String(Math.abs(hash) % 1000000).padStart(6, "0");
+}
 
 async function main() {
   const prisma = getRawPrisma();
@@ -287,6 +307,7 @@ async function main() {
         defaultTipPct: 15,
         nightStartHour: tenantDef.nightStartHour,
         nightEndHour: tenantDef.nightEndHour,
+        publicSlug: tenantDef.slug,
       },
     });
     console.log(`Venue config seeded`);
@@ -732,24 +753,39 @@ async function main() {
         }
       }
 
-      // Some nights have reservations
+      // Some nights have reservations — mix of manager and public channels
       const resCount = isWeekend ? randInt(2, 5) : randInt(0, 2);
       for (let ri = 0; ri < resCount; ri++) {
         const resId = `${tenantDef.slug}-res-${nightStr}-${ri}`;
         const resTime = new Date(d);
         resTime.setHours(22, 0, 0, 0);
+        const nameIdx = (totalReservations + ri) % RESERVATION_NAMES.length;
+        const isPublic = rand() < 0.4;
+        const source = isPublic ? "public" : "manager";
+        const channel = isPublic
+          ? RESERVATION_CHANNELS[(totalReservations + ri) % RESERVATION_CHANNELS.length]
+          : "walk-in";
+        const status = pick([ReservationStatus.confirmed, ReservationStatus.completed, ReservationStatus.completed, ReservationStatus.completed]);
+        const table = rand() < 0.7 ? pick(allTables) : null;
+        const pin = status === "confirmed" && table ? seededPin(resId) : null;
+
         await prisma.reservation.upsert({
           where: { id: resId },
           update: {},
           create: {
             id: resId,
             venueId,
-            guestName: pick(RESERVATION_NAMES),
+            guestName: RESERVATION_NAMES[nameIdx],
             partySize: randInt(4, 12),
             startsAt: resTime,
-            status: pick(["confirmed", "completed", "completed", "completed"]),
-            zoneId: pick(zoneIds),
-            source: "manager",
+            status,
+            zoneId: table?.zoneId ?? pick(zoneIds),
+            tableId: table?.id ?? null,
+            source,
+            channel,
+            guestEmail: isPublic ? RESERVATION_EMAILS[nameIdx] : null,
+            guestPhone: isPublic ? RESERVATION_PHONES[nameIdx] : null,
+            reservationPin: pin,
             createdAt: resTime,
           },
         });
@@ -822,6 +858,48 @@ async function main() {
 
       d.setDate(d.getDate() + 1);
     }
+
+    // ── Upcoming reservations (tonight + tomorrow + 2 days out) ──
+    const upcomingDefs = [
+      { daysOut: 0, source: "manager", channel: "walk-in", status: ReservationStatus.confirmed, nameIdx: 0 },
+      { daysOut: 0, source: "public", channel: "embed", status: ReservationStatus.confirmed, nameIdx: 1 },
+      { daysOut: 1, source: "public", channel: "embed", status: ReservationStatus.requested, nameIdx: 2 },
+      { daysOut: 1, source: "public", channel: "direct", status: ReservationStatus.requested, nameIdx: 3 },
+      { daysOut: 1, source: "manager", channel: "walk-in", status: ReservationStatus.confirmed, nameIdx: 4 },
+      { daysOut: 2, source: "public", channel: "embed", status: ReservationStatus.requested, nameIdx: 5 },
+    ];
+    for (const up of upcomingDefs) {
+      const upDate = new Date(now);
+      upDate.setDate(upDate.getDate() + up.daysOut);
+      const resId = `${tenantDef.slug}-res-upcoming-${up.daysOut}-${up.nameIdx}`;
+      const resTime = new Date(upDate);
+      resTime.setHours(22, 0, 0, 0);
+      const table = pick(allTables);
+      const pin = up.status === "confirmed" ? seededPin(resId) : null;
+
+      await prisma.reservation.upsert({
+        where: { id: resId },
+        update: {},
+        create: {
+          id: resId,
+          venueId,
+          guestName: RESERVATION_NAMES[up.nameIdx],
+          partySize: randInt(4, 10),
+          startsAt: resTime,
+          status: up.status,
+          zoneId: table.zoneId,
+          tableId: table.id,
+          source: up.source,
+          channel: up.channel,
+          guestEmail: up.source === "public" ? RESERVATION_EMAILS[up.nameIdx] : null,
+          guestPhone: up.source === "public" ? RESERVATION_PHONES[up.nameIdx] : null,
+          reservationPin: pin,
+          createdAt: new Date(resTime.getTime() - 86400000),
+        },
+      });
+      totalReservations++;
+    }
+    console.log(`  + ${upcomingDefs.length} upcoming reservations (tonight/tomorrow/+2d)`);
 
     console.log(`Activity: ${totalOrders} orders, ${totalSessions} sessions, ${totalReservations} reservations, ${totalHelpRequests} help requests`);
     totalOrders = 0;
