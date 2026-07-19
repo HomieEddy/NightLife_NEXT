@@ -14,3 +14,10 @@ export const reservationHref = (resId: string) => `/manager/reservations?highlig
 export const eventHref = (eventId: string) => `/manager/events?highlight=${eventId}`;
 export const promotionHref = (promoId: string) => `/manager/promotions?highlight=${promoId}`;
 export const adminTenantHref = (tenantId: string) => `/admin/venues/${tenantId}`;
+export const publicReservationHref = (publicSlug: string, date?: string, eventId?: string) => {
+  const params = new URLSearchParams();
+  if (date) params.set("date", date);
+  if (eventId) params.set("event", eventId);
+  const qs = params.toString();
+  return `/r/${publicSlug}${qs ? `?${qs}` : ""}`;
+};
