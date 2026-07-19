@@ -3,7 +3,8 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, MapPin, Minus, Plus, QrCode, Users } from "lucide-react";
+import { ArrowLeft, KeyRound, Loader2, Lock, MapPin, Minus, Plus, QrCode, Users } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,12 +17,15 @@ import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
 import { isDemoMode } from "@/lib/app-mode";
 import { guestsService } from "@/lib/services/guests-service";
+import { reservationService } from "@/lib/services/reservation-service";
 import { venueService } from "@/lib/services/venue-service";
-import type { Venue, VenueTable, Zone } from "@/lib/types";
+import type { Reservation, Venue, VenueTable, Zone } from "@/lib/types";
 
 /**
- * QR entry simulation: in production the guest lands here by scanning the
- * QR code printed on the table. Live mode validates its signed QR token.
+ * QR entry page — guest lands here by scanning the QR code on a table.
+ * If the table has an active confirmed reservation, the PIN gate blocks
+ * entry until the correct 6-digit PIN is entered (or a manager seats
+ * the party manually).
  */
 export default function QrEntryPage({
   params,
@@ -34,27 +38,67 @@ export default function QrEntryPage({
 
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<{ table: VenueTable; zone: Zone; venue: Venue } | null>(null);
+  const [activeReservation, setActiveReservation] = useState<Reservation | null>(null);
   const [name, setName] = useState("");
   const [partySize, setPartySize] = useState(2);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // PIN gate state
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinAttempts, setPinAttempts] = useState(0);
+  const [validatingPin, setValidatingPin] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
-    venueService.getTableBySlug(tableCode)
-      .then((res) => {
-        if (!cancelled) setResult(res);
-      })
-      .catch(() => {
+    (async () => {
+      try {
+        const tableResult = await venueService.getTableBySlug(tableCode);
+        if (cancelled) return;
+        setResult(tableResult);
+
+        if (tableResult) {
+          const reservation = await reservationService.getActiveReservationForTable(
+            tableResult.table.id,
+          );
+          if (!cancelled) setActiveReservation(reservation);
+        }
+      } catch {
         if (!cancelled) setResult(null);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
   }, [tableCode]);
+
+  async function handlePinSubmit() {
+    if (!result || pin.length !== 6) return;
+    setValidatingPin(true);
+    setPinError(null);
+    try {
+      const res = await reservationService.validatePinAndSeat(result.table.id, pin);
+      if (res.ok) {
+        toast.success("Reservation confirmed — welcome!");
+        setActiveReservation(null);
+      } else {
+        const attempts = pinAttempts + 1;
+        setPinAttempts(attempts);
+        if (attempts >= 3) {
+          setPinError("Too many attempts. Ask venue staff for help.");
+        } else {
+          setPinError(res.error ?? "Invalid PIN");
+        }
+      }
+    } catch {
+      setPinError("Could not verify PIN. Try again.");
+    } finally {
+      setValidatingPin(false);
+    }
+  }
 
   async function handleJoin() {
     if (!result) return;
@@ -144,61 +188,121 @@ export default function QrEntryPage({
         </div>
       </div>
 
-      <Card className="relative mt-8 animate-fade-up bg-card/80 backdrop-blur" style={{ animationDelay: "120ms" }}>
-        <CardContent className="space-y-5">
-          <div className="space-y-1.5">
-            <Label htmlFor="guest-name">Your first name</Label>
-            <Input
-              id="guest-name"
-              placeholder="e.g. Alex"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setError(null);
-              }}
-              className="h-12 text-base"
-            />
-            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Party size</Label>
-            <div className="flex items-center justify-between rounded-lg border p-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setPartySize((n) => Math.max(1, n - 1))}
-                aria-label="Fewer people"
-              >
-                <Minus className="size-4" />
-              </Button>
-              <span className="flex items-center gap-2 font-semibold tabular-nums">
-                <Users className="size-4 text-muted-foreground" /> {partySize}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setPartySize((n) => Math.min(result.table.seats, n + 1))}
-                aria-label="More people"
-              >
-                <Plus className="size-4" />
-              </Button>
+      {/* PIN gate: shown when table has an active confirmed reservation */}
+      {activeReservation ? (
+        <Card className="relative mt-8 animate-fade-up bg-card/80 backdrop-blur" style={{ animationDelay: "120ms" }}>
+          <CardContent className="space-y-5">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                <Lock className="size-5" />
+              </div>
+              <div>
+                <p className="font-semibold">Table reserved</p>
+                <p className="text-sm text-muted-foreground">
+                  This table has an active reservation. Enter the 6-digit PIN to proceed.
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              This table seats up to {result.table.seats}.
-            </p>
-          </div>
 
-          <Button size="lg" className="h-12 w-full glow-primary" onClick={handleJoin} disabled={joining}>
-            {joining && <Loader2 className="size-4 animate-spin" />}
-            {joining ? "Requesting…" : "Join this table"}
-          </Button>
-        </CardContent>
-      </Card>
+            {isDemoMode() && activeReservation.reservationPin && (
+              <div className="rounded-md border border-dashed border-amber-500/40 bg-amber-500/10 px-3 py-2 text-center text-sm">
+                <span className="text-xs text-muted-foreground">Demo PIN: </span>
+                <span className="font-mono font-semibold tracking-widest">{activeReservation.reservationPin}</span>
+              </div>
+            )}
 
-      <p className="relative mt-6 text-center text-xs text-muted-foreground animate-fade-up" style={{ animationDelay: "240ms" }}>
-        A host will approve your table before you can order.
-      </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="pin-input">
+                <KeyRound className="mr-1.5 inline size-3.5" />
+                Reservation PIN
+              </Label>
+              <Input
+                id="pin-input"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                value={pin}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  setPin(v);
+                  setPinError(null);
+                }}
+                className="h-12 text-center font-mono text-xl tracking-[0.3em]"
+              />
+              {pinError && <p className="text-sm text-red-600 dark:text-red-400">{pinError}</p>}
+            </div>
+
+            <Button
+              size="lg"
+              className="h-12 w-full"
+              onClick={handlePinSubmit}
+              disabled={pin.length !== 6 || validatingPin || pinAttempts >= 3}
+            >
+              {validatingPin && <Loader2 className="size-4 animate-spin" />}
+              {validatingPin ? "Verifying…" : "Unlock table"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <Card className="relative mt-8 animate-fade-up bg-card/80 backdrop-blur" style={{ animationDelay: "120ms" }}>
+            <CardContent className="space-y-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="guest-name">Your first name</Label>
+                <Input
+                  id="guest-name"
+                  placeholder="e.g. Alex"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setError(null);
+                  }}
+                  className="h-12 text-base"
+                />
+                {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Party size</Label>
+                <div className="flex items-center justify-between rounded-lg border p-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPartySize((n) => Math.max(1, n - 1))}
+                    aria-label="Fewer people"
+                  >
+                    <Minus className="size-4" />
+                  </Button>
+                  <span className="flex items-center gap-2 font-semibold tabular-nums">
+                    <Users className="size-4 text-muted-foreground" /> {partySize}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPartySize((n) => Math.min(result.table.seats, n + 1))}
+                    aria-label="More people"
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This table seats up to {result.table.seats}.
+                </p>
+              </div>
+
+              <Button size="lg" className="h-12 w-full glow-primary" onClick={handleJoin} disabled={joining}>
+                {joining && <Loader2 className="size-4 animate-spin" />}
+                {joining ? "Requesting…" : "Join this table"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <p className="relative mt-6 text-center text-xs text-muted-foreground animate-fade-up" style={{ animationDelay: "240ms" }}>
+            A host will approve your table before you can order.
+          </p>
+        </>
+      )}
     </div>
   );
 }
