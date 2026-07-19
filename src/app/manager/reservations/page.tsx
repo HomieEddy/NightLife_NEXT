@@ -34,6 +34,7 @@ import { reservationService } from "@/lib/services/reservation-service";
 import { venueService } from "@/lib/services/venue-service";
 import { formatTime } from "@/lib/format";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
+import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
 import type { Reservation, ReservationStatus, VenueTable, Zone } from "@/lib/types";
@@ -85,6 +86,7 @@ function ReservationsContent() {
   const [tables, setTables] = useState<VenueTable[]>([]);
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
+  const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
   const [zoneFilter, setZoneFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -180,6 +182,7 @@ function ReservationsContent() {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (zoneFilter !== "all" && r.zoneId !== zoneFilter) return false;
       if (!isInDateRange(r.startsAt, dateRange)) return false;
+      if ((customRange.from || customRange.to) && !isInCustomDateRange(r.startsAt, customRange)) return false;
       if (query.trim()) {
         const q = query.trim().toLowerCase();
         if (!`${r.guestName} ${zoneName(r.zoneId)} ${tableName(r.tableId)}`.toLowerCase().includes(q)) return false;
@@ -238,6 +241,8 @@ function ReservationsContent() {
           </div>
           <div className="h-4 w-px bg-border" />
           <DateFilter value={dateRange} onChange={setDateRange} />
+          <div className="h-4 w-px bg-border" />
+          <DateRangePicker value={customRange} onChange={setCustomRange} />
         </div>
       </div>
 

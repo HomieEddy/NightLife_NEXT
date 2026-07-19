@@ -24,6 +24,7 @@ import { StaffEditDialog } from "@/components/manager/staff-edit-dialog";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { SearchInput } from "@/components/shared/search-input";
+import { DateRangePicker, getDefaultDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { cn } from "@/lib/utils";
 import type { StaffAccountStatus, StaffMember, StaffRole, Zone } from "@/lib/types";
 
@@ -40,6 +41,7 @@ function StaffContent() {
   const [zoneFilter, setZoneFilter] = useState(searchParams.get("zone") ?? "all");
   const [roleFilter, setRoleFilter] = useState<StaffRole | "all">("all");
   const [query, setQuery] = useState("");
+  const [scheduleDateRange, setScheduleDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
 
@@ -257,8 +259,9 @@ function StaffContent() {
         </TabsContent>
 
         {/* ---------- Schedule tab ---------- */}
-        <TabsContent value="schedule" className="pt-3">
-          <ScheduleTab staff={staff ?? []} zones={zones} />
+        <TabsContent value="schedule" className="pt-3 space-y-4">
+          <DateRangePicker value={scheduleDateRange} onChange={setScheduleDateRange} />
+          <ScheduleTab staff={staff ?? []} zones={zones} dateRange={scheduleDateRange} />
         </TabsContent>
       </Tabs>
 

@@ -26,6 +26,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { eventsService } from "@/lib/services/events-service";
 import { venueService } from "@/lib/services/venue-service";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
+import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
 import type { EventGuest, EventStatus, VenueEvent, Zone } from "@/lib/types";
@@ -70,6 +71,7 @@ function EventsContent() {
   const [guestsByEvent, setGuestsByEvent] = useState<Record<string, EventGuest[]>>({});
   const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("week");
+  const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -169,6 +171,7 @@ function EventsContent() {
   const visible = (events ?? []).filter((ev) => {
     if (statusFilter !== "all" && ev.status !== statusFilter) return false;
     if (!isInDateRange(ev.startsAt, dateRange)) return false;
+    if ((customRange.from || customRange.to) && !isInCustomDateRange(ev.startsAt, customRange)) return false;
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       if (!`${ev.name} ${ev.description} ${zoneName(ev.zoneId)}`.toLowerCase().includes(q)) return false;
@@ -217,6 +220,8 @@ function EventsContent() {
           </div>
           <div className="h-4 w-px bg-border" />
           <DateFilter value={dateRange} onChange={setDateRange} />
+          <div className="h-4 w-px bg-border" />
+          <DateRangePicker value={customRange} onChange={setCustomRange} />
         </div>
       </div>
 
