@@ -555,10 +555,9 @@ export async function getHistoricalForVenue(
       }))
       .sort((a, b) => b.count - a.count);
 
-    // TODO(backend): add channel column to reservations table (plan 13 migration)
     const channelCounts: Record<string, number> = {};
     for (const r of reservations) {
-      const ch = r.source === "manager" ? "manager" : ((r as Record<string, unknown>).channel as string ?? "direct");
+      const ch = r.source === "manager" ? "manager" : (r.channel ?? "direct");
       channelCounts[ch] = (channelCounts[ch] ?? 0) + 1;
     }
     const channelSplit = Object.entries(channelCounts)
