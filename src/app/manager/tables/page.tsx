@@ -20,6 +20,7 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { TableCard } from "@/components/shared/table-card";
 import { venueService } from "@/lib/services/venue-service";
+import { SearchInput } from "@/components/shared/search-input";
 import { useHighlight } from "@/lib/use-highlight";
 import { cn } from "@/lib/utils";
 import type { TableStatus, VenueTable, Zone } from "@/lib/types";
@@ -39,6 +40,8 @@ function TablesContent() {
   const [zones, setZones] = useState<Zone[]>([]);
   const [tables, setTables] = useState<VenueTable[] | null>(null);
   const [zoneFilter, setZoneFilter] = useState(searchParams.get("zone") ?? "all");
+  const [statusFilter, setStatusFilter] = useState<TableStatus | "all">("all");
+  const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<TableDraft | null>(null);
@@ -116,9 +119,16 @@ function TablesContent() {
     await refresh();
   }
 
-  const visible = (tables ?? []).filter(
-    (t) => zoneFilter === "all" || t.zoneId === zoneFilter,
-  );
+  const visible = (tables ?? []).filter((t) => {
+    if (zoneFilter !== "all" && t.zoneId !== zoneFilter) return false;
+    if (statusFilter !== "all" && t.status !== statusFilter) return false;
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      const haystack = [t.code, t.label, zoneName(t.zoneId) ?? ""].join(" ").toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
   const zoneName = (id: string) => zones.find((z) => z.id === id)?.name;
   const zoneChips = (zoneId: string) => {
     const name = zoneName(zoneId);
@@ -158,10 +168,36 @@ function TablesContent() {
         }
       />
 
+      <div className="flex flex-wrap items-center gap-3">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search tables…"
+          className="w-full sm:w-56"
+        />
+        <div className="flex flex-wrap gap-1.5">
+          {(["all", ...STATUSES] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                statusFilter === s
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {s === "all" ? "All" : s}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {tables === null ? (
         <ListSkeleton rows={6} rowHeight="h-28" />
       ) : visible.length === 0 ? (
-        <EmptyState icon={Table2} title="No tables in this zone" />
+        <EmptyState icon={Table2} title="No tables match" description="Try adjusting the filters." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((table) => (

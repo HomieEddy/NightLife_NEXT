@@ -23,8 +23,9 @@ import { ScheduleTab } from "@/components/manager/schedule-tab";
 import { StaffEditDialog } from "@/components/manager/staff-edit-dialog";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
+import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
-import type { StaffAccountStatus, StaffMember, Zone } from "@/lib/types";
+import type { StaffAccountStatus, StaffMember, StaffRole, Zone } from "@/lib/types";
 
 const ACCOUNT_BADGE: Record<StaffAccountStatus, { label: string; className: string } | null> = {
   active: null, // the default — no badge noise
@@ -37,6 +38,8 @@ function StaffContent() {
   const [staff, setStaff] = useState<StaffMember[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [zoneFilter, setZoneFilter] = useState(searchParams.get("zone") ?? "all");
+  const [roleFilter, setRoleFilter] = useState<StaffRole | "all">("all");
+  const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
 
@@ -61,9 +64,15 @@ function StaffContent() {
   }
 
   const zoneName = (id: string) => zones.find((z) => z.id === id)?.name ?? id;
-  const visible = (staff ?? []).filter(
-    (s) => zoneFilter === "all" || s.assignedZoneIds.includes(zoneFilter),
-  );
+  const visible = (staff ?? []).filter((s) => {
+    if (zoneFilter !== "all" && !s.assignedZoneIds.includes(zoneFilter)) return false;
+    if (roleFilter !== "all" && s.role !== roleFilter) return false;
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      if (!`${s.name} ${s.email} ${s.role}`.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
   const onShift = visible.filter((s) => s.isOnShift).length;
 
   return (
@@ -97,6 +106,32 @@ function StaffContent() {
           </div>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <SearchInput
+          value={query}
+          onChange={setQuery}
+          placeholder="Search staff…"
+          className="w-full sm:w-56"
+        />
+        <div className="flex flex-wrap gap-1.5">
+          {(["all", "manager", "bartender", "runner", "host"] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRoleFilter(r)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                roleFilter === r
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {r === "all" ? "All roles" : r}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <Tabs defaultValue="team">
         <TabsList>

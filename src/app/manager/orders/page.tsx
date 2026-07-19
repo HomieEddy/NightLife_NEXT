@@ -22,6 +22,7 @@ import { formatMoney } from "@/lib/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { SessionOverview } from "@/components/shared/session-overview";
 import { cn } from "@/lib/utils";
+import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import type {
   GuestSession, MenuCategory, MenuItem, Order, OrderStatus, StaffMember, VenueTable, Zone,
 } from "@/lib/types";
@@ -53,6 +54,7 @@ export default function ManagerOrdersPage() {
   const [tableFilter, setTableFilter] = useState("all");
   const [staffFilter, setStaffFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<DateRange>("today");
 
   const refresh = useCallback(async () => {
     setOrders(await ordersService.listOrders());
@@ -106,6 +108,8 @@ export default function ManagerOrdersPage() {
           if (!hasCategory) return false;
         }
 
+        if (!isInDateRange(order.placedAt, dateRange)) return false;
+
         if (query.trim()) {
           const q = query.trim().toLowerCase();
           const haystack = [
@@ -122,7 +126,7 @@ export default function ManagerOrdersPage() {
         return true;
       })
       .sort((a, b) => b.placedAt.localeCompare(a.placedAt));
-  }, [orders, status, zoneFilter, tableFilter, staffFilter, categoryFilter, query, staff, itemCategory]);
+  }, [orders, status, zoneFilter, tableFilter, staffFilter, categoryFilter, query, staff, itemCategory, dateRange]);
 
   const hasFilters =
     query !== "" ||
@@ -130,7 +134,8 @@ export default function ManagerOrdersPage() {
     zoneFilter !== "all" ||
     tableFilter !== "all" ||
     staffFilter !== "all" ||
-    categoryFilter !== "all";
+    categoryFilter !== "all" ||
+    dateRange !== "today";
 
   function clearFilters() {
     setQuery("");
@@ -139,6 +144,7 @@ export default function ManagerOrdersPage() {
     setTableFilter("all");
     setStaffFilter("all");
     setCategoryFilter("all");
+    setDateRange("today");
   }
 
   const visibleTotal = visible.reduce((s, o) => s + o.total, 0);
@@ -221,22 +227,26 @@ export default function ManagerOrdersPage() {
             />
           </div>
 
-          <div className="flex flex-wrap gap-1.5">
-            {STATUS_FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setStatus(f.id)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
-                  status === f.id
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap gap-1.5">
+              {STATUS_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setStatus(f.id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors",
+                    status === f.id
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <div className="h-4 w-px bg-border" />
+            <DateFilter value={dateRange} onChange={setDateRange} />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
