@@ -17,7 +17,7 @@ Branch `chore/17-database-operations`.
 
 The schema itself is in good shape by construction — Prisma migrations,
 foreign keys, integer cents (AD-5), `venueId` on every tenant row. What has
-never existed is the *operational* layer around it, because until Hetzner
+never existed is the *operational* layer around it, because until OVHcloud
 there was no long-lived database to operate. The riskiest gap is
 restore-blindness; the cheapest high-value work is indexes (every list page
 filters by `venueId` + a status/date column; Prisma only auto-indexes
@@ -36,8 +36,8 @@ it somewhere readable.
 - **Backups: `pg_dump` nightly via cron on the VPS** (Coolify's scheduled
   backup for the Postgres service where available, plain cron + script
   otherwise), compressed, encrypted (age or gpg with a key held outside the
-  VPS), shipped to Hetzner Storage Box (separate failure domain from the
-  VPS disk). Retention: 7 daily, 4 weekly, 12 monthly — pruned by the same
+  VPS), shipped to OVHcloud Object Storage or a separate OVHcloud VPS
+  (separate failure domain from the VPS disk; must remain in Canada for Law 25). Retention: 7 daily, 4 weekly, 12 monthly — pruned by the same
   script. Staging backs up too (smaller retention) because staging is where
   the restore drill runs monthly.
 - **The restore drill is a documented, executed procedure**, not prose:

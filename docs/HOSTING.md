@@ -1,7 +1,8 @@
 # Hosting Strategy — NightLifeNext
 
-Status: decided · Owner: Eddy · Last updated: 2026-07-18
-Cross-ref: `docs/ARD.md` AD-15, `AGENTS.md` §9.11
+Status: decided · Owner: Eddy · Last updated: 2026-07-20
+Cross-ref: `docs/ARD.md` AD-15, `AGENTS.md` §9.11 ·
+VPS provisioning/hardening: `docs/RUNBOOK-VPS-SETUP.md`
 
 ## Decision
 
@@ -19,7 +20,7 @@ Three deployment targets, two hosting providers:
 └────────────────────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────────────────────┐
-│  Hetzner VPS + Coolify                                     │
+│  OVHcloud VPS (Beauharnois, QC) + Coolify                  │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  Staging                                             │  │
 │  │  NEXT_PUBLIC_APP_MODE=live                           │  │
@@ -47,18 +48,28 @@ Keeping the demo on Vercel also enforces a clean separation: the demo can never
 accidentally depend on real infrastructure, and demo visitors can never touch
 customer data.
 
-### Staging + Production on Hetzner
+### Staging + Production on OVHcloud (Beauharnois, QC)
 
 The live app has characteristics that favor a persistent VPS over serverless:
 
-| Factor | Vercel (serverless) | Hetzner VPS |
+| Factor | Vercel (serverless) | OVHcloud VPS |
 |---|---|---|
 | **SSE real-time** | Cold starts, Lambda churn | Persistent connections, instant |
 | **DB connections** | Pool churn per invocation | Stable connection pool |
 | **Traffic pattern** | Pay-per-invoke (idle weekdays, peak weekends) | Fixed cost, predictable |
-| **Cost at scale** | $500–2k/mo at 5+ venues | $30–50/mo VPS |
+| **Cost at scale** | $500–2k/mo at 5+ venues | ~$12 CAD/mo VPS |
 | **Long-running work** | 60s function limit | No limit |
 | **Infrastructure parity** | Staging ≠ prod if prod is VPS | Staging = prod |
+| **Data residency** | US/EU edge (no control) | Quebec, Canada (PIPEDA + Law 25 compliant) |
+
+**Privacy compliance driver:** customer data (guest PII, staff records, payment
+metadata) must remain in Canada to satisfy PIPEDA and Quebec's Law 25 without
+requiring a cross-border Privacy Impact Assessment. OVHcloud's Beauharnois, QC
+data center (region code `BHS`) keeps all live data on Canadian soil.
+
+**VPS tier:** OVHcloud VPS-2 — 4 vCores, 8 GB RAM, 75 GB NVMe, 1 Gbps,
+~$11.64 CAD/mo. Enough headroom for Coolify + Postgres + Next.js with room for
+early multi-venue load; 1-click upscale to VPS-3/VPS-4 when needed.
 
 Coolify provides the deployment experience: git-push auto-deploys, Let's
 Encrypt SSL, Docker orchestration, environment variable management, rollbacks,
@@ -113,8 +124,8 @@ require Docker.
 | Environment | Host | Branch | DB | Stripe |
 |---|---|---|---|---|
 | `dev` | Local machine | any | PGlite, compose Postgres, or external PG | Test keys |
-| `staging` | Hetzner/Coolify | `dev` | Staging Postgres | Test keys |
-| `production` | Hetzner/Coolify | `master` | Production Postgres | Live keys |
+| `staging` | OVHcloud BHS/Coolify | `dev` | Staging Postgres | Test keys |
+| `production` | OVHcloud BHS/Coolify | `master` | Production Postgres | Live keys |
 | `demo` | Vercel | `master` | None | None |
 
 ## Deployment flow
@@ -122,12 +133,12 @@ require Docker.
 Full branching strategy is in `AGENTS.md` §10.8.
 
 ```
-feature/NN-name ──PR──► dev (staging on Hetzner) ──PR──► master (prod + demo)
-fix/bug-name    ──PR──►          │                              │
-refactor/name   ──PR──►          │                              │
-                          auto-deploy                    auto-deploy
-                          Hetzner staging               Hetzner prod +
-                                                        Vercel demo
+feature/NN-name ──PR──► dev (staging on OVHcloud BHS) ──PR──► master (prod + demo)
+fix/bug-name    ──PR──►          │                                │
+refactor/name   ──PR──►          │                                │
+                          auto-deploy                      auto-deploy
+                          OVHcloud staging                OVHcloud prod +
+                                                          Vercel demo
 
 hotfix/critical ─────────────────────────────────PR──► master
                                                         │
@@ -142,11 +153,11 @@ hotfix/critical ─────────────────────�
 
 ## Cost projection
 
-| Stage | Vercel | Hetzner | Postgres | Total |
+| Stage | Vercel | OVHcloud | Postgres | Total |
 |---|---|---|---|---|
-| Pre-revenue | Free (demo) | ~€10/mo (shared VPS) | ~€0 (PGlite or small managed) | ~€10/mo |
-| 3–5 venues | Free (demo) | ~€20–30/mo | ~€10–20/mo (managed) | ~€30–50/mo |
-| 10+ venues | Free (demo) | ~€40–80/mo (dedicated) | ~€30–50/mo | ~€70–130/mo |
+| Pre-revenue | Free (demo) | ~$12 CAD/mo (VPS-2) | ~$0 (PGlite or self-hosted) | ~$12 CAD/mo |
+| 3–5 venues | Free (demo) | ~$12–17 CAD/mo | ~$10–20/mo (managed) | ~$22–37 CAD/mo |
+| 10+ venues | Free (demo) | ~$32–50 CAD/mo (VPS-4+) | ~$30–50/mo | ~$62–100 CAD/mo |
 
 Compare: Vercel Pro + Neon at 10 venues would run $500–2k/mo for equivalent
 compute + database + bandwidth.
@@ -154,7 +165,7 @@ compute + database + bandwidth.
 ## Future considerations
 
 - **Separate VPSes** for staging and production when load justifies it.
-- **Managed Postgres** (Hetzner's own or a provider like Supabase/Neon) if
-  self-hosted PG ops becomes a burden.
+- **Managed Postgres** (OVHcloud's own or a Canadian-hosted provider) if
+  self-hosted PG ops becomes a burden — must remain in Canada for Law 25.
 - **CDN/edge caching** for static assets via Cloudflare in front of the VPS.
 - **Horizontal scaling** via multiple Coolify nodes if a single VPS maxes out.
