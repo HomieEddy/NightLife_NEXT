@@ -25,13 +25,22 @@ method bodies behind a stable interface (R1).
 | 11 | Luxe VIP Gold visual revamp — complete | [11-luxe-vip-gold-revamp-PLAN](plans/11-luxe-vip-gold-revamp-PLAN.md) | — (presentation-layer) | Low | none — design-system tokens, shared primitives, guest/public/ops reskin |
 | 12 | Containerized local dev — complete | [12-local-dev-containers-PLAN](plans/12-local-dev-containers-PLAN.md) | — (tooling-only) | Low | none — Dockerfile, compose.yaml, npm scripts, docs |
 | 13 | Embedded reservations & QR gate — demo complete | [13-embedded-reservations-PLAN](plans/13-embedded-reservations-PLAN.md) | 03, 06, 08, 09 | Low | `reservation-service` (channel, PIN, public avail), `venue-service` (publicSlug), `entity-links`, floor-map canvas extraction |
+| 14 | CI/CD & deployment runbook | [14-cicd-deployment-PLAN](plans/14-cicd-deployment-PLAN.md) | — | Low | none — `ci.yml`, branch protection, rollback rehearsal, RUNBOOK deploys |
+| 15 | Security hardening | [15-security-hardening-PLAN](plans/15-security-hardening-PLAN.md) | 01–10 | Med | `rate-limit.ts` coverage gaps, headers, cookie flags, secrets scan |
+| 16 | Observability: logging, errors, health, uptime | [16-observability-PLAN](plans/16-observability-PLAN.md) | — (15 pairs well) | Low‑Med | none — pino, Sentry, `/api/health`, Uptime Kuma, RUNBOOK triage |
+| 17 | Database operations & backups | [17-database-operations-PLAN](plans/17-database-operations-PLAN.md) | 12, staging DB | Med | backups + restore drill, roles, pooling, index audit |
+| 18 | Notification core & email (Resend) | [18-notifications-email-PLAN](plans/18-notifications-email-PLAN.md) | 02, 08, 09/09c, 13 | Med | AD-8/AD-9 markers in report/rollup code; staff invite link-only path |
+| 19 | SMS notifications (Twilio) | [19-notifications-sms-PLAN](plans/19-notifications-sms-PLAN.md) | 18 | Low‑Med | plan-13 PIN-delivery TODO |
+| 20 | i18n: full French/English support | [20-i18n-french-english-PLAN](plans/20-i18n-french-english-PLAN.md) | — (22 renders through it; 18/19 templates) | Med | hardcoded UI strings app-wide, `format.ts` locales, venue `guestLocale`, locale toggle beside `ThemeToggle` |
+| 21 | PWA, web push & notification preferences | [21-pwa-web-push-PLAN](plans/21-pwa-web-push-PLAN.md) | 07, 18 | Med | none — manifest/SW, `PushSubscription`, `NotificationPreferences`, push channel on the dispatcher |
+| 22 | Compliance & privacy (Law 25 / PIPEDA) | [22-compliance-privacy-PLAN](plans/22-compliance-privacy-PLAN.md) | 18 | Med | policy/ToS pages, consent, retention job, deletion paths, breach register |
 
 \* **Scheduled email is the one unshipped leg of plans 09/09c.** The report
 engine stores `schedule` and computes due-selection, rollups have
 `computeRollup`/`upsertRollup`, and the `job_runs` table exists — but no cron
 handler (`/api/jobs/*`) invokes them and no email sender is wired (AD-8 Resend
 never landed; staff invites currently surface as copyable links via Better
-Auth). Tracked in the parking lot below.
+Auth). **Plan 18 closes this** — the footnote dies when it ships.
 
 Rationale for the two deviations from a naive order: **auth before venue CRUD**
 because R2 (tenant scoping) needs a session to scope by, and retrofitting auth
@@ -66,6 +75,49 @@ complete; the Prisma schema migration for `channel`, `guestEmail`, `guestPhone`,
 `reservationPin` and `publicSlug` is committed. Graduation to live requires
 implementing the public reservation API routes and wiring the live service
 selector branch.
+
+Plans 14–22 are the **production-readiness wave**, driven by the go/no-go
+checklist (`production-ready-b2b-saas-balanced.md`, adapted — items the
+architecture already satisfies by construction are audited, not rebuilt),
+and are **numbered in execution order**. Four are operational: 14 (CI/CD),
+15 (security hardening), 16 (observability) and 17 (database ops + tested
+backups). Four are product features: 18 (notification dispatch core +
+Resend email, absorbing the parked AD-8/AD-9 debt), 19 (Twilio SMS —
+reservation PIN delivery, plan 13's open TODO), 20 (full French/English
+i18n — a QC-market requirement, Bill 96, with a locale toggle beside the
+theme toggle) and 21 (PWA install + web push for staff phones). Plan 22
+(Law 25/PIPEDA compliance) closes the wave — it rides 18's cron infra and
+20's locale plumbing, and gates production onboarding.
+
+## Go-live gate — staging, then production
+
+Execution order is the numbering: **14 → 15 → 16 → 17 → 18 → 19 → 20 →
+21 → 22.** CI first so every later plan lands through the gate; security
+and observability before real traffic; database ops once the staging DB
+holds anything worth keeping; the feature wave rides the hardened
+platform; i18n before compliance so plan 22's bilingual policy pages
+render through plan 20's locale plumbing (and plan 18/19 templates gain
+their French variants); compliance completes before a real venue signs.
+
+**Staging go-live requires:** 14 (CI + deploy wiring + rollback rehearsed),
+15 (rate limits, headers, secrets scan), 16 (health, logging, error
+tracking, uptime alerts), 17 (backups with a performed restore, roles,
+pooling). Plans 18–21 are validated *on* staging, not prerequisites for it.
+
+**Production onboarding of a real venue additionally requires:** 18 and 19
+(a venue's guests must actually receive PINs and confirmations), 22 in full
+(published policy, consent, retention, deletion, breach procedure), 20 at
+least through its guest + public workstreams (Bill 96: a QC venue's guests
+must be servable in French — ops-area French can trail), and the
+checklist's launch-day script executed with evidence. 21 (PWA/push) is
+strongly recommended for floor-staff UX but is not a legal or safety gate.
+
+The go/no-go checklist maps to plans as: Security → 15 (+02/AD-3/AD-7 by
+construction) · Database → 17 · Rate limiting & input → 15 · Code & testing
+→ 14 (CI enforcement; suites exist per §7b) · Infrastructure & monitoring →
+14 + 16 · Compliance → 22. Any unchecked row at gate time carries a written,
+dated deferral in `docs/SECURITY.md` or the relevant plan — silence is not a
+pass.
 
 ## Demo co-existence (AD-14) — how to read the plans
 
@@ -102,7 +154,7 @@ the migration — follow the permanent loop (AD-14):
    review checklist, exit criteria), implement the real branch, wire the
    selector, drop the gate — one PR, this definition of done.
 
-Numbering continues from 14. UI sketching for new features can proceed in
+Numbering continues from 23. UI sketching for new features can proceed in
 parallel with backend plans — the two tracks only meet at graduation.
 
 ## Definition of done — every feature, no exceptions
@@ -121,9 +173,26 @@ parallel with backend plans — the two tracks only meet at graduation.
 
 ## Phase 3 parking lot (not planned, recorded so they stop haunting scope talks)
 
-Scheduled report email delivery (AD-8/AD-9: Resend + cron handlers for
-due-schedule runs and the nightly rollup — the only unshipped leg of plans
-09/09c) · reservation PIN delivery via SMS/email (plan 13 TODO) · guest card
-payments (Stripe Connect) · multi-venue owner accounts · POS/KDS
-integrations · printer hardware · native apps · offline mode · RLS
-defense-in-depth (AD-3) · real charting lib (`mock-chart` TODO).
+Each entry carries its reason so the deferral survives the next scope talk
+without relitigating it. An item leaves this table only with a plan number.
+
+| Deferred | Why it stays |
+|---|---|
+| Guest card payments (Stripe Connect) | **Deliberate product omission, not a backlog item.** Guest payments mean consumer CC fraud, chargebacks and disputes — with anonymous nightclub guests, at night, with alcohol involved. We vet the tenants we onboard; we have zero control over their guests. Orders settle through the venue's existing till — the venue keeps the payment risk it already knows how to carry. |
+| Multi-venue owner accounts | No tenants yet; build when a second venue of the same owner signs. |
+| POS/KDS integrations, printer hardware | Integration requests must come from real customers — earn them. |
+| Native apps | Plan 21 (PWA + push) covers the need without two app stores. |
+| Offline mode (incl. any SW caching) | Plan 21 ships a push-only service worker; casual caching breaks deploys. No evidence of need yet. |
+| RLS defense-in-depth (AD-3) | App-layer scoping + `expectTenantIsolation()` canaries hold; promote at the first external security audit. |
+| Real charting lib (`mock-chart` TODO) | `mock-chart` works until a customer asks for something it can't draw. |
+| Marketing email/SMS | Plans 18/19 are transactional-only; no list, and CASL consent infra for commercial messages doesn't exist yet. |
+| Enforced CSP for scripts | Plan 15 ships report-only; Next's inline runtime makes enforcement its own project. |
+| Metrics timeseries stack (Prometheus/Grafana/Loki) | Plan 16 defers with a named trigger: needed for *trends*, not *incidents* — Sentry + health checks cover incidents. |
+| Redis-backed rate limiting | Single VPS process (AD-15); the in-memory limiter is correct for the topology. Revisit at scale-out. |
+| Queue infrastructure for sends (BullMQ) | Earned by send volume; synchronous sends suffice at this scale. |
+| Self-serve DSAR portal · GDPR | Plan 22 covers Law 25/PIPEDA by documented procedure; request volume doesn't justify a portal. No EU market. |
+| Locales beyond fr/en, RTL, venue-content translation, locale-prefixed SEO routing | Plan 20 ships fr/en UI chrome only — the QC market's actual requirement. |
+
+*(Formerly listed here, now planned: scheduled report email → plan 18 ·
+reservation PIN delivery via SMS/email → plans 18/19 · notification
+preferences UI → plan 21.)*
