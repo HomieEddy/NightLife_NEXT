@@ -41,7 +41,7 @@ Why containers at all, given `dev:pglite` exists? Three gaps:
    ".env archaeology".
 
 What this plan is **not**: it is not the production Dockerfile for
-Coolify/Hetzner. Coolify builds its own deployment (AD-15); if it can later
+Coolify/OVHcloud. Coolify builds its own deployment (AD-15); if it can later
 reuse the `runner` stage of our Dockerfile, fine, but prod deployment config
 is out of scope here. It also does not deprecate `npm run dev` /
 `dev:pglite` — the fastest inner loop (native HMR, in-process DB) stays

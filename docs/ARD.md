@@ -27,10 +27,11 @@ webhooks are route handlers; scheduled runs use platform cron (AD-9).
 **Choice:** PostgreSQL + Prisma as ORM — the codebase already annotates types
 with "mirror as Prisma models" (`src/lib/types.ts` TODO).
 
-**Implementation status:** shipped. Postgres 17 self-hosted on Hetzner via
-Docker/Coolify per AD-15 (supersedes the original "managed provider (Neon)"
-leaning — HOSTING.md is the authority); PGlite in-process for local dev and
-integration tests; `prisma/schema.prisma` is the deployed source of truth.
+**Implementation status:** shipped. Postgres 17 self-hosted on OVHcloud
+(Beauharnois, QC) via Docker/Coolify per AD-15 (supersedes the original
+"managed provider (Neon)" leaning — HOSTING.md is the authority); PGlite
+in-process for local dev and integration tests; `prisma/schema.prisma` is the
+deployed source of truth.
 
 **Alternatives:** Drizzle (fine choice; Prisma wins on the existing TODO contract,
 migration tooling and team familiarity); SQLite/Turso (multi-tenant + concurrent
@@ -131,7 +132,7 @@ Adopt Resend when the first mail must actually send.
 ## AD-9 · Background work: platform cron + idempotent jobs
 
 **Choice:** a scheduled trigger hitting authenticated route handlers (Coolify
-cron on the Hetzner deploy per AD-15 — the live app no longer runs on Vercel):
+cron on the OVHcloud deploy per AD-15 — the live app no longer runs on Vercel):
 `/api/jobs/run-scheduled-reports` (report-service TODO) and the nightly rollup
 (AD-11). Jobs are idempotent and record runs in a `job_runs` table — rerunning is
 always safe. (Promotion expiry needs no job — status derives from dates; see
@@ -175,7 +176,7 @@ service layer (table/staff counts). Guest order payment stays out of scope (PRD 
 
 **Choice:** `dev` (PGlite in-process, compose-stack Postgres, or external PG —
 seeded from mock data), `preview`
-(per-PR on Hetzner staging, seeded, Stripe test mode), `prod` (Hetzner production).
+(per-PR on OVHcloud staging, seeded, Stripe test mode), `prod` (OVHcloud production).
 All secrets via env vars validated at boot with a Zod env schema (`src/lib/env.ts`).
 The public Live Demo is **not** an environment of the real backend — see AD-14.
 Hosting provider choices are in AD-15.
@@ -245,7 +246,7 @@ source (AD-10) *and* a shipped product.
    (same template), implement the real branch `satisfies` the mock's type, wire
    the selector, remove the gate — one PR, per the roadmap's definition of done.
 
-## AD-15 · Hosting: Vercel (demo) + Hetzner/Coolify (staging & prod)
+## AD-15 · Hosting: Vercel (demo) + OVHcloud BHS/Coolify (staging & prod)
 
 **Context:** the app has two distinct deployment profiles. The demo build
 (`NEXT_PUBLIC_APP_MODE=demo`) is a stateless marketing tool — no database, no
@@ -258,16 +259,18 @@ traffic patterns (Friday/Saturday peaks, quiet weekdays).
 | Target | Host | Mode | Database | Purpose |
 |---|---|---|---|---|
 | **Demo** | Vercel | `demo` | None | Marketing tour, public sandbox |
-| **Staging** | Hetzner VPS + Coolify | `live` | Postgres (separate DB) | QA, 2 test venues, feature validation |
-| **Production** | Hetzner VPS + Coolify | `live` | Postgres (separate DB) | Customer venues, revenue |
+| **Staging** | OVHcloud VPS (BHS) + Coolify | `live` | Postgres (separate DB) | QA, 2 test venues, feature validation |
+| **Production** | OVHcloud VPS (BHS) + Coolify | `live` | Postgres (separate DB) | Customer venues, revenue |
 
 - **Demo stays on Vercel** — it's lightweight, stateless, and fits the free/hobby
   tier indefinitely. No database cost. Vercel's edge CDN makes the demo fast
   globally with zero ops. This is the only Vercel deployment.
-- **Staging and production share a Hetzner VPS** (or separate VPSes as load
-  grows), managed via Coolify — git-push deploys, Let's Encrypt, Docker
-  orchestration. Staging runs against its own Postgres database with 2 dummy
-  tenants for end-to-end feature testing in prod-identical infrastructure.
+- **Staging and production share an OVHcloud VPS in Beauharnois, QC** (or
+  separate VPSes as load grows), managed via Coolify — git-push deploys, Let's
+  Encrypt, Docker orchestration. Staging runs against its own Postgres database
+  with 2 dummy tenants for end-to-end feature testing in prod-identical
+  infrastructure. Quebec hosting satisfies PIPEDA and Law 25 data-residency
+  requirements without a cross-border Privacy Impact Assessment.
 - **Coolify provides the deployment DX** — GitHub auto-deploy on push, preview
   deployments per branch, rollbacks, environment variable management, and
   monitoring. It fills the gap between raw VPS and Vercel's managed experience.
@@ -277,23 +280,27 @@ traffic patterns (Friday/Saturday peaks, quiet weekdays).
 - *Vercel for everything* — pay-per-invocation pricing scales poorly with
   predictable evening-peak traffic; serverless cold starts hurt SSE real-time
   (AD-6); connection pooling churn between Lambda invocations and Postgres;
-  cost crosses VPS breakeven at ~3–5 paying venues (~$500–2k/mo vs $30–50/mo
-  Hetzner).
-- *Vercel for staging, Hetzner for prod* — staging would not catch
+  cost crosses VPS breakeven at ~3–5 paying venues (~$500–2k/mo vs ~$12 CAD/mo
+  OVHcloud).
+- *Vercel for staging, OVHcloud for prod* — staging would not catch
   infrastructure-parity issues (connection behavior, SSE persistence, cron
   execution). Testing on Vercel then shipping on VPS introduces a class of
   bugs that only surface in production.
-- *Hetzner for everything including demo* — unnecessary ops burden for a
+- *Hetzner (Germany/Finland)* — technically capable, but customer data would
+  leave Canada, triggering PIPEDA cross-border requirements and a mandatory
+  Privacy Impact Assessment under Quebec's Law 25. OVHcloud BHS avoids this.
+- *OVHcloud for everything including demo* — unnecessary ops burden for a
   stateless marketing page; Vercel's CDN + zero-config is strictly better for
   static-ish content with no database.
 
 **Consequences:**
-- CI deploys the demo build to Vercel and the live build to Hetzner/Coolify —
+- CI deploys the demo build to Vercel and the live build to OVHcloud/Coolify —
   same repo, different build commands (`NEXT_PUBLIC_APP_MODE=demo|live`).
 - Staging is the gate before production; features must pass there first.
 - The demo and live builds never share infrastructure or databases.
-- AD-13 environments map: `dev` = local, `preview` = Hetzner staging,
-  `prod` = Hetzner production, demo = Vercel (not a backend environment).
+- AD-13 environments map: `dev` = local, `preview` = OVHcloud staging,
+  `prod` = OVHcloud production, demo = Vercel (not a backend environment).
+- All customer PII stays in Quebec (OVHcloud BHS) — no cross-border transfer.
 
 ## System sketch
 
