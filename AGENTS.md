@@ -347,9 +347,11 @@ where this section and docs/ disagree, docs/ wins and this file gets fixed.
     — one PR per the roadmap's definition of done. Sketching costs no backend
     work; features killed in the sandbox cost nothing at all.
 11. **Hosting topology (ARD AD-15):** the demo build deploys to Vercel (free,
-    stateless, CDN-cached). Staging and production deploy to Hetzner VPS via
-    Coolify (git-push deploys, same infrastructure for both). Never test live
-    features against Vercel infrastructure — staging must be prod-identical.
+    stateless, CDN-cached). Staging and production deploy to OVHcloud VPS
+    (Beauharnois, QC) via Coolify (git-push deploys, same infrastructure for
+    both). Quebec hosting satisfies PIPEDA + Law 25 data-residency requirements.
+    Never test live features against Vercel infrastructure — staging must be
+    prod-identical.
 
 ## 10. Version control
 
@@ -390,8 +392,8 @@ readable; they codify how this repo has actually been built.
 
    | Branch | Deploys to | Accepts merges from |
    |---|---|---|
-   | `dev` | Hetzner staging (auto-deploy) | Feature, fix, refactor, chore branches |
-   | `master` | Hetzner production + Vercel demo (auto-deploy) | `dev` only (release PRs) |
+   | `dev` | OVHcloud staging (auto-deploy) | Feature, fix, refactor, chore branches |
+   | `master` | OVHcloud production + Vercel demo (auto-deploy) | `dev` only (release PRs) |
 
    **Work branches** — branch from `dev`, merge back to `dev` via PR:
 
@@ -414,7 +416,7 @@ readable; they codify how this repo has actually been built.
    refactor/receipts   ──PR──►     │                     │
                                    │                     │
                             auto-deploys to         auto-deploys to
-                            Hetzner staging         Hetzner prod +
+                            OVHcloud staging        OVHcloud prod +
                                                     Vercel demo
    ```
 
