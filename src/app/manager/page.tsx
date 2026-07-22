@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InfoTip } from "@/components/shared/info-tip";
 import { MetricCard } from "@/components/shared/metric-card";
 import { MockChart } from "@/components/shared/mock-chart";
 import { OrderCard } from "@/components/shared/order-card";
@@ -177,6 +178,7 @@ function TonightTab({
             value={formatMoney(summary.revenueTonight, currency)}
             deltaPct={summary.revenueDeltaPct}
             icon={CircleDollarSign}
+            info="Total revenue from all delivered orders tonight, before fees."
             featured
           />
           <MetricCard
@@ -184,17 +186,20 @@ function TonightTab({
             value={String(summary.ordersTonight)}
             deltaPct={summary.ordersDeltaPct}
             icon={Receipt}
+            info="Count of orders placed tonight across all tables."
           />
           <MetricCard
             label="Avg order"
             value={formatMoney(summary.avgOrderValue, currency)}
             deltaPct={summary.avgOrderDeltaPct}
             icon={CircleDollarSign}
+            info="Tonight's revenue divided by number of orders."
           />
           <MetricCard
             label="Active tables"
             value={`${summary.activeTables}/${summary.totalTables}`}
             icon={Table2}
+            info="Tables with an active guest session right now vs total configured tables."
             hint={`Avg fulfillment ${summary.avgFulfillmentMinutes} min`}
           />
         </div>
@@ -293,27 +298,27 @@ function SnapshotTab({
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground">Sessions</p>
+                <p className="text-muted-foreground flex items-center gap-1">Sessions <InfoTip text="Total guest table sessions tonight." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.sessions.totalSessions}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Approval</p>
+                <p className="text-muted-foreground flex items-center gap-1">Approval <InfoTip text="Percentage of join requests approved by a host." /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatPct(summary.sessions.approvalRate)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Avg duration</p>
+                <p className="text-muted-foreground flex items-center gap-1">Avg duration <InfoTip text="Average time from session start to tab closure." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.sessions.avgDurationMinutes} min</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Party size</p>
+                <p className="text-muted-foreground flex items-center gap-1">Party size <InfoTip text="Average number of guests per session." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.sessions.avgPartySize}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Rev / session</p>
+                <p className="text-muted-foreground flex items-center gap-1">Rev / session <InfoTip text="Total revenue divided by number of sessions." /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.sessions.revenuePerSession, currency)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Rev / guest</p>
+                <p className="text-muted-foreground flex items-center gap-1">Rev / guest <InfoTip text="Total revenue divided by total guests across all sessions." /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.sessions.revenuePerGuest, currency)}</p>
               </div>
             </div>
@@ -332,27 +337,27 @@ function SnapshotTab({
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground">Placed</p>
+                <p className="text-muted-foreground flex items-center gap-1">Placed <InfoTip text="Orders submitted by guests tonight." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderFunnel.placed}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Delivered</p>
+                <p className="text-muted-foreground flex items-center gap-1">Delivered <InfoTip text="Orders marked delivered by a runner." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderFunnel.delivered}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Cancelled</p>
+                <p className="text-muted-foreground flex items-center gap-1">Cancelled <InfoTip text="Orders cancelled before delivery, shown with cancellation rate." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderFunnel.cancelled} <span className="text-xs text-muted-foreground">({formatPct(summary.orderFunnel.cancellationRate)})</span></p>
               </div>
               <div>
-                <p className="text-muted-foreground">Tip rate</p>
+                <p className="text-muted-foreground flex items-center gap-1">Tip rate <InfoTip text="Percentage of orders that included a tip." /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatPct(summary.orderFunnel.tipRate)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Fee revenue</p>
+                <p className="text-muted-foreground flex items-center gap-1">Fee revenue <InfoTip text="Total service fees collected across all orders tonight." /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.orderFunnel.serviceFeeRevenue, currency)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Gift orders</p>
+                <p className="text-muted-foreground flex items-center gap-1">Gift orders <InfoTip text="Bottles sent to another table as a gift." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderFunnel.giftOrders}</p>
               </div>
             </div>
@@ -371,27 +376,27 @@ function SnapshotTab({
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground">Requested</p>
+                <p className="text-muted-foreground flex items-center gap-1">Requested <InfoTip text="Total reservation requests received tonight." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.requested}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Seated</p>
+                <p className="text-muted-foreground flex items-center gap-1">Seated <InfoTip text="Guests who checked in and were seated." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.seated} <span className="text-xs text-muted-foreground">({formatPct(summary.reservations.seatedRate)})</span></p>
               </div>
               <div>
-                <p className="text-muted-foreground">No-shows (of confirmed)</p>
+                <p className="text-muted-foreground flex items-center gap-1">No-shows <InfoTip text="Confirmed reservations where the guest never arrived, as a percentage of confirmed." /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatPct(summary.reservations.noShowRate)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Covers</p>
+                <p className="text-muted-foreground flex items-center gap-1">Covers <InfoTip text="Total guests across all seated reservations." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.totalCovers}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Cancelled (of requested)</p>
+                <p className="text-muted-foreground flex items-center gap-1">Cancelled <InfoTip text="Reservations cancelled before arrival, as a percentage of requested." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.cancelled} <span className="text-xs text-muted-foreground">({formatPct(summary.reservations.cancellationRate)})</span></p>
               </div>
               <div>
-                <p className="text-muted-foreground">Avg lead</p>
+                <p className="text-muted-foreground flex items-center gap-1">Avg lead <InfoTip text="Average days between booking and the reservation date." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.avgLeadDays} days</p>
               </div>
             </div>
@@ -410,15 +415,15 @@ function SnapshotTab({
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground">HH orders</p>
+                <p className="text-muted-foreground flex items-center gap-1">HH orders <InfoTip text="Orders placed during active happy hour windows." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.happyHours.totalHhOrders}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">HH revenue</p>
+                <p className="text-muted-foreground flex items-center gap-1">HH revenue <InfoTip text="Revenue from orders placed during happy hour (at discounted prices)." /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.happyHours.totalHhRevenue, currency)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Discount given</p>
+                <p className="text-muted-foreground flex items-center gap-1">Discount given <InfoTip text="Total discount amount applied by happy hour rules." /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.happyHours.totalDiscountGiven, currency)}</p>
               </div>
             </div>
@@ -447,11 +452,11 @@ function SnapshotTab({
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground">Events tonight</p>
+                <p className="text-muted-foreground flex items-center gap-1">Events tonight <InfoTip text="Number of scheduled events running tonight." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.events.totalEvents}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Avg utilization</p>
+                <p className="text-muted-foreground flex items-center gap-1">Avg utilization <InfoTip text="Average check-in count divided by event capacity across tonight's events." /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatPct(summary.events.avgCapacityUtilization)}</p>
               </div>
             </div>
@@ -478,11 +483,11 @@ function SnapshotTab({
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground">Redemptions</p>
+                <p className="text-muted-foreground flex items-center gap-1">Redemptions <InfoTip text="Total number of promo codes redeemed tonight." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.promotions.totalRedemptions}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Discount cost</p>
+                <p className="text-muted-foreground flex items-center gap-1">Discount cost <InfoTip text="Total value of discounts applied via promo codes tonight." /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.promotions.totalDiscountCost, currency)}</p>
               </div>
             </div>
@@ -509,19 +514,19 @@ function SnapshotTab({
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground">Avg claim wait</p>
+                <p className="text-muted-foreground flex items-center gap-1">Avg claim wait <InfoTip text="Weighted average time between order placement and a staff member claiming it." /></p>
                 <p className="text-lg font-semibold tabular-nums">
                   {weightedAvg(summary.staffPerformance, (p) => p.avgClaimMinutes, (p) => p.ordersDelivered).toFixed(1)} min
                 </p>
               </div>
               <div>
-                <p className="text-muted-foreground">Help resolved</p>
+                <p className="text-muted-foreground flex items-center gap-1">Help resolved <InfoTip text="Total guest help requests resolved by staff tonight." /></p>
                 <p className="text-lg font-semibold tabular-nums">
                   {summary.staffPerformance.reduce((s, p) => s + (p.helpResolved ?? 0), 0)}
                 </p>
               </div>
               <div>
-                <p className="text-muted-foreground">Avg help time</p>
+                <p className="text-muted-foreground flex items-center gap-1">Avg help time <InfoTip text="Weighted average minutes to resolve a guest help request." /></p>
                 <p className="text-lg font-semibold tabular-nums">
                   {weightedAvg(summary.staffPerformance, (p) => p.avgHelpMinutes, (p) => p.helpResolved ?? 0).toFixed(1)} min
                 </p>
@@ -542,15 +547,15 @@ function SnapshotTab({
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground">Sold-out events</p>
+                <p className="text-muted-foreground flex items-center gap-1">Sold-out events <InfoTip text="Number of times an item went out of stock during tonight's service." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.inventoryDepth.soldOutEventsPerNight}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Sold-out min</p>
+                <p className="text-muted-foreground flex items-center gap-1">Sold-out min <InfoTip text="Total minutes items were unavailable before restock tonight." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.inventoryDepth.totalSoldOutMinutes}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Dead items</p>
+                <p className="text-muted-foreground flex items-center gap-1">Dead items <InfoTip text="Stocked items with zero orders tonight — potential menu bloat." /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.inventoryDepth.deadItems}</p>
               </div>
             </div>
