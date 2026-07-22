@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Anton, Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/auth-context";
 import { AppModeBanner } from "@/components/shared/app-mode-banner";
@@ -63,7 +64,9 @@ export default function RootLayout({
         {/* Dark is the brand default; light is opt-in via the header toggle. */}
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <AppModeBanner />
-          <AuthProvider>{children}</AuthProvider>
+          <TooltipProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </TooltipProvider>
           <Toaster position="top-center" richColors />
         </ThemeProvider>
       </body>

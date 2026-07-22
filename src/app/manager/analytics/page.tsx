@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EntityChip } from "@/components/shared/entity-chip";
+import { InfoTip } from "@/components/shared/info-tip";
 import { MetricCard } from "@/components/shared/metric-card";
 import { MockChart } from "@/components/shared/mock-chart";
 import { PageHeader } from "@/components/shared/page-header";
@@ -38,10 +39,13 @@ const PRESETS = [
 ] as const;
 
 /** One cell in a stat grid: muted label over a big tabular number. */
-function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+function Stat({ label, info, children }: { label: string; info?: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-muted-foreground">{label}</p>
+      <p className="text-muted-foreground flex items-center gap-1">
+        {label}
+        {info && <InfoTip text={info} />}
+      </p>
       <p className="text-lg font-semibold tabular-nums">{children}</p>
     </div>
   );
@@ -237,14 +241,16 @@ function AnalyticsPageContent() {
                 label="Revenue"
                 value={formatMoney(data.totalRevenue)}
                 icon={CircleDollarSign}
+                info="Total revenue from all delivered orders in this date range, before fees."
                 hint={`${data.days} nights`}
               />
-              <MetricCard label="Orders" value={String(data.totalOrders)} icon={Receipt} />
-              <MetricCard label="Avg order" value={formatMoney(data.avgOrderValue)} icon={CircleDollarSign} />
+              <MetricCard label="Orders" value={String(data.totalOrders)} icon={Receipt} info="Total orders placed across all nights in this range." />
+              <MetricCard label="Avg order" value={formatMoney(data.avgOrderValue)} icon={CircleDollarSign} info="Total revenue divided by total orders in the range." />
               <MetricCard
                 label="Best night"
                 value={formatMoney(data.bestNight.revenue)}
                 icon={Trophy}
+                info="Single night with the highest revenue in the range."
                 hint={data.bestNight.label}
               />
             </div>
@@ -312,16 +318,16 @@ function AnalyticsPageContent() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm lg:grid-cols-4">
-                    <Stat label="Placed">{data.orderFunnel.placed}</Stat>
-                    <Stat label="Delivered">{data.orderFunnel.delivered}</Stat>
-                    <Stat label="Cancelled">{data.orderFunnel.cancelled}{" "}
+                    <Stat label="Placed" info="Total orders placed by guests in this range.">{data.orderFunnel.placed}</Stat>
+                    <Stat label="Delivered" info="Orders successfully delivered to the table.">{data.orderFunnel.delivered}</Stat>
+                    <Stat label="Cancelled" info="Orders cancelled before delivery, shown with cancellation rate.">{data.orderFunnel.cancelled}{" "}
                         <span className="text-xs text-muted-foreground">({formatPct(data.orderFunnel.cancellationRate)})</span></Stat>
-                    <Stat label="Service fee revenue">{formatMoney(data.orderFunnel.serviceFeeRevenue)}</Stat>
-                    <Stat label="Tip rate">{formatPct(data.orderFunnel.tipRate)}</Stat>
-                    <Stat label="Avg tip">{formatMoney(data.orderFunnel.avgTip)}</Stat>
-                    <Stat label="Gift orders">{data.orderFunnel.giftOrders}{" "}
+                    <Stat label="Service fee revenue" info="Revenue collected from service fees applied to orders.">{formatMoney(data.orderFunnel.serviceFeeRevenue)}</Stat>
+                    <Stat label="Tip rate" info="Percentage of orders that included a tip.">{formatPct(data.orderFunnel.tipRate)}</Stat>
+                    <Stat label="Avg tip" info="Average tip amount on orders that included a tip.">{formatMoney(data.orderFunnel.avgTip)}</Stat>
+                    <Stat label="Gift orders" info="Orders sent as gifts to another table, with total gift revenue.">{data.orderFunnel.giftOrders}{" "}
                         <span className="text-xs text-muted-foreground">({formatMoney(data.orderFunnel.giftRevenue)})</span></Stat>
-                    <Stat label="Modifier attach">{formatPct(data.orderFunnel.modifierAttachRate)}</Stat>
+                    <Stat label="Modifier attach" info="Percentage of order items that included at least one modifier (e.g. extra shot, premium mixer).">{formatPct(data.orderFunnel.modifierAttachRate)}</Stat>
                   </div>
                 </CardContent>
               </Card>
@@ -335,23 +341,27 @@ function AnalyticsPageContent() {
                 label="Orders delivered"
                 value={String(data.staffPerformance.reduce((s, p) => s + p.ordersDelivered, 0))}
                 icon={Receipt}
+                info="Total orders delivered by all staff in the range."
                 hint={`${data.days} nights, all staff`}
               />
               <MetricCard
                 label="Revenue served"
                 value={formatMoney(data.staffPerformance.reduce((s, p) => s + p.revenueServed, 0))}
                 icon={CircleDollarSign}
+                info="Total revenue from orders delivered by staff."
               />
               <MetricCard
                 label="Fastest runner"
                 value={fastestRunner?.name.split(" ")[0] ?? "—"}
                 icon={Users}
+                info="Staff member with the lowest average delivery time."
                 hint={`${fastestRunner?.avgDeliveryMinutes ?? 0} min avg`}
               />
               <MetricCard
                 label="Top earner"
                 value={topEarner?.name.split(" ")[0] ?? "—"}
                 icon={Trophy}
+                info="Staff member who served the highest total revenue."
                 hint="By revenue served"
               />
             </div>
@@ -440,6 +450,7 @@ function AnalyticsPageContent() {
                 label="Units sold"
                 value={String(data.categoryDepletion.reduce((s, c) => s + c.unitsSold, 0))}
                 icon={Boxes}
+                info="Total inventory units sold across all categories in the range."
                 hint={`${data.days} nights`}
               />
               <MetricCard
@@ -449,6 +460,7 @@ function AnalyticsPageContent() {
                     ?.categoryName ?? "—"
                 }
                 icon={Trophy}
+                info="Menu category with the most units sold in the range."
               />
               <MetricCard
                 label="Avg units / night"
@@ -458,11 +470,13 @@ function AnalyticsPageContent() {
                   ),
                 )}
                 icon={Receipt}
+                info="Total units sold divided by the number of nights in the range."
               />
               <MetricCard
                 label="In stock now"
                 value={String(data.categoryDepletion.reduce((s, c) => s + c.unitsInStock, 0))}
                 icon={Boxes}
+                info="Current inventory on hand across all categories."
                 hint="Live count"
               />
             </div>
@@ -508,10 +522,10 @@ function AnalyticsPageContent() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm lg:grid-cols-4">
-                    <Stat label="Sold-out events / night">{data.inventoryDepth.soldOutEventsPerNight}</Stat>
-                    <Stat label="Total sold-out minutes">{data.inventoryDepth.totalSoldOutMinutes}</Stat>
-                    <Stat label="Restock / sale ratio">{formatPct(data.inventoryDepth.restockSaleRatio)}</Stat>
-                    <Stat label="Dead items">{data.inventoryDepth.deadItems}</Stat>
+                    <Stat label="Sold-out events / night" info="Average number of stock-out incidents per night in the range.">{data.inventoryDepth.soldOutEventsPerNight}</Stat>
+                    <Stat label="Total sold-out minutes" info="Cumulative minutes items were unavailable before restock.">{data.inventoryDepth.totalSoldOutMinutes}</Stat>
+                    <Stat label="Restock / sale ratio" info="Units restocked divided by units sold — above 100% means building stock.">{formatPct(data.inventoryDepth.restockSaleRatio)}</Stat>
+                    <Stat label="Dead items" info="Stocked items with zero orders in the range — potential menu bloat.">{data.inventoryDepth.deadItems}</Stat>
                   </div>
                 </CardContent>
               </Card>
@@ -531,10 +545,10 @@ function AnalyticsPageContent() {
             {data.sessions ? (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="Sessions" value={String(data.sessions.totalSessions)} icon={Users} hint={`${data.days} nights`} />
-                  <MetricCard label="Approval rate" value={formatPct(data.sessions.approvalRate)} icon={Users} />
-                  <MetricCard label="Avg duration" value={`${data.sessions.avgDurationMinutes} min`} icon={Clock} />
-                  <MetricCard label="Rev / session" value={formatMoney(data.sessions.revenuePerSession)} icon={CircleDollarSign} />
+                  <MetricCard label="Sessions" value={String(data.sessions.totalSessions)} icon={Users} info="Total guest sessions (scan → close) across all nights." hint={`${data.days} nights`} />
+                  <MetricCard label="Approval rate" value={formatPct(data.sessions.approvalRate)} icon={Users} info="Percentage of session join requests approved by the host." />
+                  <MetricCard label="Avg duration" value={`${data.sessions.avgDurationMinutes} min`} icon={Clock} info="Average time from session approval to tab closure." />
+                  <MetricCard label="Rev / session" value={formatMoney(data.sessions.revenuePerSession)} icon={CircleDollarSign} info="Total revenue divided by total sessions in the range." />
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
@@ -544,11 +558,11 @@ function AnalyticsPageContent() {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                        <Stat label="Denial rate">{formatPct(data.sessions.denialRate)}</Stat>
-                        <Stat label="Avg approval wait">{data.sessions.avgApprovalMinutes} min</Stat>
-                        <Stat label="Avg party size">{data.sessions.avgPartySize}</Stat>
-                        <Stat label="Rev / guest">{formatMoney(data.sessions.revenuePerGuest)}</Stat>
-                        <Stat label="Avg closure time">{data.sessions.avgClosureMinutes} min</Stat>
+                        <Stat label="Denial rate" info="Percentage of session join requests denied by the host.">{formatPct(data.sessions.denialRate)}</Stat>
+                        <Stat label="Avg approval wait" info="Average minutes guests waited for host approval after scanning.">{data.sessions.avgApprovalMinutes} min</Stat>
+                        <Stat label="Avg party size" info="Average number of guests per approved session.">{data.sessions.avgPartySize}</Stat>
+                        <Stat label="Rev / guest" info="Total revenue divided by total guests (sessions × party size).">{formatMoney(data.sessions.revenuePerGuest)}</Stat>
+                        <Stat label="Avg closure time" info="Average minutes from last order to tab closure by staff.">{data.sessions.avgClosureMinutes} min</Stat>
                       </div>
                     </CardContent>
                   </Card>
@@ -587,10 +601,10 @@ function AnalyticsPageContent() {
             {data.reservations ? (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="Requested" value={String(data.reservations.requested)} icon={CalendarCheck} />
-                  <MetricCard label="Seated" value={String(data.reservations.seated)} icon={CalendarCheck} hint={`${formatPct(data.reservations.seatedRate)} of confirmed`} />
-                  <MetricCard label="No-show rate" value={formatPct(data.reservations.noShowRate)} icon={Users} hint="of confirmed" />
-                  <MetricCard label="Total covers" value={String(data.reservations.totalCovers)} icon={Users} />
+                  <MetricCard label="Requested" value={String(data.reservations.requested)} icon={CalendarCheck} info="Total reservation requests received in the range." />
+                  <MetricCard label="Seated" value={String(data.reservations.seated)} icon={CalendarCheck} info="Guests who checked in and were seated at their table." hint={`${formatPct(data.reservations.seatedRate)} of confirmed`} />
+                  <MetricCard label="No-show rate" value={formatPct(data.reservations.noShowRate)} icon={Users} info="Percentage of confirmed reservations where the guest didn't arrive." hint="of confirmed" />
+                  <MetricCard label="Total covers" value={String(data.reservations.totalCovers)} icon={Users} info="Sum of party sizes across all seated reservations." />
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
@@ -600,10 +614,10 @@ function AnalyticsPageContent() {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                        <Stat label="Confirmed">{data.reservations.confirmed} <span className="text-xs text-muted-foreground">({formatPct(data.reservations.confirmRate)} of requested)</span></Stat>
-                        <Stat label="Completed">{data.reservations.completed}</Stat>
-                        <Stat label="Cancelled">{data.reservations.cancelled} <span className="text-xs text-muted-foreground">({formatPct(data.reservations.cancellationRate)} of requested)</span></Stat>
-                        <Stat label="Avg lead time">{data.reservations.avgLeadDays} days</Stat>
+                        <Stat label="Confirmed" info="Reservations approved by the venue.">{data.reservations.confirmed} <span className="text-xs text-muted-foreground">({formatPct(data.reservations.confirmRate)} of requested)</span></Stat>
+                        <Stat label="Completed" info="Reservations where the guest arrived and the visit finished.">{data.reservations.completed}</Stat>
+                        <Stat label="Cancelled" info="Reservations cancelled before the scheduled date.">{data.reservations.cancelled} <span className="text-xs text-muted-foreground">({formatPct(data.reservations.cancellationRate)} of requested)</span></Stat>
+                        <Stat label="Avg lead time" info="Average days between booking and the reserved date.">{data.reservations.avgLeadDays} days</Stat>
                       </div>
                     </CardContent>
                   </Card>
@@ -690,10 +704,10 @@ function AnalyticsPageContent() {
             {data.happyHours ? (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="HH orders" value={String(data.happyHours.totalHhOrders)} icon={Receipt} />
-                  <MetricCard label="HH revenue" value={formatMoney(data.happyHours.totalHhRevenue)} icon={CircleDollarSign} />
-                  <MetricCard label="Discount given" value={formatMoney(data.happyHours.totalDiscountGiven)} icon={CircleDollarSign} />
-                  <MetricCard label="Rules active" value={String(data.happyHours.rules.length)} icon={Clock} />
+                  <MetricCard label="HH orders" value={String(data.happyHours.totalHhOrders)} icon={Receipt} info="Orders placed during active happy hour windows in the range." />
+                  <MetricCard label="HH revenue" value={formatMoney(data.happyHours.totalHhRevenue)} icon={CircleDollarSign} info="Revenue from happy hour orders (at discounted prices)." />
+                  <MetricCard label="Discount given" value={formatMoney(data.happyHours.totalDiscountGiven)} icon={CircleDollarSign} info="Total discount amount applied by happy hour rules." />
+                  <MetricCard label="Rules active" value={String(data.happyHours.rules.length)} icon={Clock} info="Number of distinct happy hour rules that were active during this range." />
                 </div>
 
                 <Card>
@@ -738,8 +752,8 @@ function AnalyticsPageContent() {
             {data.events && data.events.events.length > 0 ? (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="Events" value={String(data.events.totalEvents)} icon={PartyPopper} />
-                  <MetricCard label="Avg utilization" value={formatPct(data.events.avgCapacityUtilization)} icon={Users} />
+                  <MetricCard label="Events" value={String(data.events.totalEvents)} icon={PartyPopper} info="Total scheduled events that occurred in this range." />
+                  <MetricCard label="Avg utilization" value={formatPct(data.events.avgCapacityUtilization)} icon={Users} info="Average check-ins divided by event capacity across all events." />
                 </div>
 
                 <Card>
@@ -798,8 +812,8 @@ function AnalyticsPageContent() {
             {data.promotions && data.promotions.promotions.length > 0 ? (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="Redemptions" value={String(data.promotions.totalRedemptions)} icon={Tag} />
-                  <MetricCard label="Discount cost" value={formatMoney(data.promotions.totalDiscountCost)} icon={CircleDollarSign} />
+                  <MetricCard label="Redemptions" value={String(data.promotions.totalRedemptions)} icon={Tag} info="Total promo code redemptions in the range." />
+                  <MetricCard label="Discount cost" value={formatMoney(data.promotions.totalDiscountCost)} icon={CircleDollarSign} info="Total value of discounts applied via promo codes." />
                 </div>
 
                 <Card>
