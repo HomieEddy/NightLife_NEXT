@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Gift, GlassWater, Hand, ReceiptEuro, Shield, Sparkles } from "lucide-react";
+import { Gift, GlassWater, Hand, Shield, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
@@ -26,8 +26,6 @@ const HELP_OPTIONS: {
 export default function GuestHelpPage() {
   const { table, guestName, sessionId } = useGuest();
   const [sending, setSending] = useState<HelpRequestType | null>(null);
-  const [closingTab, setClosingTab] = useState(false);
-
   async function requestHelp(type: HelpRequestType, label: string) {
     if (!table) {
       toast.error("Join a table first — scan the QR code.");
@@ -43,24 +41,6 @@ export default function GuestHelpPage() {
     });
     setSending(null);
     toast.success(`${label} — the team has been notified.`);
-  }
-
-  async function handleRequestBill() {
-    if (!sessionId) {
-      toast.error("No active session — scan the QR code first.");
-      return;
-    }
-    setClosingTab(true);
-    try {
-      await guestsService.requestClosure(sessionId);
-      toast.success("Tab closure requested — your host will settle it shortly.");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not request the bill right now.",
-      );
-    } finally {
-      setClosingTab(false);
-    }
   }
 
   return (
@@ -111,28 +91,6 @@ export default function GuestHelpPage() {
             }
           />
         ))}
-
-        <ConfirmDialog
-          title="Request the bill?"
-          description="This closes your tab — you won't be able to place new orders until the host settles it."
-          confirmLabel="Close my tab"
-          onConfirm={handleRequestBill}
-          trigger={
-            <button
-              type="button"
-              disabled={closingTab}
-              className="flex w-full items-center gap-4 rounded-xl border border-amber-500/30 p-4 text-left transition-colors hover:border-amber-500/50 active:bg-accent/50 disabled:opacity-60"
-            >
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                <ReceiptEuro className="size-5" />
-              </div>
-              <div>
-                <p className="font-medium">{closingTab ? "Requesting…" : "Request the bill"}</p>
-                <p className="text-xs text-muted-foreground">Close out your tab</p>
-              </div>
-            </button>
-          }
-        />
       </div>
 
       <Link
