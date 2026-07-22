@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { InfoTip } from "@/components/shared/info-tip";
 import { cn } from "@/lib/utils";
 
 export function MetricCard({
@@ -8,6 +9,7 @@ export function MetricCard({
   value,
   deltaPct,
   icon: Icon,
+  info,
   hint,
   className,
   featured = false,
@@ -16,6 +18,7 @@ export function MetricCard({
   value: string;
   deltaPct?: number;
   icon?: LucideIcon;
+  info?: string;
   hint?: string;
   className?: string;
   /** The night's headline metric — poster number + gold halo. One per view. */
@@ -26,7 +29,10 @@ export function MetricCard({
     <Card className={cn("py-4", featured && "focal-halo", className)}>
       <CardContent className="px-4">
         <div className="flex items-center justify-between gap-2">
-          <p className="label-luxe text-muted-foreground">{label}</p>
+          <p className="label-luxe text-muted-foreground flex items-center gap-1">
+            {label}
+            {info && <InfoTip text={info} />}
+          </p>
           {Icon && <Icon className={cn("size-4", featured ? "text-gold" : "text-primary")} />}
         </div>
         <p

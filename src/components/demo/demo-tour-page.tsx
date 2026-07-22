@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Reveal } from "@/components/fx/reveal";
 import { ClubLights } from "@/components/fx/club-lights";
+import { DemoQr } from "@/components/demo/demo-qr";
 
 interface DemoFeature {
   icon: LucideIcon;
@@ -384,11 +385,19 @@ export default function DemoTourPage() {
                   {segment.navGuide}
                 </p>
               </div>
-              <Button className="glow-gold" asChild>
-                <Link href={segment.cta.href}>
-                  {segment.cta.label} <ArrowRight className="size-4" />
-                </Link>
-              </Button>
+              <div className="flex items-center gap-4">
+                {segment.id === "guest" && (
+                  <DemoQr
+                    path="/g/demo-table"
+                    className="size-20 overflow-hidden rounded-lg border bg-white p-1 [&_svg]:size-full"
+                  />
+                )}
+                <Button className="glow-gold" asChild>
+                  <Link href={segment.cta.href}>
+                    {segment.cta.label} <ArrowRight className="size-4" />
+                  </Link>
+                </Button>
+              </div>
             </div>
           </Reveal>
 
