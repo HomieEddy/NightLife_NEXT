@@ -10,7 +10,6 @@ import { MenuItemCard } from "@/components/shared/menu-item-card";
 import { ClosureGate } from "@/components/guest/closure-gate";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
 import { PackageCard, type PackageWithQuote } from "@/components/guest/package-card";
-import { CartSheet } from "@/components/guest/cart-sheet";
 import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/lib/services/menu-service";
 import { cn } from "@/lib/utils";
@@ -164,7 +163,6 @@ export default function GuestMenuPage() {
         }
         onClose={() => setOpenItem(null)}
       />
-      <CartSheet />
     </div>
     </ClosureGate>
   );

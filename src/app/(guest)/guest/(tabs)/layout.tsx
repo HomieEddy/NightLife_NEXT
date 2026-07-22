@@ -1,6 +1,7 @@
 "use client";
 
 import { Clock, LifeBuoy, Martini, Receipt, ShoppingBag } from "lucide-react";
+import { CartSheet } from "@/components/guest/cart-sheet";
 import { MobileBottomNav } from "@/components/shared/mobile-bottom-nav";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useGuest } from "@/context/guest-context";
@@ -34,6 +35,7 @@ export default function GuestTabsLayout({ children }: { children: React.ReactNod
         </header>
       </div>
       <main className="flex-1 pb-24">{children}</main>
+      <CartSheet />
       <MobileBottomNav
         className="mx-auto max-w-lg"
         items={[
