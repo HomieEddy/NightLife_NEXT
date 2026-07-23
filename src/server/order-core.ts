@@ -41,6 +41,8 @@ interface OrderRow {
   status: string;
   placedAt: Date;
   updatedAt: Date;
+  acceptedAt: Date | null;
+  claimedAt: Date | null;
   claimedByStaffId: string | null;
   claimedByStaffName: string | null;
   giftToTableId: string | null;
@@ -121,6 +123,8 @@ function toOrder(row: OrderRow): Order {
     status: row.status as OrderStatus,
     placedAt: row.placedAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    acceptedAt: row.acceptedAt?.toISOString(),
+    claimedAt: row.claimedAt?.toISOString(),
     claimedByStaffId: row.claimedByStaffId ?? undefined,
     claimedByStaffName: row.claimedByStaffName ?? undefined,
     giftToTableId: row.giftToTableId ?? undefined,
@@ -559,6 +563,7 @@ export async function sendGift(
 export async function advanceOrder(
   db: ScopedDb,
   orderId: string,
+  opts?: { staffId?: string; staffName?: string },
 ): Promise<Order | null> {
   const row = await db.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
   if (!row) return null;
@@ -566,9 +571,22 @@ export async function advanceOrder(
   const next = nextStatus(row.status as OrderStatus);
   if (!next) return toOrder(row);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: any = { status: next };
+
+  // pending → accepted: stamp acceptedAt + auto-claim for the accepting staff
+  if (next === "accepted") {
+    data.acceptedAt = new Date();
+    if (opts?.staffId && !row.claimedByStaffId) {
+      data.claimedByStaffId = opts.staffId;
+      data.claimedByStaffName = opts.staffName ?? null;
+      data.claimedAt = data.acceptedAt;
+    }
+  }
+
   const updated = await db.order.update({
     where: { id: orderId },
-    data: { status: next },
+    data,
     include: ORDER_INCLUDE,
   });
   const order = toOrder(updated);
@@ -648,7 +666,7 @@ export async function claimOrder(
   const prisma = getRawPrisma();
   try {
     const result = await prisma.$queryRawUnsafe<{ id: string }[]>(
-      `UPDATE orders SET claimed_by_staff_id = $1, claimed_by_staff_name = $2, updated_at = NOW()
+      `UPDATE orders SET claimed_by_staff_id = $1, claimed_by_staff_name = $2, claimed_at = NOW(), updated_at = NOW()
        WHERE id = $3 AND venue_id = $4 AND claimed_by_staff_id IS NULL
        RETURNING id`,
       staffId,
