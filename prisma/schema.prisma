@@ -474,6 +474,10 @@ model Order {
   updatedAt          DateTime    @updatedAt @map("updated_at") @db.Timestamptz
   claimedByStaffId   String?     @map("claimed_by_staff_id")
   claimedByStaffName String?     @map("claimed_by_staff_name")
+  /// Set once when pending → accepted. acceptedAt - placedAt is the accept-wait metric.
+  acceptedAt         DateTime?   @map("accepted_at") @db.Timestamptz
+  /// Set once, when claimed. On accept, auto-claimed by the accepting staff.
+  claimedAt          DateTime?   @map("claimed_at") @db.Timestamptz
   giftToTableId      String?     @map("gift_to_table_id")
   giftToTableCode    String?     @map("gift_to_table_code")
   giftNote           String?     @map("gift_note")
@@ -580,6 +584,10 @@ model HelpRequest {
   guestName String            @map("guest_name")
   type      String
   status    HelpRequestStatus @default(open)
+  /// Set when a runner acknowledges/resolves the request — fulfillment time is
+  /// resolvedByStaffId's updatedAt minus createdAt, same convention as Order.
+  resolvedByStaffId   String? @map("resolved_by_staff_id")
+  resolvedByStaffName String? @map("resolved_by_staff_name")
   createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -784,7 +792,7 @@ model NightlyRollup {
   byZone          Json     @map("by_zone")
   /// { v: 1, items: [{ name, count, revenueCents, categoryId? }] }
   topItems        Json     @map("top_items")
-  /// { v: 1, staff: [{ staffId, name, role, ordersDelivered, avgDeliveryMinutes, revenueServedCents }] }
+  /// { v: 1, staff: [{ staffId, name, role, ordersDelivered, avgDeliveryMinutes, revenueServedCents, helpResolved, avgHelpMinutes?, avgAcceptMinutes?, shiftHours }], eta?: { acceptCount, acceptTotal, prepCount, prepTotal, totalCount, totalTotal } }
   staffPerformance Json    @map("staff_performance")
   /// { v: 1, categories: [{ categoryId, categoryName, unitsSold }] }
   categoryDepletion Json   @map("category_depletion")

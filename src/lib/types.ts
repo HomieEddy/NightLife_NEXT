@@ -305,6 +305,10 @@ export interface Order {
   status: OrderStatus;
   placedAt: string; // ISO
   updatedAt: string;
+  /** Set once when pending → accepted. acceptedAt - placedAt is the accept-wait metric. */
+  acceptedAt?: string;
+  /** Set when a staff member claims (or auto-claimed on accept). */
+  claimedAt?: string;
   /** Runner/bartender who tapped "Claim" — prevents two staff working the same order. */
   claimedByStaffId?: string;
   claimedByStaffName?: string;
@@ -335,6 +339,8 @@ export interface HelpRequest {
   type: HelpRequestType;
   status: HelpRequestStatus;
   createdAt: string;
+  resolvedByStaffId?: string;
+  resolvedByStaffName?: string;
 }
 
 // ---------- Cart (guest client state) ----------
@@ -409,7 +415,7 @@ export interface StaffPerformancePoint {
   ordersDelivered: number;
   avgDeliveryMinutes: number;
   revenueServed: number;
-  avgClaimMinutes?: number;
+  avgAcceptMinutes?: number;
   helpResolved?: number;
   avgHelpMinutes?: number;
   ordersPerShiftHour?: number;
@@ -525,6 +531,12 @@ export interface InventoryDepthAnalytics {
   deadItems: number;
 }
 
+export interface OrderEtaMetrics {
+  avgAcceptMinutes: number;
+  avgPrepMinutes: number;
+  avgTotalMinutes: number;
+}
+
 export interface AnalyticsSummary {
   revenueTonight: number;
   revenueDeltaPct: number;
@@ -535,6 +547,7 @@ export interface AnalyticsSummary {
   activeTables: number;
   totalTables: number;
   avgFulfillmentMinutes: number;
+  orderEta?: OrderEtaMetrics;
   topItems: { name: string; count: number; revenue: number; categoryId?: string }[];
   revenueByHour: RevenuePoint[];
   revenueByDay: RevenuePoint[];
@@ -563,6 +576,7 @@ export interface HistoricalAnalytics {
   topItems: { name: string; count: number; revenue: number; categoryId?: string }[];
   staffPerformance: StaffPerformancePoint[];
   categoryDepletion: CategoryDepletionPoint[];
+  orderEta?: OrderEtaMetrics;
   sessions?: SessionAnalytics;
   reservations?: ReservationAnalytics;
   happyHours?: HappyHourAnalytics;

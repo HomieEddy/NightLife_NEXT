@@ -36,9 +36,9 @@ export function renderCsv(
     rows.push([]);
   }
   if (metrics.includes("staff")) {
-    rows.push(["Staff", "Role", "Orders delivered", "Avg minutes", "Revenue served", "Claim wait min", "Help resolved", "Avg help min", "Orders/hr"]);
+    rows.push(["Staff", "Role", "Orders delivered", "Avg minutes", "Revenue served", "Accept wait min", "Help resolved", "Avg help min", "Orders/hr"]);
     for (const s of data.staffPerformance)
-      rows.push([s.name, s.role, String(s.ordersDelivered), String(s.avgDeliveryMinutes), String(s.revenueServed), String(s.avgClaimMinutes ?? ""), String(s.helpResolved ?? ""), String(s.avgHelpMinutes ?? ""), String(s.ordersPerShiftHour ?? "")]);
+      rows.push([s.name, s.role, String(s.ordersDelivered), String(s.avgDeliveryMinutes), String(s.revenueServed), String(s.avgAcceptMinutes ?? ""), String(s.helpResolved ?? ""), String(s.avgHelpMinutes ?? ""), String(s.ordersPerShiftHour ?? "")]);
     rows.push([]);
   }
   if (metrics.includes("inventory")) {

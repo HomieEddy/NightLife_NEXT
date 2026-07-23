@@ -233,6 +233,9 @@ export const mockOrdersService = {
     if (!next) return clone(order);
     order.status = next;
     order.updatedAt = new Date().toISOString();
+    if (next === "accepted") {
+      order.acceptedAt = order.updatedAt;
+    }
     return clone(order);
   },
 

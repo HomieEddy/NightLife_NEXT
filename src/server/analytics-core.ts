@@ -10,6 +10,7 @@ import { nightContaining, nightForDate, type NightBoundary, type NightConfig } f
 import type {
   AnalyticsSummary,
   CategoryDepletionPoint,
+  OrderEtaMetrics,
   RevenuePoint,
   SessionAnalytics,
   ReservationAnalytics,
@@ -17,6 +18,9 @@ import type {
   StaffPerformancePoint,
 } from "@/lib/types";
 import type { HistoricalAnalytics, SettlementMethod } from "@/lib/types";
+
+const ORDER_ROLES = new Set(["bartender", "host"]);
+const HELP_ROLES = new Set(["runner"]);
 
 type ScopedDb = ReturnType<typeof getDb>;
 
@@ -33,8 +37,8 @@ export async function getSummaryForVenue(
 
   const [tonightStats, lastNightStats, activeTables, totalTables] =
     await Promise.all([
-      queryNightStats(db, tonight),
-      queryNightStats(db, lastNight),
+      queryNightStats(db, venueId, tonight),
+      queryNightStats(db, venueId, lastNight),
       db.venueTable.count({ where: { status: "occupied" } }),
       db.venueTable.count(),
     ]);
@@ -156,6 +160,7 @@ export async function getSummaryForVenue(
     activeTables,
     totalTables,
     avgFulfillmentMinutes: tonightStats.avgFulfillmentMinutes,
+    orderEta: tonightStats.orderEta,
     topItems: tonightStats.topItems,
     revenueByHour: tonightStats.revenueByHour,
     revenueByDay: [],
@@ -168,25 +173,66 @@ export async function getSummaryForVenue(
   };
 }
 
+/** shiftHours is rollup-internal — raw hours scheduled that night, needed to
+ *  re-derive ordersPerShiftHour (a rate) when merging across many rollups. */
+type StaffPerfInternal = StaffPerformancePoint & { shiftHours: number };
+
 interface NightStats {
   revenueCents: number;
   orderCount: number;
   avgFulfillmentMinutes: number;
+  orderEta: OrderEtaMetrics;
+  orderEtaRaw: { acceptCount: number; acceptTotal: number; prepCount: number; prepTotal: number; totalCount: number; totalTotal: number };
   topItems: { name: string; count: number; revenue: number; categoryId?: string }[];
   revenueByHour: RevenuePoint[];
   revenueByZone: { zoneId: string; zoneName: string; revenue: number }[];
-  staffPerformance: StaffPerformancePoint[];
+  staffPerformance: StaffPerfInternal[];
   categoryDepletion: CategoryDepletionPoint[];
 }
 
-async function queryNightStats(db: ScopedDb, night: NightBoundary): Promise<NightStats> {
-  const orders = await db.order.findMany({
-    where: {
-      placedAt: { gte: night.start, lt: night.end },
-      status: { not: "cancelled" },
-    },
-    include: { items: true },
-  });
+async function queryNightStats(db: ScopedDb, venueId: string, night: NightBoundary): Promise<NightStats> {
+  // The night's label is already the venue-local calendar date (see night.ts) —
+  // noon avoids any UTC-parsing day-boundary edge case when reading its weekday.
+  const nightDayOfWeek = new Date(`${night.label}T12:00:00`).getDay();
+
+  const [orders, memberRows, helpRows, shiftRows] = await Promise.all([
+    db.order.findMany({
+      where: {
+        placedAt: { gte: night.start, lt: night.end },
+        status: { not: "cancelled" },
+      },
+      include: { items: true },
+    }),
+    // Member/StaffProfile aren't venue-scoped by the getDb extension — filter explicitly.
+    db.member.findMany({
+      where: { organizationId: venueId },
+      include: { user: { include: { staffProfile: true } } },
+    }),
+    db.helpRequest.findMany({
+      where: {
+        createdAt: { gte: night.start, lt: night.end },
+        status: "resolved",
+        resolvedByStaffId: { not: null },
+      },
+    }),
+    db.staffShift.findMany({ where: { dayOfWeek: nightDayOfWeek } }),
+  ]);
+  const staffRoleById = new Map<string, string>();
+  for (const m of memberRows) {
+    if (m.user.staffProfile) staffRoleById.set(m.userId, m.user.staffProfile.role);
+  }
+
+  // Scheduled hours per staff on this specific night — for orders/shift-hour.
+  const shiftHoursByStaff = new Map<string, number>();
+  for (const shift of shiftRows) {
+    const [startH, startM] = shift.startTime.split(":").map(Number);
+    const [endH, endM] = shift.endTime.split(":").map(Number);
+    const startMin = startH * 60 + startM;
+    let endMin = endH * 60 + endM;
+    if (endMin <= startMin) endMin += 24 * 60; // overnight shift
+    const hours = (endMin - startMin) / 60;
+    shiftHoursByStaff.set(shift.staffId, (shiftHoursByStaff.get(shift.staffId) ?? 0) + hours);
+  }
 
   const revenueCents = orders.reduce((s, o) => s + o.totalCents, 0);
   const orderCount = orders.length;
@@ -243,31 +289,86 @@ async function queryNightStats(db: ScopedDb, night: NightBoundary): Promise<Nigh
     revenue: fromCents(z.revenueCents),
   }));
 
-  // Staff performance
-  const staffMap = new Map<string, { name: string; ordersDelivered: number; totalMinutes: number; revenueServedCents: number }>();
+  // Staff performance — role-calibrated: order metrics for bartender/host only,
+  // help metrics for runner only.
+  interface StaffAgg {
+    name: string; ordersDelivered: number; totalMinutes: number; revenueServedCents: number;
+    helpResolved: number; totalHelpMinutes: number; acceptedCount: number; totalAcceptMinutes: number;
+  }
+  const staffMap = new Map<string, StaffAgg>();
+  const getStaffAgg = (staffId: string, name: string): StaffAgg => {
+    const existing = staffMap.get(staffId);
+    if (existing) return existing;
+    const created: StaffAgg = {
+      name, ordersDelivered: 0, totalMinutes: 0, revenueServedCents: 0,
+      helpResolved: 0, totalHelpMinutes: 0, acceptedCount: 0, totalAcceptMinutes: 0,
+    };
+    staffMap.set(staffId, created);
+    return created;
+  };
+
+  // Order ETA accumulators (across all eligible delivered orders)
+  let etaAcceptCount = 0;
+  let etaAcceptTotal = 0;
+  let etaPrepCount = 0;
+  let etaPrepTotal = 0;
+  let etaTotalCount = 0;
+  let etaTotalTotal = 0;
+
   for (const order of delivered) {
     if (!order.claimedByStaffId) continue;
-    const s = staffMap.get(order.claimedByStaffId) ?? {
-      name: order.claimedByStaffName ?? "Unknown",
-      ordersDelivered: 0,
-      totalMinutes: 0,
-      revenueServedCents: 0,
-    };
+    const role = staffRoleById.get(order.claimedByStaffId);
+    if (!role || !ORDER_ROLES.has(role)) continue;
+    const s = getStaffAgg(order.claimedByStaffId, order.claimedByStaffName ?? "Unknown");
     s.ordersDelivered += 1;
-    s.totalMinutes += (order.updatedAt.getTime() - order.placedAt.getTime()) / 60_000;
+    const totalMin = (order.updatedAt.getTime() - order.placedAt.getTime()) / 60_000;
+    s.totalMinutes += totalMin;
     s.revenueServedCents += order.totalCents;
-    staffMap.set(order.claimedByStaffId, s);
+    etaTotalCount += 1;
+    etaTotalTotal += totalMin;
+    if (order.acceptedAt) {
+      const acceptMin = (order.acceptedAt.getTime() - order.placedAt.getTime()) / 60_000;
+      const prepMin = (order.updatedAt.getTime() - order.acceptedAt.getTime()) / 60_000;
+      s.acceptedCount += 1;
+      s.totalAcceptMinutes += acceptMin;
+      etaAcceptCount += 1;
+      etaAcceptTotal += acceptMin;
+      etaPrepCount += 1;
+      etaPrepTotal += prepMin;
+    }
   }
-  const staffPerformance: StaffPerformancePoint[] = [...staffMap.entries()].map(
-    ([staffId, s]) => ({
-      staffId,
-      name: s.name,
-      role: "runner" as const,
-      ordersDelivered: s.ordersDelivered,
-      avgDeliveryMinutes: Math.round(s.totalMinutes / s.ordersDelivered),
-      revenueServed: fromCents(s.revenueServedCents),
-    }),
+  for (const help of helpRows) {
+    if (!help.resolvedByStaffId) continue;
+    const role = staffRoleById.get(help.resolvedByStaffId);
+    if (!role || !HELP_ROLES.has(role)) continue;
+    const s = getStaffAgg(help.resolvedByStaffId, help.resolvedByStaffName ?? "Unknown");
+    s.helpResolved += 1;
+    s.totalHelpMinutes += (help.updatedAt.getTime() - help.createdAt.getTime()) / 60_000;
+  }
+  const staffPerformance: StaffPerfInternal[] = [...staffMap.entries()].map(
+    ([staffId, s]) => {
+      const shiftHours = shiftHoursByStaff.get(staffId) ?? 0;
+      return {
+        staffId,
+        name: s.name,
+        role: (staffRoleById.get(staffId) as StaffPerformancePoint["role"]) ?? "runner",
+        ordersDelivered: s.ordersDelivered,
+        avgDeliveryMinutes: s.ordersDelivered > 0 ? Math.round(s.totalMinutes / s.ordersDelivered) : 0,
+        revenueServed: fromCents(s.revenueServedCents),
+        helpResolved: s.helpResolved,
+        avgHelpMinutes: s.helpResolved > 0 ? Math.round((s.totalHelpMinutes / s.helpResolved) * 10) / 10 : undefined,
+        avgAcceptMinutes: s.acceptedCount > 0 ? Math.round((s.totalAcceptMinutes / s.acceptedCount) * 10) / 10 : undefined,
+        ordersPerShiftHour: shiftHours > 0 ? Math.round((s.ordersDelivered / shiftHours) * 10) / 10 : undefined,
+        shiftHours,
+      };
+    },
   );
+
+  const orderEta: OrderEtaMetrics = {
+    avgAcceptMinutes: etaAcceptCount > 0 ? Math.round((etaAcceptTotal / etaAcceptCount) * 10) / 10 : 0,
+    avgPrepMinutes: etaPrepCount > 0 ? Math.round((etaPrepTotal / etaPrepCount) * 10) / 10 : 0,
+    avgTotalMinutes: etaTotalCount > 0 ? Math.round((etaTotalTotal / etaTotalCount) * 10) / 10 : 0,
+  };
 
   // Category depletion from stock movements in this night window
   const movements = await db.stockMovement.findMany({
@@ -294,6 +395,8 @@ async function queryNightStats(db: ScopedDb, night: NightBoundary): Promise<Nigh
     revenueCents,
     orderCount,
     avgFulfillmentMinutes,
+    orderEta,
+    orderEtaRaw: { acceptCount: etaAcceptCount, acceptTotal: etaAcceptTotal, prepCount: etaPrepCount, prepTotal: etaPrepTotal, totalCount: etaTotalCount, totalTotal: etaTotalTotal },
     topItems,
     revenueByHour,
     revenueByZone,
@@ -310,7 +413,7 @@ export interface RollupData {
   avgOrderCents: number;
   byZone: { v: number; zones: { zoneId: string; zoneName: string; revenueCents: number; orderCount: number }[] };
   topItems: { v: number; items: { name: string; count: number; revenueCents: number; categoryId?: string }[] };
-  staffPerformance: { v: number; staff: { staffId: string; name: string; role: string; ordersDelivered: number; avgDeliveryMinutes: number; revenueServedCents: number }[] };
+  staffPerformance: { v: number; staff: { staffId: string; name: string; role: string; ordersDelivered: number; avgDeliveryMinutes: number; revenueServedCents: number; helpResolved: number; avgHelpMinutes?: number; avgAcceptMinutes?: number; shiftHours: number }[]; eta?: { acceptCount: number; acceptTotal: number; prepCount: number; prepTotal: number; totalCount: number; totalTotal: number } };
   categoryDepletion: { v: number; categories: { categoryId: string; categoryName: string; unitsSold: number }[] };
 }
 
@@ -320,9 +423,10 @@ export interface RollupData {
  */
 export async function computeRollup(
   db: ScopedDb,
+  venueId: string,
   night: NightBoundary,
 ): Promise<RollupData> {
-  const stats = await queryNightStats(db, night);
+  const stats = await queryNightStats(db, venueId, night);
 
   const zoneOrders = new Map<string, number>();
   const orders = await db.order.findMany({
@@ -369,7 +473,12 @@ export async function computeRollup(
         ordersDelivered: s.ordersDelivered,
         avgDeliveryMinutes: s.avgDeliveryMinutes,
         revenueServedCents: Math.round(s.revenueServed * 100),
+        helpResolved: s.helpResolved ?? 0,
+        avgHelpMinutes: s.avgHelpMinutes,
+        avgAcceptMinutes: s.avgAcceptMinutes,
+        shiftHours: s.shiftHours,
       })),
+      eta: stats.orderEtaRaw,
     },
     categoryDepletion: {
       v: 1,
@@ -444,8 +553,9 @@ export async function getHistoricalForVenue(
   // Merge JSONB aggregates across rollup rows
   const zoneMap = new Map<string, { zoneName: string; revenue: number }>();
   const itemMap = new Map<string, { count: number; revenue: number; categoryId?: string }>();
-  const staffMap = new Map<string, { name: string; role: string; ordersDelivered: number; totalMinutes: number; revenueServed: number }>();
+  const staffMap = new Map<string, { name: string; role: string; ordersDelivered: number; totalMinutes: number; revenueServed: number; helpResolved: number; totalHelpMinutes: number; totalAcceptMinutes: number; shiftHours: number }>();
   const catMap = new Map<string, { categoryName: string; unitsSold: number }>();
+  const etaAcc = { acceptCount: 0, acceptTotal: 0, prepCount: 0, prepTotal: 0, totalCount: 0, totalTotal: 0 };
 
   for (const r of rollups) {
     const byZone = r.byZone as { zones?: { zoneId: string; zoneName: string; revenueCents: number }[] };
@@ -463,13 +573,25 @@ export async function getHistoricalForVenue(
       itemMap.set(i.name, existing);
     }
 
-    const perf = r.staffPerformance as { staff?: { staffId: string; name: string; role: string; ordersDelivered: number; avgDeliveryMinutes: number; revenueServedCents: number }[] };
+    const perf = r.staffPerformance as { staff?: { staffId: string; name: string; role: string; ordersDelivered: number; avgDeliveryMinutes: number; revenueServedCents: number; helpResolved?: number; avgHelpMinutes?: number; avgAcceptMinutes?: number; shiftHours?: number }[]; eta?: { acceptCount: number; acceptTotal: number; prepCount: number; prepTotal: number; totalCount: number; totalTotal: number } };
     for (const s of perf.staff ?? []) {
-      const existing = staffMap.get(s.staffId) ?? { name: s.name, role: s.role, ordersDelivered: 0, totalMinutes: 0, revenueServed: 0 };
+      const existing = staffMap.get(s.staffId) ?? { name: s.name, role: s.role, ordersDelivered: 0, totalMinutes: 0, revenueServed: 0, helpResolved: 0, totalHelpMinutes: 0, totalAcceptMinutes: 0, shiftHours: 0 };
       existing.ordersDelivered += s.ordersDelivered;
       existing.totalMinutes += s.avgDeliveryMinutes * s.ordersDelivered;
       existing.revenueServed += fromCents(s.revenueServedCents);
+      existing.helpResolved += s.helpResolved ?? 0;
+      existing.totalHelpMinutes += (s.avgHelpMinutes ?? 0) * (s.helpResolved ?? 0);
+      existing.totalAcceptMinutes += (s.avgAcceptMinutes ?? 0) * s.ordersDelivered;
+      existing.shiftHours += s.shiftHours ?? 0;
       staffMap.set(s.staffId, existing);
+    }
+    if (perf.eta) {
+      etaAcc.acceptCount += perf.eta.acceptCount;
+      etaAcc.acceptTotal += perf.eta.acceptTotal;
+      etaAcc.prepCount += perf.eta.prepCount;
+      etaAcc.prepTotal += perf.eta.prepTotal;
+      etaAcc.totalCount += perf.eta.totalCount;
+      etaAcc.totalTotal += perf.eta.totalTotal;
     }
 
     const depletion = r.categoryDepletion as { categories?: { categoryId: string; categoryName: string; unitsSold: number }[] };
@@ -652,6 +774,10 @@ export async function getHistoricalForVenue(
       ordersDelivered: s.ordersDelivered,
       avgDeliveryMinutes: s.ordersDelivered > 0 ? Math.round(s.totalMinutes / s.ordersDelivered) : 0,
       revenueServed: s.revenueServed,
+      helpResolved: s.helpResolved,
+      avgHelpMinutes: s.helpResolved > 0 ? Math.round((s.totalHelpMinutes / s.helpResolved) * 10) / 10 : undefined,
+      avgAcceptMinutes: s.ordersDelivered > 0 ? Math.round((s.totalAcceptMinutes / s.ordersDelivered) * 10) / 10 : undefined,
+      ordersPerShiftHour: s.shiftHours > 0 ? Math.round((s.ordersDelivered / s.shiftHours) * 10) / 10 : undefined,
     })),
     categoryDepletion: [...catMap.entries()].map(([categoryId, c]) => ({
       categoryId,
@@ -659,6 +785,11 @@ export async function getHistoricalForVenue(
       unitsSold: c.unitsSold,
       unitsInStock: 0,
     })),
+    orderEta: {
+      avgAcceptMinutes: etaAcc.acceptCount > 0 ? Math.round((etaAcc.acceptTotal / etaAcc.acceptCount) * 10) / 10 : 0,
+      avgPrepMinutes: etaAcc.prepCount > 0 ? Math.round((etaAcc.prepTotal / etaAcc.prepCount) * 10) / 10 : 0,
+      avgTotalMinutes: etaAcc.totalCount > 0 ? Math.round((etaAcc.totalTotal / etaAcc.totalCount) * 10) / 10 : 0,
+    },
     sessions: sessionAnalytics,
     reservations: reservationAnalytics,
     orderFunnel,
