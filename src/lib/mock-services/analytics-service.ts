@@ -81,10 +81,11 @@ export const mockAnalyticsService = {
       })),
       staffPerformance: mockAnalytics.staffPerformance.map((s) => ({
         ...s,
-        ordersDelivered: Math.max(1, Math.round(s.ordersDelivered * countScale)),
+        ordersDelivered: s.ordersDelivered > 0 ? Math.max(1, Math.round(s.ordersDelivered * countScale)) : 0,
         revenueServed: Math.round(s.revenueServed * scale),
         helpResolved: s.helpResolved != null ? Math.max(0, Math.round(s.helpResolved * countScale)) : undefined,
       })),
+      orderEta: mockAnalytics.orderEta,
       categoryDepletion: mockAnalytics.categoryDepletion.map((c) => ({
         ...c,
         unitsSold: Math.max(1, Math.round(c.unitsSold * countScale)),
