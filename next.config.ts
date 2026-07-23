@@ -37,6 +37,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   distDir: process.env.VERCEL ? ".next" : buildDirectoryForMode(appMode),
   reactCompiler: true,
+  devIndicators: false,
   turbopack: {
     resolveAlias: appMode === "live"
       ? {
