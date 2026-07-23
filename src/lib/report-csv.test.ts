@@ -23,7 +23,7 @@ const FIXTURE: HistoricalAnalytics = {
     { name: 'Moët "Rosé"', count: 18, revenue: 5400 },
   ],
   staffPerformance: [
-    { staffId: "s1", name: "Alex", role: "runner", ordersDelivered: 45, avgDeliveryMinutes: 4, revenueServed: 22000, avgClaimMinutes: 1.5, helpResolved: 8, avgHelpMinutes: 2.3, ordersPerShiftHour: 6.4 },
+    { staffId: "s1", name: "Alex", role: "runner", ordersDelivered: 45, avgDeliveryMinutes: 4, revenueServed: 22000, avgAcceptMinutes: 1.5, helpResolved: 8, avgHelpMinutes: 2.3, ordersPerShiftHour: 6.4 },
   ],
   categoryDepletion: [
     { categoryId: "c1", categoryName: "Champagne", unitsSold: 50, unitsInStock: 30, sellThrough: 0.63, soldOutMinutes: 0, restockUnits: 20, deadItem: false },
@@ -139,7 +139,7 @@ describe("renderCsv", () => {
 
   it("renders staff section with deepened columns", () => {
     const csv = renderCsv("Test", ["staff"], FIXTURE);
-    expect(csv).toContain('"Staff","Role","Orders delivered","Avg minutes","Revenue served","Claim wait min","Help resolved","Avg help min","Orders/hr"');
+    expect(csv).toContain('"Staff","Role","Orders delivered","Avg minutes","Revenue served","Accept wait min","Help resolved","Avg help min","Orders/hr"');
     expect(csv).toContain('"Alex","runner","45","4","22000","1.5","8","2.3","6.4"');
   });
 
