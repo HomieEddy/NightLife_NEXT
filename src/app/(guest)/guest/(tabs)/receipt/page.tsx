@@ -544,9 +544,14 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
         </CardContent>
       </Card>
 
-      <Button variant="outline" className="w-full animate-fade-up" asChild>
-        <Link href="/guest/menu">Order something else</Link>
-      </Button>
+      <div className="flex gap-2 animate-fade-up">
+        <Button variant="outline" className="flex-1" asChild>
+          <Link href="/guest/orders">My orders</Link>
+        </Button>
+        <Button variant="outline" className="flex-1" asChild>
+          <Link href="/guest/menu">Order something else</Link>
+        </Button>
+      </div>
     </div>
   );
 }

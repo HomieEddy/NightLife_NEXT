@@ -19,7 +19,10 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
 
   const { venueId } = sessionToDbContext(auth.session);
   const { id } = await params;
-  const result = await setHelpRequestStatus(getDb({ venueId }), id, parsed.data.status);
+  const result = await setHelpRequestStatus(getDb({ venueId }), id, parsed.data.status, {
+    staffId: auth.session.user.id,
+    staffName: auth.session.user.name,
+  });
 
   if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(result);

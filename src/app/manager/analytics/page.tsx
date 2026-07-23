@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, Boxes, CalendarCheck, CalendarRange, CircleDollarSign,
-  Clock, PartyPopper, Receipt, Tag, Trophy, Users,
+  Clock, HandHelping, PartyPopper, Receipt, Tag, Timer, Trophy, Users,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -111,23 +111,30 @@ function AnalyticsPageContent() {
     return data.days > 21 ? aggregateWeekly(data.series) : data.series;
   }, [data]);
 
-  const fastestRunner = useMemo(
-    () =>
-      data
-        ? [...data.staffPerformance].sort((a, b) => a.avgDeliveryMinutes - b.avgDeliveryMinutes)[0]
-        : undefined,
+  const orderStaff = useMemo(
+    () => data ? data.staffPerformance.filter((s) => s.role === "bartender" || s.role === "host") : [],
     [data],
   );
-  const topEarner = useMemo(
-    () =>
-      data
-        ? [...data.staffPerformance].sort((a, b) => b.revenueServed - a.revenueServed)[0]
-        : undefined,
+  const helpStaff = useMemo(
+    () => data ? data.staffPerformance.filter((s) => s.role === "runner") : [],
     [data],
   );
 
+  const fastestServer = useMemo(
+    () => orderStaff.length > 0
+      ? [...orderStaff].filter((s) => s.ordersDelivered > 0).sort((a, b) => a.avgDeliveryMinutes - b.avgDeliveryMinutes)[0]
+      : undefined,
+    [orderStaff],
+  );
+  const topEarner = useMemo(
+    () => orderStaff.length > 0
+      ? [...orderStaff].sort((a, b) => b.revenueServed - a.revenueServed)[0]
+      : undefined,
+    [orderStaff],
+  );
+
   const zoneMax = data ? Math.max(...data.revenueByZone.map((z) => z.revenue)) : 1;
-  const staffMax = data ? Math.max(...data.staffPerformance.map((s) => s.ordersDelivered)) : 1;
+  const staffMax = orderStaff.length > 0 ? Math.max(...orderStaff.map((s) => s.ordersDelivered)) : 1;
   const depletionMax = data
     ? Math.max(...data.categoryDepletion.map((c) => c.unitsSold + c.unitsInStock))
     : 1;
@@ -336,42 +343,67 @@ function AnalyticsPageContent() {
 
           {/* ---------- Staff ---------- */}
           <TabsContent value="staff" className="space-y-6 pt-4">
+            {/* Order ETA cards */}
+            {data.orderEta && (
+              <div className="grid grid-cols-3 gap-3">
+                <MetricCard
+                  label="Avg accept wait"
+                  value={`${data.orderEta.avgAcceptMinutes} min`}
+                  icon={Timer}
+                  info="Average time from order placed to a host accepting it."
+                />
+                <MetricCard
+                  label="Avg prep & delivery"
+                  value={`${data.orderEta.avgPrepMinutes} min`}
+                  icon={Timer}
+                  info="Average time from order accepted to delivered at the table."
+                />
+                <MetricCard
+                  label="Avg total ETA"
+                  value={`${data.orderEta.avgTotalMinutes} min`}
+                  icon={Timer}
+                  info="Average end-to-end time from order placed to delivered."
+                  featured
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <MetricCard
                 label="Orders delivered"
-                value={String(data.staffPerformance.reduce((s, p) => s + p.ordersDelivered, 0))}
+                value={String(orderStaff.reduce((s, p) => s + p.ordersDelivered, 0))}
                 icon={Receipt}
-                info="Total orders delivered by all staff in the range."
-                hint={`${data.days} nights, all staff`}
+                info="Total orders delivered by bartenders and hosts in the range."
+                hint={`${data.days} nights`}
               />
               <MetricCard
                 label="Revenue served"
-                value={formatMoney(data.staffPerformance.reduce((s, p) => s + p.revenueServed, 0))}
+                value={formatMoney(orderStaff.reduce((s, p) => s + p.revenueServed, 0))}
                 icon={CircleDollarSign}
-                info="Total revenue from orders delivered by staff."
+                info="Total revenue from orders delivered by bartenders and hosts."
               />
               <MetricCard
-                label="Fastest runner"
-                value={fastestRunner?.name.split(" ")[0] ?? "—"}
+                label="Fastest server"
+                value={fastestServer?.name.split(" ")[0] ?? "—"}
                 icon={Users}
-                info="Staff member with the lowest average delivery time."
-                hint={`${fastestRunner?.avgDeliveryMinutes ?? 0} min avg`}
+                info="Bartender or host with the lowest average delivery time."
+                hint={`${fastestServer?.avgDeliveryMinutes ?? 0} min avg`}
               />
               <MetricCard
                 label="Top earner"
                 value={topEarner?.name.split(" ")[0] ?? "—"}
                 icon={Trophy}
-                info="Staff member who served the highest total revenue."
+                info="Bartender or host who served the highest total revenue."
                 hint="By revenue served"
               />
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Orders delivered per team member</CardTitle>
+                <CardTitle className="text-base">Orders delivered per server</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {data.staffPerformance
+                {orderStaff
                   .slice()
                   .sort((a, b) => b.ordersDelivered - a.ordersDelivered)
                   .map((perf) => (
@@ -397,10 +429,10 @@ function AnalyticsPageContent() {
               </CardContent>
             </Card>
 
-            {/* Deepened: claim wait, help requests, orders/shift-hour */}
+            {/* Order fulfilment — bartenders & hosts */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Fulfilment breakdown</CardTitle>
+                <CardTitle className="text-base">Order fulfilment</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -409,22 +441,20 @@ function AnalyticsPageContent() {
                       <tr className="border-b text-left text-muted-foreground">
                         <th className="pb-2 pr-4 font-medium">Name</th>
                         <th className="pb-2 pr-4 font-medium">Role</th>
-                        <th className="pb-2 pr-4 text-right font-medium">Claim wait</th>
+                        <th className="pb-2 pr-4 text-right font-medium">Accept wait</th>
                         <th className="pb-2 pr-4 text-right font-medium">Delivery</th>
-                        <th className="pb-2 pr-4 text-right font-medium">Help resolved</th>
-                        <th className="pb-2 pr-4 text-right font-medium">Avg help min</th>
+                        <th className="pb-2 pr-4 text-right font-medium">Revenue</th>
                         <th className="pb-2 text-right font-medium">Orders/hr</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.staffPerformance.map((p) => (
+                      {orderStaff.map((p) => (
                         <tr key={p.staffId} className="border-b last:border-0">
                           <td className="py-2 pr-4">{p.name}</td>
                           <td className="py-2 pr-4"><RoleBadge role={p.role} className="px-1.5 py-0 text-[10px]" /></td>
-                          <td className="py-2 pr-4 text-right tabular-nums">{p.avgClaimMinutes ?? "—"} min</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">{p.avgAcceptMinutes ?? "—"} min</td>
                           <td className="py-2 pr-4 text-right tabular-nums">{p.avgDeliveryMinutes} min</td>
-                          <td className="py-2 pr-4 text-right tabular-nums">{p.helpResolved ?? 0}</td>
-                          <td className="py-2 pr-4 text-right tabular-nums">{p.avgHelpMinutes ?? "—"}</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(p.revenueServed)}</td>
                           <td className="py-2 text-right tabular-nums">{p.ordersPerShiftHour ?? "—"}</td>
                         </tr>
                       ))}
@@ -433,6 +463,41 @@ function AnalyticsPageContent() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Help fulfilment — runners */}
+            {helpStaff.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <HandHelping className="size-4 text-primary" /> Help fulfilment
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-muted-foreground">
+                          <th className="pb-2 pr-4 font-medium">Name</th>
+                          <th className="pb-2 pr-4 font-medium">Role</th>
+                          <th className="pb-2 pr-4 text-right font-medium">Help resolved</th>
+                          <th className="pb-2 text-right font-medium">Avg help min</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {helpStaff.map((p) => (
+                          <tr key={p.staffId} className="border-b last:border-0">
+                            <td className="py-2 pr-4">{p.name}</td>
+                            <td className="py-2 pr-4"><RoleBadge role={p.role} className="px-1.5 py-0 text-[10px]" /></td>
+                            <td className="py-2 pr-4 text-right tabular-nums">{p.helpResolved ?? 0}</td>
+                            <td className="py-2 text-right tabular-nums">{p.avgHelpMinutes ?? "—"} min</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <div className="flex justify-end">
               <Button variant="ghost" size="sm" asChild>

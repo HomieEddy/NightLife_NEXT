@@ -10,6 +10,7 @@ export const mockAnalytics: AnalyticsSummary = {
   activeTables: 9,
   totalTables: 23,
   avgFulfillmentMinutes: 7.2,
+  orderEta: { avgAcceptMinutes: 1.4, avgPrepMinutes: 5.8, avgTotalMinutes: 7.2 },
   topItems: [
     { name: "Ace of Spades Brut Gold", count: 7, revenue: 3500, categoryId: "cat-champagne" },
     { name: "Belvedere Pure 1.75L", count: 11, revenue: 3300, categoryId: "cat-vodka" },
@@ -37,11 +38,11 @@ export const mockAnalytics: AnalyticsSummary = {
     { label: "Sat", revenue: 12420, orders: 143 },
   ],
   staffPerformance: [
-    { staffId: "st-nina", name: "Nina Côté", role: "runner", ordersDelivered: 38, avgDeliveryMinutes: 6.1, revenueServed: 4600, avgClaimMinutes: 1.2, helpResolved: 5, avgHelpMinutes: 2.8, ordersPerShiftHour: 5.4 },
-    { staffId: "st-karim", name: "Karim Ouellet", role: "runner", ordersDelivered: 29, avgDeliveryMinutes: 7.8, revenueServed: 2800, avgClaimMinutes: 1.8, helpResolved: 3, avgHelpMinutes: 3.4, ordersPerShiftHour: 4.1 },
-    { staffId: "st-sofia", name: "Sofia Lévesque", role: "bartender", ordersDelivered: 34, avgDeliveryMinutes: 6.9, revenueServed: 2900, avgClaimMinutes: 0.9, helpResolved: 2, avgHelpMinutes: 2.1, ordersPerShiftHour: 4.9 },
-    { staffId: "st-theo", name: "Théo Tremblay", role: "bartender", ordersDelivered: 26, avgDeliveryMinutes: 8.4, revenueServed: 1700, avgClaimMinutes: 2.1, helpResolved: 1, avgHelpMinutes: 4.2, ordersPerShiftHour: 3.7 },
-    { staffId: "st-lucas", name: "Lucas Gagné", role: "host", ordersDelivered: 16, avgDeliveryMinutes: 7.4, revenueServed: 400, avgClaimMinutes: 1.5, helpResolved: 6, avgHelpMinutes: 2.5, ordersPerShiftHour: 2.3 },
+    { staffId: "st-sofia", name: "Sofia Lévesque", role: "bartender", ordersDelivered: 34, avgDeliveryMinutes: 6.9, revenueServed: 2900, avgAcceptMinutes: 0.9, ordersPerShiftHour: 4.9 },
+    { staffId: "st-theo", name: "Théo Tremblay", role: "bartender", ordersDelivered: 26, avgDeliveryMinutes: 8.4, revenueServed: 1700, avgAcceptMinutes: 2.1, ordersPerShiftHour: 3.7 },
+    { staffId: "st-lucas", name: "Lucas Gagné", role: "host", ordersDelivered: 16, avgDeliveryMinutes: 7.4, revenueServed: 400, avgAcceptMinutes: 1.5, ordersPerShiftHour: 2.3 },
+    { staffId: "st-nina", name: "Nina Côté", role: "runner", ordersDelivered: 0, avgDeliveryMinutes: 0, revenueServed: 0, helpResolved: 5, avgHelpMinutes: 2.8 },
+    { staffId: "st-karim", name: "Karim Ouellet", role: "runner", ordersDelivered: 0, avgDeliveryMinutes: 0, revenueServed: 0, helpResolved: 3, avgHelpMinutes: 3.4 },
   ],
   categoryDepletion: [
     { categoryId: "cat-champagne", categoryName: "Champagne", unitsSold: 21, unitsInStock: 34, sellThrough: 0.38, soldOutMinutes: 0, restockUnits: 12, deadItem: false },

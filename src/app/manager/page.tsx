@@ -205,6 +205,30 @@ function TonightTab({
         </div>
       )}
 
+      {summary?.orderEta && (
+        <div className="grid grid-cols-3 gap-3">
+          <MetricCard
+            label="Accept wait"
+            value={`${summary.orderEta.avgAcceptMinutes} min`}
+            icon={Timer}
+            info="Average time from order placed to a host accepting it tonight."
+          />
+          <MetricCard
+            label="Prep & delivery"
+            value={`${summary.orderEta.avgPrepMinutes} min`}
+            icon={Timer}
+            info="Average time from order accepted to delivered at the table tonight."
+          />
+          <MetricCard
+            label="Total ETA"
+            value={`${summary.orderEta.avgTotalMinutes} min`}
+            icon={Timer}
+            info="Average end-to-end time from order placed to delivered tonight."
+            featured
+          />
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <CardHeader>
@@ -503,32 +527,53 @@ function SnapshotTab({
         </Card>
       )}
 
-      {/* Staff depth */}
-      {summary.staffPerformance.length > 0 && summary.staffPerformance[0].avgClaimMinutes != null && (
+      {/* Order ETA */}
+      {summary.orderEta && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Timer className="size-4 text-primary" /> Staff fulfilment
+              <Timer className="size-4 text-primary" /> Order ETA
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Avg claim wait <InfoTip text="Weighted average time between order placement and a staff member claiming it." /></p>
-                <p className="text-lg font-semibold tabular-nums">
-                  {weightedAvg(summary.staffPerformance, (p) => p.avgClaimMinutes, (p) => p.ordersDelivered).toFixed(1)} min
-                </p>
+                <p className="text-muted-foreground flex items-center gap-1">Accept wait <InfoTip text="Average time from order placed to accepted by a host." /></p>
+                <p className="text-lg font-semibold tabular-nums">{summary.orderEta.avgAcceptMinutes} min</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Help resolved <InfoTip text="Total guest help requests resolved by staff tonight." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">Prep & delivery <InfoTip text="Average time from accepted to delivered at the table." /></p>
+                <p className="text-lg font-semibold tabular-nums">{summary.orderEta.avgPrepMinutes} min</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground flex items-center gap-1">Total ETA <InfoTip text="End-to-end average from placed to delivered." /></p>
+                <p className="text-lg font-semibold tabular-nums">{summary.orderEta.avgTotalMinutes} min</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Help fulfilment — runners */}
+      {summary.staffPerformance.some((p) => p.role === "runner" && (p.helpResolved ?? 0) > 0) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Users className="size-4 text-primary" /> Help fulfilment
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <div>
+                <p className="text-muted-foreground flex items-center gap-1">Help resolved <InfoTip text="Total guest help requests resolved by runners tonight." /></p>
                 <p className="text-lg font-semibold tabular-nums">
-                  {summary.staffPerformance.reduce((s, p) => s + (p.helpResolved ?? 0), 0)}
+                  {summary.staffPerformance.filter((p) => p.role === "runner").reduce((s, p) => s + (p.helpResolved ?? 0), 0)}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground flex items-center gap-1">Avg help time <InfoTip text="Weighted average minutes to resolve a guest help request." /></p>
                 <p className="text-lg font-semibold tabular-nums">
-                  {weightedAvg(summary.staffPerformance, (p) => p.avgHelpMinutes, (p) => p.helpResolved ?? 0).toFixed(1)} min
+                  {weightedAvg(summary.staffPerformance.filter((p) => p.role === "runner"), (p) => p.avgHelpMinutes, (p) => p.helpResolved ?? 0).toFixed(1)} min
                 </p>
               </div>
             </div>

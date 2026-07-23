@@ -107,15 +107,22 @@ describe("mockAnalytics summary shape", () => {
     expect(inv!.deadItems).toBeGreaterThanOrEqual(0);
   });
 
-  it("has deepened staff performance fields", () => {
+  it("has role-appropriate staff performance fields", () => {
+    const orderRoles = new Set(["bartender", "host"]);
+    const helpRoles = new Set(["runner"]);
     for (const staff of mockAnalytics.staffPerformance) {
-      expect(staff.avgClaimMinutes).toBeDefined();
-      expect(staff.avgClaimMinutes).toBeGreaterThanOrEqual(0);
-      expect(staff.helpResolved).toBeDefined();
-      expect(staff.helpResolved).toBeGreaterThanOrEqual(0);
-      expect(staff.avgHelpMinutes).toBeDefined();
-      expect(staff.ordersPerShiftHour).toBeDefined();
-      expect(staff.ordersPerShiftHour).toBeGreaterThan(0);
+      if (orderRoles.has(staff.role)) {
+        expect(staff.avgAcceptMinutes).toBeDefined();
+        expect(staff.avgAcceptMinutes).toBeGreaterThanOrEqual(0);
+        expect(staff.ordersPerShiftHour).toBeDefined();
+        expect(staff.ordersPerShiftHour).toBeGreaterThan(0);
+        expect(staff.ordersDelivered).toBeGreaterThan(0);
+      }
+      if (helpRoles.has(staff.role)) {
+        expect(staff.helpResolved).toBeDefined();
+        expect(staff.helpResolved).toBeGreaterThan(0);
+        expect(staff.avgHelpMinutes).toBeDefined();
+      }
     }
   });
 });

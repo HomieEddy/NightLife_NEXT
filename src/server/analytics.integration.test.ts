@@ -137,7 +137,7 @@ describe("analytics & reports integration (plan 09)", () => {
   it("computes rollup with correct revenue from known orders", async () => {
     const db = getDb(sessionA);
     const night = nightForDate("2026-07-14", UTC_NIGHT);
-    const rollup = await computeRollup(db, night);
+    const rollup = await computeRollup(db, venueA, night);
 
     // Order 1: 3 × $200 = $600 (60000 cents)
     // Order 2: 2 × $200 = $400 + $10 tip = $410 (41000 cents)
@@ -180,7 +180,7 @@ describe("analytics & reports integration (plan 09)", () => {
 
     try {
       const summary = await getSummaryForVenue(db, venueA, config);
-      const rollup = await computeRollup(db, nightContaining(new Date(), config));
+      const rollup = await computeRollup(db, venueA, nightContaining(new Date(), config));
 
       expect(summary.ordersTonight).toBe(1);
       expect(rollup.orderCount).toBe(summary.ordersTonight);
@@ -199,7 +199,7 @@ describe("analytics & reports integration (plan 09)", () => {
   it("upserting rollup twice produces exactly one row", async () => {
     const db = getDb(sessionA);
     const night = nightForDate("2026-07-14", UTC_NIGHT);
-    const rollup = await computeRollup(db, night);
+    const rollup = await computeRollup(db, venueA, night);
 
     await upsertRollup(rawClient, venueA, "2026-07-14", rollup);
     await upsertRollup(rawClient, venueA, "2026-07-14", rollup);

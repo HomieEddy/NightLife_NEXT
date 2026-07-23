@@ -82,6 +82,8 @@ interface HelpRow {
   type: string;
   status: string;
   createdAt: Date;
+  resolvedByStaffId?: string | null;
+  resolvedByStaffName?: string | null;
 }
 
 function toHelpRequest(row: HelpRow): HelpRequest {
@@ -94,6 +96,8 @@ function toHelpRequest(row: HelpRow): HelpRequest {
     type: row.type as HelpRequestType,
     status: row.status as HelpRequestStatus,
     createdAt: row.createdAt.toISOString(),
+    resolvedByStaffId: row.resolvedByStaffId ?? undefined,
+    resolvedByStaffName: row.resolvedByStaffName ?? undefined,
   };
 }
 
@@ -336,13 +340,19 @@ export async function setHelpRequestStatus(
   db: ScopedDb,
   requestId: string,
   status: HelpRequestStatus,
+  resolvedBy?: { staffId: string; staffName: string },
 ): Promise<HelpRequest | null> {
   const existing = await db.helpRequest.findUnique({ where: { id: requestId } });
   if (!existing) return null;
 
   const updated = await db.helpRequest.update({
     where: { id: requestId },
-    data: { status },
+    data: {
+      status,
+      ...(resolvedBy && (status === "acknowledged" || status === "resolved")
+        ? { resolvedByStaffId: resolvedBy.staffId, resolvedByStaffName: resolvedBy.staffName }
+        : {}),
+    },
   });
   const request = toHelpRequest(updated);
   await publish({
