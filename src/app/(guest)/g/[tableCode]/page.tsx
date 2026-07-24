@@ -176,7 +176,7 @@ export default function QrEntryPage({
             <Link href="/demo"><ArrowLeft className="size-4" /> Back to demo</Link>
           </Button>
         )}
-        <BrandLogo />
+        <BrandLogo variant="mark" />
       </div>
 
       <div className="relative mt-8 text-center animate-fade-up">
