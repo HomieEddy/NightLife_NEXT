@@ -214,7 +214,7 @@ function AnalyticsPageContent() {
         </div>
       ) : (
         <Tabs defaultValue="sales">
-          <TabsList className="flex-wrap">
+          <TabsList className="!h-auto w-full flex-wrap gap-1 sm:!h-8 sm:w-fit sm:flex-nowrap sm:gap-0">
             <TabsTrigger value="sales">
               <CircleDollarSign className="size-3.5" /> Sales
             </TabsTrigger>
