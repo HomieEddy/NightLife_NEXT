@@ -64,6 +64,7 @@ export function FloorMapCanvas({
       className={cn(
         "relative w-full touch-none overflow-hidden rounded-xl border bg-accent/30",
         "bg-[radial-gradient(circle,var(--border)_1px,transparent_1px)] [background-size:24px_24px]",
+        "max-lg:!aspect-[3/4] max-lg:min-h-[400px]",
         editMode && "border-primary/50 border-dashed",
       )}
       onPointerMove={onDragMove}

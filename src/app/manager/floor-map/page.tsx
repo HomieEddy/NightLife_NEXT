@@ -4,7 +4,7 @@ import { FeatureGate } from "@/components/shared/feature-gate";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Inbox, Lock, LockOpen, Map, QrCode, Receipt, Users, X } from "lucide-react";
+import { Inbox, Loader2, Lock, Map, QrCode, Receipt, Save, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,7 +60,9 @@ function FloorMapPageContent() {
   const [tableOrders, setTableOrders] = useState<Order[] | null>(null); // null = panel closed
   const [tableSessions, setTableSessions] = useState<GuestSession[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
   const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
+  const snapshotRef = useRef<{ tables: VenueTable[]; floorMap: Venue["floorMap"] } | null>(null);
 
   const refresh = useCallback(async () => {
     const [tableList, zoneList, venueData] = await Promise.all([
@@ -80,16 +82,77 @@ function FloorMapPageContent() {
   const selected = (tables ?? []).find((t) => t.id === selectedId) ?? null;
   const zoneOf = (zoneId: string) => zones.find((z) => z.id === zoneId);
 
-  // ---------- Canvas size ----------
+  // ---------- Edit mode lifecycle ----------
 
-  async function setCanvasSize(width: number, height: number) {
+  function enterEditMode() {
+    if (!tables || !venue) return;
+    snapshotRef.current = {
+      tables: tables.map((t) => ({ ...t })),
+      floorMap: { ...venue.floorMap },
+    };
+    setEditMode(true);
+  }
+
+  function cancelEdit() {
+    const snap = snapshotRef.current;
+    if (snap) {
+      setTables(snap.tables);
+      if (venue) setVenue({ ...venue, floorMap: snap.floorMap });
+    }
+    snapshotRef.current = null;
+    setEditMode(false);
+    toast.info("Layout changes discarded");
+  }
+
+  async function saveEdit() {
+    if (!tables || !venue) return;
+    setEditSaving(true);
+    try {
+      const snap = snapshotRef.current;
+      const movedTables = snap
+        ? tables.filter((t) => {
+            const orig = snap.tables.find((o) => o.id === t.id);
+            return orig && (orig.mapX !== t.mapX || orig.mapY !== t.mapY);
+          })
+        : [];
+      await Promise.all(
+        movedTables
+          .filter((t): t is VenueTable & { mapX: number; mapY: number } => t.mapX != null && t.mapY != null)
+          .map((t) => venueService.setTablePosition(t.id, t.mapX, t.mapY)),
+      );
+      const canvasChanged = snap && (snap.floorMap.width !== venue.floorMap.width || snap.floorMap.height !== venue.floorMap.height);
+      if (canvasChanged) {
+        await venueService.updateVenue({ floorMap: venue.floorMap });
+      }
+      snapshotRef.current = null;
+      setEditMode(false);
+      toast.success("Layout saved");
+    } catch {
+      toast.error("Could not save layout changes");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  const hasEditChanges = (() => {
+    const snap = snapshotRef.current;
+    if (!snap || !tables || !venue) return false;
+    if (snap.floorMap.width !== venue.floorMap.width || snap.floorMap.height !== venue.floorMap.height) return true;
+    return tables.some((t) => {
+      const orig = snap.tables.find((o) => o.id === t.id);
+      return orig && (orig.mapX !== t.mapX || orig.mapY !== t.mapY);
+    });
+  })();
+
+  // ---------- Canvas size (local only in edit mode) ----------
+
+  function setCanvasSize(width: number, height: number) {
     if (!venue) return;
     const floorMap = {
       width: Math.min(40, Math.max(1, width)),
       height: Math.min(40, Math.max(1, height)),
     };
     setVenue({ ...venue, floorMap });
-    await venueService.updateVenue({ floorMap });
   }
 
   // ---------- Drag handling (edit mode) ----------
@@ -117,14 +180,10 @@ function FloorMapPageContent() {
     );
   }
 
-  async function onPointerUp() {
+  function onPointerUp() {
     const drag = dragRef.current;
     dragRef.current = null;
     if (!drag?.moved) return;
-    const table = (tables ?? []).find((t) => t.id === drag.id);
-    if (table?.mapX !== undefined && table.mapY !== undefined) {
-      await venueService.setTablePosition(table.id, table.mapX, table.mapY);
-    }
   }
 
   async function setStatus(table: VenueTable, status: TableStatus) {
@@ -158,10 +217,36 @@ function FloorMapPageContent() {
             : "Live view — tap a table for details."
         }
         actions={
-          <Button variant={editMode ? "default" : "outline"} onClick={() => setEditMode((v) => !v)}>
-            {editMode ? <LockOpen className="size-4" /> : <Lock className="size-4" />}
-            {editMode ? "Done editing" : "Edit layout"}
-          </Button>
+          editMode ? (
+            <div className="flex gap-2">
+              {hasEditChanges ? (
+                <ConfirmDialog
+                  trigger={
+                    <Button variant="ghost" disabled={editSaving}>
+                      <X className="size-4" /> Cancel
+                    </Button>
+                  }
+                  title="Discard layout changes?"
+                  description="Your table positions and canvas adjustments will be reverted."
+                  confirmLabel="Discard changes"
+                  destructive
+                  onConfirm={cancelEdit}
+                />
+              ) : (
+                <Button variant="ghost" onClick={cancelEdit} disabled={editSaving}>
+                  <X className="size-4" /> Cancel
+                </Button>
+              )}
+              <Button onClick={saveEdit} disabled={editSaving || !hasEditChanges}>
+                {editSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                {editSaving ? "Saving…" : "Save layout"}
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" onClick={enterEditMode}>
+              <Lock className="size-4" /> Edit layout
+            </Button>
+          )
         }
       />
 
