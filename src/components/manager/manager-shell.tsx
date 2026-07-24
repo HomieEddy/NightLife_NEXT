@@ -129,7 +129,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
         {/* Mobile header + scrolling nav */}
         <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-lg md:hidden print:hidden">
           <div className="flex h-12 items-center justify-between px-4">
-            <BrandLogo href="/manager" />
+            <BrandLogo href="/manager" variant="mark" />
             <div className="flex items-center gap-1">
               <RoleBadge role="manager" />
               <AuthBanner className="[&>span]:hidden sm:[&>span]:inline" />
