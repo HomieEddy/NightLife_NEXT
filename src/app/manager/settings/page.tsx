@@ -157,7 +157,7 @@ export default function ManagerSettingsPage() {
                       placeholder="Name (e.g. TVQ)"
                       value={fee.name}
                       onChange={(e) => patchFee({ name: e.target.value })}
-                      className="w-36 flex-1"
+                      className="min-w-0 flex-1 basis-28"
                       aria-label="Fee name"
                     />
                     <div className="flex gap-1">
@@ -477,9 +477,9 @@ export default function ManagerSettingsPage() {
           {venue.openingHours.map((slot, index) => (
             <div
               key={slot.day}
-              className="grid grid-cols-[1fr_7rem_7rem_auto] items-end gap-2 rounded-lg border p-3"
+              className="grid grid-cols-[1fr_auto] items-end gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_7rem_7rem_auto]"
             >
-              <div className="space-y-1">
+              <div className="col-span-1 space-y-1 sm:col-span-1">
                 <Label htmlFor={`day-${index}`} className="text-xs">Day</Label>
                 <select
                   id={`day-${index}`}
@@ -496,6 +496,20 @@ export default function ManagerSettingsPage() {
                     <option key={day}>{day}</option>
                   ))}
                 </select>
+              </div>
+              <div className="row-start-1 self-center justify-self-end sm:col-start-4 sm:row-start-auto sm:self-end">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Remove ${slot.day} hours`}
+                  onClick={() => setVenue({
+                    ...venue,
+                    openingHours: venue.openingHours.filter((_, slotIndex) => slotIndex !== index),
+                  })}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
               </div>
               <div className="space-y-1">
                 <Label htmlFor={`open-${index}`} className="text-xs">Open</Label>
@@ -525,18 +539,6 @@ export default function ManagerSettingsPage() {
                   })}
                 />
               </div>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                aria-label={`Remove ${slot.day} hours`}
-                onClick={() => setVenue({
-                  ...venue,
-                  openingHours: venue.openingHours.filter((_, slotIndex) => slotIndex !== index),
-                })}
-              >
-                <Trash2 className="size-4" />
-              </Button>
             </div>
           ))}
         </CardContent>
