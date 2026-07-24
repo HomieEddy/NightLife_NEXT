@@ -111,8 +111,8 @@ export default function ManagerSubscriptionPage() {
               <CreditCard className="size-4 text-primary" /> Payment method
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <div>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-sm font-medium">
                 {subscription.paymentMethod.brand} ···· {subscription.paymentMethod.last4}
               </p>
@@ -223,10 +223,10 @@ export default function ManagerSubscriptionPage() {
             {invoices.map((invoice) => (
               <li
                 key={invoice.id}
-                className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm sm:flex-nowrap sm:gap-3"
               >
-                <div>
-                  <p className="font-mono text-xs font-semibold">{invoice.id}</p>
+                <div className="min-w-0">
+                  <p className="truncate font-mono text-xs font-semibold">{invoice.id}</p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(invoice.date).toLocaleDateString(undefined, {
                       month: "long",
@@ -235,7 +235,7 @@ export default function ManagerSubscriptionPage() {
                     })}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <span className="font-medium tabular-nums">{formatMoney(invoice.amount)}</span>
                   <Badge
                     variant="outline"
