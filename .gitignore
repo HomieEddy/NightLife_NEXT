@@ -22,6 +22,11 @@
 # promo screenshot output
 /promo-output/
 
+# Remotion project (standalone video toolchain)
+promo-video/out/          # rendered .mp4 files
+promo-video/.remotion/    # Remotion cache
+promo-video/public/music/ # large audio files
+
 # next.js
 /.next/
 /.next-demo/
@@ -56,5 +61,6 @@ next-env.d.ts
 .claude/
 AGENTS.md
 CLAUDE.md
+PROMO.md
 
 .vercel
