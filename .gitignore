@@ -19,8 +19,8 @@
 # PGlite local dev database
 /.pglite-data/
 
-# promo screenshot output
-/promo-output/
+# Promo production (Remotion videos, screenshots, docs, scripts)
+/promo-main/
 
 # next.js
 /.next/
