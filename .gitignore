@@ -19,13 +19,8 @@
 # PGlite local dev database
 /.pglite-data/
 
-# promo screenshot output
-/promo-output/
-
-# Remotion project (standalone video toolchain)
-promo-video/out/          # rendered .mp4 files
-promo-video/.remotion/    # Remotion cache
-promo-video/public/music/ # large audio files
+# Promo production (Remotion videos, screenshots, docs, scripts)
+/promo-main/
 
 # next.js
 /.next/
@@ -61,6 +56,5 @@ next-env.d.ts
 .claude/
 AGENTS.md
 CLAUDE.md
-PROMO.md
 
 .vercel
