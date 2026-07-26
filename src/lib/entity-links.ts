@@ -15,6 +15,7 @@ export const eventHref = (eventId: string) => `/manager/events?highlight=${event
 export const promotionHref = (promoId: string) => `/manager/promotions?highlight=${promoId}`;
 export const staffReservationsHref = (promoterId: string) => `/staff/reservations?promoter=${promoterId}`;
 export const adminTenantHref = (tenantId: string) => `/admin/venues/${tenantId}`;
+export const publicEventsHref = (publicSlug: string) => `/e/${publicSlug}`;
 export const publicReservationHref = (publicSlug: string, date?: string, eventId?: string) => {
   const params = new URLSearchParams();
   if (date) params.set("date", date);
