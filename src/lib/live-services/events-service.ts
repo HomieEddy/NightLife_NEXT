@@ -65,5 +65,14 @@ export const liveEventsService = {
   async removeEventGuest(guestId: string): Promise<void> {
     await api<{ ok: boolean }>(`/api/event-guests/${encodeURIComponent(guestId)}`, { method: "DELETE" });
   },
+
+  async listPublicEvents(
+    venueSlug: string,
+  ): Promise<{ venueName: string; events: VenueEvent[] } | null> {
+    const res = await liveFetch(`/api/public/events/${encodeURIComponent(venueSlug)}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Failed to load public events`);
+    return res.json();
+  },
 };
 import { liveFetch } from "./live-fetch";
