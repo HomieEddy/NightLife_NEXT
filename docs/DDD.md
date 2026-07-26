@@ -106,11 +106,24 @@ stays a pure function fed by queries.
 **StaffMember** (read model over User + venue Member + StaffProfile), **StaffShift**,
 **ChatMessage** (immutable, channel-scoped).
 
+Floor roles are manager / host / bartender / runner / security / promoter; a
+single **capability matrix** (`role-capabilities.ts`, plans 14–15) is the one
+authority for what each role may do (order actions, session approvals,
+help-request scope, nav) — consumed by the staff shell and, at graduation,
+enforced in route handlers. Runners fulfill (prepare/ready/deliver) but never
+accept orders or approve sessions; security sees only security-type help,
+their shifts and the security chat channel; promoters are read-only outside
+their own reservation book.
+
 ### Hospitality Calendar context
 
 **Reservation** (root) — requested → confirmed → seated → completed | cancelled;
 seating flips the table to reserved/occupied. Carries `channel` attribution
-(embed/direct/walk-in/manager), optional guest contact (`guestEmail`,
+(embed/direct/walk-in/manager, plus promoter — plan 14), optional
+`promoterId` (stamped onto the `GuestSession` at seat time so promoter
+revenue attribution flows reservation → session → orders; promoters CRUD
+only their own reservations and never confirm — confirmation stays a venue
+action), optional guest contact (`guestEmail`,
 `guestPhone`) and a 6-digit `reservationPin` (plan 13): a table with an active
 confirmed reservation is QR-gated behind that PIN, so a random scan can't
 hijack it. Public embed-page creation writes reservations only — never table
