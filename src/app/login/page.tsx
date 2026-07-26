@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, LogIn, Sparkles, UserCog, Users, ShieldCheck } from "lucide-react";
+import { ArrowLeft, LogIn, Sparkles, UserCog, Users, Shield, Beer, PersonStanding, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,12 +14,15 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useAuth } from "@/context/auth-context";
 import { authService } from "@/lib/services/auth-service";
 import { isDemoMode } from "@/lib/app-mode";
-import type { AuthUser } from "@/lib/types";
+import type { AuthUser, StaffRole } from "@/lib/types";
 
-const ROLE_ICON: Record<string, typeof UserCog> = {
+const STAFF_ROLE_ICON: Record<StaffRole, typeof UserCog> = {
   manager: UserCog,
-  staff: Users,
-  admin: ShieldCheck,
+  host: BadgeCheck,
+  bartender: Beer,
+  runner: PersonStanding,
+  security: Shield,
+  promoter: Users,
 };
 
 const ROLE_HOME: Record<string, string> = {
@@ -108,9 +111,13 @@ function DemoLogin() {
             </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
+            <p className="pb-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Venue team
+            </p>
             {personas.map((p) => {
-              const Icon = ROLE_ICON[p.role] ?? UserCog;
+              const floorRole = p.staffRole ?? (p.role === "manager" ? "manager" : null);
+              const Icon = floorRole ? (STAFF_ROLE_ICON[floorRole] ?? UserCog) : UserCog;
               return (
                 <button
                   key={p.id}
@@ -129,7 +136,7 @@ function DemoLogin() {
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{p.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Sign in as <span className="font-medium capitalize">{p.staffRole ?? p.role}</span>
+                      Sign in as <span className="font-medium capitalize">{floorRole ?? p.role}</span>
                     </p>
                   </div>
                   <LogIn className="size-4 shrink-0 text-muted-foreground" />

@@ -15,6 +15,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { guestsService } from "@/lib/services/guests-service";
 import { reservationService } from "@/lib/services/reservation-service";
 import { staffService } from "@/lib/services/staff-service";
+import { canDo } from "@/lib/role-capabilities";
 import { timeAgo } from "@/lib/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { GuestSession, SettlementMethod, StaffMember } from "@/lib/types";
@@ -88,6 +89,18 @@ export default function StaffApprovalsPage() {
   const recent = (sessions ?? [])
     .filter((s) => !["pending", "closure-requested"].includes(s.status))
     .slice(0, 6);
+
+  if (me && !canDo(me.role, "session:approve")) {
+    return (
+      <div className="p-4">
+        <EmptyState
+          icon={UserCheck}
+          title="Not available for your role"
+          description="Guest approvals are handled by hosts and managers."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 p-4">
