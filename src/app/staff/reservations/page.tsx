@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarCheck, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { CalendarCheck, CalendarDays, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,13 +16,14 @@ import {
   toLocalInput,
   fromLocalInput,
 } from "@/components/shared/reservation-form-dialog";
+import { eventsService } from "@/lib/services/events-service";
 import { reservationService } from "@/lib/services/reservation-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { formatTime } from "@/lib/format";
 import { canDo } from "@/lib/role-capabilities";
 import { useLiveEvents } from "@/lib/use-live-events";
-import type { Reservation, StaffMember, Zone, VenueTable } from "@/lib/types";
+import type { Reservation, StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
 
 const NIGHT_LABELS: Record<string, string> = {};
 function nightLabel(iso: string): string {
@@ -39,20 +40,23 @@ function StaffReservationsContent() {
   const [me, setMe] = useState<StaffMember | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [tables, setTables] = useState<VenueTable[]>([]);
+  const [events, setEvents] = useState<VenueEvent[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState<ReservationDraft>(EMPTY_DRAFT);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [staff, z, t] = await Promise.all([
+    const [staff, z, t, allEvents] = await Promise.all([
       staffService.getCurrentStaff(),
       venueService.listZones(),
       venueService.listTables(),
+      eventsService.listEvents(),
     ]);
     setMe(staff);
     setZones(z);
     setTables(t);
+    setEvents(allEvents.filter((e) => e.status !== "draft"));
     const res = await reservationService.listMyReservations(staff.id);
     setReservations(res);
   }, []);
@@ -89,6 +93,7 @@ function StaffReservationsContent() {
       startsAt: toLocalInput(res.startsAt),
       endsAt: res.endsAt ? toLocalInput(res.endsAt) : "",
       note: res.note ?? "",
+      eventId: res.eventId,
     });
     setDialogOpen(true);
   }
@@ -106,6 +111,7 @@ function StaffReservationsContent() {
         startsAt: fromLocalInput(draft.startsAt),
         endsAt: draft.endsAt ? fromLocalInput(draft.endsAt) : undefined,
         note: draft.note || undefined,
+        eventId: draft.eventId,
       };
       if (editingId) {
         await reservationService.updateReservation(editingId, payload);
@@ -197,6 +203,14 @@ function StaffReservationsContent() {
                       Party of {res.partySize} · {formatTime(res.startsAt)}
                       {res.note && <> · {res.note}</>}
                     </p>
+                    {res.eventId && (() => {
+                      const evt = events.find((e) => e.id === res.eventId);
+                      return evt ? (
+                        <p className="flex items-center gap-1 text-xs text-primary">
+                          <CalendarDays className="size-3" /> {evt.name}
+                        </p>
+                      ) : null;
+                    })()}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     {editable && (
@@ -234,6 +248,7 @@ function StaffReservationsContent() {
         saving={saving}
         onSave={save}
         editingId={editingId}
+        events={events}
       />
     </div>
   );
