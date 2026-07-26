@@ -2,7 +2,9 @@
 
 Status: Phase 2 shipped through plan 12 (see `docs/ROADMAP.md` for per-feature
 status); plan 13 (embedded reservations & QR gate) is demo-complete, live
-graduation pending · Owner: Eddy · Last updated: 2026-07-19
+graduation pending; plans 14–15 (promoters · floor-role capability matrix +
+security panel + per-role demo personas) are planned, demo track first ·
+Owner: Eddy · Last updated: 2026-07-26
 
 ## 1. What we're building
 
@@ -29,7 +31,9 @@ selector layer (AD-14): mock and real implementations co-exist permanently.
 | User | Job to be done |
 |---|---|
 | Venue manager | Run the night: see problems before guests feel them, control the floor, price the menu, staff the shifts. |
-| Host / bartender / runner | Work a loud, dark, busy room from a phone: claim orders, react to 86s and broadcasts, approve tables. |
+| Host / bartender / runner | Work a loud, dark, busy room from a phone: claim orders, react to 86s and broadcasts, approve tables. Runners are fulfillment assistants (prepare/ready/deliver, zone-scoped help) — they don't accept orders or approve sessions (plan 15). |
+| Promoter | Funnel guests in and get judged on it: manage their own reservation book from a phone, watch their tables' orders live (read-only), see only their funnel (plan 14). |
+| Security | Keep the room safe: security help requests, their shifts, the security chat channel — nothing else on their phone (plan 15). |
 | Guest | Order from the booth without flagging anyone down; close out and split the bill without friction. |
 | Platform team | Sell, provision and bill venues; keep tenants isolated and healthy. |
 
@@ -50,8 +54,10 @@ The prototype's limits are now the product's limits:
 ### In scope (Phase 2)
 
 - Durable multi-tenant storage for every domain concept in `src/lib/types.ts`.
-- Real authentication and role-based authorization (manager/host/bartender/runner,
-  guest table tokens, platform admin).
+- Real authentication and role-based authorization (manager/host/bartender/
+  runner/security/promoter — floor-role capabilities centralized in one matrix
+  enforced UI- and server-side, plans 14–15; guest table tokens, platform
+  admin).
 - The full order lifecycle server-side: totals, fees, inventory draw-down,
   state machine, claims, gifts — transactional and correct.
 - Live updates replacing every `setInterval` poll (orders, pulse, chat, 86-board,
