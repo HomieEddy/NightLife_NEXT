@@ -88,6 +88,7 @@ export const mockGuestsService = {
   async createHelpRequest(input: {
     sessionId: string;
     tableCode: string;
+    zoneId?: string;
     zoneName: string;
     guestName: string;
     type: HelpRequestType;
@@ -96,6 +97,7 @@ export const mockGuestsService = {
     const request: HelpRequest = {
       id: uid("hr"),
       ...input,
+      zoneId: input.zoneId ?? "",
       status: "open",
       createdAt: new Date().toISOString(),
     };

@@ -10,10 +10,12 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { guestsService } from "@/lib/services/guests-service";
+import { staffService } from "@/lib/services/staff-service";
+import { getHelpScope } from "@/lib/role-capabilities";
 import { timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
-import type { HelpRequest, HelpRequestType } from "@/lib/types";
+import type { HelpRequest, HelpRequestType, StaffMember } from "@/lib/types";
 
 const TYPE_META: Record<HelpRequestType, { label: string; icon: typeof Hand; urgent?: boolean }> = {
   "call-waiter": { label: "Call waiter", icon: Hand },
@@ -23,12 +25,28 @@ const TYPE_META: Record<HelpRequestType, { label: string; icon: typeof Hand; urg
   security: { label: "Security", icon: Shield, urgent: true },
 };
 
+function scopeFilter(requests: HelpRequest[], me: StaffMember): HelpRequest[] {
+  const scope = getHelpScope(me.role);
+  if (scope === "all") return requests;
+  if (scope === "security-only") return requests.filter((r) => r.type === "security");
+  // assigned-zones: requests in my zones, minus security-type (security handles those)
+  return requests.filter(
+    (r) => r.type !== "security" && me.assignedZoneIds.includes(r.zoneId),
+  );
+}
+
 export default function StaffHelpPage() {
   const [requests, setRequests] = useState<HelpRequest[] | null>(null);
+  const [me, setMe] = useState<StaffMember | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    setRequests(await guestsService.listHelpRequests());
+    const [allRequests, currentStaff] = await Promise.all([
+      guestsService.listHelpRequests(),
+      staffService.getCurrentStaff(),
+    ]);
+    setMe(currentStaff);
+    setRequests(allRequests);
   }, []);
 
   const refreshRef = useRef(refresh);
@@ -51,20 +69,29 @@ export default function StaffHelpPage() {
     setBusyId(null);
   }
 
-  const open = (requests ?? []).filter((r) => r.status !== "resolved");
-  const resolved = (requests ?? []).filter((r) => r.status === "resolved").slice(0, 5);
+  const scoped = me ? scopeFilter(requests ?? [], me) : (requests ?? []);
+  const open = scoped.filter((r) => r.status !== "resolved");
+  const resolved = scoped.filter((r) => r.status === "resolved").slice(0, 5);
+
+  const isSecurityRole = me?.role === "security";
 
   return (
     <div className="space-y-5 p-4">
-      <h1 className="text-display text-xl">Help requests</h1>
+      <h1 className="text-display text-xl">
+        {isSecurityRole ? "Security requests" : "Help requests"}
+      </h1>
 
       {requests === null ? (
         <ListSkeleton rows={3} rowHeight="h-28" />
       ) : open.length === 0 ? (
         <EmptyState
           icon={LifeBuoy}
-          title="All guests are happy"
-          description="Open help requests will appear here the moment a guest taps a button."
+          title={isSecurityRole ? "No active security requests" : "All guests are happy"}
+          description={
+            isSecurityRole
+              ? "Security help requests will appear here as soon as a guest flags a situation."
+              : "Open help requests will appear here the moment a guest taps a button."
+          }
         />
       ) : (
         <div className="space-y-3">

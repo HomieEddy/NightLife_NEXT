@@ -77,6 +77,7 @@ interface HelpRow {
   id: string;
   sessionId: string;
   tableCode: string;
+  zoneId?: string | null;
   zoneName: string;
   guestName: string;
   type: string;
@@ -91,6 +92,7 @@ function toHelpRequest(row: HelpRow): HelpRequest {
     id: row.id,
     sessionId: row.sessionId,
     tableCode: row.tableCode,
+    zoneId: row.zoneId ?? "",
     zoneName: row.zoneName,
     guestName: row.guestName,
     type: row.type as HelpRequestType,

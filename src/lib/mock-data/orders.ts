@@ -268,8 +268,14 @@ export const mockGuestSessions: GuestSession[] = [
 ];
 
 export const mockHelpRequests: HelpRequest[] = [
-  { id: "hr-1", sessionId: "gs-3", tableCode: "VIP-02", zoneName: "VIP Mezzanine", guestName: "Chloé", type: "refill-ice", status: "open", createdAt: minsAgo(4) },
-  { id: "hr-2", sessionId: "gs-4", tableCode: "MF-05", zoneName: "Main Floor", guestName: "Hugo", type: "call-waiter", status: "open", createdAt: minsAgo(7) },
-  { id: "hr-3", sessionId: "gs-5", tableCode: "TER-01", zoneName: "Terrace", guestName: "Léa", type: "clean-table", status: "acknowledged", createdAt: minsAgo(15) },
-  { id: "hr-4", sessionId: "gs-5", tableCode: "BAR-01", zoneName: "Back Bar", guestName: "Inès", type: "bill", status: "resolved", createdAt: minsAgo(25) },
+  // zone-vip: Nina (runner) can see this
+  { id: "hr-1", sessionId: "gs-3", tableCode: "VIP-02", zoneId: "zone-vip",     zoneName: "VIP Mezzanine", guestName: "Chloé",   type: "refill-ice",   status: "open",         createdAt: minsAgo(4) },
+  // zone-dance: Nina cannot see this (not in her zones); bartender/host/manager can
+  { id: "hr-2", sessionId: "gs-4", tableCode: "MF-05",  zoneId: "zone-dance",   zoneName: "Main Floor",    guestName: "Hugo",    type: "call-waiter",  status: "open",         createdAt: minsAgo(7) },
+  // zone-terrace: Nina can see this
+  { id: "hr-3", sessionId: "gs-5", tableCode: "TER-01", zoneId: "zone-terrace", zoneName: "Terrace",       guestName: "Léa",     type: "clean-table",  status: "acknowledged", createdAt: minsAgo(15) },
+  { id: "hr-4", sessionId: "gs-5", tableCode: "BAR-01", zoneId: "zone-bar",     zoneName: "Back Bar",      guestName: "Inès",    type: "bill",         status: "resolved",     createdAt: minsAgo(25) },
+  // security-type: routes to security regardless of zone; runner/bartender never see these
+  { id: "hr-5", sessionId: "gs-7", tableCode: "VIP-02", zoneId: "zone-vip",     zoneName: "VIP Mezzanine", guestName: "Alexandre", type: "security",   status: "open",         createdAt: minsAgo(9) },
+  { id: "hr-6", sessionId: "gs-4", tableCode: "MF-01",  zoneId: "zone-dance",   zoneName: "Main Floor",    guestName: "Maxime",  type: "security",     status: "acknowledged", createdAt: minsAgo(22) },
 ];

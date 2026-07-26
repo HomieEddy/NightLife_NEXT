@@ -17,9 +17,20 @@ const CHANNELS: { id: ChatMessage["channel"]; label: string }[] = [
   { id: "security", label: "# security" },
 ];
 
-export function ChatPanel({ currentUserId }: { currentUserId: string }) {
-  const [channel, setChannel] = useState<ChatMessage["channel"]>("floor");
+export function ChatPanel({
+  currentUserId,
+  pinnedChannel,
+}: {
+  currentUserId: string;
+  /** When set, the channel picker is hidden and this channel is always active. */
+  pinnedChannel?: ChatMessage["channel"];
+}) {
+  const [channel, setChannel] = useState<ChatMessage["channel"]>(pinnedChannel ?? "floor");
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
+
+  useEffect(() => {
+    if (pinnedChannel) setChannel(pinnedChannel);
+  }, [pinnedChannel]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -50,23 +61,25 @@ export function ChatPanel({ currentUserId }: { currentUserId: string }) {
 
   return (
     <div className="flex h-[calc(100dvh-8.5rem)] flex-col">
-      <div className="flex gap-1.5 border-b p-3">
-        {CHANNELS.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => setChannel(c.id)}
-            className={cn(
-              "rounded-full border px-3.5 py-1.5 font-mono text-sm transition-colors",
-              channel === c.id
-                ? "border-primary bg-primary/15 text-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
+      {!pinnedChannel && (
+        <div className="flex gap-1.5 border-b p-3">
+          {CHANNELS.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setChannel(c.id)}
+              className={cn(
+                "rounded-full border px-3.5 py-1.5 font-mono text-sm transition-colors",
+                channel === c.id
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {messages === null ? (

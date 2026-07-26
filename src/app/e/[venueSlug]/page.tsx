@@ -2,7 +2,7 @@
 
 import { Suspense, use, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, ChevronLeft, ChevronRight, PartyPopper } from "lucide-react";
+import { CalendarCheck, ChevronLeft, ChevronRight, PartyPopper, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandLogo } from "@/components/shared/brand-logo";
@@ -152,15 +152,26 @@ function EventsContent({ venueSlug }: { venueSlug: string }) {
               event={evt}
               actions={
                 evt.status !== "ended" ? (
-                  <EventActionGold
-                    onClick={() =>
-                      router.push(
-                        publicReservationHref(venueSlug, undefined, evt.id),
-                      )
-                    }
-                  >
-                    <CalendarCheck className="size-3.5" /> Reserve
-                  </EventActionGold>
+                  <>
+                    {evt.ticketUrl && (
+                      <EventActionGold
+                        onClick={() =>
+                          window.open(evt.ticketUrl, "_blank", "noopener,noreferrer")
+                        }
+                      >
+                        <Ticket className="size-3.5" /> Buy tickets
+                      </EventActionGold>
+                    )}
+                    <EventActionGold
+                      onClick={() =>
+                        router.push(
+                          publicReservationHref(venueSlug, undefined, evt.id),
+                        )
+                      }
+                    >
+                      <CalendarCheck className="size-3.5" /> Reserve
+                    </EventActionGold>
+                  </>
                 ) : undefined
               }
             />

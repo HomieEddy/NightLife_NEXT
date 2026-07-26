@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertOctagon, ArrowRight, CalendarCheck, DollarSign, LifeBuoy, MapPin, Moon, PartyPopper, Receipt, UserCheck, Users } from "lucide-react";
+import {
+  AlertOctagon, ArrowRight, CalendarCheck, CalendarDays, Clock,
+  DollarSign, LifeBuoy, MapPin, MessageSquare, Moon,
+  PartyPopper, Receipt, Shield, UserCheck, Users,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -15,7 +19,7 @@ import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { useLiveEvents } from "@/lib/use-live-events";
-import type { ActiveShow, Order, Reservation, SoldOutEvent, StaffMember, Zone } from "@/lib/types";
+import type { ActiveShow, ChatMessage, Order, Reservation, SoldOutEvent, StaffMember, StaffShift, Zone } from "@/lib/types";
 
 interface QueueCounts {
   pendingOrders: number;
@@ -45,6 +49,96 @@ function computePromoterStats(reservations: Reservation[], sessions: { id: strin
   return { requested, confirmed, seated, guestsInHouse, attributedRevenue: Math.round(attributedRevenue * 100) / 100 };
 }
 
+// ---------- Security home ----------
+
+interface SecurityHomeProps {
+  me: StaffMember;
+  openSecurityCount: number;
+  todayShifts: StaffShift[];
+  securityBroadcasts: ChatMessage[];
+}
+
+function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts }: SecurityHomeProps) {
+  return (
+    <div className="space-y-4 p-4">
+      <div>
+        <h1 className="text-display flex items-center gap-2 text-xl">
+          Good evening, {me.name.split(" ")[0]}
+          <Shield className="size-4 text-primary" />
+        </h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">Security · stay sharp out there</p>
+      </div>
+
+      {/* Open security requests */}
+      <Link href="/staff/help">
+        <Card className={`py-4 transition-colors hover:border-primary/50 ${openSecurityCount > 0 ? "border-red-500/40" : ""}`}>
+          <CardContent className="flex items-center justify-between px-4">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <Shield className="size-4 text-primary" />
+                {openSecurityCount > 0 && (
+                  <span className="size-2 animate-pulse rounded-full bg-red-400" />
+                )}
+              </div>
+              <p className="mt-2 text-3xl font-bold tabular-nums">{openSecurityCount}</p>
+              <p className="text-xs text-muted-foreground">Open security requests</p>
+            </div>
+            <ArrowRight className="size-4 text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </Link>
+
+      {/* Tonight's shift */}
+      <Card className="py-4">
+        <CardContent className="space-y-2 px-4">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <CalendarDays className="size-4 text-primary" /> Tonight&apos;s shift
+          </p>
+          {todayShifts.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No shift scheduled for today.</p>
+          ) : (
+            todayShifts.map((shift) => (
+              <div key={shift.id} className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Clock className="size-3.5" />
+                {shift.startTime} – {shift.endTime}
+              </div>
+            ))
+          )}
+          <Button size="sm" variant="outline" asChild className="mt-1">
+            <Link href="/staff/schedule">Full schedule <ArrowRight className="size-3.5" /></Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Latest security broadcasts */}
+      {securityBroadcasts.length > 0 && (
+        <Card className="py-4">
+          <CardContent className="space-y-2 px-4">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <MessageSquare className="size-4 text-primary" /> Security channel
+            </p>
+            <ul className="space-y-2">
+              {securityBroadcasts.map((msg) => (
+                <li key={msg.id} className="text-sm">
+                  <span className="font-medium">{msg.authorName}</span>
+                  <span className="mx-1 text-muted-foreground">·</span>
+                  <span className="text-xs text-muted-foreground">{timeAgo(msg.sentAt)}</span>
+                  <p className="mt-0.5 text-muted-foreground">{msg.body}</p>
+                </li>
+              ))}
+            </ul>
+            <Button size="sm" variant="outline" asChild className="mt-1">
+              <Link href="/staff/chat">Open chat <ArrowRight className="size-3.5" /></Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ---------- Main home ----------
+
 export default function StaffHomePage() {
   const [counts, setCounts] = useState<QueueCounts | null>(null);
   const [promoStats, setPromoStats] = useState<PromoterStats | null>(null);
@@ -52,6 +146,10 @@ export default function StaffHomePage() {
   const [zones, setZones] = useState<Zone[]>([]);
   const [soldOut, setSoldOut] = useState<SoldOutEvent[]>([]);
   const [activeShow, setActiveShow] = useState<ActiveShow | null>(null);
+  // Security-specific state
+  const [securityRequestCount, setSecurityRequestCount] = useState(0);
+  const [todayShifts, setTodayShifts] = useState<StaffShift[]>([]);
+  const [securityBroadcasts, setSecurityBroadcasts] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -80,6 +178,17 @@ export default function StaffHomePage() {
         ]);
         setPromoStats(computePromoterStats(myRes, allSessions, allOrders, currentStaff.id));
       }
+
+      if (currentStaff.role === "security") {
+        const today = new Date().getDay();
+        const [allShifts, secMsgs] = await Promise.all([
+          staffService.listShifts(),
+          staffService.listMessages("security"),
+        ]);
+        setSecurityRequestCount(help.filter((h) => h.type === "security" && h.status !== "resolved").length);
+        setTodayShifts(allShifts.filter((s) => s.staffId === currentStaff.id && s.dayOfWeek === today));
+        setSecurityBroadcasts(secMsgs.slice(-3).reverse());
+      }
     });
   }, []);
 
@@ -105,6 +214,20 @@ export default function StaffHomePage() {
     : [];
 
   const isPromoter = me?.role === "promoter";
+  const isSecurity = me?.role === "security";
+  const isRunner = me?.role === "runner";
+
+  // Security home delegates to its own component once data is ready.
+  if (isSecurity && me && counts !== null) {
+    return (
+      <SecurityHome
+        me={me}
+        openSecurityCount={securityRequestCount}
+        todayShifts={todayShifts}
+        securityBroadcasts={securityBroadcasts}
+      />
+    );
+  }
 
   const tiles = counts
     ? isPromoter && promoStats
@@ -117,7 +240,7 @@ export default function StaffHomePage() {
       : [
           { href: "/staff/orders", label: "New orders", value: String(counts.pendingOrders), icon: Receipt, urgent: counts.pendingOrders > 0 },
           { href: "/staff/orders", label: "In progress", value: String(counts.activeOrders), icon: Receipt, urgent: false },
-          { href: "/staff/approvals", label: "Approvals", value: String(counts.pendingApprovals), icon: UserCheck, urgent: counts.pendingApprovals > 0 },
+          ...(!isRunner ? [{ href: "/staff/approvals", label: "Approvals", value: String(counts.pendingApprovals), icon: UserCheck, urgent: counts.pendingApprovals > 0 }] : []),
           { href: "/staff/help", label: "Help requests", value: String(counts.openHelp), icon: LifeBuoy, urgent: counts.openHelp > 0 },
         ]
     : [];
@@ -187,11 +310,11 @@ export default function StaffHomePage() {
         </Card>
       )}
 
-      {!isPromoter && (
+      {isRunner && (
         <Card className="py-4">
           <CardContent className="flex items-center justify-between px-4">
             <div>
-              <p className="text-sm font-medium">Runner mode</p>
+              <p className="text-sm font-medium">My zones</p>
               <p className="text-xs text-muted-foreground">
                 See only orders in your assigned zones
               </p>

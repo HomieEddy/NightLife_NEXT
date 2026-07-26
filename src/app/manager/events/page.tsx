@@ -4,7 +4,7 @@ import { FeatureGate } from "@/components/shared/feature-gate";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, Code, Link2, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { CalendarCheck, Code, Link2, Loader2, PartyPopper, Pencil, Plus, Ticket, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +52,8 @@ type EventDraft = {
   capacity: number;
   status: EventStatus;
   guestlistEnabled: boolean;
+  ticketEnabled: boolean;
+  ticketUrl: string;
 };
 
 const EMPTY_DRAFT: EventDraft = {
@@ -63,6 +65,8 @@ const EMPTY_DRAFT: EventDraft = {
   capacity: 50,
   status: "draft",
   guestlistEnabled: false,
+  ticketEnabled: false,
+  ticketUrl: "",
 };
 
 function EventsContent() {
@@ -119,6 +123,8 @@ function EventsContent() {
       capacity: ev.capacity,
       status: ev.status,
       guestlistEnabled: ev.guestlistEnabled,
+      ticketEnabled: !!ev.ticketUrl,
+      ticketUrl: ev.ticketUrl ?? "",
     });
     setDialogOpen(true);
   }
@@ -126,6 +132,17 @@ function EventsContent() {
   async function save() {
     if (!draft.name.trim()) return toast.error("Event name is required.");
     setSaving(true);
+    const rawTicketUrl = draft.ticketEnabled ? draft.ticketUrl.trim() : "";
+    if (rawTicketUrl && !/^https?:\/\/.+/.test(rawTicketUrl)) {
+      toast.error("Ticket URL must start with http:// or https://");
+      setSaving(false);
+      return;
+    }
+    if (draft.ticketEnabled && !rawTicketUrl) {
+      toast.error("Paste a ticket URL or turn off the ticket link toggle.");
+      setSaving(false);
+      return;
+    }
     const payload = {
       name: draft.name.trim(),
       description: draft.description.trim(),
@@ -135,6 +152,7 @@ function EventsContent() {
       capacity: draft.capacity,
       status: draft.status,
       guestlistEnabled: draft.guestlistEnabled,
+      ticketUrl: rawTicketUrl || undefined,
     };
     if (editingId) {
       await eventsService.updateEvent(editingId, payload);
@@ -396,6 +414,30 @@ function EventsContent() {
               Enable guestlist
               <Switch checked={draft.guestlistEnabled} onCheckedChange={(v) => setDraft({ ...draft, guestlistEnabled: v })} />
             </label>
+            <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+              Sell tickets via external link
+              <Switch
+                checked={draft.ticketEnabled}
+                onCheckedChange={(v) =>
+                  setDraft({ ...draft, ticketEnabled: v, ticketUrl: v ? draft.ticketUrl : "" })
+                }
+                aria-label="Enable ticket link"
+              />
+            </label>
+            {draft.ticketEnabled && (
+              <div className="space-y-1.5">
+                <Label htmlFor="ev-ticket-url" className="flex items-center gap-1.5">
+                  <Ticket className="size-3.5" /> Ticket URL
+                </Label>
+                <Input
+                  id="ev-ticket-url"
+                  type="url"
+                  placeholder="https://www.eventbrite.com/e/…"
+                  value={draft.ticketUrl}
+                  onChange={(e) => setDraft({ ...draft, ticketUrl: e.target.value })}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
