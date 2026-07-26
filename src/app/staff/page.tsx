@@ -2,19 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertOctagon, ArrowRight, LifeBuoy, MapPin, Moon, PartyPopper, Receipt, UserCheck } from "lucide-react";
+import { AlertOctagon, ArrowRight, CalendarCheck, DollarSign, LifeBuoy, MapPin, Moon, PartyPopper, Receipt, UserCheck, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ordersService } from "@/lib/services/orders-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { menuService } from "@/lib/services/menu-service";
+import { reservationService } from "@/lib/services/reservation-service";
 import { showQueueService } from "@/lib/services/show-queue-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
-import { timeAgo } from "@/lib/format";
+import { formatMoney, timeAgo } from "@/lib/format";
 import { useLiveEvents } from "@/lib/use-live-events";
-import type { ActiveShow, SoldOutEvent, StaffMember, Zone } from "@/lib/types";
+import type { ActiveShow, Order, Reservation, SoldOutEvent, StaffMember, Zone } from "@/lib/types";
 
 interface QueueCounts {
   pendingOrders: number;
@@ -23,8 +24,30 @@ interface QueueCounts {
   openHelp: number;
 }
 
+interface PromoterStats {
+  requested: number;
+  confirmed: number;
+  seated: number;
+  guestsInHouse: number;
+  attributedRevenue: number;
+}
+
+function computePromoterStats(reservations: Reservation[], sessions: { id: string; promoterId?: string; partySize: number; status: string }[], orders: Order[], promoterId: string): PromoterStats {
+  const requested = reservations.filter((r) => r.status === "requested").length;
+  const confirmed = reservations.filter((r) => r.status === "confirmed").length;
+  const seated = reservations.filter((r) => r.status === "seated").length;
+  const mySessions = sessions.filter((s) => s.promoterId === promoterId && s.status === "approved");
+  const guestsInHouse = mySessions.reduce((sum, s) => sum + s.partySize, 0);
+  const sessionIds = new Set(mySessions.map((s) => s.id));
+  const attributedRevenue = orders
+    .filter((o) => o.sessionId && sessionIds.has(o.sessionId) && o.status !== "cancelled")
+    .reduce((sum, o) => sum + o.total, 0);
+  return { requested, confirmed, seated, guestsInHouse, attributedRevenue: Math.round(attributedRevenue * 100) / 100 };
+}
+
 export default function StaffHomePage() {
   const [counts, setCounts] = useState<QueueCounts | null>(null);
+  const [promoStats, setPromoStats] = useState<PromoterStats | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [soldOut, setSoldOut] = useState<SoldOutEvent[]>([]);
@@ -37,7 +60,7 @@ export default function StaffHomePage() {
       guestsService.listHelpRequests(),
       staffService.getCurrentStaff(),
       venueService.listZones(),
-    ]).then(([orders, pendingSessions, help, currentStaff, zoneList]) => {
+    ]).then(async ([orders, pendingSessions, help, currentStaff, zoneList]) => {
       setCounts({
         pendingOrders: orders.filter((o) => o.status === "pending").length,
         activeOrders: orders.filter((o) =>
@@ -48,6 +71,15 @@ export default function StaffHomePage() {
       });
       setMe(currentStaff);
       setZones(zoneList);
+
+      if (currentStaff.role === "promoter") {
+        const [myRes, allSessions, allOrders] = await Promise.all([
+          reservationService.listMyReservations(currentStaff.id),
+          guestsService.listSessions(),
+          ordersService.listOrders(),
+        ]);
+        setPromoStats(computePromoterStats(myRes, allSessions, allOrders, currentStaff.id));
+      }
     });
   }, []);
 
@@ -72,13 +104,22 @@ export default function StaffHomePage() {
     ? zones.filter((z) => me.assignedZoneIds.includes(z.id)).map((z) => z.name)
     : [];
 
+  const isPromoter = me?.role === "promoter";
+
   const tiles = counts
-    ? [
-        { href: "/staff/orders", label: "New orders", value: counts.pendingOrders, icon: Receipt, urgent: counts.pendingOrders > 0 },
-        { href: "/staff/orders", label: "In progress", value: counts.activeOrders, icon: Receipt, urgent: false },
-        { href: "/staff/approvals", label: "Approvals", value: counts.pendingApprovals, icon: UserCheck, urgent: counts.pendingApprovals > 0 },
-        { href: "/staff/help", label: "Help requests", value: counts.openHelp, icon: LifeBuoy, urgent: counts.openHelp > 0 },
-      ]
+    ? isPromoter && promoStats
+      ? [
+          { href: "/staff/reservations", label: "Requested", value: String(promoStats.requested), icon: CalendarCheck, urgent: false },
+          { href: "/staff/reservations", label: "Confirmed", value: String(promoStats.confirmed), icon: CalendarCheck, urgent: false },
+          { href: "/staff/reservations", label: "Seated", value: String(promoStats.seated), icon: Users, urgent: false },
+          { href: "/staff/orders", label: "Revenue", value: formatMoney(promoStats.attributedRevenue), icon: DollarSign, urgent: false },
+        ]
+      : [
+          { href: "/staff/orders", label: "New orders", value: String(counts.pendingOrders), icon: Receipt, urgent: counts.pendingOrders > 0 },
+          { href: "/staff/orders", label: "In progress", value: String(counts.activeOrders), icon: Receipt, urgent: false },
+          { href: "/staff/approvals", label: "Approvals", value: String(counts.pendingApprovals), icon: UserCheck, urgent: counts.pendingApprovals > 0 },
+          { href: "/staff/help", label: "Help requests", value: String(counts.openHelp), icon: LifeBuoy, urgent: counts.openHelp > 0 },
+        ]
     : [];
 
   return (
@@ -126,21 +167,43 @@ export default function StaffHomePage() {
         </div>
       )}
 
-      <Card className="py-4">
-        <CardContent className="flex items-center justify-between px-4">
-          <div>
-            <p className="text-sm font-medium">Runner mode</p>
-            <p className="text-xs text-muted-foreground">
-              See only orders in your assigned zones
-            </p>
-          </div>
-          <Button size="sm" variant="outline" asChild>
-            <Link href="/staff/orders?scope=mine">
-              Open <ArrowRight className="size-3.5" />
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
+      {isPromoter && promoStats && promoStats.guestsInHouse > 0 && (
+        <Card className="border-primary/40 py-4">
+          <CardContent className="flex items-center justify-between px-4">
+            <div>
+              <p className="flex items-center gap-1.5 text-sm font-medium">
+                <Users className="size-4 text-primary" /> Guests in house
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {promoStats.guestsInHouse} from your reservations
+              </p>
+            </div>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/staff/orders">
+                Orders <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!isPromoter && (
+        <Card className="py-4">
+          <CardContent className="flex items-center justify-between px-4">
+            <div>
+              <p className="text-sm font-medium">Runner mode</p>
+              <p className="text-xs text-muted-foreground">
+                See only orders in your assigned zones
+              </p>
+            </div>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/staff/orders?scope=mine">
+                Open <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {activeShow && (
         <Card className="border-primary/40 py-4">
