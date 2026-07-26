@@ -187,6 +187,72 @@ export const mockOrders: Order[] = [
     placedAt: minsAgo(20),
     updatedAt: minsAgo(12),
   },
+  // Promoter-attributed: Julien's table (volume, modest spend)
+  {
+    id: "ord-9",
+    code: "A-030",
+    venueId: "venue-1",
+    sessionId: "gs-6",
+    tableId: "t-ter-1",
+    tableCode: "TER-01",
+    zoneId: "zone-terrace",
+    zoneName: "Terrace",
+    guestName: "Raphaël",
+    items: [
+      { id: "oi-12", menuItemId: "mi-hendricks", name: "Hendrick's 1L", quantity: 1, unitPrice: 210, modifiers: [] },
+    ],
+    subtotal: 210,
+    serviceFee: 10.50,
+    tip: 20,
+    total: 240.50,
+    status: "delivered",
+    placedAt: minsAgo(70),
+    updatedAt: minsAgo(55),
+  },
+  // Promoter-attributed: Chloé's whale table (big spend)
+  {
+    id: "ord-10",
+    code: "A-029",
+    venueId: "venue-1",
+    sessionId: "gs-7",
+    tableId: "t-vip-2",
+    tableCode: "VIP-02",
+    zoneId: "zone-vip",
+    zoneName: "VIP Mezzanine",
+    guestName: "Alexandre",
+    items: [
+      { id: "oi-13", menuItemId: "mi-dom", name: "Dom Pérignon Vintage", quantity: 2, unitPrice: 320, modifiers: [modifier("presentation", "Sparkler parade", 25)] },
+      { id: "oi-14", menuItemId: "mi-ace", name: "Ace of Spades Brut", quantity: 1, unitPrice: 450, modifiers: [] },
+    ],
+    subtotal: 1115,
+    serviceFee: 55.75,
+    tip: 150,
+    total: 1320.75,
+    status: "delivered",
+    placedAt: minsAgo(65),
+    updatedAt: minsAgo(45),
+  },
+  {
+    id: "ord-11",
+    code: "A-028",
+    venueId: "venue-1",
+    sessionId: "gs-7",
+    tableId: "t-vip-2",
+    tableCode: "VIP-02",
+    zoneId: "zone-vip",
+    zoneName: "VIP Mezzanine",
+    guestName: "Alexandre",
+    items: [
+      { id: "oi-15", menuItemId: "mi-moet", name: "Moët & Chandon Impérial", quantity: 3, unitPrice: 160, modifiers: [] },
+    ],
+    subtotal: 480,
+    serviceFee: 24,
+    tip: 60,
+    total: 564,
+    status: "preparing",
+    placedAt: minsAgo(30),
+    updatedAt: minsAgo(25),
+  },
 ];
 
 export const mockGuestSessions: GuestSession[] = [
@@ -195,6 +261,10 @@ export const mockGuestSessions: GuestSession[] = [
   { id: "gs-3", tableId: "t-vip-1", tableCode: "VIP-01", zoneName: "VIP Mezzanine", displayName: "Antoine + 7", partySize: 8, status: "approved", createdAt: minsAgo(75) },
   { id: "gs-4", tableId: "t-mf-1", tableCode: "MF-01", zoneName: "Main Floor", displayName: "Maxime + 2", partySize: 3, status: "approved", createdAt: minsAgo(50) },
   { id: "gs-5", tableId: "t-bar-1", tableCode: "BAR-01", zoneName: "Back Bar", displayName: "Inès + 1", partySize: 2, status: "approved", createdAt: minsAgo(60) },
+  // Promoter-attributed sessions (Julien — volume)
+  { id: "gs-6", tableId: "t-ter-1", tableCode: "TER-01", zoneName: "Terrace", displayName: "Raphaël + 3", partySize: 4, status: "approved", createdAt: minsAgo(90), promoterId: "st-julien" },
+  // Promoter-attributed sessions (Chloé — whales)
+  { id: "gs-7", tableId: "t-vip-2", tableCode: "VIP-02", zoneName: "VIP Mezzanine", displayName: "Alexandre + 7", partySize: 8, status: "approved", createdAt: minsAgo(80), promoterId: "st-chloe" },
 ];
 
 export const mockHelpRequests: HelpRequest[] = [

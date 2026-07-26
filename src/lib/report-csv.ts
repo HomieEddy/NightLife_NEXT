@@ -108,6 +108,22 @@ export function renderCsv(
     rows.push(["Service fee revenue", String(data.orderFunnel.serviceFeeRevenue)]);
     rows.push([]);
   }
+  if (metrics.includes("promoter-funnel") && data.promoters) {
+    rows.push(["Promoter Funnel"]);
+    rows.push(["Promoter", "Created", "Confirmed", "Seated", "Show-up rate", "Guests funneled"]);
+    for (const p of data.promoters.promoters)
+      rows.push([p.promoterName, String(p.reservationsCreated), String(p.reservationsConfirmed), String(p.reservationsSeated), String(p.showUpRate), String(p.guestsFunneled)]);
+    rows.push(["Total", "", "", "", "", String(data.promoters.totalGuestsFunneled)]);
+    rows.push([]);
+  }
+  if (metrics.includes("promoter-revenue") && data.promoters) {
+    rows.push(["Promoter Revenue"]);
+    rows.push(["Promoter", "Attributed revenue", "Avg spend/guest", "Avg spend/party", "Top table", "Top table revenue"]);
+    for (const p of data.promoters.promoters)
+      rows.push([p.promoterName, String(p.attributedRevenue), String(p.avgSpendPerGuest), String(p.avgSpendPerParty), p.topTable?.tableCode ?? "", String(p.topTable?.revenue ?? "")]);
+    rows.push(["Total", String(data.promoters.totalAttributedRevenue), "", "", "", ""]);
+    rows.push([]);
+  }
 
   return rows.map((r) => r.map(escapeCell).join(",")).join("\n");
 }

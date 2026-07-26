@@ -105,6 +105,11 @@ export const mockReservationService = {
     return sortByDate(result);
   },
 
+  async listMyReservations(promoterId: string): Promise<Reservation[]> {
+    await delay();
+    return sortByDate(clone(reservations.filter((r) => r.promoterId === promoterId)));
+  },
+
   async getReservation(id: string): Promise<Reservation | null> {
     await delay(200);
     return clone(reservations.find((r) => r.id === id) ?? null);
@@ -123,6 +128,7 @@ export const mockReservationService = {
     guestEmail?: string;
     guestPhone?: string;
     eventId?: string;
+    promoterId?: string;
   }): Promise<Reservation> {
     await delay(500);
     const reservation: Reservation = {
@@ -141,6 +147,7 @@ export const mockReservationService = {
       channel: input.channel,
       guestEmail: input.guestEmail?.trim() || undefined,
       guestPhone: input.guestPhone?.trim() || undefined,
+      promoterId: input.promoterId,
       createdAt: new Date().toISOString(),
     };
     reservations = [reservation, ...reservations];

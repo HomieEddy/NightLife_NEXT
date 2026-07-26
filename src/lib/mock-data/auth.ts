@@ -17,6 +17,13 @@ export const mockPersonas: AuthUser[] = [
     venueId: "venue-1",
   },
   {
+    id: "st-julien",
+    name: "Julien Dubois",
+    email: "julien@velvetmtl.club",
+    role: "staff",
+    venueId: "venue-1",
+  },
+  {
     id: "admin-1",
     name: "Platform Admin",
     email: "admin@nightlifext.com",

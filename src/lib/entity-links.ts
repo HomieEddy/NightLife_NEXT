@@ -13,6 +13,7 @@ export const menuCategoryHref = (categoryId: string) => `/manager/menu?category=
 export const reservationHref = (resId: string) => `/manager/reservations?highlight=${resId}`;
 export const eventHref = (eventId: string) => `/manager/events?highlight=${eventId}`;
 export const promotionHref = (promoId: string) => `/manager/promotions?highlight=${promoId}`;
+export const staffReservationsHref = (promoterId: string) => `/staff/reservations?promoter=${promoterId}`;
 export const adminTenantHref = (tenantId: string) => `/admin/venues/${tenantId}`;
 export const publicReservationHref = (publicSlug: string, date?: string, eventId?: string) => {
   const params = new URLSearchParams();
