@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { CalendarCheck, Code, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -21,9 +20,9 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { EventCard, EventActionGold, EventActionChrome } from "@/components/shared/event-card";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { eventsService } from "@/lib/services/events-service";
 import { venueService } from "@/lib/services/venue-service";
 import { publicReservationHref } from "@/lib/entity-links";
@@ -261,58 +260,13 @@ function EventsContent() {
             const guests = guestsByEvent[ev.id] ?? [];
             const expanded = openId === ev.id;
             return (
-              <Card key={ev.id} className="py-4">
-                <CardContent className="space-y-3 px-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{ev.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {zoneName(ev.zoneId)} · cap {ev.capacity}
-                      </p>
-                    </div>
-                    <StatusBadge status={ev.status} />
-                  </div>
-                  {ev.description && <p className="text-sm text-muted-foreground">{ev.description}</p>}
-                  <p className="text-sm">
-                    {new Date(ev.startsAt).toLocaleDateString()} {new Date(ev.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    {" – "}
-                    {new Date(ev.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-
-                  <div className="flex flex-wrap items-center gap-1.5 border-t pt-2">
-                    {ev.status !== "draft" && (
-                      <Button size="sm" variant="ghost" onClick={() => router.push(`/manager/reservations?newForEvent=${ev.id}`)}>
-                        <CalendarCheck className="size-3.5" /> Book
-                      </Button>
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => openEdit(ev)}>
-                      <Pencil className="size-3.5" /> Edit
-                    </Button>
-                    <ConfirmDialog
-                      trigger={
-                        <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400">
-                          <Trash2 className="size-3.5" /> Delete
-                        </Button>
-                      }
-                      title={`Delete ${ev.name}?`}
-                      description="This also removes its guestlist."
-                      confirmLabel="Delete event"
-                      destructive
-                      onConfirm={() => remove(ev)}
-                    />
-                    {ev.guestlistEnabled && (
-                      <Button size="sm" variant="ghost" onClick={() => setOpenId(expanded ? null : ev.id)}>
-                        <Users className="size-3.5" /> Guestlist ({guests.length})
-                      </Button>
-                    )}
-                    <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-                      Guestlist
-                      <Switch checked={ev.guestlistEnabled} onCheckedChange={() => toggleGuestlist(ev)} />
-                    </label>
-                  </div>
-
-                  {expanded && ev.guestlistEnabled && (
-                    <div className="space-y-2 border-t pt-2">
+              <EventCard
+                key={ev.id}
+                event={ev}
+                zoneName={zoneName(ev.zoneId)}
+                detail={
+                  expanded && ev.guestlistEnabled ? (
+                    <div className="space-y-2 border-t border-gold/15 pt-2 dark:border-gold/10">
                       <div className="flex gap-2">
                         <Input
                           placeholder="Add guest name…"
@@ -341,9 +295,42 @@ function EventsContent() {
                         </ul>
                       )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  ) : undefined
+                }
+                actions={
+                  <>
+                    {ev.status !== "draft" && (
+                      <EventActionGold onClick={() => router.push(`/manager/reservations?newForEvent=${ev.id}`)}>
+                        <CalendarCheck className="size-3.5" /> Book
+                      </EventActionGold>
+                    )}
+                    <EventActionChrome onClick={() => openEdit(ev)}>
+                      <Pencil className="size-3.5" /> Edit
+                    </EventActionChrome>
+                    <ConfirmDialog
+                      trigger={
+                        <EventActionChrome destructive>
+                          <Trash2 className="size-3.5" /> Delete
+                        </EventActionChrome>
+                      }
+                      title={`Delete ${ev.name}?`}
+                      description="This also removes its guestlist."
+                      confirmLabel="Delete event"
+                      destructive
+                      onConfirm={() => remove(ev)}
+                    />
+                    {ev.guestlistEnabled && (
+                      <EventActionChrome onClick={() => setOpenId(expanded ? null : ev.id)}>
+                        <Users className="size-3.5" /> Guestlist ({guests.length})
+                      </EventActionChrome>
+                    )}
+                    <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+                      Guestlist
+                      <Switch checked={ev.guestlistEnabled} onCheckedChange={() => toggleGuestlist(ev)} />
+                    </label>
+                  </>
+                }
+              />
             );
           })}
         </div>
