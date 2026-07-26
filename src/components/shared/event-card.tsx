@@ -34,7 +34,7 @@ export function EventCard({
   return (
     <div
       className={cn(
-        "flex overflow-hidden rounded-xl border border-gold/20 bg-card",
+        "flex overflow-hidden rounded-xl border border-gold/20 bg-card glow-gold",
         "dark:border-gold/15 dark:bg-[oklch(0.12_0.015_55)]",
         className,
       )}
