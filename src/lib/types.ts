@@ -77,8 +77,8 @@ export interface VenueTable {
 
 export type StaffRole = "manager" | "host" | "bartender" | "runner" | "security" | "promoter";
 
-/** Roles a manager can assign when creating/editing staff ("security" is legacy). */
-export const ASSIGNABLE_ROLES = ["manager", "host", "bartender", "runner", "promoter"] as const;
+/** Roles a manager can assign when creating/editing staff. */
+export const ASSIGNABLE_ROLES = ["manager", "host", "bartender", "runner", "security", "promoter"] as const;
 
 export type StaffAccountStatus = "active" | "invited" | "suspended";
 
@@ -336,6 +336,7 @@ export interface HelpRequest {
   id: string;
   sessionId: string;
   tableCode: string;
+  zoneId: string;
   zoneName: string;
   guestName: string;
   type: HelpRequestType;

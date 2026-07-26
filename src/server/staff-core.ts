@@ -2,7 +2,7 @@ import type { PrismaClient } from "@prisma/client";
 import type { StaffMember, StaffRole } from "@/lib/types";
 
 type OrgRole = "admin" | "member";
-type FloorRole = Exclude<StaffRole, "security">;
+type FloorRole = StaffRole;
 
 export function staffRoleToOrgRole(role: FloorRole): OrgRole {
   return role === "manager" ? "admin" : "member";
