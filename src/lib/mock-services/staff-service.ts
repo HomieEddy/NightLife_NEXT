@@ -22,7 +22,10 @@ export const mockStaffService = {
   async getCurrentStaff(): Promise<StaffMember> {
     await delay(200);
     const authUser = mockAuthService.getCurrentUser();
-    const staffId = authUser?.role === "staff" ? authUser.id : CURRENT_STAFF_ID;
+    // Resolve by auth ID for both staff and manager roles; fall back to the seeded default.
+    const staffId = (authUser?.role === "staff" || authUser?.role === "manager")
+      ? authUser.id
+      : CURRENT_STAFF_ID;
     return clone(staff.find((s) => s.id === staffId) ?? staff.find((s) => s.id === CURRENT_STAFF_ID)!);
   },
 

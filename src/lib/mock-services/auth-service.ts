@@ -6,7 +6,19 @@ import type { AuthUser, SignInInput } from "@/lib/types";
 import { mockPersonas } from "@/lib/mock-data/auth";
 import { delay } from "./delay";
 
-let currentUser: AuthUser | null = null;
+// Hydrate from localStorage so getCurrentUser() returns the right identity after a
+// full-page navigation (DemoAuthProvider writes to the same key on sign-in).
+function readStoredUser(): AuthUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("nln-auth-user");
+    return raw ? (JSON.parse(raw) as AuthUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+let currentUser: AuthUser | null = readStoredUser();
 
 export const mockAuthService = {
   /** Demo validation: matches a persona by email + role. Any non-empty PIN is accepted. */
