@@ -129,7 +129,7 @@ function DemoLogin() {
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{p.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Sign in as <span className="font-medium capitalize">{p.role}</span>
+                      Sign in as <span className="font-medium capitalize">{p.staffRole ?? p.role}</span>
                     </p>
                   </div>
                   <LogIn className="size-4 shrink-0 text-muted-foreground" />

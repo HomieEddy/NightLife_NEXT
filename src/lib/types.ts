@@ -771,6 +771,7 @@ export interface AuthUser {
   email: string;
   role: AuthRole;
   venueId?: string;
+  staffRole?: StaffRole;
 }
 
 export interface SignInInput {
