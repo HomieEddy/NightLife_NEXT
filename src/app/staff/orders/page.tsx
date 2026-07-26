@@ -15,7 +15,9 @@ import { ordersService, nextStatus } from "@/lib/services/orders-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { showQueueService, orderNeedsShow } from "@/lib/services/show-queue-service";
 import { staffService } from "@/lib/services/staff-service";
-import { canDo } from "@/lib/role-capabilities";
+import { canDo } from "@/lib/permissions";
+import { permissionService } from "@/lib/services/permission-service";
+import type { RolePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { ActiveShow, Order, OrderStatus, StaffMember } from "@/lib/types";
@@ -41,6 +43,7 @@ function StaffOrdersContent() {
   const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
+  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
   const [filter, setFilter] = useState<"active" | "new" | "done">("active");
   const [zoneScoped, setZoneScoped] = useState(searchParams.get("scope") === "mine");
   // Forward-compatible hook for manager/floor-map links into the feed.
@@ -50,14 +53,16 @@ function StaffOrdersContent() {
   const [promoterSessionIds, setPromoterSessionIds] = useState<Set<string> | null>(null);
 
   const refresh = useCallback(async () => {
-    const [orderList, currentStaff, show] = await Promise.all([
+    const [orderList, currentStaff, show, perms] = await Promise.all([
       ordersService.listOrders(),
       staffService.getCurrentStaff(),
       showQueueService.getActiveShow(),
+      permissionService.getRolePermissions("venue-1"),
     ]);
     setOrders(orderList);
     setMe(currentStaff);
     setActiveShow(show);
+    setPermissions(perms);
     if (currentStaff.role === "promoter") {
       const sessions = await guestsService.listSessions();
       setPromoterSessionIds(new Set(
@@ -226,7 +231,7 @@ function StaffOrdersContent() {
         <div className="space-y-3">
           {visible.map((order) => {
             const label = ADVANCE_LABEL[order.status];
-            const canAccept = me ? canDo(me.role, "order:accept") : true;
+            const canAccept = (me && permissions) ? canDo(permissions, me.role, "order:accept") : true;
             const isPending = order.status === "pending";
             // Runner sees pending orders but can't accept them — show a hint instead.
             const runnerHint = isPending && !canAccept ? RUNNER_HINT[order.status] : undefined;
@@ -256,7 +261,7 @@ function StaffOrdersContent() {
                           >
                             Release
                           </button>
-                        ) : !order.claimedByStaffId && canDo(me?.role ?? "runner", "order:claim") ? (
+                        ) : !order.claimedByStaffId && permissions && canDo(permissions, me?.role ?? "runner", "order:claim") ? (
                           <button
                             type="button"
                             onClick={() => claim(order)}

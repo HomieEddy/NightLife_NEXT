@@ -22,7 +22,9 @@ import { reservationService } from "@/lib/services/reservation-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { formatTime } from "@/lib/format";
-import { canDo } from "@/lib/role-capabilities";
+import { canDo } from "@/lib/permissions";
+import { permissionService } from "@/lib/services/permission-service";
+import type { RolePermissions } from "@/lib/permissions";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { Reservation, StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
 
@@ -41,6 +43,7 @@ function StaffReservationsContent() {
   const newForEventHandled = useRef(false);
   const [reservations, setReservations] = useState<Reservation[] | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
+  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [tables, setTables] = useState<VenueTable[]>([]);
   const [events, setEvents] = useState<VenueEvent[]>([]);
@@ -50,13 +53,15 @@ function StaffReservationsContent() {
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [staff, z, t, allEvents] = await Promise.all([
+    const [staff, z, t, allEvents, perms] = await Promise.all([
       staffService.getCurrentStaff(),
       venueService.listZones(),
       venueService.listTables(),
       eventsService.listEvents(),
+      permissionService.getRolePermissions("venue-1"),
     ]);
     setMe(staff);
+    setPermissions(perms);
     setZones(z);
     setTables(t);
     setEvents(allEvents.filter((e) => e.status !== "draft"));
@@ -204,7 +209,7 @@ function StaffReservationsContent() {
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">My Reservations</h1>
-        {isPromoter && canDo("promoter", "reservation:create-own") && (
+        {isPromoter && permissions && canDo(permissions, "promoter", "reservation:create-own") && (
           <Button size="sm" onClick={openCreate}>
             <Plus className="mr-1.5 size-4" /> New
           </Button>
@@ -221,9 +226,9 @@ function StaffReservationsContent() {
             {nightLabel(items[0].startsAt)}
           </h2>
           {items.map((res) => {
-            const confirmable = isPromoter && res.status === "requested" && canDo("promoter", "reservation:confirm-own");
-            const editable = isPromoter && ["requested", "confirmed"].includes(res.status) && canDo("promoter", "reservation:edit-own");
-            const cancellable = isPromoter && ["requested", "confirmed"].includes(res.status) && canDo("promoter", "reservation:cancel-own");
+            const confirmable = isPromoter && !!permissions && res.status === "requested" && canDo(permissions, "promoter", "reservation:confirm-own");
+            const editable = isPromoter && !!permissions && ["requested", "confirmed"].includes(res.status) && canDo(permissions, "promoter", "reservation:edit-own");
+            const cancellable = isPromoter && !!permissions && ["requested", "confirmed"].includes(res.status) && canDo(permissions, "promoter", "reservation:cancel-own");
             return (
               <Card key={res.id}>
                 <CardContent className="flex items-start justify-between gap-3 p-3">

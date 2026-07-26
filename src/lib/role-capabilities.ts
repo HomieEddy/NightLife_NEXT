@@ -1,4 +1,4 @@
-import type { StaffRole, FeatureKey } from "./types";
+import type { StaffRole, FeatureKey, ChatMessage } from "./types";
 import {
   Home,
   Receipt,
@@ -11,6 +11,9 @@ import {
   Shield,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+
+// StaffAction type lives in permissions.ts (re-exported here for convenience).
+export type { StaffAction } from "./permissions";
 
 // ---------- Staff-panel nav per floor role ----------
 
@@ -77,54 +80,6 @@ export function getStaffNav(role: StaffRole): StaffNavItem[] {
   return STAFF_NAV[role];
 }
 
-// ---------- Action capabilities per floor role ----------
-
-export type StaffAction =
-  | "order:accept"        // pending → accepted (approval that commits the bar)
-  | "order:claim"
-  | "order:release"
-  | "order:transition"    // accepted → preparing → ready → delivered
-  | "order:gift"
-  | "session:approve"
-  | "session:deny"
-  | "help:respond"
-  | "reservation:create-own"
-  | "reservation:edit-own"
-  | "reservation:cancel-own"
-  | "reservation:confirm-own";
-
-const ROLE_ACTIONS: Record<StaffRole, ReadonlySet<StaffAction>> = {
-  manager: new Set<StaffAction>([
-    "order:accept", "order:claim", "order:release", "order:transition", "order:gift",
-    "session:approve", "session:deny", "help:respond",
-  ]),
-  host: new Set<StaffAction>([
-    "order:accept", "order:claim", "order:release", "order:transition", "order:gift",
-    "session:approve", "session:deny", "help:respond",
-  ]),
-  bartender: new Set<StaffAction>([
-    "order:accept", "order:claim", "order:release", "order:transition",
-    "help:respond",
-  ]),
-  // Runner: fulfillment hands — claim and move accepted orders, no accept, no approvals.
-  runner: new Set<StaffAction>([
-    "order:claim", "order:release", "order:transition",
-    "help:respond",
-  ]),
-  // Security: keeps people safe — no orders, no approvals.
-  security: new Set<StaffAction>([
-    "help:respond",
-  ]),
-  promoter: new Set<StaffAction>([
-    "reservation:create-own", "reservation:edit-own", "reservation:cancel-own",
-    "reservation:confirm-own",
-  ]),
-};
-
-export function canDo(role: StaffRole, action: StaffAction): boolean {
-  return ROLE_ACTIONS[role].has(action);
-}
-
 // ---------- Help-request scope per floor role ----------
 
 /** Which help requests a role can see and respond to. */
@@ -147,8 +102,6 @@ export function getHelpScope(role: StaffRole): HelpScope {
 }
 
 // ---------- Chat channel pinning per floor role ----------
-
-import type { ChatMessage } from "./types";
 
 /** Returns the channel a role is pinned to, or null for free choice. */
 export function getPinnedChatChannel(role: StaffRole): ChatMessage["channel"] | null {
