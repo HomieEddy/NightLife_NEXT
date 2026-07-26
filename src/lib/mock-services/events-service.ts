@@ -75,4 +75,16 @@ export const mockEventsService = {
     await delay(200);
     guests = guests.filter((g) => g.id !== guestId);
   },
+
+  // TODO(backend): query by venue slug + status IN ('published','live') + startsAt >= now
+  async listPublicEvents(
+    venueSlug: string,
+  ): Promise<{ venueName: string; events: VenueEvent[] } | null> {
+    await delay();
+    if (venueSlug !== mockVenue.publicSlug) return null;
+    const visible = events.filter(
+      (e) => e.status === "published" || e.status === "live",
+    );
+    return { venueName: mockVenue.name, events: sortByDate(clone(visible)) };
+  },
 };

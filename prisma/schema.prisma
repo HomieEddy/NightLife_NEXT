@@ -177,6 +177,7 @@ enum StaffRole {
   host
   bartender
   runner
+  promoter
 }
 
 model StaffProfile {

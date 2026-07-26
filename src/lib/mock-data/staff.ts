@@ -9,6 +9,8 @@ export const mockStaff: StaffMember[] = [
   { id: "st-karim", venueId: "venue-1", name: "Karim Ouellet", role: "runner", phone: "+1 514 555 0106", email: "karim@velvetmtl.club", accountStatus: "suspended", assignedZoneIds: ["zone-dance", "zone-bar"], isOnShift: false, avatarInitials: "KO" },
   { id: "st-viktor", venueId: "venue-1", name: "Viktor Michaud", role: "security", phone: "+1 514 555 0107", email: "viktor@velvetmtl.club", accountStatus: "active", assignedZoneIds: ["zone-vip"], isOnShift: true, avatarInitials: "VM" },
   { id: "st-emma", venueId: "venue-1", name: "Emma Bergeron", role: "host", phone: "+1 514 555 0108", email: "emma@velvetmtl.club", accountStatus: "invited", assignedZoneIds: ["zone-terrace"], isOnShift: false, avatarInitials: "EB" },
+  { id: "st-julien", venueId: "venue-1", name: "Julien Dubois", role: "promoter", phone: "+1 514 555 0109", email: "julien@velvetmtl.club", accountStatus: "active", assignedZoneIds: ["zone-vip", "zone-terrace"], isOnShift: true, avatarInitials: "JD" },
+  { id: "st-chloe", venueId: "venue-1", name: "Chloé Mercier", role: "promoter", phone: "+1 514 555 0110", email: "chloe@velvetmtl.club", accountStatus: "active", assignedZoneIds: ["zone-vip", "zone-dance"], isOnShift: true, avatarInitials: "CM" },
 ];
 
 export const mockShifts: StaffShift[] = [

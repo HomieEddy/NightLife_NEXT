@@ -167,6 +167,24 @@ export const mockAnalyticsService = {
             totalSoldOutMinutes: Math.round(mockAnalytics.inventoryDepth.totalSoldOutMinutes * nights),
           }
         : undefined,
+      promoters: mockAnalytics.promoters
+        ? {
+            ...mockAnalytics.promoters,
+            promoters: mockAnalytics.promoters.promoters.map((p) => ({
+              ...p,
+              reservationsCreated: Math.max(1, Math.round(p.reservationsCreated * countScale)),
+              reservationsConfirmed: Math.max(1, Math.round(p.reservationsConfirmed * countScale)),
+              reservationsSeated: Math.max(1, Math.round(p.reservationsSeated * countScale)),
+              guestsFunneled: Math.max(1, Math.round(p.guestsFunneled * countScale)),
+              attributedRevenue: Math.round(p.attributedRevenue * scale),
+              avgSpendPerGuest: Math.round(p.avgSpendPerGuest * 100) / 100,
+              avgSpendPerParty: Math.round(p.avgSpendPerParty * 100) / 100,
+              topTable: p.topTable ? { ...p.topTable, revenue: Math.round(p.topTable.revenue * scale) } : undefined,
+            })),
+            totalGuestsFunneled: Math.max(1, Math.round(mockAnalytics.promoters.totalGuestsFunneled * countScale)),
+            totalAttributedRevenue: Math.round(mockAnalytics.promoters.totalAttributedRevenue * scale),
+          }
+        : undefined,
     };
   },
 };

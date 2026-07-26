@@ -11,8 +11,8 @@ import { BroadcastBanner } from "@/components/staff/broadcast-banner";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { useEntitlements } from "@/lib/use-entitlements";
+import { getStaffNav } from "@/lib/role-capabilities";
 import type { StaffMember } from "@/lib/types";
-import { Home, LifeBuoy, MessageSquare, Receipt, UserCheck } from "lucide-react";
 
 /**
  * Staff panel shell — mobile-first, high contrast for low-light use.
@@ -57,13 +57,9 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1 pb-20">{children}</main>
       <MobileBottomNav
         className="mx-auto max-w-2xl"
-        items={[
-          { href: "/staff", label: "Home", icon: Home },
-          { href: "/staff/orders", label: "Orders", icon: Receipt },
-          { href: "/staff/approvals", label: "Approvals", icon: UserCheck },
-          { href: "/staff/help", label: "Help", icon: LifeBuoy },
-          ...(hasFeature("chat") ? [{ href: "/staff/chat", label: "Chat", icon: MessageSquare }] : []),
-        ]}
+        items={getStaffNav(me?.role ?? "runner").filter(
+          (item) => !item.feature || hasFeature(item.feature),
+        )}
       />
     </div>
     </RequireAuth>

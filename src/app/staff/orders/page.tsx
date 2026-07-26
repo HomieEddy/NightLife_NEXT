@@ -12,8 +12,10 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ordersService, nextStatus } from "@/lib/services/orders-service";
+import { guestsService } from "@/lib/services/guests-service";
 import { showQueueService, orderNeedsShow } from "@/lib/services/show-queue-service";
 import { staffService } from "@/lib/services/staff-service";
+import { canDo } from "@/lib/role-capabilities";
 import { cn } from "@/lib/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { ActiveShow, Order, OrderStatus, StaffMember } from "@/lib/types";
@@ -41,6 +43,7 @@ function StaffOrdersContent() {
   const tableFilter = searchParams.get("table");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [activeShow, setActiveShow] = useState<ActiveShow | null>(null);
+  const [promoterSessionIds, setPromoterSessionIds] = useState<Set<string> | null>(null);
 
   const refresh = useCallback(async () => {
     const [orderList, currentStaff, show] = await Promise.all([
@@ -51,6 +54,12 @@ function StaffOrdersContent() {
     setOrders(orderList);
     setMe(currentStaff);
     setActiveShow(show);
+    if (currentStaff.role === "promoter") {
+      const sessions = await guestsService.listSessions();
+      setPromoterSessionIds(new Set(
+        sessions.filter((s) => s.promoterId === currentStaff.id).map((s) => s.id),
+      ));
+    }
   }, []);
 
   const refreshRef = useRef(refresh);
@@ -148,9 +157,13 @@ function StaffOrdersContent() {
     }
   }
 
+  const isPromoter = me?.role === "promoter";
+
   const visible = (orders ?? []).filter((o) => {
     if (tableFilter && o.tableId !== tableFilter) return false;
-    if (zoneScoped && me && !me.assignedZoneIds.includes(o.zoneId)) return false;
+    if (isPromoter && promoterSessionIds && o.sessionId && !promoterSessionIds.has(o.sessionId)) return false;
+    if (isPromoter && promoterSessionIds && !o.sessionId) return false;
+    if (zoneScoped && me && !isPromoter && !me.assignedZoneIds.includes(o.zoneId)) return false;
     if (filter === "new") return o.status === "pending";
     if (filter === "done") return ["delivered", "cancelled"].includes(o.status);
     return !["delivered", "cancelled"].includes(o.status);
@@ -183,12 +196,14 @@ function StaffOrdersContent() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <Switch id="zone-scope" checked={zoneScoped} onCheckedChange={setZoneScoped} />
-          <Label htmlFor="zone-scope" className="text-xs text-muted-foreground">
-            My zones
-          </Label>
-        </div>
+        {!isPromoter && (
+          <div className="flex items-center gap-2">
+            <Switch id="zone-scope" checked={zoneScoped} onCheckedChange={setZoneScoped} />
+            <Label htmlFor="zone-scope" className="text-xs text-muted-foreground">
+              My zones
+            </Label>
+          </div>
+        )}
       </div>
 
       {orders === null ? (
@@ -212,7 +227,7 @@ function StaffOrdersContent() {
                 key={order.id}
                 order={order}
                 footer={
-                  label ? (
+                  label && !isPromoter ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         {order.claimedByStaffId ? (

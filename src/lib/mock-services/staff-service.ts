@@ -5,6 +5,7 @@
  */
 import type { ChatMessage, StaffMember, StaffShift } from "@/lib/types";
 import { CURRENT_STAFF_ID, mockChatMessages, mockShifts, mockStaff } from "@/lib/mock-data/staff";
+import { mockAuthService } from "./auth-service";
 import { clone, delay, uid } from "./delay";
 
 let staff: StaffMember[] = clone(mockStaff);
@@ -17,10 +18,12 @@ export const mockStaffService = {
     return clone(staff);
   },
 
-  /** Simulates "who am I" — the runner persona used by the /staff panel. */
+  /** Simulates "who am I" — resolves from the signed-in auth persona, fallback to the seeded runner. */
   async getCurrentStaff(): Promise<StaffMember> {
     await delay(200);
-    return clone(staff.find((s) => s.id === CURRENT_STAFF_ID)!);
+    const authUser = mockAuthService.getCurrentUser();
+    const staffId = authUser?.role === "staff" ? authUser.id : CURRENT_STAFF_ID;
+    return clone(staff.find((s) => s.id === staffId) ?? staff.find((s) => s.id === CURRENT_STAFF_ID)!);
   },
 
   async toggleShift(staffId: string): Promise<StaffMember | null> {
@@ -105,7 +108,9 @@ export const mockStaffService = {
     author?: { id: string; name: string; role: StaffMember["role"] };
   }): Promise<ChatMessage> {
     await delay(250);
-    const me = input.author ?? staff.find((s) => s.id === CURRENT_STAFF_ID)!;
+    const authUser = mockAuthService.getCurrentUser();
+    const selfId = authUser?.role === "staff" ? authUser.id : CURRENT_STAFF_ID;
+    const me = input.author ?? staff.find((s) => s.id === selfId) ?? staff.find((s) => s.id === CURRENT_STAFF_ID)!;
     const message: ChatMessage = {
       id: uid("cm"),
       channel: input.channel,

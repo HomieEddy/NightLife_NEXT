@@ -117,7 +117,7 @@ function StaffContent() {
           className="w-full sm:w-56"
         />
         <div className="flex flex-wrap gap-1.5">
-          {(["all", "manager", "bartender", "runner", "host"] as const).map((r) => (
+          {(["all", "manager", "bartender", "runner", "host", "promoter"] as const).map((r) => (
             <button
               key={r}
               type="button"

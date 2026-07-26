@@ -6,6 +6,7 @@
 import type { GuestSession, HelpRequest, HelpRequestType, SettlementMethod } from "@/lib/types";
 import { mockGuestSessions, mockHelpRequests } from "@/lib/mock-data/orders";
 import { clone, delay, uid } from "./delay";
+import { mockReservationService } from "./reservation-service";
 
 let sessions: GuestSession[] = clone(mockGuestSessions);
 let helpRequests: HelpRequest[] = clone(mockHelpRequests);
@@ -67,6 +68,11 @@ export const mockGuestsService = {
     const session = sessions.find((s) => s.id === sessionId);
     if (!session) return null;
     session.status = status;
+    // Stamp promoter attribution at seat/approval time from the table's reservation
+    if (status === "approved" && !session.promoterId) {
+      const res = await mockReservationService.getActiveReservationForTable(session.tableId);
+      if (res?.promoterId) session.promoterId = res.promoterId;
+    }
     if (status === "closed" && settlementMethod) {
       session.settlementMethod = settlementMethod;
       session.settledExternallyAt = new Date().toISOString();
