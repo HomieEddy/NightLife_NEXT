@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarCheck, CalendarDays, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { CalendarCheck, CalendarDays, Check, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -156,6 +156,16 @@ function StaffReservationsContent() {
     }
   }
 
+  async function confirm(res: Reservation) {
+    try {
+      await reservationService.setStatus(res.id, "confirmed");
+      toast.success(`${res.guestName}'s reservation confirmed`);
+      refresh();
+    } catch {
+      toast.error("Failed to confirm");
+    }
+  }
+
   async function remove(res: Reservation) {
     try {
       await reservationService.cancelReservation(res.id);
@@ -211,6 +221,7 @@ function StaffReservationsContent() {
             {nightLabel(items[0].startsAt)}
           </h2>
           {items.map((res) => {
+            const confirmable = isPromoter && res.status === "requested" && canDo("promoter", "reservation:confirm-own");
             const editable = isPromoter && ["requested", "confirmed"].includes(res.status) && canDo("promoter", "reservation:edit-own");
             const cancellable = isPromoter && ["requested", "confirmed"].includes(res.status) && canDo("promoter", "reservation:cancel-own");
             return (
@@ -235,6 +246,18 @@ function StaffReservationsContent() {
                     })()}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
+                    {confirmable && (
+                      <ConfirmDialog
+                        title={`Confirm ${res.guestName}'s reservation?`}
+                        description="The reservation will be marked as confirmed."
+                        trigger={
+                          <Button variant="ghost" size="icon" className="size-8 text-primary" aria-label="Confirm reservation">
+                            <Check className="size-3.5" />
+                          </Button>
+                        }
+                        onConfirm={() => confirm(res)}
+                      />
+                    )}
                     {editable && (
                       <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(res)} aria-label="Edit reservation">
                         <Pencil className="size-3.5" />

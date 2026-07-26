@@ -61,7 +61,8 @@ export type StaffAction =
   | "help:respond"
   | "reservation:create-own"
   | "reservation:edit-own"
-  | "reservation:cancel-own";
+  | "reservation:cancel-own"
+  | "reservation:confirm-own";
 
 const ROLE_ACTIONS: Record<StaffRole, ReadonlySet<StaffAction>> = {
   manager: new Set<StaffAction>([
@@ -85,6 +86,7 @@ const ROLE_ACTIONS: Record<StaffRole, ReadonlySet<StaffAction>> = {
   ]),
   promoter: new Set<StaffAction>([
     "reservation:create-own", "reservation:edit-own", "reservation:cancel-own",
+    "reservation:confirm-own",
   ]),
 };
 
