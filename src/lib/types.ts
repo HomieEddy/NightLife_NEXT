@@ -829,6 +829,8 @@ export interface VenueEvent {
   capacity: number;
   status: EventStatus;
   guestlistEnabled: boolean;
+  // TODO(backend): stored as nullable text column; validated as URL by the API layer.
+  ticketUrl?: string;
 }
 
 /** Event-scoped attendee name — not a stored customer/profile. */
