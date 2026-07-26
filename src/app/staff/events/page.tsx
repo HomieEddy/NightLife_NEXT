@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, PartyPopper } from "lucide-react";
+import { CalendarCheck, ChevronLeft, ChevronRight, PartyPopper } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EventCard, EventActionGold } from "@/components/shared/event-card";
@@ -16,10 +17,29 @@ interface EventWithTally extends VenueEvent {
   myReservations: number;
 }
 
+function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(y, m - 1).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function shiftMonth(key: string, delta: number): string {
+  const [y, m] = key.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta);
+  return monthKey(d);
+}
+
 export default function StaffEventsPage() {
   const router = useRouter();
   const [events, setEvents] = useState<EventWithTally[] | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
+  const [month, setMonth] = useState(() => monthKey(new Date()));
 
   const refresh = useCallback(async () => {
     const [allEvents, staff] = await Promise.all([
@@ -48,6 +68,15 @@ export default function StaffEventsPage() {
     fallbackRefresh: () => refresh(),
   });
 
+  const visible = useMemo(
+    () =>
+      events?.filter((evt) => {
+        const evtMonth = evt.startsAt.slice(0, 7);
+        return evtMonth === month;
+      }) ?? null,
+    [events, month],
+  );
+
   if (!events || !me) {
     return (
       <div className="space-y-4 p-4">
@@ -63,11 +92,33 @@ export default function StaffEventsPage() {
     <div className="space-y-4 p-4">
       <h1 className="text-lg font-semibold">Events</h1>
 
-      {events.length === 0 && (
-        <EmptyState icon={PartyPopper} title="No upcoming events" />
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          onClick={() => setMonth((m) => shiftMonth(m, -1))}
+          aria-label="Previous month"
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        <span className="text-sm font-medium">{monthLabel(month)}</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          onClick={() => setMonth((m) => shiftMonth(m, 1))}
+          aria-label="Next month"
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
+
+      {visible && visible.length === 0 && (
+        <EmptyState icon={PartyPopper} title="No events this month" />
       )}
 
-      {events.map((evt) => (
+      {visible?.map((evt) => (
         <EventCard
           key={evt.id}
           event={evt}
@@ -79,7 +130,7 @@ export default function StaffEventsPage() {
             ) : undefined
           }
           actions={
-            me.role === "promoter" ? (
+            me.role === "promoter" && evt.status !== "ended" ? (
               <EventActionGold onClick={() => router.push(`/staff/reservations?newForEvent=${evt.id}`)}>
                 <CalendarCheck className="size-3.5" /> Book
               </EventActionGold>
