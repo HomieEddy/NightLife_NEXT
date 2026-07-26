@@ -4,7 +4,7 @@ import { FeatureGate } from "@/components/shared/feature-gate";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, Code, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { CalendarCheck, Code, Link2, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,9 +25,8 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { eventsService } from "@/lib/services/events-service";
 import { venueService } from "@/lib/services/venue-service";
-import { publicReservationHref } from "@/lib/entity-links";
+import { publicEventsHref, publicReservationHref } from "@/lib/entity-links";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
-import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
 import type { EventGuest, EventStatus, Venue, VenueEvent, Zone } from "@/lib/types";
@@ -73,8 +72,7 @@ function EventsContent() {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [guestsByEvent, setGuestsByEvent] = useState<Record<string, EventGuest[]>>({});
   const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all");
-  const [dateRange, setDateRange] = useState<DateRange>("week");
-  const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
+  const [dateRange, setDateRange] = useState<DateRange>("all");
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -176,7 +174,6 @@ function EventsContent() {
   const visible = (events ?? []).filter((ev) => {
     if (statusFilter !== "all" && ev.status !== statusFilter) return false;
     if (!isInDateRange(ev.startsAt, dateRange)) return false;
-    if ((customRange.from || customRange.to) && !isInCustomDateRange(ev.startsAt, customRange)) return false;
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       if (!`${ev.name} ${ev.description} ${zoneName(ev.zoneId)}`.toLowerCase().includes(q)) return false;
@@ -192,18 +189,31 @@ function EventsContent() {
         actions={
           <div className="flex items-center gap-2">
             {venue && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
-                  const snippet = `<iframe src="${url}" width="100%" height="700" frameborder="0"></iframe>`;
-                  navigator.clipboard.writeText(snippet);
-                  toast.success("Embed snippet copied");
-                }}
-              >
-                <Code className="size-4" /> Embed reservations
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}${publicEventsHref(venue.publicSlug)}`;
+                    navigator.clipboard.writeText(url);
+                    toast.success("Events link copied");
+                  }}
+                >
+                  <Link2 className="size-4" /> Copy link
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
+                    const snippet = `<iframe src="${url}" width="100%" height="700" frameborder="0"></iframe>`;
+                    navigator.clipboard.writeText(snippet);
+                    toast.success("Embed snippet copied");
+                  }}
+                >
+                  <Code className="size-4" /> Embed reservations
+                </Button>
+              </>
             )}
             <Button onClick={openCreate}>
               <Plus className="size-4" /> New event
@@ -241,8 +251,6 @@ function EventsContent() {
           </div>
           <div className="h-4 w-px bg-border" />
           <DateFilter value={dateRange} onChange={setDateRange} />
-          <div className="h-4 w-px bg-border" />
-          <DateRangePicker value={customRange} onChange={setCustomRange} />
         </div>
       </div>
 
@@ -299,7 +307,7 @@ function EventsContent() {
                 }
                 actions={
                   <>
-                    {ev.status !== "draft" && (
+                    {ev.status !== "draft" && ev.status !== "ended" && (
                       <EventActionGold onClick={() => router.push(`/manager/reservations?newForEvent=${ev.id}`)}>
                         <CalendarCheck className="size-3.5" /> Book
                       </EventActionGold>
