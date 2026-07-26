@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PartyPopper, CalendarDays } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarCheck, PartyPopper, CalendarDays } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -18,6 +20,7 @@ interface EventWithTally extends VenueEvent {
 }
 
 export default function StaffEventsPage() {
+  const router = useRouter();
   const [events, setEvents] = useState<EventWithTally[] | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
 
@@ -83,9 +86,14 @@ export default function StaffEventsPage() {
               <p className="text-xs text-muted-foreground line-clamp-2">{evt.description}</p>
             )}
             {me.role === "promoter" && (
-              <p className="text-xs font-medium text-primary">
-                My reservations: {evt.myReservations}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-primary">
+                  My reservations: {evt.myReservations}
+                </p>
+                <Button size="sm" variant="ghost" onClick={() => router.push(`/staff/reservations?newForEvent=${evt.id}`)}>
+                  <CalendarCheck className="size-3.5" /> Book
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>

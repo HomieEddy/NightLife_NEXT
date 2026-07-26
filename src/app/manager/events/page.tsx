@@ -3,7 +3,8 @@
 import { FeatureGate } from "@/components/shared/feature-gate";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { Code, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarCheck, Code, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -67,6 +68,7 @@ const EMPTY_DRAFT: EventDraft = {
 };
 
 function EventsContent() {
+  const router = useRouter();
   const [events, setEvents] = useState<VenueEvent[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [venue, setVenue] = useState<Venue | null>(null);
@@ -278,6 +280,11 @@ function EventsContent() {
                   </p>
 
                   <div className="flex flex-wrap items-center gap-1.5 border-t pt-2">
+                    {ev.status !== "draft" && (
+                      <Button size="sm" variant="ghost" onClick={() => router.push(`/manager/reservations?newForEvent=${ev.id}`)}>
+                        <CalendarCheck className="size-3.5" /> Book
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" onClick={() => openEdit(ev)}>
                       <Pencil className="size-3.5" /> Edit
                     </Button>

@@ -2,7 +2,8 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
   Check,
@@ -64,6 +65,8 @@ const STATUS_ACTIONS: Record<ReservationStatus, string> = {
 };
 
 function ReservationsContent() {
+  const searchParams = useSearchParams();
+  const newForEventHandled = useRef(false);
   const [reservations, setReservations] = useState<Reservation[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [tables, setTables] = useState<VenueTable[]>([]);
@@ -100,6 +103,25 @@ function ReservationsContent() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const eventId = searchParams.get("newForEvent");
+    if (!eventId || newForEventHandled.current || events.length === 0) return;
+    newForEventHandled.current = true;
+    const evt = events.find((e) => e.id === eventId);
+    if (!evt) return;
+    setEditingId(null);
+    setDraft({
+      ...EMPTY_DRAFT,
+      eventId,
+      zoneId: evt.zoneId ?? zones[0]?.id ?? "",
+      tableId: "",
+      startsAt: toLocalInput(evt.startsAt),
+      endsAt: toLocalInput(evt.endsAt),
+    });
+    setDialogOpen(true);
+    window.history.replaceState(null, "", "/manager/reservations");
+  }, [searchParams, events, zones]);
 
   const zoneName = (id?: string) => zones.find((z) => z.id === id)?.name ?? "—";
   const tableName = (id?: string) => tables.find((t) => t.id === id)?.code ?? "—";

@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CalendarCheck, CalendarDays, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,8 @@ function nightLabel(iso: string): string {
 }
 
 function StaffReservationsContent() {
+  const searchParams = useSearchParams();
+  const newForEventHandled = useRef(false);
   const [reservations, setReservations] = useState<Reservation[] | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
@@ -62,6 +65,25 @@ function StaffReservationsContent() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    const eventId = searchParams.get("newForEvent");
+    if (!eventId || newForEventHandled.current || events.length === 0) return;
+    newForEventHandled.current = true;
+    const evt = events.find((e) => e.id === eventId);
+    if (!evt) return;
+    setEditingId(null);
+    setDraft({
+      ...EMPTY_DRAFT,
+      eventId,
+      zoneId: evt.zoneId ?? zones[0]?.id ?? "",
+      tableId: "",
+      startsAt: toLocalInput(evt.startsAt),
+      endsAt: toLocalInput(evt.endsAt),
+    });
+    setDialogOpen(true);
+    window.history.replaceState(null, "", "/staff/reservations");
+  }, [searchParams, events, zones]);
 
   useLiveEvents({
     scope: "staff",
