@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import type { StaffMember, Zone, VenueTable } from "@/lib/types";
+import type { StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
 
 export type ReservationDraft = {
   guestName: string;
@@ -17,6 +17,7 @@ export type ReservationDraft = {
   endsAt: string;
   note: string;
   promoterId?: string;
+  eventId?: string;
 };
 
 export function toLocalInput(iso: string): string {
@@ -53,6 +54,7 @@ interface ReservationFormDialogProps {
   onSave: () => void;
   editingId: string | null;
   promoters?: StaffMember[];
+  events?: VenueEvent[];
 }
 
 export function ReservationFormDialog({
@@ -66,6 +68,7 @@ export function ReservationFormDialog({
   onSave,
   editingId,
   promoters,
+  events,
 }: ReservationFormDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -83,6 +86,33 @@ export function ReservationFormDialog({
               placeholder="e.g. Jean Dupont"
             />
           </div>
+          {events && events.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="res-event">Event (optional)</Label>
+              <select
+                id="res-event"
+                className={selectCls}
+                value={draft.eventId ?? ""}
+                onChange={(e) => {
+                  const eid = e.target.value || undefined;
+                  const evt = eid ? events.find((ev) => ev.id === eid) : undefined;
+                  setDraft({
+                    ...draft,
+                    eventId: eid,
+                    ...(evt?.zoneId ? { zoneId: evt.zoneId, tableId: "" } : {}),
+                    ...(evt ? { startsAt: toLocalInput(evt.startsAt), endsAt: toLocalInput(evt.endsAt) } : {}),
+                  });
+                }}
+              >
+                <option value="">Standalone reservation</option>
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="res-party">Party size</Label>

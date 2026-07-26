@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { eventsService } from "@/lib/services/events-service";
 import { reservationService } from "@/lib/services/reservation-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
@@ -35,7 +36,7 @@ import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/d
 import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
-import type { Reservation, ReservationStatus, StaffMember, Venue, VenueTable, Zone } from "@/lib/types";
+import type { Reservation, ReservationStatus, StaffMember, Venue, VenueEvent, VenueTable, Zone } from "@/lib/types";
 
 const CHANNEL_LABEL: Record<string, string> = {
   embed: "Embed",
@@ -68,6 +69,7 @@ function ReservationsContent() {
   const [tables, setTables] = useState<VenueTable[]>([]);
   const [venue, setVenue] = useState<Venue | null>(null);
   const [promoters, setPromoters] = useState<StaffMember[]>([]);
+  const [events, setEvents] = useState<VenueEvent[]>([]);
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
@@ -79,18 +81,20 @@ function ReservationsContent() {
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [list, z, t, v, allStaff] = await Promise.all([
+    const [list, z, t, v, allStaff, allEvents] = await Promise.all([
       reservationService.listReservations(),
       venueService.listZones(),
       venueService.listTables(),
       venueService.getVenue(),
       staffService.listStaff(),
+      eventsService.listEvents(),
     ]);
     setReservations(list);
     setZones(z);
     setTables(t);
     setVenue(v);
     setPromoters(allStaff.filter((s) => s.role === "promoter"));
+    setEvents(allEvents.filter((e) => e.status !== "draft"));
   }, []);
 
   useEffect(() => {
@@ -99,6 +103,7 @@ function ReservationsContent() {
 
   const zoneName = (id?: string) => zones.find((z) => z.id === id)?.name ?? "—";
   const tableName = (id?: string) => tables.find((t) => t.id === id)?.code ?? "—";
+  const eventName = (id?: string) => events.find((e) => e.id === id)?.name;
 
   const tablesForZone = useMemo(
     () => (draft.zoneId ? tables.filter((t) => t.zoneId === draft.zoneId) : tables),
@@ -130,6 +135,7 @@ function ReservationsContent() {
       endsAt: res.endsAt ? toLocalInput(res.endsAt) : "",
       note: res.note ?? "",
       promoterId: res.promoterId,
+      eventId: res.eventId,
     });
     setDialogOpen(true);
   }
@@ -148,6 +154,7 @@ function ReservationsContent() {
       note: draft.note,
       source: "manager" as const,
       promoterId: draft.promoterId,
+      eventId: draft.eventId,
       ...(draft.promoterId ? { channel: "promoter" as const } : {}),
     };
     if (editingId) {
@@ -285,6 +292,11 @@ function ReservationsContent() {
                     <p className="text-xs text-muted-foreground">
                       {zoneName(res.zoneId)} · {tableName(res.tableId)} · {res.partySize} guests
                     </p>
+                    {res.eventId && eventName(res.eventId) && (
+                      <p className="flex items-center gap-1 text-xs text-primary">
+                        <CalendarDays className="size-3" /> {eventName(res.eventId)}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
                     {res.channel && (
@@ -357,6 +369,7 @@ function ReservationsContent() {
         onSave={save}
         editingId={editingId}
         promoters={promoters}
+        events={events}
       />
 
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
