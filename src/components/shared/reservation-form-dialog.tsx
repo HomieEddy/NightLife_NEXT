@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import type { Zone, VenueTable } from "@/lib/types";
+import type { StaffMember, Zone, VenueTable } from "@/lib/types";
 
 export type ReservationDraft = {
   guestName: string;
@@ -16,6 +16,7 @@ export type ReservationDraft = {
   startsAt: string;
   endsAt: string;
   note: string;
+  promoterId?: string;
 };
 
 export function toLocalInput(iso: string): string {
@@ -51,6 +52,7 @@ interface ReservationFormDialogProps {
   saving: boolean;
   onSave: () => void;
   editingId: string | null;
+  promoters?: StaffMember[];
 }
 
 export function ReservationFormDialog({
@@ -63,6 +65,7 @@ export function ReservationFormDialog({
   saving,
   onSave,
   editingId,
+  promoters,
 }: ReservationFormDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -124,6 +127,24 @@ export function ReservationFormDialog({
               ))}
             </select>
           </div>
+          {promoters && promoters.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="res-promoter">Promoter (optional)</Label>
+              <select
+                id="res-promoter"
+                className={selectCls}
+                value={draft.promoterId ?? ""}
+                onChange={(e) => setDraft({ ...draft, promoterId: e.target.value || undefined })}
+              >
+                <option value="">No promoter</option>
+                {promoters.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="res-start">Starts</Label>

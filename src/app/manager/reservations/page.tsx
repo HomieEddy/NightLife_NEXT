@@ -26,6 +26,7 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { reservationService } from "@/lib/services/reservation-service";
+import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { isDemoMode } from "@/lib/app-mode";
 import { publicReservationHref } from "@/lib/entity-links";
@@ -34,7 +35,7 @@ import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/d
 import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
-import type { Reservation, ReservationStatus, Venue, VenueTable, Zone } from "@/lib/types";
+import type { Reservation, ReservationStatus, StaffMember, Venue, VenueTable, Zone } from "@/lib/types";
 
 const CHANNEL_LABEL: Record<string, string> = {
   embed: "Embed",
@@ -66,6 +67,7 @@ function ReservationsContent() {
   const [zones, setZones] = useState<Zone[]>([]);
   const [tables, setTables] = useState<VenueTable[]>([]);
   const [venue, setVenue] = useState<Venue | null>(null);
+  const [promoters, setPromoters] = useState<StaffMember[]>([]);
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
@@ -77,16 +79,18 @@ function ReservationsContent() {
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [list, z, t, v] = await Promise.all([
+    const [list, z, t, v, allStaff] = await Promise.all([
       reservationService.listReservations(),
       venueService.listZones(),
       venueService.listTables(),
       venueService.getVenue(),
+      staffService.listStaff(),
     ]);
     setReservations(list);
     setZones(z);
     setTables(t);
     setVenue(v);
+    setPromoters(allStaff.filter((s) => s.role === "promoter"));
   }, []);
 
   useEffect(() => {
@@ -125,6 +129,7 @@ function ReservationsContent() {
       startsAt: toLocalInput(res.startsAt),
       endsAt: res.endsAt ? toLocalInput(res.endsAt) : "",
       note: res.note ?? "",
+      promoterId: res.promoterId,
     });
     setDialogOpen(true);
   }
@@ -142,6 +147,8 @@ function ReservationsContent() {
       endsAt: draft.endsAt ? fromLocalInput(draft.endsAt) : undefined,
       note: draft.note,
       source: "manager" as const,
+      promoterId: draft.promoterId,
+      ...(draft.promoterId ? { channel: "promoter" as const } : {}),
     };
     if (editingId) {
       await reservationService.updateReservation(editingId, payload);
@@ -349,6 +356,7 @@ function ReservationsContent() {
         saving={saving}
         onSave={save}
         editingId={editingId}
+        promoters={promoters}
       />
 
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
