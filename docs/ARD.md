@@ -1,427 +1,463 @@
 # ARD — Architecture Requirements & Decisions
 
-Status: living document · Companion to `docs/PRD.md` and `docs/DDD.md`.
-Phase 2 has shipped plans 01–12 (see ROADMAP); decisions below are implemented
-unless an "Implementation status" note says otherwise. **AD-16, AD-17 and AD-18
-are decided but not yet implemented** — they govern plans 16–19, the
-operations-completeness wave.
+**Status:** Living document · Companion to `docs/PRD.md` and `docs/DDD.md`.
+**Last updated:** 2026-07-27. Phase 2 shipped plans 01–12; decisions below are
+implemented unless an "Implementation status" note says otherwise. AD-19 through
+AD-23 are new — they govern Phases 3–5 of the re-aligned roadmap.
 
 Each decision: context → choice → alternatives considered → consequences. These are
 defaults, not dogma — overturn one by editing this file in the same PR that departs
 from it (AGENTS.md §9.9).
 
+---
+
 ## AD-1 · Runtime: stay inside Next.js
 
-**Choice:** One Next.js 16 app (current repo). Backend = route handlers under
-`src/app/api/` + server actions for form-shaped mutations. No separate API service.
+**Choice:** One Next.js 16 app. Backend = route handlers under `src/app/api/` +
+server actions for form-shaped mutations. No separate API service.
 
-**Alternatives:** Separate Node/Fastify API (more infra, nothing needs it yet);
-tRPC (nice DX but couples the contract to a framework — plain handlers + Zod keep
-the service-interface seam honest).
+**Consequences:** Deployment stays one unit. The mock-service seam maps 1:1.
+Long-lived work (report scheduler, Stripe webhooks) also fits.
 
-**Consequences:** Deployment stays one unit. The mock-service seam maps 1:1: each
-`mockXService` method body becomes a `fetch` to a route handler (reads) or a server
-action (writes). Long-lived work (report scheduler, Stripe webhooks) also fits:
-webhooks are route handlers; scheduled runs use platform cron (AD-9).
+---
 
-## AD-2 · Database: PostgreSQL (managed) + Prisma
+## AD-2 · Database: PostgreSQL + Prisma
 
-**Choice:** PostgreSQL + Prisma as ORM — the codebase already annotates types
-with "mirror as Prisma models" (`src/lib/types.ts` TODO).
+**Choice:** PostgreSQL 17 + Prisma ORM. Self-hosted on OVHcloud (BHS, QC) via
+Coolify per AD-15. PGlite in-process for local dev and integration tests.
 
-**Implementation status:** shipped. Postgres 17 self-hosted on OVHcloud
-(Beauharnois, QC) via Docker/Coolify per AD-15 (supersedes the original
-"managed provider (Neon)" leaning — HOSTING.md is the authority); PGlite
-in-process for local dev and integration tests; `prisma/schema.prisma` is the
-deployed source of truth.
+**Consequences:** `prisma/schema.prisma` is the source of truth. `types.ts`
+derives from generated types. Migrations via `prisma migrate`.
 
-**Alternatives:** Drizzle (fine choice; Prisma wins on the existing TODO contract,
-migration tooling and team familiarity); SQLite/Turso (multi-tenant + concurrent
-writes on Fri-night load wants Postgres).
-
-**Consequences:** `prisma/schema.prisma` becomes the source of truth; `types.ts`
-derives from generated types (AGENTS.md §9.3). Migrations via `prisma migrate`.
-Integration tests run against real Postgres (AD-10).
+---
 
 ## AD-3 · Multi-tenancy: shared schema, `venueId` column, central enforcement
 
-**Choice:** One database, one schema; every tenant-owned table carries `venueId`.
-Scoping enforced centrally with a **Prisma client extension** that injects
-`where: { venueId }` from the request's session context — handlers physically
-cannot forget it. Platform tables (tenants, leads, subscriptions) live outside the
-scoped client and are reachable only by platform-admin routes.
+**Choice:** One database, one schema; every tenant table carries `venueId`.
+Scoping enforced centrally with a Prisma client extension that injects
+`where: { venueId }` from session context.
 
-**Alternatives:** Schema-per-tenant (operational pain at our scale); Postgres RLS
-as primary (harder to test/debug; keep as **defense-in-depth to add later**, noted
-as a hardening task, not a blocker).
+**Consequences:** R2 becomes testable. `/admin` uses the unscoped client behind
+the platform role. RLS deferred as defense-in-depth (roadmap parking lot).
 
-**Consequences:** R2 becomes testable: integration tests create two tenants and
-assert cross-reads fail. The one deliberate exception (`/admin`) uses the unscoped
-client behind the platform role.
+---
 
 ## AD-4 · AuthN/AuthZ: Better Auth
 
-**Choice:** [Better Auth] with the organization plugin. Venue = organization;
-roles = manager/host/bartender/runner; platform admins are a flag on the user.
-Email+password to start (staff PINs are just short passwords), email invites for
-staff (fulfils the `staff-edit-dialog.tsx` TODO). Sessions are DB-backed cookies.
+**Choice:** Better Auth with organization plugin. Venue = organization. Base
+roles = manager/host/bartender/runner/security/promoter + platform admin.
+Five sub-role specializations (floor-manager, vip-host, bar-lead,
+security-lead, door-host — defined in the capability matrix as permission
+sets on base roles, not separate auth roles). Guest access via signed table
+QR tokens (JWT-style, secret-signed, revocable).
 
-**Guest access is not user auth:** guests get a **signed table token** (JWT-style,
-secret-signed, revocable via a `tokenVersion` on the table) embedded in the QR URL
-— fulfils the `qrSlug → signed token` TODOs. Guest session state moves server-side
-keyed by that token (guest-context TODO).
+**Consequences:** Replaces mock auth service. Route handlers read session → role →
+scoped Prisma client. Simulations gated behind `isDemoMode()`.
 
-**Alternatives:** Auth.js/NextAuth v5 (viable; weaker org/role story out of the
-box); Clerk (hosted, fastest, but per-MAU pricing fights the per-venue SaaS model
-and adds a hard vendor dependency).
-
-**Consequences:** Replaces `auth-service.ts`, `auth-context.tsx`, `CURRENT_STAFF_ID`,
-the admin password gate, and the login page's demo personas (kept as seeded real
-accounts for the demo environment). Route handlers read session → role → scoped
-Prisma client. Simulations removed per R7.
+---
 
 ## AD-5 · Money: integer cents, server-computed
 
-**Choice:** All money stored as **integer cents** (`Int` columns, e.g.
-`priceCents`, `totalCents`). The server computes subtotal, per-fee lines
-(`fees.ts` logic moves server-side), tip and total inside the order transaction.
-Clients send intents (line items, tip %), never prices. Conversion to display
-dollars happens only at the UI boundary (`formatMoney`).
+**Choice:** All money stored as integer cents. Server computes subtotal, fees,
+tips, auto-gratuity, comp/void/discount in one transaction. Clients send intents,
+never prices.
 
-**Why:** the prototype's float math (`Math.round(x*100)/100`) is a known trap; the
-split-bill work already needed cent-exact distribution. This is the single most
-important correctness decision in the migration.
+**Consequences:** The single most important correctness decision. Σ(fee lines) +
+subtotal + tip === total exactly in cents. Auto-gratuity rules (Phase 3) compute
+server-side in the same settlement transaction.
 
-**Consequences:** A one-time mapping layer in each service method (cents → the
-dollar-float shapes pages currently expect) until pages migrate; unit tests assert
-Σ(fee lines) + subtotal + tip === total exactly (R3).
+---
 
 ## AD-6 · Realtime: SSE first, Postgres NOTIFY as the bus
 
-**Choice:** Replace polls with **Server-Sent Events**: one `GET /api/live` route
-handler per surface scope (venue-staff, venue-manager, guest-session) streaming
-domain events. Publish via Postgres `LISTEN/NOTIFY` so any server instance can
-fan out. Client hook (`useLiveEvents`) falls back to the existing polling when the
-stream drops (satisfies R6's graceful degradation).
+**Choice:** SSE (`GET /api/live`) per surface scope. Publish via Postgres
+`LISTEN/NOTIFY`. `useLiveEvents` hook with polling fallback. Push notifications
+(AD-21) are a separate channel for off-device delivery.
 
-**Alternatives:** Managed WebSockets (Pusher/Ably) — adopt only if SSE hits limits
-(bidirectional needs, >minutes-long connections on serverless). Raw WebSockets on
-Vercel — poor fit for serverless runtime.
+**Consequences:** All polling TODOs collapsed into one mechanism. Domain events
+are the only things published on NOTIFY. Push events use the same domain event
+vocabulary but route through the notification dispatcher (AD-22).
 
-**Consequences:** All 6 polling TODOs collapse into one mechanism. Chat, broadcasts,
-last call, 86 events, order/claim/show/approval changes each become typed events on
-the bus. The show-floor lock's mutex moves to a DB row with `SELECT … FOR UPDATE`
-(show-queue TODO), events announce it.
+---
 
 ## AD-7 · Validation & contracts: Zod at every boundary
 
-**Choice:** Zod schemas per route handler/server action input; schemas live beside
-the handler and export inferred types. Service-layer methods keep their current
-TypeScript signatures (R1) — Zod guards the wire, Prisma guards the DB.
+**Choice:** Zod schemas per route handler/server action input. Schemas live beside
+the handler. Service-layer methods keep TypeScript signatures (R1).
+
+---
 
 ## AD-8 · Email: Resend + React Email
 
-**Choice:** Resend for transactional mail: staff invites (AD-4), guest receipt
-send (currently a toast stub), scheduled report deliveries, lead notifications.
-Templates in React Email. Dev mode logs to console instead of sending.
+**Choice:** Resend for transactional mail via the notification dispatcher (AD-22).
+Templates in React Email. Dev mode logs to console.
 
-**Implementation status:** not landed — no Resend dependency exists. Staff
-invites go through Better Auth `createInvitation` and surface as copyable
-invite links in the manager UI (`/invite/<id>` acceptance page); scheduled
-report email is the unshipped leg of plans 09/09c (see ROADMAP parking lot).
-Adopt Resend when the first mail must actually send.
+**Implementation status:** not landed. Ships with plan 25 (Phase 2).
+
+---
 
 ## AD-9 · Background work: platform cron + idempotent jobs
 
-**Choice:** a scheduled trigger hitting authenticated route handlers (Coolify
-cron on the OVHcloud deploy per AD-15 — the live app no longer runs on Vercel):
-`/api/jobs/run-scheduled-reports` (report-service TODO) and the nightly rollup
-(AD-11). Jobs are idempotent and record runs in a `job_runs` table — rerunning is
-always safe. (Promotion expiry needs no job — status derives from dates; see
-plan 08.)
+**Choice:** Scheduled triggers via Coolify cron hitting authenticated route handlers:
+`/api/jobs/report-schedules`, `/api/jobs/nightly-rollup`, `/api/jobs/reservation-hold-expiry`,
+`/api/jobs/session-timeout`, `/api/jobs/certification-expiry`, `/api/jobs/compliance-deadline`.
+Jobs are idempotent; `job_runs` table prevents double-execution.
 
-**Implementation status:** partial. The `job_runs` model exists,
-`computeRollup`/`upsertRollup` are implemented and tested, and the report
-engine computes due-schedule selection — but no `/api/jobs/*` handlers or
-cron wiring exist yet. Ships with the AD-8 email leg (ROADMAP parking lot).
+**Implementation status:** partial. `job_runs` model exists but no handlers or cron
+wiring. Ships with plan 25 (Phase 2). Additional job handlers added in Phase 3
+(automations) and Phase 4 (auto-release, auto-escalation).
 
-**Alternatives:** Queue infra (Inngest/BullMQ+Redis) — YAGNI until a job needs
-retries/fan-out beyond what idempotent cron gives.
+---
 
 ## AD-10 · Testing infrastructure
 
-**Choice:** **Vitest** for unit + integration; integration tests hit route handlers
-against a real Postgres via **PGlite in-process** (`src/server/test-pglite.ts` —
-no Docker, no external database; this replaced the original Testcontainers
-idea, which was heavier for the same guarantee). **Playwright** for the E2E
-flows named in AGENTS.md §7 (`e2e/`). Mock-data literals become
-seed fixtures (`prisma/seed.ts` imports from `src/lib/mock-data/`) — reuse, don't
-rewrite (AGENTS.md §9.4). Full strategy: AGENTS.md §7 & §10.
+**Choice:** Vitest for unit + integration. Integration tests hit route handlers
+against PGlite in-process. Playwright for E2E flows. Mock-data literals are seed
+fixtures.
+
+---
 
 ## AD-11 · Analytics: SQL over orders, rollup table for history
 
-**Choice:** "Tonight" queries aggregate live orders directly (indexed on
-`(venueId, placedAt)`). Historical ranges read a `nightly_rollups` table written by
-the nightly job (AD-9) — replaces the seeded generator. Report engine composes the
-same queries; CSV rendered server-side; scheduled runs email via AD-8.
+**Choice:** Tonight queries aggregate live orders. Historical ranges read
+`nightly_rollups`. Report engine composes same queries. CSV export rendered
+server-side; scheduled runs delivered via notification dispatcher (AD-22).
+Phase 4 adds comparison queries (night-over-night), projection queries, and
+SLA analytics on the same data.
 
-**Alternatives:** Materialized views (fine later; a plain rollup table is simpler
-to backfill and test); external OLAP (wildly premature).
+---
 
-## AD-12 · Billing: Stripe subscriptions (SaaS only)
+## AD-12 · Tenant billing: Stripe subscriptions (SaaS only)
 
-**Choice:** Stripe Checkout + customer portal for tenant plans; webhook handler
-syncs subscription state to the `Tenant` row; plan limits enforced in the scoped
-service layer (table/staff counts). Guest order payment stays out of scope (PRD §4).
+**Choice:** Stripe Checkout + customer portal for tenant SaaS plan billing.
+No guest payment processing — the app computes amounts owed (order totals,
+tips, auto-gratuity, cover charges, deposit amounts) but never collects them.
+Stripe webhooks sync subscription state for tenant provisioning and plan
+limits; no Stripe Connect, no guest-facing Checkout, no payment intents.
+
+---
 
 ## AD-13 · Environments & config
 
-**Choice:** `dev` (PGlite in-process, compose-stack Postgres, or external PG —
-seeded from mock data), `preview`
-(per-PR on OVHcloud staging, seeded, Stripe test mode), `prod` (OVHcloud production).
-All secrets via env vars validated at boot with a Zod env schema (`src/lib/env.ts`).
-The public Live Demo is **not** an environment of the real backend — see AD-14.
-Hosting provider choices are in AD-15.
+**Choice:** `dev` (PGlite in-process), `preview` (OVHcloud staging), `prod`
+(OVHcloud production). All secrets via env vars, validated at boot with Zod.
+`NEXT_PUBLIC_APP_MODE` required — parse failure aborts boot (fail-closed).
 
-## AD-14 · Dual-mode: the mock demo is a permanent product surface AND the sandbox
+---
 
-**Context:** the marketing site's Live Demo must keep running on the mock
-services indefinitely — every visitor gets an isolated, self-resetting sandbox
-(module state per tab) with zero backend cost and zero shared-state vandalism.
-Beyond marketing, the demo is the **permanent development sandbox**: every future
-feature is sketched mock-first in demo mode and iterated on UX before any backend
-is planned (see "Demo-first lifecycle" below). Phase 2 therefore does **not**
-replace mock service bodies; both implementations co-exist. This supersedes the
-literal "replace the body" reading of AGENTS.md §9.1 — the *stable interface*
-principle stands, the mechanism changes.
+## AD-14 · Dual-mode: the mock demo is a permanent product surface
 
-**Choice:**
-- **Contract from the mock:** `type XService = typeof mockXService`. The real
-  implementation is declared `satisfies XService` — signature drift is a compile
-  error, so the mock and real APIs cannot diverge silently.
-- **Selector layer:** `src/lib/services/x-service.ts` exports the plain name:
-  `export const xService: XService = isDemoMode() ? mockXService : realXService`.
-  Pages import **only** from `src/lib/services/`. Enforcement is build-time, not
-  lint-time (amends the original ESLint-rule plan): `next.config.ts` Turbopack
-  aliases rewrite `@/lib/mock-services/*` to a throwing stub in live builds and
-  `@/server/{auth,db}` to a throwing stub in demo builds, so the wrong
-  implementation physically cannot execute — or even bundle — in the wrong mode.
-  Call sites change imports once (mechanical), then never again.
-- **Mode = build-time env:** `NEXT_PUBLIC_APP_MODE=demo|live`, one repo, two
-  deploy targets. The landing page's "Live demo" links to the demo deployment.
-  Build-time inlining lets the bundler drop the unused implementation from each
-  build (live ships no mocks; demo ships no fetch layer). **The variable is
-  required — `parseAppMode` throws on unset/invalid values** (fail-closed, so a
-  misconfigured deploy can never silently boot the wrong mode). Local loops are
-  explicit scripts: `dev:demo` (sandbox, no DB), `dev:pglite` (live, in-process
-  DB), `dev:stack` (compose: Postgres + both modes), `dev:live` (external DB).
-- **Demo-only until graduated:** a feature whose real branch doesn't exist yet
-  hides its UI entry points (nav links, pages, buttons) behind `isDemoMode()` —
-  the live build never shows a feature backed by vanishing in-memory state.
-  Graduation removes the gate in the same PR that wires the selector's real
-  branch.
-- **Simulations are demo-gated, not deleted** (amends R7): "Simulate host
-  approval", "Simulate progress", demo login personas and the admin password
-  gate render behind `isDemoMode()`; live paths use the real counterparts.
-- **Demo CI smoke:** the demo build runs the 5-minute-walkthrough E2E in CI so
-  the demo cannot rot while live work proceeds.
+**Choice:** Mock and real implementations co-exist. Contract from the mock
+(`type XService = typeof mockXService`). Selector layer (`src/lib/services/`)
+picks via `NEXT_PUBLIC_APP_MODE`. Demo build on Vercel, live build on OVHcloud.
+Same repo, two deploy targets. Build-time inlining drops unused implementation.
 
-**Alternatives:** seeded demo tenant on the real backend (shared mutable state
-for anonymous visitors, reset crons, infra cost, slower than memory — wrong tool
-for a marketing demo); runtime switching (fallback above).
+**Demo-first lifecycle:** Sketch mock-first → iterate UX in demo → gate behind
+`isDemoMode()` → graduate with real implementation satisfying mock type.
 
-**Consequences:** wherever a plan says "swap the method body of
-`mockXService.m`", read "implement `realXService.m` satisfying the mock's type
-and wire the selector". The `mockXService → xService` renames never happen — the
-selector owns the plain name; mocks keep theirs. Mocks remain the seed/fixture
-source (AD-10) *and* a shipped product.
+**Consequences:** All new features (RV, OE, CRM, AI, AM, PWA, PSH feature codes)
+follow this lifecycle. Mocks remain seed/fixture source AND shipped product.
 
-**Demo-first lifecycle (every future feature):**
-
-1. **Sketch** — mock data → `mockXService` methods → UI, in demo mode, under the
-   Phase-1 working rules (AGENTS.md §1–§8). Annotate backend intent with
-   `TODO(backend)` as you go; those comments seed the eventual plan.
-2. **Iterate** — the demo build is the review environment; UX changes are cheap
-   because no backend exists to drag along. Features killed here cost nothing.
-3. **Gate** — entry points behind `isDemoMode()` while demo-only (rule above).
-4. **Graduate** — when the UX is settled: write `docs/plans/NN-name-PLAN.md`
-   (same template), implement the real branch `satisfies` the mock's type, wire
-   the selector, remove the gate — one PR, per the roadmap's definition of done.
+---
 
 ## AD-15 · Hosting: Vercel (demo) + OVHcloud BHS/Coolify (staging & prod)
 
-**Context:** the app has two distinct deployment profiles. The demo build
-(`NEXT_PUBLIC_APP_MODE=demo`) is a stateless marketing tool — no database, no
-secrets, pure client-side mock data. The live build is a multi-tenant backend
-with Postgres, SSE real-time, persistent connections and predictable nightclub
-traffic patterns (Friday/Saturday peaks, quiet weekdays).
+**Choice:** Demo on Vercel (stateless, free tier, global CDN). Staging and
+production on OVHcloud VPS (Beauharnois, QC) via Coolify (git-push deploys,
+Docker orchestration, separate Postgres instances).
 
-**Choice:** three deployment targets, two hosting providers:
+**Consequences:** Quebec hosting satisfies PIPEDA + Law 25 data residency.
+No cross-border PII transfer. Coolify provides deployment management.
 
-| Target | Host | Mode | Database | Purpose |
-|---|---|---|---|---|
-| **Demo** | Vercel | `demo` | None | Marketing tour, public sandbox |
-| **Staging** | OVHcloud VPS (BHS) + Coolify | `live` | Postgres (separate DB) | QA, 2 test venues, feature validation |
-| **Production** | OVHcloud VPS (BHS) + Coolify | `live` | Postgres (separate DB) | Customer venues, revenue |
-
-- **Demo stays on Vercel** — it's lightweight, stateless, and fits the free/hobby
-  tier indefinitely. No database cost. Vercel's edge CDN makes the demo fast
-  globally with zero ops. This is the only Vercel deployment.
-- **Staging and production share an OVHcloud VPS in Beauharnois, QC** (or
-  separate VPSes as load grows), managed via Coolify — git-push deploys, Let's
-  Encrypt, Docker orchestration. Staging runs against its own Postgres database
-  with 2 dummy tenants for end-to-end feature testing in prod-identical
-  infrastructure. Quebec hosting satisfies PIPEDA and Law 25 data-residency
-  requirements without a cross-border Privacy Impact Assessment.
-- **Coolify provides the deployment DX** — GitHub auto-deploy on push, preview
-  deployments per branch, rollbacks, environment variable management, and
-  monitoring. It fills the gap between raw VPS and Vercel's managed experience.
-
-**Alternatives considered:**
-
-- *Vercel for everything* — pay-per-invocation pricing scales poorly with
-  predictable evening-peak traffic; serverless cold starts hurt SSE real-time
-  (AD-6); connection pooling churn between Lambda invocations and Postgres;
-  cost crosses VPS breakeven at ~3–5 paying venues (~$500–2k/mo vs ~$12 CAD/mo
-  OVHcloud).
-- *Vercel for staging, OVHcloud for prod* — staging would not catch
-  infrastructure-parity issues (connection behavior, SSE persistence, cron
-  execution). Testing on Vercel then shipping on VPS introduces a class of
-  bugs that only surface in production.
-- *Hetzner (Germany/Finland)* — technically capable, but customer data would
-  leave Canada, triggering PIPEDA cross-border requirements and a mandatory
-  Privacy Impact Assessment under Quebec's Law 25. OVHcloud BHS avoids this.
-- *OVHcloud for everything including demo* — unnecessary ops burden for a
-  stateless marketing page; Vercel's CDN + zero-config is strictly better for
-  static-ish content with no database.
-
-**Consequences:**
-- CI deploys the demo build to Vercel and the live build to OVHcloud/Coolify —
-  same repo, different build commands (`NEXT_PUBLIC_APP_MODE=demo|live`).
-- Staging is the gate before production; features must pass there first.
-- The demo and live builds never share infrastructure or databases.
-- AD-13 environments map: `dev` = local, `preview` = OVHcloud staging,
-  `prod` = OVHcloud production, demo = Vercel (not a backend environment).
-- All customer PII stays in Quebec (OVHcloud BHS) — no cross-border transfer.
+---
 
 ## AD-16 · Accountability: one audit trail, ledgers everywhere
 
-**Context:** plans 16-19 add many actions that change money, stock, hours or a
-person's ability to enter the building. `ACTION_META` already flagged the
-sensitive ones (`order:gift`, `session:deny`, …) but nothing recorded who did
-them. Scattering per-feature history tables would produce five half-audits and
-no single answer to "what happened last night".
+**Choice:** One `audit_entries` table, venue-scoped, append-only. Written inside
+the same transaction as every sensitive effect. Ledger discipline is the default:
+`tab_adjustments`, `occupancy_events`, `admissions`, `time_entries`,
+`tip_distributions`, `commission_statements`, `incident_notes`,
+`notification_logs`, `compliance_actions` — all INSERT-only.
 
-**Choice:**
-- **One `audit_entries` table**, venue-scoped, append-only, written by every
-  action whose capability is `sensitive: true` — comps and voids (16), door
-  overrides and refusals (17), time-entry edits and tip closes (18), stocktake
-  commits and cost changes (19), plus the pre-existing sensitive actions.
-- **The audit row is written inside the same transaction as its effect.** A
-  best-effort write-after is not an audit trail; if the effect commits and the
-  record doesn't, the trail lies.
-- **Ledger discipline is the default for domain history**, extending the pattern
-  `stock_movements` already proved: `tab_adjustments`, `occupancy_events`,
-  `admissions`, `time_entries`, `tip_distributions`, `incident_notes` are all
-  INSERT-only, with no UPDATE/DELETE grants in production. A correction is a new
-  row (reversal or supersede), never an edit.
-- **Derived-not-stored stays the rule** for anything computable: session
-  balances, occupancy totals, waitlist positions, pour cost, coverage gaps and
-  attention items are functions over ledgers, exactly like `AttentionItem` and
-  `AnalyticsSummary` are today.
+**Consequences:** "Who did what when" is one query. Plan 29 retention has one
+obvious source. Reversal/supersede chain encoded once in pure functions.
 
-**Alternatives:** per-feature history tables (five schemas, five query shapes,
-no cross-cutting view); an event-sourced core (right answer for a bigger team,
-disproportionate here — `domain_events` already gives an event log for the
-realtime vocabulary without making it the write model).
-
-**Consequences:** "who comped that bottle / admitted that guest / edited those
-hours" is one query. Plan 29's retention job has one obvious table to schedule
-alongside the guest data. Reversals mean every ledger read must respect the
-supersede/reversal chain — encoded once in the pure functions, tested there.
+---
 
 ## AD-17 · Guest identity: opt-in, pseudonymous by default
 
-**Context:** plan 17 introduces persistent `GuestProfile` records so a host can
-recognise a regular and a door can refuse a banned patron. That is a material
-change to a product whose stated privacy posture (PRD §7) is "guests are
-pseudonymous, first name only" — under Law 25 and PIPEDA, in a venue serving
-alcohol at night.
+**Choice:** Profiles created only where identity was given. Anonymous QR path
+creates no profile. ID checks record the check, never the document. Consent is
+per-channel and explicit. Bans are venue-local. Phase 3 adds watchlist tier
+(separate from ban), guest preferences, celebration dates, linked profiles,
+staff notes, and guest photo — all on the same opt-in profile model.
 
-**Choice:**
-- **A profile is created only where identity was given**: a reservation, a
-  guestlist entry, a door ID check, or a host explicitly tagging a party. The
-  anonymous QR-order path creates no profile and links to none — it stays exactly
-  as private as it is today.
-- **ID verification records the check, never the document.** `dobVerified`,
-  `idCheckedBy`, `idCheckedAt`, optionally a year of birth. No scans, no images,
-  no document numbers — data we would have to defend and never need to read.
-- **Consent is per-channel and explicit** (`marketingConsent.email/sms` with a
-  capture timestamp and source), so plan 29 can honour it and CASL is satisfiable
-  if marketing messaging is ever built.
-- **Cross-tenant lookup is impossible by construction** — profiles are
-  `venueId`-scoped like every other tenant row (AD-3), and the door search is
-  covered by an explicit isolation canary. A guest known to venue A must never
-  surface at venue B's door.
-- **Bans are venue-local and audited**, with an optional expiry; there is no
-  shared industry blacklist and we will not build one.
+**Consequences:** Law 25 exposure is proportional. Cross-tenant lookup impossible
+by construction. Recognition features degrade gracefully when no profile exists.
 
-**Alternatives:** platform-wide guest identity (a far more valuable product and
-a far worse liability — a cross-venue behavioural record of nightlife patrons;
-declined); no identity at all (leaves the review's §4 gap open, and leaves a
-venue unable to enforce its own ban list).
-
-**Consequences:** plan 29's data inventory gains `guest_profiles`, `admissions`
-and `incidents` with distinct retention periods (incidents longest — licence
-defence). The demo build seeds fictional profiles only. Recognition features
-degrade gracefully: every screen that shows profile context must render
-correctly when there is no profile, because most guests won't have one.
+---
 
 ## AD-18 · Product cost: weighted average, carried on the movement
 
-**Context:** plan 19 adds the cost side so revenue reports can become margin
-reports. Inventory costing method is a decision that is expensive to change
-later, because it is baked into every historical aggregation.
+**Choice:** Weighted average cost (WAC). `unitCostCents` on each inbound
+`StockMovement`. `MenuItem.avgCostCents` recomputed on each receipt. Phase 4
+adds auto-calculated pour cost from recipe BOM + current cost.
 
-**Choice:** **weighted average cost (WAC)**, with `unitCostCents` carried on each
-inbound `StockMovement` and `MenuItem.avgCostCents` recomputed on each receipt.
-Consumption values at the average in force at the time. The item's average is
-written **only** by the receipt path (INV-C4) and never editable by hand.
+**Consequences:** Pour cost and margin computable from movements alone. Historical
+margin does not retroactively change when a new shipment arrives.
 
-**Alternatives:** FIFO/lot tracking (more precise, needs lot-level allocation on
-every sale and a lot table — the precision does not change a single decision a
-bar manager makes); standard cost with periodic revaluation (hides supplier price
-creep, which is exactly what the price-change flag exists to expose); last-cost
-(simple, and wrong the moment prices move mid-week).
+---
 
-**Consequences:** pour cost and margin are computable from movements alone, with
-no join to open lots. A void's stock return (plan 16) must re-enter at the cost
-it left at rather than the current average (INV-C5) — the one cross-plan seam,
-tested from both sides. Historical margin does not retroactively change when a
-new shipment arrives at a different price.
+## AD-19 · PWA: app shell, service worker, offline queue
 
-## System sketch
+**Context:** Mobile is the primary staff interface. Security, hosts, runners,
+and bartenders work from phones, often in areas with poor connectivity
+(basements, thick walls, crowded networks). The PWA must provide an app-like
+experience with resilience to brief connectivity loss.
+
+**Choice:**
+- **Service Worker**: one SW at `/sw.js`, cache-first for app shell (HTML, CSS,
+  JS bundles), network-first for API data. SW size target < 100 KB.
+- **App Shell**: `app-shell.tsx` wraps all staff/guest surfaces. Shell renders
+  instantly from cache; data fills in from network. Skeleton states shown while
+  fetching.
+- **Offline Queue**: `src/lib/offline-queue.ts` — a localStorage-backed queue for
+   user actions (place order, file incident, clock in/out, admit guest) taken
+   while offline. Each queued action carries a `commandId` (cuid-generated) for
+   server-side idempotency — replaying the same command produces the same result.
+   Actions are identity-bound to the session active at queue time; if the session
+   changes on reconnect (different user, expired token), queued actions are
+   rejected with a recovery prompt, never silently replayed under a new identity.
+   Sensitive payloads (document images, full DOB, ID numbers) are never written to
+   localStorage — door admission payloads carry only admission type, party size,
+   and profile ID references. Queue replays in order on reconnect; failed replays
+   surface in a user-facing recovery banner with per-item retry/skip controls.
+   Queue expiry: actions older than 24 hours are discarded on next sync attempt
+   (a nightclub shift doesn't span days). Conflict recovery: if server state has
+   changed (e.g. order item no longer available), the action is marked `failed`
+   with the server error, not silently discarded.
+- **Offline Indicator**: persistent banner when `navigator.onLine === false`.
+  Non-critical actions (browsing menu, viewing history) remain available.
+  Critical actions (door admission, incident filing) available via offline queue.
+- **Update Lifecycle**: SW checks for updates on navigation. If new version
+  available, show banner "New version available — tap to refresh." Never
+  auto-refresh during active use (a floor manager mid-order at 1 AM must not be
+  interrupted).
+- **Web App Manifest**: `manifest.json` with themed splash screen, standalone
+  display mode, venue-branded icons.
+- **Lighthouse target**: PWA score ≥ 90, Performance ≥ 90, Accessibility ≥ 95.
+
+**Alternatives:** native apps (two app stores, two codebases, install friction —
+  a PWA covers every need without these costs); full offline mode with SW
+  caching all data (breaks deploys, no evidence of need — offline queue is the
+  right 80/20 cut); React Native (ecosystem lock-in, separate deployment pipeline).
+
+**Consequences:** Every new staff/guest surface is mobile-first. Desktop/tablet
+is a progressive enhancement. Offline queue action types must be explicitly
+registered (not all actions are queueable). SW update cycle must be tested
+across all staff roles. The SW is push-only (plan 28 scope: push notifications +
+offline queue; full SW caching of application data is deferred).
+
+---
+
+## AD-20 · Push notifications: Web Push API + notification dispatcher
+
+**Context:** Staff need real-time alerts without keeping a browser tab open.
+Guests want order-status updates. Push notifications are the delivery channel
+for alerting users who aren't actively looking at the dashboard.
+
+**Choice:**
+- **Push subscription**: `PushSubscription` stored per user. `POST
+  /api/push/subscribe` and `/api/push/unsubscribe` endpoints. Token rotation
+  handled on `pushsubscriptionchange` event.
+- **Notification preferences**: `NotificationPreferences` per user:
+  `{ userId, channel: "push"|"email"|"sms", eventType, enabled }`. Stored in
+  Postgres. User controls via `/manager/settings/notifications` and
+  `/staff/settings/notifications`.
+- **Quiet hours**: `{ startTime, endTime, timezone }` per user. Non-critical
+  notifications suppressed during quiet hours.
+- **Delivery**: the notification dispatcher (AD-22) routes to push when the
+  recipient has an active `PushSubscription` and push is enabled for the event
+  type. Push delivery uses the Web Push protocol with VAPID keys.
+- **Payload**: minimal JSON payload (`{ type, title, body, url, icon }`).
+  The PWA's service worker receives the push event and shows a system
+  notification. Tapping the notification navigates to the relevant URL.
+- **Service Worker scope**: push event handler in the same SW that handles
+  caching (AD-19). SW `push` event listener shows `self.registration.showNotification()`.
+- **VAPID keys**: generated once, stored in env vars (`VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY`). Public key embedded in the app for subscription.
+
+**Alternatives:** Firebase Cloud Messaging (adds Google dependency, unnecessary
+  for web-only push — Web Push API is standardized and works everywhere FCM
+  does for web); third-party push service (OneSignal/Pusher Beams — per-MAU
+  pricing, vendor lock-in); SMS as primary push channel (cost per message,
+  guest phone collection friction, slower delivery).
+
+**Consequences:** Push is the third channel in the notification dispatcher
+(AD-22), alongside email (AD-8) and SMS (plan 26). Push subscriptions must be
+tested across browsers (Chrome, Safari, Firefox — Safari requires the PWA to be
+"added to home screen" for push). Browser permission prompt timing is critical:
+request on first meaningful interaction, not on page load.
+
+---
+
+## AD-21 · Rules engine: shared condition-action evaluator
+
+**Context:** The business logic audit identified 20+ features that are
+"when condition X, fire action Y" — auto-gratuity rules, cover price schedules,
+comp thresholds, SLA timers, capacity warnings, minimum-spend checkpoints,
+overtime alerts, break compliance, certification expiry, compliance deadlines,
+deposit forfeiture, reservation hold expiry, pour-cost targets, variance
+thresholds. Building N separate if-blocks across N services is the pattern
+AGENTS.md §1.2 warns against.
+
+**Choice:**
+- **`src/server/rules/` module** with three parts:
+  1. **Rule definitions**: declarative config stored in Postgres (`rule_definitions`
+     table: `{ id, venueId, ruleType, condition, action, priority, active }`).
+     Many rules are venue-configurable (auto-gratuity %, SLA minutes, comp
+     thresholds). A few are hardcoded system rules (order state machine transitions).
+  2. **Rule evaluator**: `evaluateRules(venueId, ruleType, context) → Action[]`.
+     For a given event type (e.g. `order:placed`), evaluates all active rules of
+     that type against the context (order, session, venue config), returns
+     actionable results.
+  3. **Rule types**: each rule type is a typed union — `AutoGratuityRule`,
+     `SlaThresholdRule`, `CompThresholdRule`, `CapacityWarningRule`,
+     `MinimumSpendCheckpointRule`, `OvertimeAlertRule`, `BreakComplianceRule`,
+     `CertificationExpiryRule`, `ComplianceDeadlineRule`, `DepositForfeitureRule`,
+     `ReservationHoldRule`, `PourCostTargetRule`, `VarianceThresholdRule`,
+     `CoverPriceScheduleRule`.
+- **Evaluation points**: rules are evaluated at well-defined trigger points:
+   - On data mutation (order placed, session closed, clock-in, stock received) —
+     **state-changing actions (`autoAdjust`, `block`) are restricted to
+     transaction-committed evaluation points only.** A read (e.g. Pulse feed
+     query) must only produce derived warnings (`notify`, `escalate`, `warn`),
+     never trigger monetary ledger changes.
+   - On schedule (cron job checks certification expiry, compliance deadlines,
+     reservation holds)
+   - On query (Pulse feed evaluates SLA, capacity, minimum-spend rules — but
+     only produces `warn`/`escalate`/`notify` actions, never
+     `autoAdjust` or `block`)
+
+**Alternatives:** inline if-blocks per feature (what we'd have without this AD —
+  20 copies of the same pattern, tested 20 times); external rules engine
+  (Drools/OpenPolicyAgent — massive overkill for configuration-driven business
+  rules with no regulatory compliance engine requirement); no abstraction at
+  all (YAGNI — but 20 features all needing the same shape IS the threshold for
+  extracting the pattern).
+
+**Consequences:** Rules are testable in isolation: `evaluateRules(venueId, "auto-gratuity",
+{ session, orders }) → [{ action: "notify", ... }]`. Adding a new rule type is
+adding a config shape and an evaluator function; the dispatch is shared. Venue
+admins can configure thresholds without code changes.
+
+---
+
+## AD-22 · Notification dispatch: one dispatcher, three channels
+
+**Context:** The product needs to send email (plan 25), SMS (plan 26), and push
+notifications (Phase 5). Building channel logic in each feature would produce
+three parallel seams with different error handling, retry, and logging.
+
+**Choice:**
+- **`src/server/notifications/dispatch.ts`** — `notify(event, recipients, payload)`:
+   resolves channels per recipient from `NotificationPreferences` (canonical
+   model per AD-20: `NotificationPreference: { channel, eventType, enabled }[]`),
+   calls the appropriate transport (`email.ts`, `sms.ts`, `push.ts`), records one
+   `NotificationLog` row per attempt (idempotent: keyed by (eventId, recipientId,
+   channel) — never double-send the same notification).
+- **Transports** are thin adapters:
+  - `email.ts` → Resend (AD-8)
+  - `sms.ts` → Twilio (plan 26)
+  - `push.ts` → Web Push API (AD-20)
+- **Templates**: `src/notifications/templates/*.ts` — typed template functions
+  that take a typed payload and return `{ subject?, body, html? }`. One template
+  per event type per channel. Not React Email (email) + plain text (SMS/push).
+- **Logging**: `NotificationLog: { id, venueId, channel, template, recipientId,
+  recipientAddress, status: "sent"|"delivered"|"failed"|"clicked", providerId,
+  error?, createdAt }`. Append-only. The log IS the delivery audit trail.
+- **Failure handling**: per-transport retry with exponential backoff (max 3
+  retries over 10 minutes). After 3 failures, log as "failed" and do not retry.
+  No dead-letter queue at this scale — the log is queryable for failed sends.
+
+**Alternatives:** per-feature notification logic (three code paths, three error
+  models, no cross-channel preferences — rejected per AGENTS.md §1.2); queue
+  infrastructure (BullMQ/Redis — synchronous sends suffice at this scale;
+  earned by volume, noted in parking lot).
+
+**Consequences:** Adding a new notification trigger is: (1) define the domain
+event if new, (2) create a template, (3) call `notify(...)` at the trigger point.
+The dispatcher handles channel resolution, preferences, logging, and retries.
+All features in Phases 2–5 that say "notify X when Y" route through this one
+function.
+
+---
+
+## AD-23 · CI/CD deferral: minimal development CI, full automation in Phase 7
+
+**Context:** The product roadmap defers production-grade CI/CD, deployment
+automation, infrastructure-as-code, and release orchestration to Phase 7 —
+after the product is functionally complete through Phase 6. This AD records
+the decision so it is not relitigated per feature.
+
+**Choice:**
+- **During Phases 1–6 (development):** one minimal CI gate on every PR to `dev`:
+  `npx tsc --noEmit && npx eslint src && npm run test`. No staging deploys, no
+  production pipelines, no Docker optimization, no Kubernetes, no Coolify
+  automation beyond git-push deploys. Manual deploys via Coolify dashboard are
+  acceptable for development velocity.
+- **Phase 7 (post-functional-completeness):** full CI/CD pipeline: GitHub Actions
+  with lint → typecheck → test → integration test gates; automated staging
+  deploy on merge to `dev`; automated production deploy on merge to `master`
+  with manual approval gate; blue-green deploy strategy; database migration
+  automation; rollback rehearsed and documented; infrastructure-as-code
+  (Coolify config versioned in repo); disaster recovery runbook tested quarterly.
+- **Principle**: automate the delivery of a complete product, not a
+  work-in-progress. Engineering cycles spent on deploy automation in Phase 2
+  are cycles not spent on the tab ledger or door surface — and those are what
+  make the product sellable. CI/CD is valuable, but it's valuable because it
+  delivers features faster; if there are no features, there's nothing to deliver.
+
+**Alternatives:** shipping CI/CD early (plan 21's original position) — rejected
+  because the re-aligned strategy is "business logic first"; build pipelines
+  alongside features (incremental CI/CD) — tempting but each pipeline increment
+  creates maintenance burden while the product surface changes rapidly.
+
+**Consequences:** The team manually deploys via Coolify during Phases 1–6. PR
+gates are automated (tsc, eslint, test). Staging validation is manual. This
+is acceptable because the number of deploy targets is small (staging, production,
+demo) and the team is small.
+
+---
+
+## System sketch (updated for Phase 2–5)
 
 ```
-Browser (manager / staff / guest / admin UIs — unchanged pages)
+Browser / PWA (manager / staff / guest / admin UIs)
    │  imports from src/lib/services/* selectors (AD-14)
+   │  Service Worker: cache-first app shell + offline queue + push events (AD-19/20)
    ▼
-xService = demo build → mockXService (in-memory, self-resetting)
-           live build ↓ realXService  ──►  fetch / server actions
+xService = demo → mockXService (in-memory, self-resetting)
+           live → realXService → fetch / server actions
    ▼
 Next.js route handlers + server actions
    ├─ Zod input validation (AD-7)
    ├─ Better Auth session → role checks (AD-4)
+   ├─ Rules engine evaluates triggers (AD-21) ──► actions (notify/escalate/block/autoAdjust)
    ├─ scoped Prisma client (venueId injected, AD-3)
    │       ▼
    │   PostgreSQL ── append-only ledgers, integer cents, LISTEN/NOTIFY
-   ├─ SSE /api/live streams ◄── NOTIFY fan-out (AD-6)
-   ├─ Stripe webhooks (AD-12)      ├─ Resend email (AD-8)
-   ├─ Cron job handlers (AD-9)     ├─ nightly_rollups (AD-11)
+   ├─ SSE /api/live ◄── NOTIFY fan-out (AD-6)
+   ├─ Notification dispatcher (AD-22)
+   │     ├─ Resend (email, AD-8)
+   │     ├─ Twilio (SMS, plan 26)
+   │     └─ Web Push API (push, AD-20)
+   ├─ Cron job handlers (AD-9) ── idempotent, Coolify-triggered
+    ├─ Stripe webhooks — tenant subscription sync only, no guest payments (AD-12)
    └─ audit_entries (AD-16) ── written in-transaction with every sensitive effect
 ```
 
 Append-only ledgers, in one place (AD-16): `stock_movements`, `tab_adjustments`,
 `occupancy_events`, `admissions`, `time_entries`, `tip_distributions`,
-`commission_statements`, `incident_notes`, `lead_activity`, `chat_messages`,
-`broadcasts`, `sold_out_events`, `domain_events`, `audit_entries`.
+`commission_statements`, `incident_notes`, `notification_logs`, `lead_activity`,
+`chat_messages`, `broadcasts`, `sold_out_events`, `domain_events`, `audit_entries`.

@@ -79,6 +79,10 @@ function toItem(row: {
     tags: row.tags as MenuItem["tags"],
     isAvailable: row.isAvailable,
     inventory: row.inventory,
+    // TODO(backend): plan 17 graduation — add isAlcoholic/abv/allergens columns;
+    // responsible-service drink counting is demo-track only until then.
+    isAlcoholic: false,
+    allergens: [],
   };
 }
 

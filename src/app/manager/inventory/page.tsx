@@ -9,10 +9,10 @@ import {
   History,
   Loader2,
   MoreVertical,
-  PackagePlus,
   Pencil,
   Plus,
   Search,
+  ShoppingCart,
   SlidersHorizontal,
   Trash2,
   TrendingDown,
@@ -47,12 +47,13 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { BottleIcon } from "@/components/shared/bottle-icon";
-import { BulkRestockDialog } from "@/components/manager/bulk-restock-dialog";
+import Link from "next/link";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { menuService } from "@/lib/services/menu-service";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,9 @@ const MOVEMENT_META: Record<
   restock: { label: "Restock", className: "text-emerald-600 dark:text-emerald-400" },
   sale: { label: "Sale", className: "text-muted-foreground" },
   adjustment: { label: "Adjustment", className: "text-amber-600 dark:text-amber-400" },
+  waste: { label: "Waste", className: "text-red-600 dark:text-red-400" },
+  transfer: { label: "Transfer", className: "text-blue-600 dark:text-blue-400" },
+  return: { label: "Return", className: "text-orange-600 dark:text-orange-400" },
 };
 
 interface ItemDraft {
@@ -102,18 +106,15 @@ function InventoryPageContent() {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  // Dialog state
-  const [restocking, setRestocking] = useState<MenuItem | null>(null);
-  const [restockQty, setRestockQty] = useState(6);
-  const [restockNote, setRestockNote] = useState("");
+  // Dialog state — stock changes must go through Purchasing (plan 19)
   const [adjusting, setAdjusting] = useState<MenuItem | null>(null);
   const [adjustCount, setAdjustCount] = useState(0);
   const [adjustNote, setAdjustNote] = useState("");
-  const [bulkOpen, setBulkOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [formItem, setFormItem] = useState<MenuItem | null>(null); // null = create
   const [draft, setDraft] = useState<ItemDraft | null>(null);
   const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [its, cats, moves] = await Promise.all([
@@ -155,16 +156,6 @@ function InventoryPageContent() {
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
 
   // ---------- Actions ----------
-
-  async function handleRestock() {
-    if (!restocking || restockQty <= 0) return;
-    setBusy(true);
-    await menuService.restockItem(restocking.id, restockQty, restockNote.trim() || undefined);
-    setBusy(false);
-    toast.success(`+${restockQty} ${restocking.name}`);
-    setRestocking(null);
-    await refresh();
-  }
 
   async function handleAdjust() {
     if (!adjusting || adjustCount < 0) return;
@@ -233,6 +224,8 @@ function InventoryPageContent() {
         inventory: Math.max(0, draft.inventory),
         tags: [],
         isAvailable: true,
+        isAlcoholic: true,
+        allergens: [],
       });
       toast.success(`${draft.name.trim()} added to inventory`);
     }
@@ -251,11 +244,13 @@ function InventoryPageContent() {
     <div className="space-y-6">
       <PageHeader
         title="Inventory"
-        description="Stock levels, restocks and the bottle catalog. Every change is logged."
+        description="Stock levels and adjustments — restocking is handled via Purchasing."
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setBulkOpen(true)}>
-              <PackagePlus className="size-4" /> Bulk restock
+            <Button variant="outline" asChild>
+              <Link href="/manager/purchasing">
+                <ShoppingCart className="size-4" /> Order stock
+              </Link>
             </Button>
             <Button onClick={openCreate}>
               <Plus className="size-4" /> Add bottle
@@ -307,8 +302,9 @@ function InventoryPageContent() {
               description="Try a different search or category, or add a new bottle."
             />
           ) : (
+            <>
             <div className="space-y-2">
-              {visible.map((item) => {
+              {paginate(visible, page).map((item) => {
                 const soldOut = item.inventory === 0;
                 const low = !soldOut && item.inventory <= 5;
                 return (
@@ -333,18 +329,11 @@ function InventoryPageContent() {
                     >
                       {soldOut ? "Sold out" : `${item.inventory} left`}
                     </Badge>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0"
-                      onClick={() => {
-                        setRestocking(item);
-                        setRestockQty(6);
-                        setRestockNote("");
-                      }}
-                    >
-                      <PackagePlus className="size-3.5" />
-                      <span className="hidden sm:inline">Restock</span>
+                    <Button size="sm" variant="outline" className="shrink-0" asChild>
+                      <Link href="/manager/purchasing">
+                        <ShoppingCart className="size-3.5" />
+                        <span className="hidden sm:inline ml-1">Order</span>
+                      </Link>
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -386,6 +375,8 @@ function InventoryPageContent() {
                 );
               })}
             </div>
+            <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+            </>
           )}
 
           {/* ---------- Movement log ---------- */}
@@ -441,58 +432,7 @@ function InventoryPageContent() {
         </>
       )}
 
-      {/* ---------- Bulk restock ---------- */}
-      <BulkRestockDialog
-        open={bulkOpen}
-        onOpenChange={setBulkOpen}
-        items={items ?? []}
-        onDone={refresh}
-      />
-
-      {/* ---------- Restock dialog ---------- */}
-      <Dialog open={restocking !== null} onOpenChange={(open) => !open && setRestocking(null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Restock {restocking?.name}</DialogTitle>
-            <DialogDescription>
-              Currently {restocking?.inventory} in stock. Adds bottles and logs a restock movement.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="restock-qty">Quantity received</Label>
-              <Input
-                id="restock-qty"
-                type="number"
-                min={1}
-                value={restockQty}
-                onChange={(e) => setRestockQty(Math.max(1, Number(e.target.value)))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="restock-note">Note (optional)</Label>
-              <Textarea
-                id="restock-note"
-                rows={2}
-                placeholder="e.g. Weekly delivery — Maison Prestige"
-                value={restockNote}
-                onChange={(e) => setRestockNote(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setRestocking(null)} disabled={busy}>
-              Cancel
-            </Button>
-            <Button onClick={handleRestock} disabled={busy}>
-              {busy && <Loader2 className="size-4 animate-spin" />}
-              {busy ? "Saving…" : `Add ${restockQty} bottles`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ---------- Adjust dialog ---------- */}
+      {/* ---------- Adjust count dialog ---------- */}
       <Dialog open={adjusting !== null} onOpenChange={(open) => !open && setAdjusting(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -543,7 +483,7 @@ function InventoryPageContent() {
             <DialogTitle>{formItem ? `Edit ${formItem.name}` : "Add a bottle"}</DialogTitle>
             {formItem && (
               <DialogDescription>
-                Stock changes are made with Restock or Adjust count, not here.
+                Stock changes are handled via Purchasing or the Adjust action, not here.
               </DialogDescription>
             )}
           </DialogHeader>

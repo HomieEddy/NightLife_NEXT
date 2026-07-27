@@ -1,13 +1,18 @@
-# 10 — Platform Admin & Billing · PLAN
+# 10 — Platform Admin & Tenant Billing · PLAN
 
 **Status: complete.**
 
 Goal: the cross-tenant context — leads, tenant management, the provisioning job,
-Stripe subscription billing (R9), and the platform **control center**: per-tenant
-operational visibility, dynamic plan/entitlement configuration, telemetry
-shortcuts, and the hardened admin security posture. Last because it monetizes
-what the other plans built, and touching Stripe before the product works is
-cart-before-horse.
+Stripe tenant subscription billing for SaaS plans (R9), and the platform **control
+center**: per-tenant operational visibility, dynamic plan/entitlement configuration,
+telemetry shortcuts, and the hardened admin security posture. Last because tenant
+monetization follows product function, and Stripe integration before the product
+works is cart-before-horse.
+
+Payment scope: Stripe is used exclusively for platform SaaS tenant subscriptions
+(Checkout, customer portal, webhooks). No guest payment processing, no Stripe
+Connect, no venue-side payment collection — the app computes amounts owed, never
+collects them.
 
 Preconditions: plan 02 (platform role, unscoped client). Provisioning exercises
 plans 03–06 output. The control-center demo track (tenant detail, plan builder,

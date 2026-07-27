@@ -29,7 +29,13 @@ let happyHourRules: HappyHourRule[] = clone(mockHappyHourRules);
 let movements: StockMovement[] = clone(mockStockMovements);
 let soldOutEvents: SoldOutEvent[] = [];
 
-function logMovement(item: MenuItem, type: StockMovementType, delta: number, note?: string) {
+function logMovement(
+  item: MenuItem,
+  type: StockMovementType,
+  delta: number,
+  note?: string,
+  voidAdjustmentId?: string,
+) {
   movements = [
     {
       id: uid("mv"),
@@ -39,6 +45,7 @@ function logMovement(item: MenuItem, type: StockMovementType, delta: number, not
       delta,
       note,
       createdAt: new Date().toISOString(),
+      voidAdjustmentId,
     },
     ...movements,
   ];
@@ -323,6 +330,8 @@ export const mockMenuService = {
 export async function restoreSale(
   lines: { menuItemId: string; quantity: number }[],
   note = "Order cancelled",
+  /** Set when this restock is a void's stock-return side (plan 16, INV-T2) — tags the movement row. */
+  voidAdjustmentId?: string,
 ): Promise<void> {
   for (const line of lines) {
     const pkg = packages.find((p) => p.id === line.menuItemId);
@@ -333,7 +342,7 @@ export async function restoreSale(
       const item = items.find((i) => i.id === component.menuItemId);
       if (!item) continue;
       item.inventory += component.quantity;
-      logMovement(item, "adjustment", component.quantity, note);
+      logMovement(item, "adjustment", component.quantity, note, voidAdjustmentId);
     }
   }
 }

@@ -122,7 +122,10 @@ export const mockCategories: MenuCategory[] = [
   { id: "cat-washers", venueId: "venue-1", name: "Washers", description: "Jus, sodas, boissons energisantes et eau pour votre set-up", sortOrder: 8, isActive: true, modifierGroups: [] },
 ];
 
-export const mockMenuItems: MenuItem[] = [
+// Every item here is a spirit/champagne except "Washers" (sodas/juice/energy
+// drinks) — isAlcoholic/allergens are derived once below rather than repeated
+// on 22 literals (allergens are undeclared in the demo seed; abv is omitted).
+const rawMenuItems: Omit<MenuItem, "isAlcoholic" | "allergens">[] = [
   // Champagne
   { id: "mi-moet", categoryId: "cat-champagne", name: "Moët & Chandon Impérial", description: "Le champagne classique de la maison, bien frais.", price: 160, icon: "champagne", tags: [], isAvailable: true, inventory: 24 },
   { id: "mi-dom", categoryId: "cat-champagne", name: "Dom Pérignon Vintage", description: "Cuvée de prestige iconique.", price: 320, icon: "champagne", tags: ["popular"], isAvailable: true, inventory: 12 },
@@ -169,6 +172,12 @@ export const mockMenuItems: MenuItem[] = [
   { id: "mi-redbull", categoryId: "cat-washers", name: "Red Bull", description: "Canette 250ml.", price: 5, icon: "washer", tags: ["popular"], isAvailable: true, inventory: 120 },
   { id: "mi-redbull-6pack", categoryId: "cat-washers", name: "Red Bull 6-pack", description: "Pack de 6 canettes.", price: 30, icon: "washer", tags: [], isAvailable: true, inventory: 40 },
 ];
+
+export const mockMenuItems: MenuItem[] = rawMenuItems.map((item) => ({
+  ...item,
+  isAlcoholic: item.categoryId !== "cat-washers",
+  allergens: [],
+}));
 
 export const mockPackages: BottlePackage[] = [
   {

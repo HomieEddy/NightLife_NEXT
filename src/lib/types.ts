@@ -46,6 +46,18 @@ export interface Venue {
   tipPresets: number[];
   /** The default-selected tip percentage when the cart opens. */
   defaultTipPct: number;
+  /** Comps at or below this amount are self-service; above it escalates to manager approval. */
+  compThresholdCents: number;
+  /** Minimum-spend progress ring turns warning-colored once shortfall/minimum crosses this ratio. */
+  minimumSpendWarningRatio: number;
+  /** The fire-code number the door counts against. */
+  legalCapacity: number;
+  /** Occupancy/legalCapacity ratio at which Pulse raises a capacity-warning (default 0.9). */
+  occupancyWarnRatio: number;
+  /** Gates the coat-check surface entirely for venues that don't run one. */
+  coatCheckEnabled: boolean;
+  /** Forces the ID-check toggle on at admission time (plan 17). */
+  doorRequiresIdCheck: boolean;
 }
 
 export interface Zone {
@@ -91,8 +103,17 @@ export interface StaffMember {
   email: string;
   accountStatus: StaffAccountStatus;
   assignedZoneIds: string[];
+  /** Derived (plan 18): an open TimeEntry exists → true. The manual toggle is retired in live builds. */
   isOnShift: boolean;
   avatarInitials: string;
+  /** Plan 18: hourly rate for labour-cost reporting. */
+  hourlyRateCents?: number;
+  /** Plan 18: tip-pool weighting factor (default 1.0). */
+  tipPoolWeight?: number;
+  /** Plan 18: employment classification. */
+  employmentType?: EmploymentType;
+  /** Plan 18: promoter commission rule — attribute bookings to this staff member. */
+  commissionRuleId?: string;
 }
 
 /** One recurring weekly shift block — backed by the StaffShift table (plan 03). */
@@ -160,11 +181,25 @@ export interface MenuItem {
   tags: ("popular" | "new" | "premium" | "limited")[];
   isAvailable: boolean; // manual 86 switch
   inventory: number; // bottles left tonight; 0 = sold out regardless of isAvailable
+  /** Drives the responsible-service drink counter (plan 17) — non-alcoholic items never count. */
+  isAlcoholic: boolean;
+  abv?: number; // % alcohol by volume, alcoholic items only
+  allergens: string[]; // e.g. ["nuts", "dairy"] — empty = none declared
+  /** Plan 19: unit of measure for costing and partial-bottle tracking. */
+  unitOfMeasure?: "bottle" | "ml" | "oz" | "each" | "keg";
+  /** Plan 19: serving size in the item's own unit — drives pour depletion vs whole-bottle depletion. */
+  servingSize?: number;
+  /** Plan 19: per-day-of-week par levels — Wednesday par ≠ Saturday par. */
+  parLevels?: Record<number, number>; // dayOfWeek: quantity
+  /** Plan 19: trigger point for the reorder alert below parForDate. */
+  reorderPoint?: number;
+  /** Plan 19: weighted average cost, recomputed on each receipt — never hand-edited (INV-C4). */
+  avgCostCents?: number;
 }
 
 // ---------- Inventory ----------
 
-export type StockMovementType = "restock" | "sale" | "adjustment";
+export type StockMovementType = "restock" | "sale" | "adjustment" | "waste" | "transfer" | "return";
 
 /**
  * Every inventory change is a movement — restocks, sales and manual
@@ -179,6 +214,16 @@ export interface StockMovement {
   delta: number; // positive = stock in, negative = stock out
   note?: string;
   createdAt: string;
+  /** Set when this movement is the stock-return side of a void TabAdjustment (INV-T2). */
+  voidAdjustmentId?: string;
+  /** Plan 19: per-unit cost at receipt — consumption costs at weighted average. */
+  unitCostCents?: number;
+  /** Plan 19: links this restock to its purchase order line. */
+  purchaseOrderId?: string;
+  /** Plan 19: links this adjustment to its stocktake session. */
+  stocktakeId?: string;
+  /** Plan 19: reason code for waste events (spill, breakage, expired, comp-prep, training). */
+  wasteReason?: string;
 }
 
 /** Logged the moment a bottle sells out or gets manually 86'd — feeds the live 86-board. */
@@ -238,7 +283,8 @@ export type GuestSessionStatus =
   | "approved"
   | "denied"
   | "closure-requested" // guest asked to close the tab (all orders delivered)
-  | "closed";
+  | "closed"
+  | "merged"; // folded into another session's tab (see parentSessionId) — plan 16
 
 export interface GuestSession {
   id: string;
@@ -253,9 +299,116 @@ export interface GuestSession {
   settlementMethod?: SettlementMethod;
   // TODO(backend): stamped at seat time from the reservation that gated the table
   promoterId?: string;
+  /**
+   * The venue's commitment for this tab, snapshotted from the table (or the
+   * seating reservation's own minimumSpendCents, when set) at approval time —
+   * editing the table's minimum mid-night must never rewrite an open tab.
+   */
+  minimumSpendCents?: number;
+  /** Set when this session absorbed another via mockGuestsService.mergeSession(). */
+  parentSessionId?: string;
+  /** History breadcrumb — the table this session started at, before a transfer. */
+  transferredFromTableId?: string;
+  /** Links this session to a persistent guest identity only when a host attaches one (opt-in, plan 17). */
+  guestProfileId?: string;
+  /** Set by service:refuse — blocks new orders for this session with a guest-facing explanation. */
+  serviceRefusedAt?: string;
+  serviceRefusedReason?: string;
 }
 
 export type SettlementMethod = "terminal" | "cash" | "house";
+
+// ---------- Tab ledger: adjustments, audit trail, cash-out (plan 16) ----------
+
+/**
+ * void — it never happened: removes the line from revenue AND returns stock.
+ * comp — it happened, the guest doesn't pay: stays in depletion/performance volume,
+ *   leaves revenue, lands in a comp-cost bucket. Writes no stock movement.
+ * discount — it happened, the guest pays less: reduces revenue by the delta only.
+ */
+export type TabAdjustmentKind = "void" | "comp" | "discount";
+
+/**
+ * Append-only tab ledger row — the record of every correction made to a
+ * session's balance after an order was placed. Corrections are new rows (a
+ * reversal), never edits or deletes (same rule as StockMovement, INV-I1).
+ */
+export interface TabAdjustment {
+  id: string;
+  venueId: string;
+  sessionId: string;
+  orderId?: string;
+  orderItemId?: string;
+  kind: TabAdjustmentKind;
+  /** Positive amount in cents — the size of the correction, never signed. */
+  amountCents: number;
+  /** Quantity of the line affected, for partial-quantity voids/comps. */
+  quantity?: number;
+  reasonCode: string; // matches an AdjustmentReason.code for this venue+kind
+  note?: string;
+  authorStaffId: string;
+  authorStaffName: string;
+  createdAt: string; // ISO
+  /** Set on the original row once a later row reverses it — the original is never edited. */
+  reversedByAdjustmentId?: string;
+}
+
+/** Venue-configurable reason vocabulary — mandatory dropdown, no free-text-only adjustments. */
+export interface AdjustmentReason {
+  id: string;
+  venueId: string;
+  kind: TabAdjustmentKind;
+  code: string;
+  label: string;
+  isActive: boolean;
+}
+
+/**
+ * Derived, never stored (same rule as AttentionItem) — one pure function in
+ * src/lib/tab.ts computes this from a session's orders + adjustments.
+ */
+export interface SessionBalance {
+  sessionId: string;
+  grossCents: number; // sum of order totals, unadjusted
+  voidCents: number;
+  compCents: number;
+  discountCents: number;
+  adjustmentsCents: number; // voidCents + compCents + discountCents
+  netCents: number; // grossCents - adjustmentsCents
+  minimumSpendCents: number; // 0 when the tab has no commitment
+  shortfallCents: number; // max(0, minimumSpendCents - netCents)
+  settledCents: number; // netCents + shortfallCents — what closes the tab
+}
+
+/** Every action already flagged `sensitive: true` writes one, plus the new tab/cashout actions. */
+export interface AuditEntry {
+  id: string;
+  venueId: string;
+  actorStaffId: string;
+  actorName: string;
+  action: string; // StaffAction | AdminAction — kept as string so this table stays generic across plans
+  targetType: string; // "order" | "session" | "cashout" | ...
+  targetId: string;
+  summary: string; // human-readable one-liner, e.g. "Comped 1× Grey Goose 750ml — service recovery"
+  metadata?: Record<string, unknown>;
+  createdAt: string; // ISO
+}
+
+/** One per-shift reconciliation — the Z-report. */
+export interface ShiftCashout {
+  id: string;
+  venueId: string;
+  staffId?: string; // set for a bartender's own drawer; absent for the manager's venue-wide close
+  businessDate: string; // "YYYY-MM-DD" bucketed by the venue's night config, never toDateString()
+  openedAt: string; // ISO
+  closedAt: string; // ISO
+  expectedByMethod: Record<SettlementMethod, number>; // cents
+  countedByMethod: Record<SettlementMethod, number>; // cents, entered by the closer
+  varianceCents: number; // Σ counted - Σ expected
+  note?: string;
+  closedByStaffId: string;
+  closedByStaffName: string;
+}
 
 // ---------- Orders ----------
 
@@ -381,7 +534,19 @@ export interface ActiveShow {
 // ---------- Live floor pulse ----------
 
 export type AttentionSeverity = "warning" | "critical";
-export type AttentionItemType = "order-overdue" | "help-open" | "table-closeout";
+export type AttentionItemType =
+  | "order-overdue"
+  | "help-open"
+  | "table-closeout"
+  | "table-under-minimum"
+  | "capacity-warning"
+  | "waitlist-overdue"
+  | "incident-open"
+  | "zone-uncovered"
+  | "clock-out-missing"
+  | "stock-below-par"
+  | "po-overdue"
+  | "target-breach";
 
 /** One row in the manager's live "needs attention" feed — always derived, never stored. */
 export interface AttentionItem {
@@ -554,6 +719,19 @@ export interface PromoterAnalytics {
   totalAttributedRevenue: number;
 }
 
+export interface AdjustmentAnalytics {
+  voidCount: number;
+  compCount: number;
+  discountCount: number;
+  voidCents: number;
+  compCents: number;
+  discountCents: number;
+  voidRate: number; // adjustmentsCents / grossCents, per kind
+  compRate: number;
+  discountRate: number;
+  byReason: { kind: TabAdjustmentKind; reasonCode: string; count: number; amountCents: number }[];
+}
+
 export interface OrderEtaMetrics {
   avgAcceptMinutes: number;
   avgPrepMinutes: number;
@@ -585,6 +763,7 @@ export interface AnalyticsSummary {
   orderFunnel?: OrderFunnelAnalytics;
   inventoryDepth?: InventoryDepthAnalytics;
   promoters?: PromoterAnalytics;
+  adjustments?: AdjustmentAnalytics;
 }
 
 export interface HistoricalAnalytics {
@@ -609,6 +788,7 @@ export interface HistoricalAnalytics {
   orderFunnel?: OrderFunnelAnalytics;
   inventoryDepth?: InventoryDepthAnalytics;
   promoters?: PromoterAnalytics;
+  adjustments?: AdjustmentAnalytics;
 }
 
 export const REPORT_METRICS = [
@@ -626,6 +806,7 @@ export const REPORT_METRICS = [
   { id: "service-fees", label: "Service fees" },
   { id: "promoter-funnel", label: "Promoter funnel" },
   { id: "promoter-revenue", label: "Promoter revenue" },
+  { id: "adjustments", label: "Comps, voids & discounts" },
 ] as const;
 
 export type ReportMetric = (typeof REPORT_METRICS)[number]["id"];
@@ -730,7 +911,10 @@ export type FeatureKey =
   | "events"
   | "promotions"
   | "chat"
-  | "multi-venue";
+  | "multi-venue"
+  | "door"
+  | "guest-crm"
+  | "incidents";
 
 export interface FeatureDef {
   key: FeatureKey;
@@ -788,7 +972,8 @@ export type ReservationStatus =
   | "confirmed"
   | "seated"
   | "cancelled"
-  | "completed";
+  | "completed"
+  | "no-show";
 
 export type ReservationChannel = "embed" | "direct" | "walk-in" | "promoter";
 
@@ -811,6 +996,18 @@ export interface Reservation {
   reservationPin?: string;
   // TODO(backend): FK to staff_profiles; set when a promoter creates the reservation or assigned by manager
   promoterId?: string;
+  /** Bottle-service term negotiated at booking time — makes BottlePackage reachable pre-seating. */
+  packageId?: string;
+  /** Overrides the table's default minimum for this booking; wins over the table at seating. */
+  minimumSpendCents?: number;
+  /** Terms recorded at booking, not charged — no payment processing (PRD §4). */
+  expectedDurationMinutes?: number;
+  depositTermsNote?: string;
+  cancellationPolicyNote?: string;
+  /** 1st or 2nd seating, for venues that turn tables twice a night. */
+  seatingNumber?: 1 | 2;
+  /** Resolved via dedupe at booking time — links the reservation to a persistent guest identity. */
+  guestProfileId?: string;
   createdAt: string; // ISO
 }
 
@@ -833,13 +1030,15 @@ export interface VenueEvent {
   ticketUrl?: string;
 }
 
-/** Event-scoped attendee name — not a stored customer/profile. */
+/** Event-scoped attendee name — not a stored customer/profile, unless resolved to a regular. */
 export interface EventGuest {
   id: string;
   eventId: string;
   name: string;
   partySize: number;
   status: "invited" | "confirmed" | "checked-in";
+  /** Set when a repeat guestlist name resolves to a known GuestProfile (plan 17). */
+  guestProfileId?: string;
 }
 
 export type PromotionType = "percentage" | "flat";
@@ -857,4 +1056,463 @@ export interface Promotion {
   endsAt: string; // ISO
   status: PromotionStatus;
   redemptionCount: number;
+}
+
+// ---------- Door, arrival & guest identity (plan 17) ----------
+
+/** Free-form-but-bounded labels a host/security can pin to a profile. */
+export type GuestTag = "regular" | "industry" | "influencer" | "birthday" | "allergy-noted" | "high-spender";
+export type GuestVipTier = "none" | "regular" | "vip" | "host-list";
+export type GuestStatus = "active" | "banned";
+
+/**
+ * A persistent guest identity — created only when someone *gives* us identity
+ * (reservation, guestlist entry, door ID check, or a host tagging a regular).
+ * QR sessions stay anonymous unless a host links one (GuestLink). Never store
+ * a document scan or number — `dobYear` only, never a full DOB.
+ */
+export interface GuestProfile {
+  id: string;
+  venueId: string;
+  displayName: string;
+  firstName: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
+  dobYear?: number;
+  tags: GuestTag[];
+  vipTier: GuestVipTier;
+  status: GuestStatus;
+  banReason?: string;
+  bannedUntil?: string;
+  bannedByStaffId?: string;
+  notes?: string;
+  marketingConsent: { email: boolean; sms: boolean; capturedAt: string; source: string };
+  createdAt: string; // ISO
+  /** Rollups — recomputed from sessions/admissions (AD-11 pattern), never hand-edited. */
+  lastVisitAt?: string;
+  visitCount: number;
+  lifetimeNetCents: number;
+}
+
+/** The join that keeps identity opt-in — a GuestSession with no link is today's anonymous QR guest. */
+export interface GuestLink {
+  id: string;
+  guestProfileId: string;
+  sessionId?: string;
+  reservationId?: string;
+  eventGuestId?: string;
+  admissionId?: string;
+  createdAt: string; // ISO
+}
+
+export type AdmissionType = "guestlist" | "comp" | "cover" | "reservation" | "member";
+export type AdmissionSource = "walk-in" | "reservation" | "guestlist" | "re-entry";
+
+/** Records the *check*, never the document — no scans, no document numbers. */
+export interface AdmissionIdCheck {
+  checked: boolean;
+  dobVerified: boolean;
+  byStaffId: string;
+  at: string; // ISO
+}
+
+/** Append-only — the arrival log the door writes to on every admit/re-entry. */
+export interface Admission {
+  id: string;
+  venueId: string;
+  businessDate: string; // bucketed via businessDateFor(nightEndHour), never toDateString()
+  guestProfileId?: string;
+  partySize: number;
+  admissionType: AdmissionType;
+  amountOwedCents: number;
+  source: AdmissionSource;
+  reservationId?: string;
+  eventGuestId?: string;
+  idCheck?: AdmissionIdCheck;
+  admittedByStaffId: string;
+  admittedByStaffName: string;
+  admittedAt: string; // ISO
+  exitedAt?: string;
+  /** Set when this row is a re-entry — reuses the original admission's cover, not double-counted. */
+  reEntryOfAdmissionId?: string;
+}
+
+/**
+ * Append-only occupancy ledger — same discipline as StockMovement (INV-I1).
+ * Current occupancy = Σ delta for the business date. Never derived from
+ * table state — most of the room isn't at a table.
+ */
+export interface OccupancyEvent {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  delta: number;
+  reason: string;
+  staffId: string;
+  at: string; // ISO
+}
+
+export type WaitlistStatus = "waiting" | "notified" | "seated" | "left" | "expired";
+
+/** Position is derived from joinedAt within status "waiting" — never a mutable stored int. */
+export interface WaitlistEntry {
+  id: string;
+  venueId: string;
+  guestProfileId?: string;
+  name: string;
+  partySize: number;
+  phone?: string;
+  quotedMinutes: number;
+  status: WaitlistStatus;
+  joinedAt: string; // ISO
+  notifiedAt?: string;
+}
+
+/** Gated entirely behind venue.coatCheckEnabled. */
+export interface CoatCheckTicket {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  ticketNumber: number;
+  guestProfileId?: string;
+  itemCount: number;
+  checkedInAt: string; // ISO
+  claimedAt?: string;
+  staffId: string;
+}
+
+export type IncidentType =
+  | "ejection"
+  | "refused-entry"
+  | "medical"
+  | "altercation"
+  | "theft"
+  | "property-damage"
+  | "police"
+  | "other";
+export type IncidentSeverity = "low" | "medium" | "high";
+export type IncidentStatus = "open" | "resolved";
+
+/**
+ * Security's core object — the reason a venue keeps its licence. Narrative is
+ * immutable after submit; follow-ups are appended IncidentNote rows. Writes
+ * an AuditEntry in the same logical operation that creates it (plan 16).
+ * A refused-entry incident with a guestProfileId can set that profile's
+ * status to "banned" in the same transaction — this *is* RefusalOfService,
+ * modelled as an Incident rather than a separate table.
+ */
+export interface Incident {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  type: IncidentType;
+  severity: IncidentSeverity;
+  occurredAt: string; // ISO
+  zoneId?: string;
+  tableId?: string;
+  guestProfileId?: string;
+  involvedStaffIds: string[];
+  narrative: string;
+  actionsTaken: string;
+  policeInvolved: boolean;
+  reportedByStaffId: string;
+  reportedByStaffName: string;
+  status: IncidentStatus;
+}
+
+/** Append-only follow-up on an Incident — the narrative itself never changes after submit. */
+export interface IncidentNote {
+  id: string;
+  incidentId: string;
+  note: string;
+  authorStaffId: string;
+  authorStaffName: string;
+  createdAt: string; // ISO
+}
+
+// ---------- Workforce: time clock, scheduling, tips & commissions (plan 18) ----------
+
+export type EmploymentType = "hourly" | "salaried" | "contractor" | "commission";
+
+/** A recurring weekly shift template — generates dated Shift instances. */
+export interface ShiftTemplate {
+  id: string;
+  venueId: string;
+  staffId: string;
+  dayOfWeek: number; // 0 = Sunday
+  startTime: string; // "22:00"
+  endTime: string;
+  zoneId: string | null;
+  role?: StaffRole;
+  active: boolean;
+}
+
+export type ShiftStatus = "draft" | "published" | "confirmed" | "in-progress" | "completed" | "no-show" | "cancelled";
+
+/** One dated shift instance for one staff member on one business date. */
+export interface Shift {
+  id: string;
+  venueId: string;
+  staffId: string;
+  businessDate: string; // bucketed via nightEndHour, never toDateString()
+  scheduledStart: string; // "22:00"
+  scheduledEnd: string;
+  zoneId: string | null;
+  role: StaffRole;
+  status: ShiftStatus;
+  templateId?: string;
+  publishedAt?: string; // ISO
+  note?: string;
+}
+
+/** Append-only — every clock action is a new row; edits supersede, never mutate. */
+export interface TimeEntry {
+  id: string;
+  venueId: string;
+  shiftId?: string;
+  staffId: string;
+  clockInAt: string; // ISO
+  clockOutAt?: string;
+  breaks: BreakEntry[];
+  source: "self" | "manager";
+  /** Set when this row supersedes an earlier one — the original is never edited (INV-W3). */
+  supersedesId?: string;
+  editedByStaffId?: string;
+  editReason?: string;
+  /** Derived — minutesWorked with breaks subtracted, computed at clock-out. */
+  minutesWorked?: number;
+}
+
+export interface BreakEntry {
+  startedAt: string; // ISO
+  endedAt?: string;
+  paid: boolean;
+}
+
+export type TimeOffStatus = "requested" | "approved" | "denied";
+
+export interface TimeOffRequest {
+  id: string;
+  venueId: string;
+  staffId: string;
+  startDate: string; // "YYYY-MM-DD"
+  endDate: string;
+  reason: string;
+  status: TimeOffStatus;
+  decidedByStaffId?: string;
+  decidedAt?: string; // ISO
+}
+
+export type ShiftSwapStatus = "open" | "claimed" | "approved" | "denied" | "withdrawn";
+
+export interface ShiftSwapRequest {
+  id: string;
+  venueId: string;
+  shiftId: string;
+  requestedByStaffId: string;
+  offeredToStaffId?: string;
+  status: ShiftSwapStatus;
+  claimedByStaffId?: string;
+  decidedByStaffId?: string;
+}
+
+export type TipPoolBasis = "hours-weighted" | "equal" | "role-percentage";
+
+export interface TipPoolRule {
+  id: string;
+  venueId: string;
+  name: string;
+  basis: TipPoolBasis;
+  /** Required when basis === "role-percentage" — percentages per role. */
+  rolePercentages?: Record<StaffRole, number>;
+  includeRoles: StaffRole[];
+  /** Tip retention is illegal in many jurisdictions — surfaced with a warning, not neutral. */
+  houseRetentionPct: number;
+  active: boolean;
+}
+
+export interface TipDistributionLine {
+  staffId: string;
+  basisValue: number; // hours, weight, or role % — what the share calculation used
+  shareCents: number;
+}
+
+/** Append-only per business date — computed, never hand-edited. Shares sum exactly to poolCents. */
+export interface TipDistribution {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  ruleId: string;
+  poolCents: number;
+  lines: TipDistributionLine[];
+  computedAt: string; // ISO
+  closedByStaffId: string;
+}
+
+export type CommissionBasis = "net-revenue" | "table-minimum" | "per-head" | "per-reservation";
+
+export interface CommissionRule {
+  id: string;
+  venueId: string;
+  staffId?: string;
+  appliesToRole?: StaffRole;
+  basis: CommissionBasis;
+  ratePct?: number;
+  flatCents?: number;
+  qualifier?: {
+    minPartySize?: number;
+    channels?: ReservationChannel[];
+  };
+}
+
+export interface CommissionLine {
+  sourceType: "reservation" | "session" | "order";
+  sourceId: string;
+  basisCents: number;
+  earnedCents: number;
+}
+
+/** Append-only — approved by a manager, writes an audit entry. */
+export interface CommissionStatement {
+  id: string;
+  venueId: string;
+  staffId: string;
+  periodStart: string; // ISO
+  periodEnd: string;
+  lines: CommissionLine[];
+  totalCents: number;
+  status: "draft" | "approved";
+  approvedByStaffId?: string;
+}
+
+/** Per-zone coverage rule — min staff by role the manager sees while scheduling. */
+export interface ZoneCoverageRule {
+  id: string;
+  venueId: string;
+  zoneId: string;
+  role: StaffRole;
+  minStaff: number;
+}
+
+// ---------- Cost, supply chain & profitability (plan 19) ----------
+
+export interface Supplier {
+  id: string;
+  venueId: string;
+  name: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  accountNumber?: string;
+  leadTimeDays: number;
+  orderDays: number[]; // allowed ordering days (0=Sun)
+  minimumOrderCents?: number;
+  notes?: string;
+  active: boolean;
+}
+
+export interface SupplierItem {
+  id: string;
+  supplierId: string;
+  menuItemId: string;
+  supplierSku?: string;
+  caseSize?: number;
+  caseCostCents?: number;
+  unitCostCents?: number; // derived from caseCostCents / caseSize
+  lastPriceChangeAt?: string; // ISO
+  preferred: boolean;
+}
+
+export type PurchaseOrderStatus = "draft" | "submitted" | "partially-received" | "received" | "cancelled";
+
+export interface PurchaseOrderLine {
+  id: string;
+  menuItemId: string;
+  qtyOrdered: number;
+  qtyReceived: number;
+  unitCostCents: number;
+  lineTotalCents: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  venueId: string;
+  supplierId: string;
+  code: string; // e.g. "PO-2026-001"
+  status: PurchaseOrderStatus;
+  expectedAt?: string; // ISO
+  submittedAt?: string;
+  submittedByStaffId?: string;
+  lines: PurchaseOrderLine[];
+  subtotalCents: number;
+  notes?: string;
+}
+
+export type StocktakeScope = "full" | "zone" | "category";
+export type StocktakeStatus = "open" | "counting" | "committed" | "cancelled";
+
+export interface StocktakeLine {
+  id: string;
+  menuItemId: string;
+  expectedQty: number; // snapshot at open
+  countedQty?: number;
+  secondCountQty?: number;
+  varianceQty: number; // derived: countedQty - expectedQty
+  varianceCents: number; // derived: variance × avgCostCents
+  countedByStaffId?: string;
+}
+
+export interface Stocktake {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  scope: StocktakeScope;
+  status: StocktakeStatus;
+  startedAt: string; // ISO
+  committedAt?: string;
+  startedByStaffId: string;
+  lines: StocktakeLine[];
+  totalVarianceCents: number; // derived
+}
+
+export interface EightySixEntry {
+  id: string;
+  menuItemId: string;
+  reason: string;
+  byStaffId: string;
+  at: string; // ISO
+  reinstatedAt?: string;
+}
+
+export type ProfitMetric = "pour-cost" | "gross-margin" | "labour-pct" | "comp-pct";
+
+export interface ProfitTarget {
+  id: string;
+  venueId: string;
+  metric: ProfitMetric;
+  scope: "venue" | "category";
+  categoryId?: string;
+  targetValue: number; // e.g. 0.22 for 22% pour cost target
+  warnAt: number; // threshold to raise Pulse alert
+  direction: "above" | "below"; // above=bad (pour-cost), below=bad (margin)
+}
+
+export interface EventCost {
+  id: string;
+  eventId: string;
+  label: string;
+  kind: "talent" | "marketing" | "production" | "other";
+  amountCents: number;
+}
+
+export interface EventPnL {
+  eventId: string;
+  eventName: string;
+  attributedRevenue: number;
+  attributedProductCost: number;
+  attributedLabourCost: number;
+  eventCosts: EventCost[];
+  totalCosts: number;
+  contribution: number; // revenue - product - labour - event costs
 }

@@ -38,9 +38,11 @@ Three forces converge on one plan:
    diverges).
 
 What this plan is **not**: no marketing email, no user-facing notification
-preferences UI (deferred until a second preference exists to justify it), no
-queue infrastructure (BullMQ/Redis) — sends are synchronous route-handler or
-cron work at this scale; a queue is earned when send volume or retry
+preferences UI (this ships in plan 28 alongside push — the dispatch core and
+preferences model are defined here; the preferences UI and per-channel
+control surface ship when push gives users a second channel to manage).
+No queue infrastructure (BullMQ/Redis) — sends are synchronous route-handler
+or cron work at this scale; a queue is earned when send volume or retry
 complexity demands it. Note the deferral in a `TODO(backend)`.
 
 ## Design choices

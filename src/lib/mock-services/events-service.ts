@@ -58,6 +58,8 @@ export const mockEventsService = {
     eventId: string;
     name: string;
     partySize: number;
+    /** Set when the door/host resolves a repeat guestlist name to a known regular (plan 17). */
+    guestProfileId?: string;
   }): Promise<EventGuest> {
     await delay(300);
     const guest: EventGuest = {
@@ -66,6 +68,7 @@ export const mockEventsService = {
       name: input.name.trim(),
       partySize: input.partySize,
       status: "invited",
+      guestProfileId: input.guestProfileId,
     };
     guests = [...guests, guest];
     return clone(guest);
@@ -74,6 +77,14 @@ export const mockEventsService = {
   async removeEventGuest(guestId: string): Promise<void> {
     await delay(200);
     guests = guests.filter((g) => g.id !== guestId);
+  },
+
+  async setEventGuestStatus(guestId: string, status: EventGuest["status"]): Promise<EventGuest | null> {
+    await delay(250);
+    const guest = guests.find((g) => g.id === guestId);
+    if (!guest) return null;
+    guest.status = status;
+    return clone(guest);
   },
 
   // TODO(backend): query by venue slug + status IN ('published','live') + startsAt >= now

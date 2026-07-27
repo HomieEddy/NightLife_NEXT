@@ -5,6 +5,7 @@
 import type { Reservation, ReservationChannel, ReservationStatus, Venue } from "@/lib/types";
 import { mockReservations } from "@/lib/mock-data/reservations";
 import { mockVenue } from "@/lib/mock-data/venue";
+import { canMarkNoShow } from "@/lib/door";
 import { clone, delay, uid } from "./delay";
 import { mockVenueService } from "./venue-service";
 
@@ -66,6 +67,7 @@ async function applyTableStatus(res: Reservation) {
   } else if (res.status === "seated") {
     await mockVenueService.setTableStatus(res.tableId, "occupied");
   } else {
+    // cancelled, completed, no-show — all release the table.
     await mockVenueService.setTableStatus(res.tableId, "open");
   }
 }
@@ -129,6 +131,11 @@ export const mockReservationService = {
     guestPhone?: string;
     eventId?: string;
     promoterId?: string;
+    guestProfileId?: string;
+    expectedDurationMinutes?: number;
+    depositTermsNote?: string;
+    cancellationPolicyNote?: string;
+    seatingNumber?: 1 | 2;
   }): Promise<Reservation> {
     await delay(500);
     const reservation: Reservation = {
@@ -148,6 +155,11 @@ export const mockReservationService = {
       guestEmail: input.guestEmail?.trim() || undefined,
       guestPhone: input.guestPhone?.trim() || undefined,
       promoterId: input.promoterId,
+      guestProfileId: input.guestProfileId,
+      expectedDurationMinutes: input.expectedDurationMinutes,
+      depositTermsNote: input.depositTermsNote?.trim() || undefined,
+      cancellationPolicyNote: input.cancellationPolicyNote?.trim() || undefined,
+      seatingNumber: input.seatingNumber,
       createdAt: new Date().toISOString(),
     };
     reservations = [reservation, ...reservations];
@@ -178,7 +190,7 @@ export const mockReservationService = {
         }
         res.reservationPin = generatePin(res.id);
         // TODO(backend): send PIN via email/SMS on confirm
-      } else if (["seated", "cancelled", "completed"].includes(newStatus)) {
+      } else if (["seated", "cancelled", "completed", "no-show"].includes(newStatus)) {
         res.reservationPin = undefined;
       }
     }
@@ -193,6 +205,16 @@ export const mockReservationService = {
 
   async cancelReservation(id: string): Promise<Reservation | null> {
     return this.setStatus(id, "cancelled");
+  },
+
+  /** Gated to confirmed reservations only (INV: no-show is not reachable from requested/seated/etc). */
+  async markNoShow(id: string): Promise<Reservation | null> {
+    const current = reservations.find((r) => r.id === id);
+    if (!current) return null;
+    if (!canMarkNoShow(current.status)) {
+      throw new Error("Only a confirmed reservation can be marked no-show");
+    }
+    return this.updateReservation(id, { status: "no-show" });
   },
 
   // ── Public embed surface ─────────────────────────────────────

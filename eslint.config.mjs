@@ -76,13 +76,16 @@ const eslintConfig = defineConfig([
   {
     files: [
       "src/lib/services/**",
+      "src/lib/live-services/**",
       "src/lib/mock-services/**",
       "src/lib/mock-data/**",
       "src/components/demo/**",
       "src/components/shared/demo-controls.tsx",
       "src/components/shared/demo-links.tsx",
       "src/components/shared/demo-tour-page.tsx",
+      "src/components/shared/admin-surface.live.tsx",
       "src/components/shared/admin-surface.tsx",
+      "src/components/shared/plan10-surface.live.tsx",
       "src/components/shared/plan10-surface.tsx",
       "src/components/shared/app-mode-banner.tsx",
       "**/*.test.ts",

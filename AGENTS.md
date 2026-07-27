@@ -133,11 +133,19 @@ Rules that follow from it:
    `ZONE_SWATCH` in `src/lib/zone-colors.ts`.
 4. **Money and counts:** `formatMoney()` + `tabular-nums`, always. Round to
    cents at the service boundary (`Math.round(x * 100) / 100`), not in JSX.
-5. **Every consequential action gets a `ConfirmDialog`.** Status changes,
-   toggles, deletes, order placement, plan changes — wrap the trigger, write a
-   title that names the object (`Set VIP-01 to reserved?`) and a description
-   that states the consequence. Reversible-and-free actions (search, copy
-   link, tab switch) stay one-click.
+5. **Consequential actions use `ConfirmDialog` or undo toast by policy (plan 20).**
+   The rule of thumb, stated once so future features don't relitigate it: **if the
+   action can be silently undone with no ledger entry, use undo; if undoing it
+   would itself be a recorded business event, confirm it.**
+
+   | Pattern | Applies to |
+   |---|---|
+   | **Optimistic + 5s undo toast** | order status transitions, claim/release, table status toggle, help acknowledge, shift toggle, waitlist reorder |
+   | **Keep `ConfirmDialog`** | anything money-touching (comps, voids, discounts, cash-out close, tip distribution), deletes, cancellations, ban/refusal, incident submit, publish schedule, plan changes, last call, stocktake commit |
+
+   ConfirmDialog: wrap the trigger, write a title that names the object
+   (`Set VIP-01 to reserved?`) and a description that states the consequence.
+   Reversible-and-free actions (search, copy link, tab switch) stay one-click.
 6. **Functional state updates for rapid-fire controls.** `setX(prev => ...)`
    for steppers and counters — render-closure reads drop clicks. (This bug
    shipped once, in the bulk-restock stepper. Once.)
@@ -278,12 +286,24 @@ feature's plan names its required tests; don't invent a different set silently.
 4. Version control mechanics — commit cadence, message format, what never to
    do — live in §10.
 
-## 9. Phase 2 — backend migration playbook
+## 9. Product strategy & graduation playbook
+
+**The master roadmap is `docs/ROADMAP.md`** (re-aligned 2026-07-27). It
+organises all work into seven phases: Foundation → Core Ops → Business Logic
+Completion → Automation & Intelligence → Mobile (PWA + Push) → Production
+Readiness → CI/CD. Business logic completes before infrastructure automation.
+
+**Strategy: Business Logic First.** Every operational gap from the comprehensive
+business logic audit must be addressed before CI/CD, deployment automation, or
+production hardening. The PWA is the primary staff delivery target; push
+notifications are a first-class feature, not an afterthought.
+
+**The architecture is governed by `docs/ARD.md`** (PRD/ARD/DDD + per-feature
+plans) — where this section and docs/ disagree, docs/ wins and this file gets
+fixed.
 
 The prototype was built so the backend can land **service by service, not big
 bang**. The whole design bet is the service boundary; cash it in like this.
-Full decisions live in `docs/` (PRD/ARD/DDD/ROADMAP + per-feature plans) —
-where this section and docs/ disagree, docs/ wins and this file gets fixed.
 
 1. **The service interface is the contract — and the mocks never die.** The
    mock-powered Live Demo is a permanent product surface (ARD AD-14): every

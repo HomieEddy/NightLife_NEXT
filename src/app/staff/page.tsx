@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  AlertOctagon, ArrowRight, CalendarCheck, CalendarDays, Clock,
-  DollarSign, LifeBuoy, MapPin, MessageSquare, Moon,
+  AlertOctagon, AlertTriangle, ArrowRight, CalendarCheck, CalendarDays, Clock,
+  DollarSign, DoorOpen, LifeBuoy, MapPin, MessageSquare, Moon,
   PartyPopper, Receipt, Shield, UserCheck, Users,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { ClockCard } from "@/components/shared/clock-card";
+import { doorService } from "@/lib/services/door-service";
+import { incidentService } from "@/lib/services/incident-service";
 import { ordersService } from "@/lib/services/orders-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { menuService } from "@/lib/services/menu-service";
@@ -56,9 +59,11 @@ interface SecurityHomeProps {
   openSecurityCount: number;
   todayShifts: StaffShift[];
   securityBroadcasts: ChatMessage[];
+  occupancy: { current: number; legalCapacity: number } | null;
+  openIncidentCount: number;
 }
 
-function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts }: SecurityHomeProps) {
+function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, occupancy, openIncidentCount }: SecurityHomeProps) {
   return (
     <div className="space-y-4 p-4">
       <div>
@@ -66,7 +71,36 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts }
           Good evening, {me.name.split(" ")[0]}
           <Shield className="size-4 text-primary" />
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">Security · stay sharp out there</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">Security · door + trouble + hours + radio</p>
+      </div>
+
+      {/* Door + incidents — the actual job */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link href="/staff/door">
+          <Card className="h-full py-4 transition-colors hover:border-primary/50">
+            <CardContent className="px-4">
+              <DoorOpen className="size-4 text-primary" />
+              <p className="mt-2 text-3xl font-bold tabular-nums">
+                {occupancy ? occupancy.current : "…"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Occupancy{occupancy ? ` / ${occupancy.legalCapacity}` : ""}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/staff/incidents">
+          <Card className={`h-full py-4 transition-colors hover:border-primary/50 ${openIncidentCount > 0 ? "border-amber-500/40" : ""}`}>
+            <CardContent className="px-4">
+              <div className="flex items-center gap-1.5">
+                <AlertTriangle className="size-4 text-primary" />
+                {openIncidentCount > 0 && <span className="size-2 animate-pulse rounded-full bg-amber-400" />}
+              </div>
+              <p className="mt-2 text-3xl font-bold tabular-nums">{openIncidentCount}</p>
+              <p className="text-xs text-muted-foreground">Open incidents</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Open security requests */}
@@ -150,6 +184,8 @@ export default function StaffHomePage() {
   const [securityRequestCount, setSecurityRequestCount] = useState(0);
   const [todayShifts, setTodayShifts] = useState<StaffShift[]>([]);
   const [securityBroadcasts, setSecurityBroadcasts] = useState<ChatMessage[]>([]);
+  const [occupancy, setOccupancy] = useState<{ current: number; legalCapacity: number } | null>(null);
+  const [openIncidentCount, setOpenIncidentCount] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -181,13 +217,17 @@ export default function StaffHomePage() {
 
       if (currentStaff.role === "security") {
         const today = new Date().getDay();
-        const [allShifts, secMsgs] = await Promise.all([
+        const [allShifts, secMsgs, occ, openIncidents] = await Promise.all([
           staffService.listShifts(),
           staffService.listMessages("security"),
+          doorService.getOccupancy(),
+          incidentService.listIncidents({ status: "open" }),
         ]);
         setSecurityRequestCount(help.filter((h) => h.type === "security" && h.status !== "resolved").length);
         setTodayShifts(allShifts.filter((s) => s.staffId === currentStaff.id && s.dayOfWeek === today));
         setSecurityBroadcasts(secMsgs.slice(-3).reverse());
+        setOccupancy({ current: occ.current, legalCapacity: occ.legalCapacity });
+        setOpenIncidentCount(openIncidents.length);
       }
     });
   }, []);
@@ -225,6 +265,8 @@ export default function StaffHomePage() {
         openSecurityCount={securityRequestCount}
         todayShifts={todayShifts}
         securityBroadcasts={securityBroadcasts}
+        occupancy={occupancy}
+        openIncidentCount={openIncidentCount}
       />
     );
   }
@@ -258,6 +300,8 @@ export default function StaffHomePage() {
           </p>
         )}
       </div>
+
+      {me && <ClockCard staffId={me.id} />}
 
       {counts === null ? (
         <div className="grid grid-cols-2 gap-3">

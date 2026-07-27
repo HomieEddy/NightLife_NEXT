@@ -20,9 +20,13 @@ import type { StaffRole } from "@/lib/types";
 
 const CATEGORY_LABELS: Record<ActionCategory, string> = {
   orders: "Orders",
-  guests: "Guest sessions",
+  guests: "Guest sessions & identity",
   help: "Help & security",
   reservations: "Reservations",
+  tab: "Tab ledger",
+  operations: "Operations",
+  door: "Door & waitlist",
+  incidents: "Incidents",
 };
 
 // Build once at module load — stable order matches ACTION_META declaration.
@@ -31,11 +35,15 @@ const ACTIONS_BY_CATEGORY: Record<ActionCategory, StaffAction[]> = {
   guests: [],
   help: [],
   reservations: [],
+  tab: [],
+  operations: [],
+  door: [],
+  incidents: [],
 };
 (Object.entries(ACTION_META) as [StaffAction, { category: ActionCategory }][]).forEach(
   ([action, meta]) => { ACTIONS_BY_CATEGORY[meta.category].push(action); },
 );
-const CATEGORIES: ActionCategory[] = ["orders", "guests", "help", "reservations"];
+const CATEGORIES: ActionCategory[] = ["door", "orders", "guests", "help", "incidents", "reservations", "tab", "operations"];
 
 // Manager always retains full access — not editable.
 const LOCKED_ROLE: StaffRole = "manager";

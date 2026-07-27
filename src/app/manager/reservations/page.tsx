@@ -16,6 +16,7 @@ import {
   Plus,
   Trash2,
   UserCheck,
+  UserX,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WaitlistPanel } from "@/components/manager/waitlist-panel";
 import { eventsService } from "@/lib/services/events-service";
 import { reservationService } from "@/lib/services/reservation-service";
 import { staffService } from "@/lib/services/staff-service";
@@ -35,6 +38,7 @@ import { publicReservationHref } from "@/lib/entity-links";
 import { formatTime } from "@/lib/format";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { SearchInput } from "@/components/shared/search-input";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { cn } from "@/lib/utils";
 import type { Reservation, ReservationStatus, StaffMember, Venue, VenueEvent, VenueTable, Zone } from "@/lib/types";
 
@@ -61,6 +65,7 @@ const STATUS_ACTIONS: Record<ReservationStatus, string> = {
   seated: "Complete",
   cancelled: "—",
   completed: "—",
+  "no-show": "—",
 };
 
 function ReservationsContent() {
@@ -80,6 +85,7 @@ function ReservationsContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ReservationDraft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [list, z, t, v, allStaff, allEvents] = await Promise.all([
@@ -156,6 +162,7 @@ function ReservationsContent() {
       note: res.note ?? "",
       promoterId: res.promoterId,
       eventId: res.eventId,
+      guestProfileId: res.guestProfileId,
     });
     setDialogOpen(true);
   }
@@ -175,6 +182,7 @@ function ReservationsContent() {
       source: "manager" as const,
       promoterId: draft.promoterId,
       eventId: draft.eventId,
+      guestProfileId: draft.guestProfileId,
       ...(draft.promoterId ? { channel: "promoter" as const } : {}),
     };
     if (editingId) {
@@ -195,6 +203,16 @@ function ReservationsContent() {
     await refresh();
   }
 
+  async function noShow(res: Reservation) {
+    try {
+      await reservationService.markNoShow(res.id);
+      toast.info(`${res.guestName} marked as no-show`);
+      await refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not mark as no-show");
+    }
+  }
+
   const visible =
     reservations?.filter((r) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
@@ -207,8 +225,21 @@ function ReservationsContent() {
       return true;
     }) ?? null;
 
+  const initialTab = searchParams.get("tab") === "waitlist" ? "waitlist" : "reservations";
+
   return (
     <div className="space-y-5">
+      <Tabs defaultValue={initialTab}>
+        <TabsList>
+          <TabsTrigger value="reservations">Reservations</TabsTrigger>
+          <TabsTrigger value="waitlist">Waitlist</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="waitlist" className="pt-4">
+          <WaitlistPanel />
+        </TabsContent>
+
+        <TabsContent value="reservations" className="space-y-5 pt-4">
       <PageHeader
         title="Reservations"
         description="Table bookings and guest lists for the night."
@@ -269,7 +300,7 @@ function ReservationsContent() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "requested", "confirmed", "seated", "completed", "cancelled"] as const).map((s) => (
+            {(["all", "requested", "confirmed", "seated", "completed", "cancelled", "no-show"] as const).map((s) => (
               <button
                 key={s}
                 type="button"
@@ -300,7 +331,7 @@ function ReservationsContent() {
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {visible.map((res) => (
+          {paginate(visible, page).map((res) => (
             <Card key={res.id} className="py-4">
               <CardContent className="space-y-3 px-4">
                 <div className="flex items-start justify-between gap-2">
@@ -353,6 +384,20 @@ function ReservationsContent() {
                       <Check className="size-3.5" /> {STATUS_ACTIONS[res.status]}
                     </Button>
                   )}
+                  {res.status === "confirmed" && (
+                    <ConfirmDialog
+                      trigger={
+                        <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400">
+                          <UserX className="size-3.5" /> No-show
+                        </Button>
+                      }
+                      title={`Mark ${res.guestName} as no-show?`}
+                      description="They were confirmed but never arrived. The table is released and this counts against the no-show rate."
+                      confirmLabel="Mark no-show"
+                      destructive
+                      onConfirm={() => noShow(res)}
+                    />
+                  )}
                   <Button size="sm" variant="ghost" onClick={() => openEdit(res)}>
                     <Pencil className="size-3.5" /> Edit
                   </Button>
@@ -375,6 +420,8 @@ function ReservationsContent() {
         </div>
       )}
 
+      <Pagination totalItems={visible?.length ?? 0} currentPage={page} onPageChange={setPage} className="mt-3" />
+
       <ReservationFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -393,6 +440,8 @@ function ReservationsContent() {
         <UserCheck className="size-3.5" /> Prototype note: confirming a reservation marks its table
         as reserved on the floor map.
       </p>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

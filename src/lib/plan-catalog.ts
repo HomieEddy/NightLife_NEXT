@@ -18,6 +18,9 @@ export const FEATURE_CATALOG: FeatureDef[] = [
   { key: "promotions", label: "Promotions", description: "Campaigns and promo codes" },
   { key: "chat", label: "Team chat", description: "Floor coordination: chat, broadcasts, last call, shows" },
   { key: "multi-venue", label: "Multi-venue", description: "Manage several venues from one account" },
+  { key: "door", label: "Door", description: "Live occupancy, admissions and the walk-in waitlist" },
+  { key: "incidents", label: "Incidents", description: "Incident reports — security's record of the night" },
+  { key: "guest-crm", label: "Guest CRM", description: "Persistent guest profiles, VIP recognition and merge tools" },
 ];
 
 export const DEFAULT_PLAN_CONFIGS: PlanConfig[] = [
@@ -29,7 +32,8 @@ export const DEFAULT_PLAN_CONFIGS: PlanConfig[] = [
     highlight: false,
     tableLimit: 10,
     staffLimit: 5,
-    features: ["inventory"],
+    // Door and incidents ship on every tier — safety isn't an upsell.
+    features: ["inventory", "door", "incidents"],
   },
   {
     id: "pro",
@@ -49,6 +53,9 @@ export const DEFAULT_PLAN_CONFIGS: PlanConfig[] = [
       "events",
       "promotions",
       "chat",
+      "door",
+      "incidents",
+      "guest-crm",
     ],
   },
   {
@@ -70,6 +77,9 @@ export const DEFAULT_PLAN_CONFIGS: PlanConfig[] = [
       "promotions",
       "chat",
       "multi-venue",
+      "door",
+      "incidents",
+      "guest-crm",
     ],
   },
 ];

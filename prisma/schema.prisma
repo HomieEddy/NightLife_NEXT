@@ -189,6 +189,10 @@ model StaffProfile {
   avatarInitials  String   @map("avatar_initials")
   assignedZoneIds String[] @default([]) @map("assigned_zone_ids")
   isOnShift       Boolean  @default(false) @map("is_on_shift")
+  hourlyRateCents Int?     @map("hourly_rate_cents")
+  tipPoolWeight   Float?   @default(1.0) @map("tip_pool_weight")
+  employmentType  String?  @map("employment_type")
+  commissionRuleId String? @map("commission_rule_id")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -220,6 +224,12 @@ model Venue {
   nightStartHour         Int      @default(18) @map("night_start_hour")
   nightEndHour           Int      @default(10) @map("night_end_hour")
   publicSlug             String?  @unique @map("public_slug")
+  compThresholdCents     Int      @default(10000) @map("comp_threshold_cents")
+  minimumSpendWarningRatio Float  @default(0.25) @map("minimum_spend_warning_ratio")
+  legalCapacity          Int      @default(300) @map("legal_capacity")
+  occupancyWarnRatio     Float    @default(0.9) @map("occupancy_warn_ratio")
+  coatCheckEnabled       Boolean  @default(false) @map("coat_check_enabled")
+  doorRequiresIdCheck    Boolean  @default(false) @map("door_requires_id_check")
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -348,6 +358,14 @@ model MenuItem {
   isAvailable    Boolean  @default(true) @map("is_available")
   /// Cached running balance — always updated inside the same transaction as a StockMovement row.
   inventory      Int      @default(0)
+  isAlcoholic    Boolean  @default(false) @map("is_alcoholic")
+  abv            Float?   @map("abv")
+  allergens      String[] @default([]) @map("allergens")
+  unitOfMeasure  String?  @map("unit_of_measure")
+  servingSize    Int?     @map("serving_size")
+  parLevels      Json?    @map("par_levels")
+  reorderPoint   Int?     @map("reorder_point")
+  avgCostCents   Int?     @map("avg_cost_cents")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -363,14 +381,18 @@ model MenuItem {
 
 /// Append-only ledger — no UPDATE/DELETE in prod (DDD §6).
 model StockMovement {
-  id         String   @id @default(cuid())
-  venueId    String   @map("venue_id")
-  menuItemId String   @map("menu_item_id")
-  itemName   String   @map("item_name")
-  type       String
-  delta      Int
-  note       String?
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  menuItemId      String   @map("menu_item_id")
+  itemName        String   @map("item_name")
+  type            String
+  delta           Int
+  note            String?
+  unitCostCents   Int?     @map("unit_cost_cents")
+  purchaseOrderId String?  @map("purchase_order_id")
+  stocktakeId     String?  @map("stocktake_id")
+  wasteReason     String?  @map("waste_reason")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   venue    Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
@@ -559,6 +581,13 @@ model GuestSession {
   status      GuestSessionStatus @default(pending)
   settledExternallyAt DateTime? @map("settled_externally_at") @db.Timestamptz
   settlementMethod SettlementMethod? @map("settlement_method")
+  minimumSpendCents   Int?     @map("minimum_spend_cents")
+  promoterId          String?  @map("promoter_id")
+  parentSessionId     String?  @map("parent_session_id")
+  transferredFromTableId String? @map("transferred_from_table_id")
+  guestProfileId      String?  @map("guest_profile_id")
+  serviceRefusedAt    DateTime? @map("service_refused_at") @db.Timestamptz
+  serviceRefusedReason String? @map("service_refused_reason")
   createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -686,6 +715,7 @@ enum ReservationStatus {
   seated
   cancelled
   completed
+  no_show
 }
 
 model Reservation {
@@ -693,6 +723,7 @@ model Reservation {
   venueId        String            @map("venue_id")
   tableId        String?           @map("table_id")
   zoneId         String?           @map("zone_id")
+  eventId        String?           @map("event_id")
   guestName      String            @map("guest_name")
   partySize      Int               @map("party_size")
   startsAt       DateTime          @map("starts_at") @db.Timestamptz
@@ -704,7 +735,14 @@ model Reservation {
   guestEmail     String?           @map("guest_email")
   guestPhone     String?           @map("guest_phone")
   reservationPin String?           @map("reservation_pin")
-  eventId        String?           @map("event_id")
+  promoterId     String?           @map("promoter_id")
+  packageId      String?           @map("package_id")
+  minimumSpendCents Int?           @map("minimum_spend_cents")
+  expectedDurationMinutes Int?     @map("expected_duration_minutes")
+  depositTermsNote       String?   @map("deposit_terms_note")
+  cancellationPolicyNote String?   @map("cancellation_policy_note")
+  seatingNumber   Int?             @map("seating_number")
+  guestProfileId  String?          @map("guest_profile_id")
   createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -922,4 +960,476 @@ model AdminAction {
   @@index([tenantId])
   @@index([actorId])
   @@map("admin_actions")
+}
+
+// ── Tab ledger: adjustments, audit, cash-out (plan 16) ─────────────
+
+model AdjustmentReason {
+  id       String  @id @default(cuid())
+  venueId  String  @map("venue_id")
+  kind     String  // void | comp | discount
+  code     String
+  label    String
+  isActive Boolean @default(true) @map("is_active")
+
+  @@unique([venueId, kind, code])
+  @@map("adjustment_reasons")
+}
+
+model TabAdjustment {
+  id                     String   @id @default(cuid())
+  venueId                String   @map("venue_id")
+  sessionId              String   @map("session_id")
+  orderId                String?  @map("order_id")
+  orderItemId            String?  @map("order_item_id")
+  kind                   String   // void | comp | discount
+  amountCents            Int      @map("amount_cents")
+  quantity               Int?
+  reasonCode             String   @map("reason_code")
+  note                   String?
+  authorStaffId          String   @map("author_staff_id")
+  authorStaffName        String   @map("author_staff_name")
+  reversedByAdjustmentId String?  @map("reversed_by_adjustment_id")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId, sessionId])
+  @@index([venueId, createdAt])
+  @@map("tab_adjustments")
+}
+
+model AuditEntry {
+  id            String   @id @default(cuid())
+  venueId       String   @map("venue_id")
+  actorStaffId  String   @map("actor_staff_id")
+  actorName     String   @map("actor_name")
+  action        String
+  targetType    String   @map("target_type")
+  targetId      String   @map("target_id")
+  summary       String
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId, createdAt])
+  @@map("audit_entries")
+}
+
+model ShiftCashout {
+  id               String   @id @default(cuid())
+  venueId          String   @map("venue_id")
+  staffId          String?  @map("staff_id")
+  businessDate     String   @map("business_date")
+  openedAt         DateTime @map("opened_at") @db.Timestamptz
+  closedAt         DateTime @map("closed_at") @db.Timestamptz
+  expectedByMethod Json     @map("expected_by_method")
+  countedByMethod  Json     @map("counted_by_method")
+  varianceCents    Int      @map("variance_cents")
+  note             String?
+  closedByStaffId  String   @map("closed_by_staff_id")
+  closedByStaffName String  @map("closed_by_staff_name")
+
+  @@index([venueId, businessDate])
+  @@map("shift_cashouts")
+}
+
+// ── Door, arrival & guest identity (plan 17) ───────────────────────
+
+model GuestProfile {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  displayName     String   @map("display_name")
+  firstName       String   @map("first_name")
+  lastName        String?  @map("last_name")
+  phone           String?
+  email           String?
+  dobYear         Int?     @map("dob_year")
+  tags            String[] @default([])
+  vipTier         String   @default("none") @map("vip_tier")
+  status          String   @default("active")
+  banReason       String?  @map("ban_reason")
+  bannedUntil     DateTime? @map("banned_until") @db.Timestamptz
+  bannedByStaffId String?  @map("banned_by_staff_id")
+  notes           String?
+  marketingConsent Json    @default("{\"email\":false,\"sms\":false,\"capturedAt\":\"\",\"source\":\"\"}") @map("marketing_consent")
+  lastVisitAt     DateTime? @map("last_visit_at") @db.Timestamptz
+  visitCount      Int      @default(0) @map("visit_count")
+  lifetimeNetCents Int     @default(0) @map("lifetime_net_cents")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId])
+  @@index([venueId, status])
+  @@map("guest_profiles")
+}
+
+model GuestLink {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  guestProfileId  String   @map("guest_profile_id")
+  sessionId       String?  @map("session_id")
+  reservationId   String?  @map("reservation_id")
+  eventGuestId    String?  @map("event_guest_id")
+  admissionId     String?  @map("admission_id")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([guestProfileId])
+  @@index([sessionId])
+  @@map("guest_links")
+}
+
+model Admission {
+  id                  String   @id @default(cuid())
+  venueId             String   @map("venue_id")
+  businessDate        String   @map("business_date")
+  guestProfileId      String?  @map("guest_profile_id")
+  partySize           Int      @map("party_size")
+  admissionType       String   @map("admission_type")
+  amountOwedCents     Int      @default(0) @map("amount_owed_cents")
+  source              String
+  reservationId       String?  @map("reservation_id")
+  eventGuestId        String?  @map("event_guest_id")
+  idCheck             Json?    @map("id_check")
+  admittedByStaffId   String   @map("admitted_by_staff_id")
+  admittedByStaffName String   @map("admitted_by_staff_name")
+  admittedAt          DateTime @map("admitted_at") @db.Timestamptz
+  exitedAt            DateTime? @map("exited_at") @db.Timestamptz
+  reEntryOfAdmissionId String?  @map("re_entry_of_admission_id")
+
+  @@index([venueId, businessDate])
+  @@map("admissions")
+}
+
+model OccupancyEvent {
+  id           String   @id @default(cuid())
+  venueId      String   @map("venue_id")
+  businessDate String   @map("business_date")
+  delta        Int
+  reason       String
+  staffId      String   @map("staff_id")
+  at           DateTime @map("at") @db.Timestamptz
+
+  @@index([venueId, businessDate])
+  @@map("occupancy_events")
+}
+
+model WaitlistEntry {
+  id            String   @id @default(cuid())
+  venueId       String   @map("venue_id")
+  guestProfileId String?  @map("guest_profile_id")
+  name          String
+  partySize     Int      @map("party_size")
+  phone         String?
+  quotedMinutes Int      @map("quoted_minutes")
+  status        String   @default("waiting")
+  joinedAt      DateTime @map("joined_at") @db.Timestamptz
+  notifiedAt    DateTime? @map("notified_at") @db.Timestamptz
+
+  @@index([venueId, status])
+  @@map("waitlist_entries")
+}
+
+model CoatCheckTicket {
+  id            String   @id @default(cuid())
+  venueId       String   @map("venue_id")
+  businessDate  String   @map("business_date")
+  ticketNumber  Int      @map("ticket_number")
+  guestProfileId String?  @map("guest_profile_id")
+  itemCount     Int      @map("item_count")
+  checkedInAt   DateTime @map("checked_in_at") @db.Timestamptz
+  claimedAt     DateTime? @map("claimed_at") @db.Timestamptz
+  staffId       String   @map("staff_id")
+
+  @@index([venueId, businessDate])
+  @@map("coat_check_tickets")
+}
+
+model Incident {
+  id                 String   @id @default(cuid())
+  venueId            String   @map("venue_id")
+  businessDate       String   @map("business_date")
+  type               String
+  severity           String
+  occurredAt         DateTime @map("occurred_at") @db.Timestamptz
+  zoneId             String?  @map("zone_id")
+  tableId            String?  @map("table_id")
+  guestProfileId     String?  @map("guest_profile_id")
+  involvedStaffIds   String[] @default([]) @map("involved_staff_ids")
+  narrative          String
+  actionsTaken       String   @map("actions_taken")
+  policeInvolved     Boolean  @default(false) @map("police_involved")
+  reportedByStaffId  String   @map("reported_by_staff_id")
+  reportedByStaffName String  @map("reported_by_staff_name")
+  status             String   @default("open")
+
+  notes IncidentNote[]
+
+  @@index([venueId, businessDate])
+  @@index([venueId, status])
+  @@map("incidents")
+}
+
+model IncidentNote {
+  id               String   @id @default(cuid())
+  incidentId       String   @map("incident_id")
+  note             String
+  authorStaffId    String   @map("author_staff_id")
+  authorStaffName  String   @map("author_staff_name")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@map("incident_notes")
+}
+
+// ── Workforce: time clock, scheduling, tips & commissions (plan 18) ─
+
+model ShiftTemplate {
+  id        String  @id @default(cuid())
+  venueId   String  @map("venue_id")
+  staffId   String  @map("staff_id")
+  dayOfWeek Int     @map("day_of_week")
+  startTime String  @map("start_time")
+  endTime   String  @map("end_time")
+  zoneId    String? @map("zone_id")
+  role      String?
+  active    Boolean @default(true)
+
+  @@index([venueId, staffId])
+  @@map("shift_templates")
+}
+
+model Shift {
+  id             String   @id @default(cuid())
+  venueId        String   @map("venue_id")
+  staffId        String   @map("staff_id")
+  businessDate   String   @map("business_date")
+  scheduledStart String   @map("scheduled_start")
+  scheduledEnd   String   @map("scheduled_end")
+  zoneId         String?  @map("zone_id")
+  role           String
+  status         String   @default("draft")
+  templateId     String?  @map("template_id")
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz
+  note           String?
+
+  @@index([venueId, businessDate])
+  @@index([venueId, staffId])
+  @@map("shifts")
+}
+
+model TimeEntry {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  shiftId         String?  @map("shift_id")
+  staffId         String   @map("staff_id")
+  clockInAt       DateTime @map("clock_in_at") @db.Timestamptz
+  clockOutAt      DateTime? @map("clock_out_at") @db.Timestamptz
+  breaks          Json     @default("[]")
+  source          String   @default("self")
+  supersedesId    String?  @map("supersedes_id")
+  editedByStaffId String?  @map("edited_by_staff_id")
+  editReason      String?  @map("edit_reason")
+  minutesWorked   Int?     @map("minutes_worked")
+
+  @@unique([venueId, staffId, clockInAt])
+  @@index([venueId, staffId])
+  @@map("time_entries")
+}
+
+model TimeOffRequest {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  staffId         String   @map("staff_id")
+  startDate       String   @map("start_date")
+  endDate         String   @map("end_date")
+  reason          String
+  status          String   @default("requested")
+  decidedByStaffId String?  @map("decided_by_staff_id")
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz
+
+  @@index([venueId, staffId])
+  @@map("time_off_requests")
+}
+
+model ShiftSwapRequest {
+  id                  String  @id @default(cuid())
+  venueId             String  @map("venue_id")
+  shiftId             String  @map("shift_id")
+  requestedByStaffId  String  @map("requested_by_staff_id")
+  offeredToStaffId    String? @map("offered_to_staff_id")
+  status              String  @default("open")
+  claimedByStaffId    String? @map("claimed_by_staff_id")
+  decidedByStaffId    String? @map("decided_by_staff_id")
+
+  @@index([venueId, shiftId])
+  @@map("shift_swap_requests")
+}
+
+model TipPoolRule {
+  id                String   @id @default(cuid())
+  venueId           String   @map("venue_id")
+  name              String
+  basis             String
+  rolePercentages   Json?    @map("role_percentages")
+  includeRoles      String[] @map("include_roles")
+  houseRetentionPct Int      @default(0) @map("house_retention_pct")
+  active            Boolean  @default(true)
+
+  @@index([venueId])
+  @@map("tip_pool_rules")
+}
+
+model TipDistribution {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  businessDate    String   @map("business_date")
+  ruleId          String   @map("rule_id")
+  poolCents       Int      @map("pool_cents")
+  lines           Json     @map("lines")
+  computedAt      DateTime @map("computed_at") @db.Timestamptz
+  closedByStaffId String   @map("closed_by_staff_id")
+
+  @@index([venueId, businessDate])
+  @@map("tip_distributions")
+}
+
+model CommissionRule {
+  id            String  @id @default(cuid())
+  venueId       String  @map("venue_id")
+  staffId       String? @map("staff_id")
+  appliesToRole String? @map("applies_to_role")
+  basis         String
+  ratePct       Float?  @map("rate_pct")
+  flatCents     Int?    @map("flat_cents")
+  qualifier     Json?
+
+  @@index([venueId])
+  @@map("commission_rules")
+}
+
+model CommissionStatement {
+  id               String   @id @default(cuid())
+  venueId          String   @map("venue_id")
+  staffId          String   @map("staff_id")
+  periodStart      DateTime @map("period_start") @db.Timestamptz
+  periodEnd        DateTime @map("period_end") @db.Timestamptz
+  lines            Json     @default("[]")
+  totalCents       Int      @default(0) @map("total_cents")
+  status           String   @default("draft")
+  approvedByStaffId String?  @map("approved_by_staff_id")
+
+  @@index([venueId, staffId])
+  @@map("commission_statements")
+}
+
+// ── Cost, supply chain & profitability (plan 19) ───────────────────
+
+model Supplier {
+  id              String  @id @default(cuid())
+  venueId         String  @map("venue_id")
+  name            String
+  contactName     String? @map("contact_name")
+  email           String?
+  phone           String?
+  accountNumber   String? @map("account_number")
+  leadTimeDays    Int     @map("lead_time_days")
+  orderDays       Int[]   @map("order_days")
+  minimumOrderCents Int?  @map("minimum_order_cents")
+  notes           String?
+  active          Boolean @default(true)
+
+  items SupplierItem[]
+
+  @@index([venueId])
+  @@map("suppliers")
+}
+
+model SupplierItem {
+  id                String  @id @default(cuid())
+  supplierId        String  @map("supplier_id")
+  menuItemId        String  @map("menu_item_id")
+  supplierSku       String? @map("supplier_sku")
+  caseSize          Int?    @map("case_size")
+  caseCostCents     Int?    @map("case_cost_cents")
+  unitCostCents     Int?    @map("unit_cost_cents")
+  lastPriceChangeAt DateTime? @map("last_price_change_at") @db.Timestamptz
+  preferred         Boolean @default(false)
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@index([menuItemId])
+  @@map("supplier_items")
+}
+
+model PurchaseOrder {
+  id                 String   @id @default(cuid())
+  venueId            String   @map("venue_id")
+  supplierId         String   @map("supplier_id")
+  code               String
+  status             String   @default("draft")
+  expectedAt         DateTime? @map("expected_at") @db.Timestamptz
+  submittedAt        DateTime? @map("submitted_at") @db.Timestamptz
+  submittedByStaffId String?  @map("submitted_by_staff_id")
+  lines              Json     @default("[]")
+  subtotalCents      Int      @map("subtotal_cents")
+  notes              String?
+
+  @@index([venueId])
+  @@index([supplierId])
+  @@map("purchase_orders")
+}
+
+model Stocktake {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  businessDate    String   @map("business_date")
+  scope           String
+  status          String   @default("open")
+  startedAt       DateTime @map("started_at") @db.Timestamptz
+  committedAt     DateTime? @map("committed_at") @db.Timestamptz
+  startedByStaffId String  @map("started_by_staff_id")
+  lines           Json     @default("[]")
+  totalVarianceCents Int   @default(0) @map("total_variance_cents")
+
+  @@index([venueId, businessDate])
+  @@map("stocktakes")
+}
+
+model EightySixEntry {
+  id           String   @id @default(cuid())
+  venueId      String   @map("venue_id")
+  menuItemId   String   @map("menu_item_id")
+  reason       String
+  byStaffId    String   @map("by_staff_id")
+  at           DateTime @map("at") @db.Timestamptz
+  reinstatedAt DateTime? @map("reinstated_at") @db.Timestamptz
+
+  @@index([venueId])
+  @@map("eighty_six_entries")
+}
+
+model ProfitTarget {
+  id         String @id @default(cuid())
+  venueId    String @map("venue_id")
+  metric     String
+  scope      String @default("venue")
+  categoryId String? @map("category_id")
+  targetValue Float  @map("target_value")
+  warnAt     Float  @map("warn_at")
+  direction  String
+
+  @@index([venueId])
+  @@map("profit_targets")
+}
+
+model EventCost {
+  id          String @id @default(cuid())
+  venueId     String @map("venue_id")
+  eventId     String @map("event_id")
+  label       String
+  kind        String
+  amountCents Int    @map("amount_cents")
+
+  @@index([eventId])
+  @@map("event_costs")
 }

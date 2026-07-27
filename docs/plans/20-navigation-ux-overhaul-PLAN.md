@@ -189,6 +189,21 @@ The staff `RoleBadge` becomes tappable, showing what this role can and can't do
 (generated from the capability matrix, so it can never drift). Hitting a route
 the role lacks explains why instead of bouncing silently.
 
+### 12. Guest portal persistence & discoverability (review §11)
+
+- **In-flight order status strip:** a slim persistent banner at the top of every
+  guest tab showing the count and status of active (preparing/ready) orders with
+  an ETA — the Uber/Deliveroo pattern. The Orders tab badge shows the in-flight
+  count.
+- **Gift entry point:** a gift affordance on the menu item card and on the cart
+  sheet — explicit, persistent, reachable from the tab bar's "More" or as a
+  dedicated tab. Gift is a revenue feature and must be discoverable without
+  knowing the URL.
+- **Receipt entry point:** when a session transitions to `closure-requested`, a
+  receipt CTA appears in the guest tab bar (replacing or alongside the Orders
+  tab). The guest can review their tab at close without navigating away from
+  their current view.
+
 ## Implementation strategy
 
 Ordered so each step is independently shippable and verifiable:

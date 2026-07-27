@@ -61,10 +61,19 @@ Interpretation choices (per AGENTS.md §1.4):
   "confirmed"|"in-progress"|"completed"|"no-show"|"cancelled",
   templateId?, publishedAt?, note? }`.
 - **`TimeEntry`** (append-only) — `{ id, venueId, shiftId?, staffId,
-  clockInAt, clockOutAt?, breaks: BreakEntry[], source: "self"|"manager",
-  editedByStaffId?, editReason?, minutesWorked (derived) }`.
-  Edits are new rows superseding old ones (`supersedesId`), never mutations —
-  same ledger discipline as everywhere else in this codebase.
+   clockInAt, clockOutAt?, breaks: BreakEntry[], source: "self"|"manager",
+   editedByStaffId?, editReason?, supersedesId?, minutesWorked (derived) }`.
+   Edits are new rows superseding old ones (`supersedesId`), never mutations —
+   same ledger discipline as everywhere else in this codebase. **Breaks are
+   part of the TimeEntry record** — clocking into a break appends a
+   `BreakEntry` to the current TimeEntry's `breaks` array and creates a
+   superseding TimeEntry row (the prior version is marked superseded). This
+   preserves append-only auditability: every break start/end is traceable
+   through the supersede chain. Clocking out closes the final TimeEntry row
+   with `clockOutAt` set and `breaks` complete; `minutesWorked` is derived
+   from `clockOutAt - clockInAt - Σ breakDurations`. No open-ended `clockOutAt:
+   null` fields — each clock-in/break/clock-out event produces a superseding
+   row in the ledger.
 - **`BreakEntry`** — `{ startedAt, endedAt?, paid: bool }`.
 - **`TimeOffRequest`** — `{ id, venueId, staffId, startDate, endDate, reason,
   status: "requested"|"approved"|"denied", decidedByStaffId?, decidedAt? }`.

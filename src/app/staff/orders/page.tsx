@@ -11,16 +11,20 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { AdjustmentDialog } from "@/components/shared/adjustment-dialog";
 import { ordersService, nextStatus } from "@/lib/services/orders-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { showQueueService, orderNeedsShow } from "@/lib/services/show-queue-service";
 import { staffService } from "@/lib/services/staff-service";
+import { venueService } from "@/lib/services/venue-service";
 import { canDo } from "@/lib/permissions";
 import { permissionService } from "@/lib/services/permission-service";
 import type { RolePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
-import type { ActiveShow, Order, OrderStatus, StaffMember } from "@/lib/types";
+import { Pagination, paginate } from "@/components/shared/pagination";
+import { Wallet } from "lucide-react";
+import type { ActiveShow, Order, OrderStatus, StaffMember, TabAdjustmentKind } from "@/lib/types";
 
 const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
   pending: "Accept order",
@@ -51,18 +55,22 @@ function StaffOrdersContent() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [activeShow, setActiveShow] = useState<ActiveShow | null>(null);
   const [promoterSessionIds, setPromoterSessionIds] = useState<Set<string> | null>(null);
+  const [compThresholdCents, setCompThresholdCents] = useState(0);
+  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
-    const [orderList, currentStaff, show, perms] = await Promise.all([
+    const [orderList, currentStaff, show, perms, venue] = await Promise.all([
       ordersService.listOrders(),
       staffService.getCurrentStaff(),
       showQueueService.getActiveShow(),
       permissionService.getRolePermissions("venue-1"),
+      venueService.getVenueSnapshot(),
     ]);
     setOrders(orderList);
     setMe(currentStaff);
     setActiveShow(show);
     setPermissions(perms);
+    setCompThresholdCents(venue.compThresholdCents);
     if (currentStaff.role === "promoter") {
       const sessions = await guestsService.listSessions();
       setPromoterSessionIds(new Set(
@@ -229,12 +237,32 @@ function StaffOrdersContent() {
         />
       ) : (
         <div className="space-y-3">
-          {visible.map((order) => {
+          {paginate(visible, page).map((order) => {
             const label = ADVANCE_LABEL[order.status];
             const canAccept = (me && permissions) ? canDo(permissions, me.role, "order:accept") : true;
             const isPending = order.status === "pending";
             // Runner sees pending orders but can't accept them — show a hint instead.
             const runnerHint = isPending && !canAccept ? RUNNER_HINT[order.status] : undefined;
+            const availableKinds: TabAdjustmentKind[] = permissions && me
+              ? (["void", "comp", "discount"] as const).filter((k) => canDo(permissions, me.role, `tab:${k}` as const))
+              : [];
+            const canAdjust = !isPromoter && !!order.sessionId && !isPending && order.status !== "cancelled" && availableKinds.length > 0;
+            const adjustButton = canAdjust && me ? (
+              <AdjustmentDialog
+                order={order}
+                availableKinds={availableKinds}
+                authorStaffId={me.id}
+                authorStaffName={me.name}
+                compThresholdCents={compThresholdCents}
+                isManager={me.role === "manager"}
+                onDone={refresh}
+                trigger={
+                  <Button variant="outline" size="sm" className="w-full">
+                    <Wallet className="size-3.5" /> Adjust tab
+                  </Button>
+                }
+              />
+            ) : null;
             return (
               <OrderCard
                 key={order.id}
@@ -340,7 +368,10 @@ function StaffOrdersContent() {
                           </div>
                         </>
                       )}
+                      {adjustButton}
                     </div>
+                  ) : adjustButton ? (
+                    <div>{adjustButton}</div>
                   ) : undefined
                 }
               />
@@ -348,6 +379,7 @@ function StaffOrdersContent() {
           })}
         </div>
       )}
+      <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
     </div>
   );
 }

@@ -27,6 +27,7 @@ import { venueService } from "@/lib/services/venue-service";
 import { SearchInput } from "@/components/shared/search-input";
 import { DateRangePicker, getDefaultDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { cn } from "@/lib/utils";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import type { StaffAccountStatus, StaffMember, StaffRole, Zone } from "@/lib/types";
 
 // TODO(backend): derive from the authenticated session's venueId.
@@ -49,6 +50,7 @@ function StaffContent() {
   const [scheduleDateRange, setScheduleDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
+  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     setStaff(await staffService.listStaff());
@@ -167,8 +169,10 @@ function StaffContent() {
               }
             />
           ) : (
+            <>
+
             <div className="grid gap-3 md:grid-cols-2">
-              {visible.map((member) => {
+              {paginate(visible, page).map((member) => {
                 const accountBadge = ACCOUNT_BADGE[member.accountStatus];
                 return (
                   <Card
@@ -264,6 +268,8 @@ function StaffContent() {
                 );
               })}
             </div>
+            <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+            </>
           )}
         </TabsContent>
 

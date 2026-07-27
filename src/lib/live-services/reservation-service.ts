@@ -84,6 +84,13 @@ export const liveReservationService = {
     return this.setStatus(id, "cancelled");
   },
 
+  // TODO(backend): plan 17 graduation — the route handler rejects "no-show"
+  // today (see setReservationStatus in src/server/reservation-core.ts); wire
+  // it through once the Prisma enum gains the value.
+  async markNoShow(id: string): Promise<Reservation | null> {
+    return this.setStatus(id, "no-show");
+  },
+
   // TODO(backend): implement public reservation API routes (plan 13)
   async getPublicAvailability(
     venueSlug: string,
