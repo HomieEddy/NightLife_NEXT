@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
@@ -216,9 +217,13 @@ export default function ManagerIncidentsPage() {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     {incident.status === "open" && (
-                      <Button size="sm" variant="outline" onClick={() => resolveIncident(incident.id)}>
-                        Resolve
-                      </Button>
+                      <ConfirmDialog
+                        trigger={<Button size="sm" variant="outline">Resolve</Button>}
+                        title={`Resolve this ${incident.type.replace(/-/g, " ")} incident?`}
+                        description="This closes the incident as dealt with. The narrative and follow-up notes remain on file permanently."
+                        confirmLabel="Resolve"
+                        onConfirm={() => resolveIncident(incident.id)}
+                      />
                     )}
                     <Button size="sm" variant="ghost" onClick={() => toggleExpand(incident)}>
                       {expanded === incident.id ? "Hide" : "Details"}
@@ -247,9 +252,13 @@ export default function ManagerIncidentsPage() {
                             Reported {formatDate(incident.reportedToAuthorityAt)}
                           </p>
                         ) : (
-                          <Button size="sm" variant="outline" className="mt-1 h-8" disabled={saving} onClick={() => recordReported(incident.id)}>
-                            Record as reported
-                          </Button>
+                          <ConfirmDialog
+                            trigger={<Button size="sm" variant="outline" className="mt-1 h-8" disabled={saving}>Record as reported</Button>}
+                            title="Record as reported to authority?"
+                            description={`This confirms the incident was filed with ${incident.regulatoryAuthority ?? "the regulatory authority"}. This action is audited.`}
+                            confirmLabel="Record report"
+                            onConfirm={() => recordReported(incident.id)}
+                          />
                         )}
                       </div>
                     )}

@@ -635,22 +635,29 @@ export default function StaffDoorPage() {
                     {admitError && admitError.includes("capacity") && canOverrideCapacity && (
                       <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
                         <p className="text-sm font-medium text-amber-600 dark:text-amber-400">At capacity — manager override required</p>
-                        <Label htmlFor="override-reason">Override reason</Label>
+                        <Label htmlFor="override-reason-cancel">Override reason</Label>
                         <Input
-                          id="override-reason"
+                          id="override-reason-cancel"
                           value={overrideReason}
                           onChange={(e) => setOverrideReason(e.target.value)}
                           placeholder="Why is this admission necessary?"
                           className="h-11"
                         />
-                        <Button
-                          variant="outline"
-                          className="h-11 w-full border-amber-500/50"
-                          disabled={!overrideReason.trim() || busy}
-                          onClick={capacityOverride}
-                        >
-                          Override capacity and admit
-                        </Button>
+                        <ConfirmDialog
+                          trigger={
+                            <Button
+                              variant="outline"
+                              className="h-11 w-full border-amber-500/50"
+                              disabled={!overrideReason.trim() || busy}
+                            >
+                              Override capacity and admit
+                            </Button>
+                          }
+                          title="Override legal capacity?"
+                          description={`This admits ${selected?.label} past the legal capacity limit — the reason is recorded in the audit trail and cannot be undone silently.`}
+                          confirmLabel="Override and admit"
+                          onConfirm={capacityOverride}
+                        />
                       </div>
                     )}
                     <div className="flex gap-2">
