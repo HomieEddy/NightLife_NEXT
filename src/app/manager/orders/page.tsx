@@ -387,12 +387,14 @@ export default function ManagerOrdersPage() {
               sessions={sessions.filter((s) => isInCustomDateRange(s.createdAt, sessionDateRange))}
               orders={orders ?? []}
               tables={tables}
+              menuItems={items ?? []}
               minimumSpendWarningRatio={minimumSpendWarningRatio}
               staffContext={me && permissions ? {
                 staffId: me.id,
                 staffName: me.name,
                 canTransfer: canDo(permissions, me.role, "tab:transfer"),
                 canMerge: canDo(permissions, me.role, "tab:merge"),
+                canRefuseService: canDo(permissions, me.role, "service:refuse"),
                 onChange: refreshAfterTabAction,
               } : undefined}
             />

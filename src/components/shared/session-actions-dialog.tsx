@@ -1,5 +1,6 @@
 "use client";
 
+import { GlassWater } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -12,11 +13,13 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { guestsService } from "@/lib/services/guests-service";
 import { ordersService } from "@/lib/services/orders-service";
 import { formatMoney } from "@/lib/format";
 import { splitSessionByItems } from "@/lib/tab";
-import type { GuestSession, Order, VenueTable } from "@/lib/types";
+import { countDeliveredAlcoholicDrinks } from "@/lib/door";
+import type { GuestSession, MenuItem, Order, VenueTable } from "@/lib/types";
 
 /**
  * Transfer / merge / split-by-item for one session — the tab's mobility
@@ -30,6 +33,8 @@ export function SessionActionsDialog({
   otherOpenSessions,
   canTransfer,
   canMerge,
+  canRefuseService = false,
+  menuItems = [],
   authorStaffId,
   authorStaffName,
   onDone,
@@ -41,6 +46,9 @@ export function SessionActionsDialog({
   otherOpenSessions: GuestSession[];
   canTransfer: boolean;
   canMerge: boolean;
+  /** Responsible-service tab: drink counter + refuse-further-service (plan 17). */
+  canRefuseService?: boolean;
+  menuItems?: MenuItem[];
   authorStaffId: string;
   authorStaffName: string;
   onDone: () => void;
@@ -50,7 +58,13 @@ export function SessionActionsDialog({
   const [toTableId, setToTableId] = useState("");
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [guestCount, setGuestCount] = useState(session.partySize || 2);
+  const [refuseReason, setRefuseReason] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const drinkCount = useMemo(
+    () => countDeliveredAlcoholicDrinks(orders, menuItems, session.id),
+    [orders, menuItems, session.id],
+  );
 
   const availableTables = useMemo(
     () => tables.filter((t) => t.id !== session.tableId && t.status === "open"),
@@ -97,6 +111,22 @@ export function SessionActionsDialog({
     }
   }
 
+  async function refuseService() {
+    if (!refuseReason.trim()) return;
+    setBusy(true);
+    try {
+      await guestsService.refuseService(session.id, refuseReason.trim(), authorStaffId, authorStaffName);
+      toast.success(`Service refused for ${session.displayName} — incident logged`);
+      setRefuseReason("");
+      setOpen(false);
+      onDone();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not refuse service");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -111,6 +141,7 @@ export function SessionActionsDialog({
             <TabsTrigger value="transfer" disabled={!canTransfer}>Transfer</TabsTrigger>
             <TabsTrigger value="merge" disabled={!canMerge}>Merge</TabsTrigger>
             <TabsTrigger value="split">Split</TabsTrigger>
+            <TabsTrigger value="service">Service</TabsTrigger>
           </TabsList>
 
           <TabsContent value="transfer" className="space-y-3">
@@ -190,6 +221,50 @@ export function SessionActionsDialog({
             <p className="text-xs text-muted-foreground">
               A view only — splitting never creates new orders or changes the tab&apos;s balance.
             </p>
+          </TabsContent>
+
+          <TabsContent value="service" className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+              <p className="flex items-center gap-1.5 text-sm">
+                <GlassWater className="size-4 text-primary" /> Delivered alcoholic drinks
+              </p>
+              <span className="text-lg font-semibold tabular-nums">{drinkCount}</span>
+            </div>
+            {session.serviceRefusedAt ? (
+              <p className="text-xs text-muted-foreground">
+                Service already refused — {session.serviceRefusedReason}
+              </p>
+            ) : canRefuseService ? (
+              <div className="space-y-2">
+                <Label htmlFor="refuse-reason">Refuse further service</Label>
+                <Textarea
+                  id="refuse-reason"
+                  value={refuseReason}
+                  onChange={(e) => setRefuseReason(e.target.value)}
+                  placeholder="Why is service being refused?"
+                  rows={2}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Blocks new orders for this session and logs an incident.
+                </p>
+                <ConfirmDialog
+                  trigger={
+                    <Button variant="destructive" className="w-full" disabled={!refuseReason.trim() || busy}>
+                      Refuse further service
+                    </Button>
+                  }
+                  title={`Refuse further service to ${session.displayName}?`}
+                  description="New orders are blocked for this session immediately and an incident is filed."
+                  confirmLabel="Refuse service"
+                  destructive
+                  onConfirm={refuseService}
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Only staff with the service:refuse capability can refuse further service.
+              </p>
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
