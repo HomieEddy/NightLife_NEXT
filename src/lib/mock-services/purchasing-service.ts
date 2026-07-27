@@ -5,6 +5,7 @@
  */
 import type { PurchaseOrder, Stocktake, Supplier, SupplierItem, StockMovement, EightySixEntry, ProfitTarget, EventCost } from "@/lib/types";
 import { mockSuppliers, mockSupplierItems, mockPurchaseOrders, mockStocktakes, mockEightySixEntries, mockProfitTargets, mockEventCosts } from "@/lib/mock-data/costs";
+import { mockMenuItems, mockStockMovements } from "@/lib/mock-data/menu";
 import { clone, delay, uid } from "./delay";
 
 const suppliers: Supplier[] = clone(mockSuppliers);
@@ -73,6 +74,23 @@ export const mockPurchasingService = {
       if (!line) continue;
       line.qtyReceived += r.qtyReceived;
       if (line.qtyReceived > line.qtyOrdered) throw new Error(`Over-receipt on line ${r.lineId}`);
+
+      // Bump inventory + log restock movement (plan 19)
+      const item = mockMenuItems.find((mi) => mi.id === line.menuItemId);
+      if (item && r.qtyReceived > 0) {
+        item.inventory += r.qtyReceived;
+        mockStockMovements.unshift({
+          id: uid("mv"),
+          menuItemId: line.menuItemId,
+          itemName: item.name,
+          type: "restock",
+          delta: r.qtyReceived,
+          note: `Received PO ${po.code}`,
+          createdAt: new Date().toISOString(),
+          unitCostCents: line.unitCostCents,
+          purchaseOrderId: po.id,
+        });
+      }
     }
     const allReceived = po.lines.every((l) => l.qtyReceived >= l.qtyOrdered);
     po.status = allReceived ? "received" : "partially-received";
