@@ -35,6 +35,20 @@ export const mockPurchasingService = {
     return clone(supplier);
   },
 
+  async saveSupplierItem(si: SupplierItem): Promise<SupplierItem> {
+    await delay(200);
+    const idx = supplierItems.findIndex((s) => s.id === si.id);
+    if (idx >= 0) supplierItems[idx] = clone(si);
+    else supplierItems.push(clone(si));
+    return clone(si);
+  },
+
+  async removeSupplierItem(siId: string): Promise<void> {
+    await delay(150);
+    const idx = supplierItems.findIndex((s) => s.id === siId);
+    if (idx >= 0) supplierItems.splice(idx, 1);
+  },
+
   // Purchase orders
   async listPurchaseOrders(supplierId?: string): Promise<PurchaseOrder[]> {
     await delay();
