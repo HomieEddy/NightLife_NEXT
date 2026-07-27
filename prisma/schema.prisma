@@ -1433,3 +1433,22 @@ model EventCost {
   @@index([eventId])
   @@map("event_costs")
 }
+
+/// Append-only notification log (AD-8) — one row per delivery attempt.
+/// Email/SMS/Push transports each write here; the log is the idempotency check.
+model NotificationLog {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  channel    String   // "email" | "sms" | "push"
+  template   String   // e.g. "staff-invite", "reservation-confirmation"
+  recipient  String   // email address or phone number
+  status     String   @default("queued") // "queued" | "sent" | "failed"
+  providerId String?  @map("provider_id") // Resend message ID, Twilio SID
+  error      String?
+  meta       Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId, channel])
+  @@index([venueId, template])
+  @@map("notification_logs")
+}
