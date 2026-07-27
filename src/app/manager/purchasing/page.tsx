@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Package, ShoppingCart, Truck } from "lucide-react";
+import { Package, Pencil, Plus, ShoppingCart, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -15,154 +18,207 @@ import { menuService } from "@/lib/services/menu-service";
 import { staffService } from "@/lib/services/staff-service";
 import { suggestPurchaseOrder } from "@/lib/costs";
 import { formatMoney } from "@/lib/format";
-import type { PurchaseOrder, Supplier, SupplierItem, MenuItem } from "@/lib/types";
+import type { PurchaseOrder, PurchaseOrderLine, Stocktake, Supplier, SupplierItem, MenuItem } from "@/lib/types";
 
-const STATUS_BADGE: Record<string, "default" | "secondary" | "outline"> = {
-  draft: "outline",
-  submitted: "secondary",
-  "partially-received": "secondary",
-  received: "default",
-  cancelled: "outline",
-};
+const STATUS_BADGE: Record<string, "default" | "secondary" | "outline"> = { draft: "outline", submitted: "secondary", "partially-received": "secondary", received: "default", cancelled: "outline" };
 
 export default function ManagerPurchasingPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [supplierItems, setSupplierItems] = useState<SupplierItem[]>([]);
+  const [stocktakes, setStocktakes] = useState<Stocktake[]>([]);
   const [ready, setReady] = useState(false);
-  const [suggestions, setSuggestions] = useState<
-    { menuItemId: string; itemName: string; suggestedQty: number; unitCostCents: number | null; supplierSku?: string }[]
-  >([]);
+  const [suggestions, setSuggestions] = useState<{ menuItemId: string; itemName: string; suggestedQty: number; unitCostCents: number | null }[]>([]);
   const [meId, setMeId] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Supplier dialog
+  const [supOpen, setSupOpen] = useState(false);
+  const [supEditing, setSupEditing] = useState<Supplier | null>(null);
+  const [supForm, setSupForm] = useState({ name: "", contactName: "", email: "", phone: "", leadTimeDays: "2", minOrder: "" });
+
+  // PO receive dialog
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receivingPO, setReceivingPO] = useState<PurchaseOrder | null>(null);
+  const [receiveQty, setReceiveQty] = useState<Record<string, number>>({});
 
   const refresh = useCallback(async () => {
-    const [sups, pos, its, sis, me] = await Promise.all([
-      purchasingService.listSuppliers(),
-      purchasingService.listPurchaseOrders(),
-      menuService.listItems(),
-      purchasingService.listSupplierItems(),
-      staffService.getCurrentStaff(),
+    const [sups, pos, its, sis, sts, me] = await Promise.all([
+      purchasingService.listSuppliers(), purchasingService.listPurchaseOrders(), menuService.listItems(),
+      purchasingService.listSupplierItems(), purchasingService.listStocktakes(), staffService.getCurrentStaff(),
     ]);
-    setSuppliers(sups);
-    setOrders(pos);
-    setItems(its);
-    setSupplierItems(sis);
-    setMeId(me.id);
-    setReady(true);
+    setSuppliers(sups); setOrders(pos); setItems(its); setSupplierItems(sis); setStocktakes(sts); setMeId(me.id); setReady(true);
   }, []);
-
   useEffect(() => { refresh(); }, [refresh]);
+
+  // ── Supplier CRUD ──
+  function openSupCreate() { setSupEditing(null); setSupForm({ name: "", contactName: "", email: "", phone: "", leadTimeDays: "2", minOrder: "" }); setSupOpen(true); }
+  function openSupEdit(sup: Supplier) { setSupEditing(sup); setSupForm({ name: sup.name, contactName: sup.contactName ?? "", email: sup.email ?? "", phone: sup.phone ?? "", leadTimeDays: String(sup.leadTimeDays), minOrder: sup.minimumOrderCents ? String(sup.minimumOrderCents / 100) : "" }); setSupOpen(true); }
+  async function saveSupplier() {
+    if (!supForm.name.trim()) { toast.error("Name required"); return; }
+    setBusy(true); try {
+      const s: Supplier = { id: supEditing?.id ?? `sup-${Date.now()}`, venueId: "venue-1", name: supForm.name.trim(), contactName: supForm.contactName.trim() || undefined, email: supForm.email.trim() || undefined, phone: supForm.phone.trim() || undefined, leadTimeDays: parseInt(supForm.leadTimeDays) || 2, orderDays: [1, 2, 3, 4, 5], minimumOrderCents: supForm.minOrder ? Math.round(parseFloat(supForm.minOrder) * 100) : undefined, active: true };
+      await purchasingService.saveSupplier(s); await refresh(); setSupOpen(false);
+      toast.success(supEditing ? "Supplier updated" : "Supplier added");
+    } catch { toast.error("Could not save supplier"); } finally { setBusy(false); }
+  }
+
+  // ── PO actions ──
+  async function createPO(supplierId: string) {
+    setBusy(true); try {
+      const po: PurchaseOrder = { id: `po-${Date.now()}`, venueId: "venue-1", supplierId, code: `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Date.now() % 100}`, status: "draft", lines: items.slice(0, 3).map((mi, i) => ({ id: `pol-${Date.now()}-${i}`, menuItemId: mi.id, qtyOrdered: 6, qtyReceived: 0, unitCostCents: supplierItems.find((si) => si.menuItemId === mi.id && si.supplierId === supplierId)?.unitCostCents ?? Math.round(mi.price * 35), lineTotalCents: 0 })), subtotalCents: 0 };
+      const lines = po.lines as PurchaseOrderLine[];
+      po.subtotalCents = lines.reduce((s, l) => s + l.qtyOrdered * l.unitCostCents, 0);
+      for (const l of lines) l.lineTotalCents = l.qtyOrdered * l.unitCostCents;
+      await purchasingService.savePurchaseOrder(po); await refresh();
+      toast.success("PO created");
+    } catch { toast.error("Could not create PO"); } finally { setBusy(false); }
+  }
+
+  async function submitPO(poId: string) {
+    try { await purchasingService.submitPurchaseOrder(poId, meId); await refresh(); toast.success("PO submitted"); } catch (err) { toast.error(err instanceof Error ? err.message : "Could not submit"); }
+  }
+
+  function openReceive(po: PurchaseOrder) {
+    setReceivingPO(po);
+    const qty: Record<string, number> = {};
+    for (const l of po.lines) qty[l.id] = l.qtyOrdered - l.qtyReceived;
+    setReceiveQty(qty);
+    setReceiveOpen(true);
+  }
+
+  async function receivePO() {
+    if (!receivingPO) return; setBusy(true); try {
+      const lines = Object.entries(receiveQty).map(([lineId, qty]) => ({ lineId, qtyReceived: qty }));
+      await purchasingService.receivePurchaseOrder(receivingPO.id, lines); await refresh(); setReceiveOpen(false);
+      toast.success("PO received");
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Could not receive"); } finally { setBusy(false); }
+  }
 
   async function computeSuggestions(supplierId: string) {
     const openPos = orders.filter((po) => po.status !== "received" && po.status !== "cancelled");
     const s = suggestPurchaseOrder(items, openPos, (new Date().getDay() + 1) % 7, supplierItems, supplierId);
-    setSuggestions(s);
-    toast.success(`Found ${s.length} items below par`);
-  }
-
-  async function submitPO(poId: string) {
-    try {
-      await purchasingService.submitPurchaseOrder(poId, meId);
-      await refresh();
-      toast.success("PO submitted");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not submit PO");
-    }
+    setSuggestions(s); toast.success(`Found ${s.length} items below par`);
   }
 
   if (!ready) return <ListSkeleton />;
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Purchasing"
-        description="Suppliers, purchase orders and suggested ordering"
+      <PageHeader title="Purchasing" description="Suppliers, purchase orders, stocktakes and suggested ordering"
+        actions={<Button size="sm" onClick={openSupCreate}><Plus className="size-4 mr-1" /> Add supplier</Button>}
       />
 
       {suppliers.length === 0 ? (
-        <EmptyState icon={Truck} title="No suppliers" description="Add your suppliers to start ordering." />
-      ) : (
-        suppliers.map((sup) => (
-          <Card key={sup.id}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  {sup.name}
-                  {!sup.active && <Badge variant="outline">Inactive</Badge>}
-                </span>
-                <Button size="sm" variant="outline" onClick={() => computeSuggestions(sup.id)}>
-                  <ShoppingCart className="size-4 mr-1" /> Check par levels
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Lead time: {sup.leadTimeDays} days · Min order: {sup.minimumOrderCents ? formatMoney(sup.minimumOrderCents, "CAD") : "none"}
-              </p>
-
-              {/* POs for this supplier */}
-              {orders
-                .filter((po) => po.supplierId === sup.id)
-                .map((po) => (
-                  <div key={po.id} className="rounded-md border px-3 py-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">{po.code}</p>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={STATUS_BADGE[po.status] ?? "outline"}>{po.status}</Badge>
-                        {po.status === "draft" && (
-                          <ConfirmDialog
-                            trigger={<Button size="sm">Submit</Button>}
-                            title={`Submit ${po.code}?`}
-                            description="Once submitted, the PO is sent to the supplier."
-                            confirmLabel="Submit"
-                            onConfirm={() => submitPO(po.id)}
-                          />
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-1 space-y-1">
-                      {po.lines.map((l) => {
-                        const it = items.find((i) => i.id === l.menuItemId);
-                        return (
-                          <div key={l.id} className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{it?.name ?? l.menuItemId}</span>
-                            <span className="tabular-nums">
-                              {l.qtyReceived}/{l.qtyOrdered} × {formatMoney(l.unitCostCents, "CAD")}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <p className="mt-1 text-xs font-semibold tabular-nums">{formatMoney(po.subtotalCents, "CAD")}</p>
+        <EmptyState icon={Truck} title="No suppliers" description="Add your suppliers to start ordering." action={<Button onClick={openSupCreate}><Plus className="size-4 mr-1" /> Add supplier</Button>} />
+      ) : suppliers.map((sup) => (
+        <Card key={sup.id}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {sup.name}
+                <Button variant="ghost" size="icon" className="size-6" onClick={() => openSupEdit(sup)}><Plus className="size-3 rotate-45" /></Button>
+                {!sup.active && <Badge variant="outline">Inactive</Badge>}
+              </div>
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" onClick={() => computeSuggestions(sup.id)}><ShoppingCart className="size-4 mr-1" /> Par check</Button>
+                <Button size="sm" variant="outline" onClick={() => createPO(sup.id)} disabled={busy}><Plus className="size-4 mr-1" /> New PO</Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground">Lead: {sup.leadTimeDays}d · Min: {sup.minimumOrderCents ? formatMoney(sup.minimumOrderCents, "CAD") : "none"}{sup.contactName && ` · ${sup.contactName}`}{sup.email && ` · ${sup.email}`}</p>
+            {orders.filter((po) => po.supplierId === sup.id).map((po) => (
+              <div key={po.id} className="rounded-md border px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">{po.code}</p>
+                  <div className="flex items-center gap-1">
+                    <Badge variant={STATUS_BADGE[po.status] ?? "outline"}>{po.status}</Badge>
+                    {po.status === "draft" && (
+                      <ConfirmDialog trigger={<Button size="sm" variant="outline">Submit</Button>} title={`Submit ${po.code}?`} description="The PO is sent to the supplier." confirmLabel="Submit" onConfirm={() => submitPO(po.id)} />
+                    )}
+                    {(po.status === "submitted" || po.status === "partially-received") && (
+                      <Button size="sm" variant="outline" onClick={() => openReceive(po)}><Truck className="size-3 mr-1" /> Receive</Button>
+                    )}
                   </div>
-                ))}
-            </CardContent>
-          </Card>
-        ))
+                </div>
+                <div className="mt-1 space-y-0.5">{po.lines.map((l) => { const it = items.find((i) => i.id === l.menuItemId); return <div key={l.id} className="flex justify-between text-xs text-muted-foreground"><span>{it?.name ?? l.menuItemId}</span><span className="tabular-nums">{l.qtyReceived}/{l.qtyOrdered} × {formatMoney(l.unitCostCents, "CAD")}</span></div>; })}</div>
+                <p className="mt-1 text-xs font-semibold tabular-nums">{formatMoney(po.subtotalCents, "CAD")}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+
+      {/* Stocktakes */}
+      {stocktakes.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Stocktakes</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {stocktakes.map((st) => (
+              <div key={st.id} className="flex items-center justify-between rounded-md border px-3 py-2">
+                <div><p className="text-sm font-medium">{st.businessDate}</p><p className="text-xs text-muted-foreground">{st.scope} · {st.status}{st.committedAt && ` · ${new Date(st.committedAt).toLocaleTimeString()}`}</p></div>
+                <div className="text-right"><p className={`text-sm font-semibold tabular-nums ${st.totalVarianceCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{formatMoney(st.totalVarianceCents, "CAD")}</p><p className="text-xs text-muted-foreground">{st.lines.length} lines</p></div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       {suggestions.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Package className="size-4" /> Suggested order
-            </CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base"><Package className="size-4 inline mr-1" />Suggested order</CardTitle></CardHeader>
           <CardContent>
-            <div className="space-y-1">
-              {suggestions.map((s) => (
-                <div key={s.menuItemId} className="flex items-center justify-between rounded px-2 py-1 text-sm">
-                  <span>{s.itemName}</span>
-                  <span className="tabular-nums">
-                    {s.suggestedQty} × {s.unitCostCents != null ? formatMoney(s.unitCostCents, "CAD") : "—"}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <div className="space-y-1">{suggestions.map((s) => <div key={s.menuItemId} className="flex justify-between rounded px-2 py-1 text-sm"><span>{s.itemName}</span><span className="tabular-nums">{s.suggestedQty} × {s.unitCostCents != null ? formatMoney(s.unitCostCents, "CAD") : "—"}</span></div>)}</div>
           </CardContent>
         </Card>
       )}
+
+      {/* Supplier dialog */}
+      <Dialog open={supOpen} onOpenChange={setSupOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>{supEditing ? "Edit supplier" : "Add supplier"}</DialogTitle><DialogDescription>Supplier contact and ordering defaults.</DialogDescription></DialogHeader>
+          <div className="space-y-3">
+            <div><Label htmlFor="s-name">Name *</Label><Input id="s-name" value={supForm.name} onChange={(e) => setSupForm((p) => ({ ...p, name: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label htmlFor="s-contact">Contact</Label><Input id="s-contact" value={supForm.contactName} onChange={(e) => setSupForm((p) => ({ ...p, contactName: e.target.value }))} /></div>
+              <div><Label htmlFor="s-phone">Phone</Label><Input id="s-phone" value={supForm.phone} onChange={(e) => setSupForm((p) => ({ ...p, phone: e.target.value }))} /></div>
+            </div>
+            <div><Label htmlFor="s-email">Email</Label><Input id="s-email" type="email" value={supForm.email} onChange={(e) => setSupForm((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label htmlFor="s-lead">Lead time (days)</Label><Input id="s-lead" type="number" min={1} value={supForm.leadTimeDays} onChange={(e) => setSupForm((p) => ({ ...p, leadTimeDays: e.target.value }))} /></div>
+              <div><Label htmlFor="s-min">Min order ($)</Label><Input id="s-min" placeholder="500" value={supForm.minOrder} onChange={(e) => setSupForm((p) => ({ ...p, minOrder: e.target.value }))} /></div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSupOpen(false)}>Cancel</Button>
+            <Button onClick={saveSupplier} disabled={!supForm.name.trim() || busy}>{supEditing ? "Save" : "Add"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Receive PO dialog */}
+      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Receive goods</DialogTitle><DialogDescription>{receivingPO?.code} from {suppliers.find((s) => s.id === receivingPO?.supplierId)?.name}</DialogDescription></DialogHeader>
+          <div className="space-y-3">
+            {receivingPO?.lines.map((l) => {
+              const it = items.find((i) => i.id === l.menuItemId);
+              return (
+                <div key={l.id} className="flex items-center gap-3">
+                  <span className="flex-1 text-sm">{it?.name ?? l.menuItemId} <span className="text-xs text-muted-foreground">({l.qtyReceived}/{l.qtyOrdered})</span></span>
+                  <Input type="number" min={0} max={l.qtyOrdered - l.qtyReceived} value={receiveQty[l.id] ?? 0} onChange={(e) => setReceiveQty((prev) => ({ ...prev, [l.id]: parseInt(e.target.value) || 0 }))} className="w-20 text-sm" />
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
+            <Button onClick={receivePO} disabled={busy}>Confirm receipt</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
