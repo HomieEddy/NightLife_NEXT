@@ -2,25 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Filter, Layers, LayoutDashboard, Rocket, Settings, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
+import { ADMIN_NAV, isNavActive } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
-
-const NAV = [
-  { href: "/admin", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin/leads", label: "Lead pipeline", icon: Filter },
-  { href: "/admin/venues", label: "Tenants", icon: Building2 },
-  { href: "/admin/onboarding", label: "Provisioning", icon: Rocket },
-  { href: "/admin/plans", label: "Plans", icon: Layers },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
-];
+import { ShieldCheck } from "lucide-react";
 
 export default function AdminShellClient({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isActive = (href: string) =>
-    href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -38,21 +28,25 @@ export default function AdminShellClient({ children }: { children: React.ReactNo
           </div>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
-                isActive(item.href)
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <item.icon className="size-3.5" />
-              {item.label}
-            </Link>
-          ))}
+          {ADMIN_NAV.map((item) => {
+            const active = isNavActive(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
+                  active
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <item.icon className="size-3.5" />
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">{children}</main>
