@@ -3,29 +3,31 @@
 **Status: complete.**
 
 Goal: give the app a distinctive nightclub identity — "Luxe VIP Gold" — that
-escapes the generic AI-generated look, by pushing the existing Ember system into
-layout, typography, color, and texture. A cross-cutting **presentation-layer**
-change: shared design-system tokens/primitives first, then `/guest`, then the
-public marketing surfaces (live landing, demo tour, pricing, lead), then the ops
-areas. No new schema, service, or `types.ts` change.
+escapes the generic AI-generated look, by pushing the existing champagne-gold
+system into layout, typography, color, and texture. A cross-cutting
+**presentation-layer** change: shared design-system tokens/primitives first, then
+`/guest`, then the public marketing surfaces (live landing, demo tour, pricing,
+lead), then the ops areas. No new schema, service, or `types.ts` change.
 
 Spec: `docs/superpowers/specs/2026-07-16-luxe-vip-gold-design.md`.
 Preconditions: none functional — this rides on top of every shipped plan (01–10).
 Both demo and live builds share this chrome, so both inherit the revamp.
 
-> **Deviation (post-review):** the original design kept ember (`--primary`)
-> as a co-accent beside the gold ramp. User review asked for the orange tone
+> **Deviation (post-review):** the original design spec retained an amber/orange
+> tone as a co-accent beside the gold ramp. User review asked for the orange tone
 > to be removed entirely, so `--primary`, `--chart-1`, sidebar accents, all
 > glow helpers, ambient keyframes, hero radials and the ClubLights particle
-> palette now sit on the champagne-gold ramp. Ember survives nowhere in the
-> chrome; semantic status colors (destructive red, warning amber on SLA
+> palette now sit on the champagne-gold ramp. The historic "Ember" naming is
+> retained in CSS custom property names (`--ember-*`) for backward compatibility
+> with existing component tokens, but the rendered tones are champagne-gold
+> throughout. Semantic status colors (destructive red, warning amber on SLA
 > chips, success emerald) and the cool zone/data palette are unchanged.
 
 ## Reasoning
 
-The identity already exists in `src/app/globals.css` (Ember system: warm charcoal
-ground, amber/gold `text-gradient-brand`, Anton display font, `.text-outline`,
-`.glow-primary`, the `nln-*` keyframes) — but it lives in the tokens and was never
+The identity already exists in `src/app/globals.css` (champagne-gold system: warm
+charcoal ground, gold text gradients, Anton display font, `.text-outline`, `.glow-*`
+CSS helpers, the `nln-*` keyframes) — but it lives in the tokens and was never
 *pushed* into the actual pages. The failure is one of application and intensity,
 not of missing foundation. So the highest-leverage move is to deepen the token
 layer and upgrade the shared primitives **once**, then let every page inherit the
@@ -45,15 +47,16 @@ workstreams below — this is not decoration, it is how the work gets done:
   "bland → bold, technically extraordinary" push. Every visual workstream opens
   by invoking it.
 - **motion-design** — atmosphere/energy authority: entrance choreography, ambient
-  ember-glow, micro-interactions, timing/easing, and reduced-motion discipline.
+  gold glow, micro-interactions, timing/easing, and reduced-motion discipline.
   Owns the motion primitives (WS3) and every interactive treatment.
 
 ## Design choices
 
 - **Evolve, don't replace.** Keep the OKLCH token convention and the warm hue
-  family. `--primary` (ember) stays; we *add* a dedicated champagne-gold ramp so
-  foil gradients/rules/text share coherent stops rather than reusing one token.
-  Values authored in OKLCH to match existing style and pass WCAG AA in both modes.
+  family. CSS custom properties use the historic `--ember-*` naming for backward
+  compatibility with existing component tokens, but rendered values are
+  champagne-gold throughout. Values authored in OKLCH to match existing style
+  and pass WCAG AA in both modes.
 - **Warm chrome, cool data.** The luxe warm palette is brand/chrome only. The
   categorical data colors in `zone-colors.ts` (violet/cyan/fuchsia/emerald/rose)
   stay cool and unchanged — the separation is deliberate and preserved.
@@ -62,7 +65,7 @@ workstreams below — this is not decoration, it is how the work gets done:
   lever), body/data (retain Geist, `tabular-nums`). Fonts via the existing
   `next/font` setup — no CDN dependency.
 - **Texture as reusable primitives, not per-page hacks.** Glow set (`.glow-gold`,
-  `.glow-ember`, focal-halo), a low-opacity SVG grain overlay (decorative,
+  focal-halo), a low-opacity SVG grain overlay (decorative,
   `pointer-events:none`, a11y-hidden), gold gradient-rule dividers, foil helpers
   — all in the `globals.css` utility block alongside the existing helpers.
 - **Both modes at parity.** Every new token/utility is defined for `:root` and
@@ -91,7 +94,7 @@ usage. Ship as tokens + utilities.
 
 **WS3 — Texture & motion primitives.** *Invoke motion-design* (with impeccable for
 the static texture). Glow utilities, grain overlay, gradient-rule dividers, foil
-helpers; extend the `nln-*` keyframes with ambient ember-glow pulse and
+helpers; extend the `nln-*` keyframes with ambient champagne-gold glow pulse and
 micro-interaction transitions (foil-shimmer, gold-halo lift). Everything collapses
 under the existing `prefers-reduced-motion` block.
 
@@ -99,7 +102,7 @@ under the existing `prefers-reduced-motion` block.
 WS1–3 to `src/components/shared/*` once: cards (depth + focal-halo variant),
 badges/chips (foil + zone-data variants), buttons (foil-gradient primary), section
 headers (gradient-rule), `BrandLogo`, `MetricCard` (poster hero numbers), empty
-states (serif-voice), `MockChart` (gold/ember series). This is the leverage point
+states (serif-voice), `MockChart` (gold series). This is the leverage point
 — pages inherit from here.
 
 **WS5 — Guest surface.** *Invoke impeccable + motion-design.* Apply fully to
@@ -112,7 +115,7 @@ first-impression funnel, full editorial treatment: the live landing page
 (`src/app/(public)/page.tsx` — the live build's `/`), the demo tour page
 (`/demo` via `src/components/demo/demo-tour-page.tsx`), `/pricing`, and `/lead`
 (all share the `(public)` layout — restyle it once, tune per page). Poster-type
-hero as a thesis, atmospheric ground with ember glow and grain, foil CTAs, one
+hero as a thesis, atmospheric ground with gold glow and grain, foil CTAs, one
 orchestrated entrance moment (motion-design owns the choreography). The funnel
 must read as a single visual world — landing → pricing → lead → demo tour.
 Per-build routing is untouched: demo `/` redirects to `/demo` and `/pricing`

@@ -2,16 +2,16 @@
 
 **Status: not started.**
 
-Goal: make the app installable as a PWA (manifest, icons, service worker),
-add **web push** as the third channel on the plan-18 dispatch layer so floor
-staff get phone notifications for events they currently only see by watching
-the screen, and ship a **notification preferences UI** that lets each user
-control which channels (push, email, SMS) fire for which events. A
-bartender with the app installed and the phone in their pocket — receiving
-only the alerts that matter to their role — is the product moment this plan
-buys. Preferences naturally live here because push is the channel that
-makes fine-grained control feel worthwhile: once you can receive three
-channel types, you need a place to tune them.
+Goal: make the app installable as a PWA with full offline resilience (manifest,
+icons, app shell with cache-first SW, offline action queue, offline indicator,
+update lifecycle), add **web push** as the third channel on the
+plan-25 dispatch layer so floor staff get phone notifications for events they
+currently only see by watching the screen, and ship a **notification preferences
+UI** that lets each user control which channels (push, email, SMS) fire for which
+events. A bartender with the app installed and the phone in their pocket —
+receiving only the alerts that matter to their role — is the product moment this
+plan buys. Preferences naturally live here because push is the channel that
+makes fine-grained control feel worthwhile.
 
 Preconditions: plan 25 complete (dispatch core, `NotificationLog`); plan 07
 realtime (the domain events in `src/server/events.ts` are the triggers push
@@ -22,7 +22,7 @@ subscribes to). Plan 26 is independent. Branch `feature/28-pwa-web-push`.
 1. **Why PWA, not native:** native apps sit in the Phase-3 parking lot for a
    reason — two app stores, review cycles, a second codebase. A PWA gets
    home-screen install, standalone chrome, and push on both platforms
-   (iOS ≥ 16.4 requires the app be installed to Home Screen for push — an
+   (iOS >= 16.4 requires the app be installed to Home Screen for push — an
    acceptable constraint since staff install once during onboarding; the
    install prompt copy must say so on iOS).
 2. **Push complements SSE, it doesn't replace it.** Plan 07's `useLiveEvents`
@@ -32,19 +32,18 @@ subscribes to). Plan 26 is independent. Branch `feature/28-pwa-web-push`.
    is looking at the app — v1 simplification: always push to subscribed
    staff for their role-relevant events; dedup/presence heuristics are a
    `TODO(backend)` earned by real complaint, not speculation.
-3. **No `next-pwa`, no workbox.** The service worker this plan needs is
-   ~40 lines: `push` event → `showNotification`, `notificationclick` →
-   focus/open the right page. Offline caching is explicitly parked
-   (parking lot: offline mode) — a caching SW done casually breaks deploys
-   (stale HTML) and earns nothing yet. Hand-rolled file in `public/sw.js`,
-   per §2.4: earn every dependency. `web-push` (the npm lib for VAPID
-   signing) is the one earned dependency — signing Web Push payloads by
-   hand is crypto we shouldn't hand-roll.
-4. **Track placement:** the manifest/install surface ships in **both**
-   builds (a demo visitor installing the demo is fine and good marketing).
-   Push is live-track only: it needs a server, subscriptions, and VAPID
-   keys; in demo mode the notification-settings surface renders a demo
-   explainer instead (gated `isDemoMode()`).
+3. **Full PWA scope per AD-19, not push-only.** The service worker handles
+   three responsibilities, not one: (a) cache-first app shell for instant
+   subsequent loads, (b) push event display + notification click routing,
+   (c) offline action queue sync. Offline resilience is a stated product
+   requirement (PRD R17) and is required for the Lighthouse PWA score >= 90
+   exit criterion. The SW is hand-rolled in `public/sw.js` — `web-push`
+   (the npm lib for VAPID signing) is the one earned dependency.
+4. **Track placement:** the manifest/install + offline surfaces ship in
+   **both** builds (a demo visitor installing the demo is fine and good
+   marketing). Push is live-track only: it needs a server, subscriptions,
+   and VAPID keys; in demo mode the notification-settings surface renders a
+   demo explainer instead (gated `isDemoMode()`).
 
 ## Design choices
 
@@ -54,9 +53,49 @@ subscribes to). Plan 26 is independent. Branch `feature/28-pwa-web-push`.
   `public/icons/` (192/512 + maskable). Role areas share one manifest —
   start_url `/` routes by role via the existing login flow.
 - **Service worker:** `public/sw.js`, registered from a tiny client helper
-  in `src/lib/pwa.ts` (registration is idempotent, skipped when
-  unsupported). Scope: push display + click routing only. Versioned by
-  content hash query so deploys refresh it.
+   in `src/lib/pwa.ts`. Three responsibilities per AD-19:
+   - **Cache-first app shell:** HTML, CSS, JS bundles cached on install;
+     network-first for API data. App shell renders instantly from cache;
+     data fills in from network with skeleton states.
+   - **Push display + click routing:** `push` event → `showNotification()`;
+     `notificationclick` → focus/open the right page.
+   - **Offline queue sync:** on `sync` event, replay queued actions
+     (see offline queue below).
+   Versioned by content hash query so deploys refresh it. SW size target
+   < 100 KB.
+- **App shell:** `src/lib/app-shell.tsx` wraps all staff/guest surfaces.
+  Shell renders instantly from cache; data fills in from network. Skeleton
+  states shown while fetching.
+- **Offline queue** (`src/lib/offline-queue.ts`):
+  - localStorage-backed queue for user actions taken while offline.
+  - **Queueable commands:** `placeOrder`, `fileIncident`, `clockIn`, `clockOut`.
+    Each queued action carries: `{ commandId: cuid(), command, payload,
+    queuedAt, userId, venueId }`.
+  - **Server idempotency:** replay de-duplicates by `commandId` — same command
+    replayed twice produces the same result, never a duplicate side effect.
+  - **Identity binding:** queued actions are bound to the user session active
+    at queue time. On reconnect, if the session has changed (different user,
+    expired token), queued actions are rejected with a "session changed —
+    login required" notice, not silently replayed under a new identity.
+  - **Sensitive data restriction:** no document images, full DOB, or ID numbers
+    are written to localStorage. Door admission payloads carry only the
+    admission type, party size, and profile ID reference — never the raw
+    ID-check data.
+  - **Conflict recovery:** if a queued action fails on replay (e.g. order item
+    no longer available, shift already clocked), the action is marked
+    `failed` with the server error. The staff member sees a banner on next
+    login listing failed queue items with per-item retry/skip controls —
+    never silent discard.
+  - Queue replays in FIFO order on connectivity restore (online event).
+    Actions that depend on server state (`claimOrder`) are excluded from the
+    offline queue — they show "offline — try when connected."
+- **Offline indicator:** persistent banner when `navigator.onLine === false`.
+  Non-critical actions (browsing menu, viewing history) remain available.
+  Critical actions (door admission, incident filing) available via offline
+  queue.
+- **Update lifecycle:** SW checks for updates on navigation. If new version
+  available, show banner "New version available — tap to refresh." Never
+  auto-refresh during active use.
 - **Subscriptions:** `PushSubscription` Prisma model — venueId, userId,
   endpoint (unique), keys, userAgent, createdAt. Registered via
   `POST /api/push/subscriptions` (session-authed, Zod-validated), removed on
@@ -68,21 +107,30 @@ subscribes to). Plan 26 is independent. Branch `feature/28-pwa-web-push`.
   small JSON: title, body, URL to open. One `NotificationLog` row per
   attempt, dead-endpoint cleanup recorded.
 - **Wired events (staff/manager, controlled per-user by preferences — see
-  below):** `order.placed` → runners/bartenders of the zone;
-  `help.requested` → staff; `order.claimed` → the claiming race's losers
-  see nothing; managers can subscribe to escalations (unclaimed order past
-  SLA — reuses the pulse SLA logic). Guest push is out of scope — guests
-  are a QR session, not an installed app.
-- **`NotificationPreferences` Prisma model** — venueId, userId (unique
-  together), then one boolean per (event × channel) combination:
-  `orderPush`, `orderEmail`, `orderSms`, `helpPush`, `helpEmail`,
-  `helpSms`, `escalationPush`, `escalationEmail`, `escalationSms`.
-  Defaults are role-appropriate and set on first save (runners default
-  `orderPush=true`, managers default `escalationPush=true`, all SMS off
-  until the user explicitly enables it). Tenant-scoped, read by the
-  dispatch layer to decide which channels fire per recipient. Route:
-  `GET/PUT /api/notifications/preferences` (session-authed, Zod-validated,
-  full-replace semantics — the client sends the whole object).
+   below):** staff role-relevant events per the roadmap notification trigger
+   table (PSH-09); guest push follows the same dispatch layer for order
+   status updates, table-ready alerts, and reservation reminders per PRD R17.
+   Guest push subscription is per-guest-session, not per-user-account — the
+   subscription is linked to the `GuestSession`, revoked on session close,
+   and routed through the same `push.ts` transport.
+- **`NotificationPreferences` Prisma model** — `{ venueId, userId,
+   preferences: NotificationPreference[] }` where each
+   `NotificationPreference` is `{ channel: "push"|"email"|"sms",
+   eventType, enabled }`. Per-channel per-event-type booleans, matching
+   AD-20 and DDD INV-N1. No flat boolean columns per (event × channel)
+   combination — the array model scales to new event types without schema
+   changes.
+   Defaults are role-appropriate and set on first save. Tenant-scoped, read
+   by the dispatch layer to decide which channels fire per recipient.
+   Route: `GET/PUT /api/notifications/preferences` (session-authed,
+   Zod-validated, full-replace semantics).
+- **Quiet hours:** `{ startTime, endTime, timezone }` per user. Non-critical
+   notifications suppressed during quiet hours; critical notifications
+   (emergency, security alert, incident escalation) bypass (INV-N4).
+- **Delivery tracking:** `NotificationLog` rows per attempt with status
+   `sent`/`delivered`/`failed`/`clicked`. Dead subscriptions self-clean on
+   `410 Gone` from push service. Retry with exponential backoff (max 3
+   retries over 10 minutes, per AD-22).
 - **UI: a "Notifications" section in staff/manager settings** (the existing
   settings pages already have a card-based layout — a new card fits without
   new routes). Three zones in the card:
@@ -102,9 +150,13 @@ subscribes to). Plan 26 is independent. Branch `feature/28-pwa-web-push`.
 
 ## Implementation strategy
 
-1. Manifest + icons + SW registration; verify install on Android/desktop
-   and iOS standalone (both builds).
-2. Prisma `PushSubscription` + `NotificationPreferences` + migration;
+1. Manifest + icons + SW registration; SW handles cache-first shell, push
+   events, and offline queue sync. Verify install on Android/desktop and iOS
+   standalone (both builds). App shell wraps all staff/guest surfaces.
+2. Offline queue (`src/lib/offline-queue.ts`): localStorage queue with
+   `commandId`-based idempotency, identity binding, sensitive-data
+   restrictions, and conflict-recovery UI. `OfflineIndicator` component.
+3. Prisma `PushSubscription` + `NotificationPreferences` + migration;
    subscription and preferences API routes with Zod + session auth +
    tenant scoping; role-appropriate defaults on first write.
 3. `push.ts` transport + VAPID config; dispatch channel reads preferences
@@ -140,7 +192,13 @@ subscribes to). Plan 26 is independent. Branch `feature/28-pwa-web-push`.
 
 ## Review checklist
 
-- SW does **no** fetch/caching interception — push and click only.
+- SW handles three responsibilities: cache-first shell, push events, offline
+  queue sync — not push-only.
+- App shell renders from cache on repeat visits; SW update lifecycle tested
+  across all staff roles.
+- Offline queue: `commandId`-based idempotency on server, identity binding
+  rejects replays after session change, no sensitive payloads written to
+  localStorage, conflict-recovery UI for failed replays.
 - Permission prompt only from the explicit push toggle tap — never on load.
 - `PushSubscription` and `NotificationPreferences` both tenant-scoped; a
   venue's event never pushes to another venue's staff (tests prove it).
@@ -156,10 +214,12 @@ subscribes to). Plan 26 is independent. Branch `feature/28-pwa-web-push`.
 
 ## Exit criteria
 
-The app installs to a phone home screen from staging; a subscribed staff
-member with push enabled receives an order notification that opens the
-right page on tap; disabling that event type in preferences silences push
-while email/SMS remain unaffected; dead subscriptions self-clean on 410;
-demo mode shows the explainer without prompting for permission; and no
-offline/caching behavior shipped. Notification preferences UI is removed
-from the parking lot.
+The app installs to a phone home screen from staging; the app shell loads
+instantly from cache on repeat visits; queued offline actions sync on reconnect
+with idempotency and identity binding; a subscribed staff member with push
+enabled receives an order notification that opens the right page on tap;
+disabling that event type in preferences silences push while email/SMS remain
+unaffected; dead subscriptions self-clean on 410; demo mode shows the explainer
+without prompting for permission; SW update lifecycle tested across staff roles;
+Lighthouse PWA score >= 90. Notification preferences UI is removed from the
+parking lot.

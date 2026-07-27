@@ -62,10 +62,12 @@ The live app has characteristics that favor a persistent VPS over serverless:
 | **Infrastructure parity** | Staging ≠ prod if prod is VPS | Staging = prod |
 | **Data residency** | US/EU edge (no control) | Quebec, Canada (PIPEDA + Law 25 compliant) |
 
-**Privacy compliance driver:** customer data (guest PII, staff records, payment
-metadata) must remain in Canada to satisfy PIPEDA and Quebec's Law 25 without
-requiring a cross-border Privacy Impact Assessment. OVHcloud's Beauharnois, QC
-data center (region code `BHS`) keeps all live data on Canadian soil.
+**Privacy compliance driver:** customer data (guest PII, staff records) must
+remain in Canada to satisfy PIPEDA and Quebec's Law 25 without requiring a
+cross-border Privacy Impact Assessment. OVHcloud's Beauharnois, QC data center
+(region code `BHS`) keeps all live data on Canadian soil. External service
+integrations (Resend, Twilio, Web Push, Stripe — the latter for tenant SaaS
+billing only) are disclosed in the privacy policy per plan 29.
 
 **VPS tier:** OVHcloud VPS-2 — 4 vCores, 8 GB RAM, 75 GB NVMe, 1 Gbps,
 ~$11.64 CAD/mo. Enough headroom for Coolify + Postgres + Next.js with room for
@@ -121,7 +123,7 @@ require Docker.
 
 ## Environment mapping
 
-| Environment | Host | Branch | DB | Stripe |
+| Environment | Host | Branch | DB | Stripe (tenant billing only) |
 |---|---|---|---|---|
 | `dev` | Local machine | any | PGlite, compose Postgres, or external PG | Test keys |
 | `staging` | OVHcloud BHS/Coolify | `dev` | Staging Postgres | Test keys |

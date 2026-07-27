@@ -26,6 +26,21 @@ authorization boundary can never disagree.
 
 Interpretation choices (stated per §1.4):
 
+- **Seven base roles, five sub-role specializations.** The base roles
+  (manager, host, bartender, runner, security, promoter, platform-admin) drive
+  authN/authZ. Five sub-role specializations (Floor Manager, VIP Host, Bar Lead,
+  Security Lead, Door Host — named in PRD §2) are permission sets defined in the
+  capability matrix, not separate auth roles. Floor Manager shares the `manager`
+  base role with venue-configurable comp threshold delegation. VIP Host shares
+  the `host` base role with VIP-tier guest-profile write access and
+  promoter-like booking capabilities. Bar Lead shares the `bartender` base role
+  with inventory cost visibility and purchasing draft capabilities. Security
+  Lead shares the `security` base role with incident-read-all, incident-mark-
+  reportable, and emergency-evacuate capabilities. Door Host shares the
+  `security` base role with door:admit and door:id-check scope, without
+  incident-read-all access. The capability matrix includes all five
+  sub-specializations as columns.
+
 - "Runner = bartender and hostess assistant" ⇒ runners **fulfill**: they can
   transition claimed orders through preparing → ready → delivered, but they
   do **not accept** pending orders (accepting is the approval that commits
@@ -57,6 +72,21 @@ Interpretation choices (stated per §1.4):
   - security: no orders/approvals; security help requests only; schedule;
     chat (`security` channel).
   - promoter: plan 14's row (read-only, own-funnel scoping).
+  - **floor-manager** (sub-specialization of manager): same as manager with
+    venue-configurable comp threshold and schedule-publish capabilities;
+    elevated dashboard and analytics access equivalent to manager.
+  - **vip-host** (sub-specialization of host): same as host with added
+    guest:edit-profile, guest:watchlist write, and VIP-tier recognition
+    capabilities; reservation book management scoped to VIP table tiers.
+  - **bar-lead** (sub-specialization of bartender): same as bartender with
+    added cost:read, purchasing:draft, inventory:86, stocktake:count
+    capabilities; bar-zone oversight scope.
+  - **security-lead** (sub-specialization of security): same as security
+    with added incident:read-all, incident:mark-reportable,
+    emergency:evacuate, and door:admit-capacity-override capabilities.
+  - **door-host** (sub-specialization of security): door:count, door:admit,
+    door:id-check, waitlist:manage only — no incident:read-all,
+    incident:create limited to refused-entry type only.
 - **Runner UX**: pending orders render without an Accept button (with a
   quiet "awaiting bartender" hint, not a disabled tease); Approvals tab
   drops from the runner nav; help queue filters to assigned zones.

@@ -135,9 +135,30 @@ Interpretation choices (per AGENTS.md §1.4):
 - **Margin** on every existing revenue view: the analytics revenue cards gain a
   margin companion; `MockChart` gets a cost series where it already renders
   revenue (no new charting dependency — AGENTS.md §2.4).
-- **Full-night P&L strip** on the dashboard Snapshot: net revenue − COGS −
-  labour (plan 18) − comps/waste (plans 16/19) = contribution. First screen in
-  the product that answers "did we make money tonight".
+- **Canonical P&L formula** — the single source of truth for profitability
+  math, consumed by all analytics views and the dashboard snapshot:
+
+  ```
+  netRevenue = grossRevenue - (voids + discounts)
+  contribution = netRevenue - COGS - labourCost - compCost - wasteCost
+  ```
+
+  where:
+  - `grossRevenue` = Σ order subtotals + auto-gratuity (before adjustments)
+  - `voids` = total of void adjustments (items that never happened — stock returned)
+  - `discounts` = total of discount adjustments (partial reduction — no stock return)
+  - `COGS` = Σ delivered items × `avgCostCents` at delivery time
+  - `labourCost` = Σ `hoursWorked × hourlyRateCents` for the business date (plan 18)
+  - `compCost` = total of comp adjustments (full write-off — stock consumed, no revenue)
+  - `wasteCost` = Σ waste movements × `avgCostCents`
+
+  **Comps are subtracted once**, in the `contribution` line — never in `netRevenue`
+  (they are an operational cost, not a revenue adjustment). This is the single
+  formula every analytics consumer uses; changing it changes every report.
+  The P&L strip renders: `netRevenue | COGS | labour | comps | waste | contribution`.
+- **Full-night P&L strip** renders the canonical formula above on the dashboard
+  Snapshot — the first screen in the product that answers "did we make money
+  tonight".
 - **Event P&L** per event, including talent and marketing costs.
 - **Targets & alerts**: `ProfitTarget` breaches raise Pulse attention items and
   are available as report-engine conditions — closing the review's "no alerting

@@ -40,8 +40,10 @@ items hang off the venue, orders hang off tables.
    cart fee math) becomes an async-cached read — the two call sites are updated in
    the same commit (the one sanctioned signature change; noted for review).
 4. Move shift methods from `staff-service` mock arrays to the `StaffShift` table.
-5. Rename `mockVenueService` → `venueService` (last method real); delete consumed
-   TODOs (`venue-service`, `settings` PATCH, types.ts shifts).
+5. Wire `venueService` selector live branch to real implementation (last method
+   real); the selector already exports the plain name — the mock implementation
+   stays intact per AD-14. Delete consumed TODOs (`venue-service`, `settings`
+   PATCH, types.ts shifts).
 6. Onboarding wizard + admin provisioning keep working: wizard writes via the real
    service now; verify the prefill round-trip.
 
