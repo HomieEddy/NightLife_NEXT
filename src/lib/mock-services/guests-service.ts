@@ -5,8 +5,11 @@
  */
 import type { GuestSession, HelpRequest, HelpRequestType, SettlementMethod } from "@/lib/types";
 import { mockGuestSessions, mockHelpRequests } from "@/lib/mock-data/orders";
+import { mergedMinimumSpendCents } from "@/lib/tab";
 import { clone, delay, uid } from "./delay";
 import { mockReservationService } from "./reservation-service";
+import { mockVenueService } from "./venue-service";
+import { mockAuditService } from "./audit-service";
 
 let sessions: GuestSession[] = clone(mockGuestSessions);
 let helpRequests: HelpRequest[] = clone(mockHelpRequests);
@@ -73,11 +76,94 @@ export const mockGuestsService = {
       const res = await mockReservationService.getActiveReservationForTable(session.tableId);
       if (res?.promoterId) session.promoterId = res.promoterId;
     }
+    // Snapshot the commitment at approval — a reservation's own term wins over the
+    // table's default, and editing the table later must never rewrite an open tab.
+    if (status === "approved" && session.minimumSpendCents === undefined) {
+      const res = await mockReservationService.getActiveReservationForTable(session.tableId);
+      if (res?.minimumSpendCents != null) {
+        session.minimumSpendCents = res.minimumSpendCents;
+      } else {
+        const tables = await mockVenueService.listTables();
+        const table = tables.find((t) => t.id === session.tableId);
+        session.minimumSpendCents = table?.minimumSpend != null ? Math.round(table.minimumSpend * 100) : 0;
+      }
+    }
     if (status === "closed" && settlementMethod) {
       session.settlementMethod = settlementMethod;
       session.settledExternallyAt = new Date().toISOString();
     }
     return clone(session);
+  },
+
+  /**
+   * Moves an open session to another table. The minimum-spend commitment
+   * travels with the party unmodified (a manager override changes it
+   * explicitly via tab:override-minimum, audited separately). Both table
+   * statuses update as part of the same call.
+   */
+  async transferSession(
+    sessionId: string,
+    toTableId: string,
+    toTableCode: string,
+    toZoneName: string,
+    staffId: string,
+    staffName: string,
+  ): Promise<GuestSession | null> {
+    await delay(400);
+    const session = sessions.find((s) => s.id === sessionId);
+    if (!session) return null;
+    const fromTableId = session.tableId;
+    const fromTableCode = session.tableCode;
+    session.transferredFromTableId = session.transferredFromTableId ?? fromTableId;
+    session.tableId = toTableId;
+    session.tableCode = toTableCode;
+    session.zoneName = toZoneName;
+    await mockVenueService.setTableStatus(toTableId, "occupied");
+    await mockVenueService.setTableStatus(fromTableId, "open");
+    await mockAuditService.record({
+      actorStaffId: staffId,
+      actorName: staffName,
+      action: "tab:transfer",
+      targetType: "session",
+      targetId: session.id,
+      summary: `Transferred ${session.displayName}'s tab from ${fromTableCode} to ${toTableCode}`,
+      metadata: { fromTableId, toTableId },
+    });
+    return clone(session);
+  },
+
+  /**
+   * Folds `childSessionId`'s tab into `parentSessionId`: orders re-point to
+   * the parent (callers pass the order ids to move — this method only owns
+   * the session-side of the merge), the child becomes `merged`, and the
+   * higher of the two minimums applies to the parent.
+   */
+  async mergeSession(
+    childSessionId: string,
+    parentSessionId: string,
+    staffId: string,
+    staffName: string,
+  ): Promise<GuestSession | null> {
+    await delay(400);
+    const child = sessions.find((s) => s.id === childSessionId);
+    const parent = sessions.find((s) => s.id === parentSessionId);
+    if (!child || !parent) return null;
+    parent.minimumSpendCents = mergedMinimumSpendCents(
+      parent.minimumSpendCents ?? 0,
+      child.minimumSpendCents ?? 0,
+    );
+    child.status = "merged";
+    child.parentSessionId = parent.id;
+    await mockAuditService.record({
+      actorStaffId: staffId,
+      actorName: staffName,
+      action: "tab:merge",
+      targetType: "session",
+      targetId: parent.id,
+      summary: `Merged ${child.displayName}'s tab (${child.tableCode}) into ${parent.displayName}'s (${parent.tableCode})`,
+      metadata: { childSessionId: child.id },
+    });
+    return clone(parent);
   },
 
   async listHelpRequests(): Promise<HelpRequest[]> {

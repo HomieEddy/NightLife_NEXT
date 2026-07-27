@@ -11,6 +11,7 @@ import {
   orderTotalCents,
   remainingAdjustableCents,
   shortfallRatio,
+  splitSessionByItems,
 } from "./tab";
 import type { Order, OrderItem, TabAdjustment } from "./types";
 
@@ -245,6 +246,40 @@ describe("shortfallRatio", () => {
   it("scales with how far under the minimum the tab sits", () => {
     const balance = computeSessionBalance("gs-1", [order({ total: 400 })], [], 80000);
     expect(shortfallRatio(balance)).toBeCloseTo(0.5);
+  });
+});
+
+describe("splitSessionByItems", () => {
+  it("routes assigned items to their guest and spreads fees/unassigned lines evenly", () => {
+    const o = order({
+      subtotal: 360,
+      serviceFee: 20,
+      tip: 0,
+      total: 380,
+      items: [
+        orderItem({ id: "oi-a", unitPrice: 180, quantity: 1 }),
+        orderItem({ id: "oi-b", unitPrice: 180, quantity: 1 }),
+      ],
+    });
+    const shares = splitSessionByItems(
+      [o],
+      [
+        { orderId: o.id, orderItemId: "oi-a", guestIndex: 0 },
+        { orderId: o.id, orderItemId: "oi-b", guestIndex: 1 },
+      ],
+      2,
+    );
+    expect(shares).toHaveLength(2);
+    expect(shares[0]).toBe(18000 + 1000); // their bottle + half the $20 service fee
+    expect(shares[1]).toBe(18000 + 1000);
+    expect(shares[0] + shares[1]).toBe(38000); // sums to the order total, in cents
+  });
+
+  it("splits unassigned lines evenly, remainder-safe, when nothing is assigned", () => {
+    const o = order({ subtotal: 100, serviceFee: 0, tip: 0, total: 100, items: [orderItem({ unitPrice: 100, quantity: 1 })] });
+    const shares = splitSessionByItems([o], [], 3);
+    expect(shares.reduce((s, v) => s + v, 0)).toBe(10000);
+    expect(Math.max(...shares) - Math.min(...shares)).toBeLessThanOrEqual(1);
   });
 });
 

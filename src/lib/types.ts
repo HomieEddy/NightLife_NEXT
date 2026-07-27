@@ -46,6 +46,10 @@ export interface Venue {
   tipPresets: number[];
   /** The default-selected tip percentage when the cart opens. */
   defaultTipPct: number;
+  /** Comps at or below this amount are self-service; above it escalates to manager approval. */
+  compThresholdCents: number;
+  /** Minimum-spend progress ring turns warning-colored once shortfall/minimum crosses this ratio. */
+  minimumSpendWarningRatio: number;
 }
 
 export interface Zone {

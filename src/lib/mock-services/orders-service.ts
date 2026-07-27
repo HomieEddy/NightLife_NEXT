@@ -2,16 +2,32 @@
  * mockOrdersService — future backend boundary for order lifecycle.
  * The permanent demo counterpart to transactional live orders and SSE updates.
  */
-import type { CartLine, MenuItem, Order, OrderStatus } from "@/lib/types";
+import type {
+  AdjustmentReason,
+  CartLine,
+  MenuItem,
+  Order,
+  OrderStatus,
+  TabAdjustment,
+  TabAdjustmentKind,
+} from "@/lib/types";
 import { mockOrders } from "@/lib/mock-data/orders";
 import { mockVenue } from "@/lib/mock-data/venue";
+import { mockAdjustmentReasons } from "@/lib/mock-data/tab";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
 import { cartHappyHourDiscount } from "@/lib/happy-hour";
 import { orderLineSubtotal } from "@/lib/order-line";
 import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
+import {
+  isAdjustmentAmountValid,
+  orderItemAmountCents,
+  orderItemPartialAmountCents,
+  orderTotalCents,
+} from "@/lib/tab";
 import { mockGuestsService } from "./guests-service";
 import { mockMenuService, restoreSale } from "./menu-service";
 import { mockVenueService } from "./venue-service";
+import { mockAuditService } from "./audit-service";
 import { clone, delay, uid } from "./delay";
 
 export { nextStatus, ORDER_FLOW };
@@ -20,6 +36,20 @@ export { nextStatus, ORDER_FLOW };
 // simulating shared state between guest and staff surfaces.
 let orders: Order[] = clone(mockOrders);
 let orderCounter = 39;
+
+// ---------- Tab ledger: adjustments (plan 16) ----------
+// Append-only — corrections are new rows (a reversal), never edits (INV-I1 rule).
+let adjustments: TabAdjustment[] = [];
+let adjustmentReasons: AdjustmentReason[] = clone(mockAdjustmentReasons);
+
+function targetKey(orderId: string, orderItemId?: string) {
+  return orderItemId ? `${orderId}:${orderItemId}` : orderId;
+}
+
+/** Existing (non-reversed-away) adjustments against the same order or order-item target. */
+function adjustmentsForTarget(orderId: string, orderItemId?: string): TabAdjustment[] {
+  return adjustments.filter((a) => targetKey(a.orderId ?? "", a.orderItemId) === targetKey(orderId, orderItemId));
+}
 
 /** Once a tab closure is requested the session takes no new orders — UI gates are advisory, this is the wall. */
 async function assertSessionOrderable(sessionId: string | undefined): Promise<void> {
@@ -225,6 +255,18 @@ export const mockOrdersService = {
     return clone(orders.filter((o) => o.sessionId === sessionId));
   },
 
+  /**
+   * Session merge's order-side: re-points every order from the absorbed
+   * (child) session to the parent — one ledger, no new orders created. Call
+   * alongside guestsService.mergeSession(), which owns the session-side.
+   */
+  async reassignOrdersToSession(fromSessionId: string, toSessionId: string): Promise<void> {
+    await delay(200);
+    for (const order of orders) {
+      if (order.sessionId === fromSessionId) order.sessionId = toSessionId;
+    }
+  },
+
   async advanceOrder(orderId: string): Promise<Order | null> {
     await delay(300);
     const order = orders.find((o) => o.id === orderId);
@@ -292,5 +334,156 @@ export const mockOrdersService = {
       `Order ${order.code} cancelled`,
     );
     return clone(order);
+  },
+
+  // ---------- Tab ledger: adjustments (plan 16) ----------
+
+  async listAdjustmentReasons(kind?: TabAdjustmentKind): Promise<AdjustmentReason[]> {
+    await delay(100);
+    const result = kind ? adjustmentReasons.filter((r) => r.kind === kind) : adjustmentReasons;
+    return clone(result.filter((r) => r.isActive));
+  },
+
+  /** All configured reasons, including inactive ones — for the settings editor. */
+  async listAllAdjustmentReasons(): Promise<AdjustmentReason[]> {
+    await delay(100);
+    return clone(adjustmentReasons);
+  },
+
+  async createAdjustmentReason(input: Omit<AdjustmentReason, "id" | "venueId">): Promise<AdjustmentReason> {
+    await delay(300);
+    const reason: AdjustmentReason = { id: uid("ar"), venueId: mockVenue.id, ...input };
+    adjustmentReasons = [...adjustmentReasons, reason];
+    return clone(reason);
+  },
+
+  async setAdjustmentReasonActive(reasonId: string, isActive: boolean): Promise<AdjustmentReason | null> {
+    await delay(200);
+    const reason = adjustmentReasons.find((r) => r.id === reasonId);
+    if (!reason) return null;
+    reason.isActive = isActive;
+    return clone(reason);
+  },
+
+  async listAdjustments(sessionId: string): Promise<TabAdjustment[]> {
+    await delay();
+    return clone(adjustments.filter((a) => a.sessionId === sessionId)).sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    );
+  },
+
+  /**
+   * The one entry point for void / comp / discount. Scope is the whole order
+   * (no orderItemId), one line (orderItemId, no quantity) or a partial
+   * quantity of one line (orderItemId + quantity). Void additionally returns
+   * the affected units to inventory in the same call — comp and discount
+   * leave inventory untouched (the product left the building). Every call
+   * writes one AuditEntry alongside the ledger row (same step, not after).
+   */
+  async adjustOrder(input: {
+    orderId: string;
+    orderItemId?: string;
+    quantity?: number;
+    kind: TabAdjustmentKind;
+    reasonCode: string;
+    note?: string;
+    authorStaffId: string;
+    authorStaffName: string;
+  }): Promise<TabAdjustment> {
+    await delay(400);
+    const order = orders.find((o) => o.id === input.orderId);
+    if (!order) throw new Error("Order not found");
+    if (!order.sessionId) throw new Error("This order has no session to adjust a tab for");
+
+    const item = input.orderItemId ? order.items.find((i) => i.id === input.orderItemId) : undefined;
+    if (input.orderItemId && !item) throw new Error("Order item not found");
+
+    const targetFullCents = item
+      ? orderItemAmountCents(item)
+      : orderTotalCents(order);
+    const amountCents =
+      item && input.quantity != null
+        ? orderItemPartialAmountCents(item, input.quantity)
+        : targetFullCents;
+
+    const prior = adjustmentsForTarget(input.orderId, input.orderItemId);
+    if (!isAdjustmentAmountValid(amountCents, targetFullCents, prior)) {
+      throw new Error("This would adjust more than remains on that line — check for a prior adjustment.");
+    }
+
+    const adjustment: TabAdjustment = {
+      id: uid("adj"),
+      venueId: mockVenue.id,
+      sessionId: order.sessionId,
+      orderId: order.id,
+      orderItemId: input.orderItemId,
+      kind: input.kind,
+      amountCents,
+      quantity: input.quantity,
+      reasonCode: input.reasonCode,
+      note: input.note,
+      authorStaffId: input.authorStaffId,
+      authorStaffName: input.authorStaffName,
+      createdAt: new Date().toISOString(),
+    };
+    adjustments = [adjustment, ...adjustments];
+
+    const label = item
+      ? `${input.quantity ?? item.quantity}× ${item.name}`
+      : `order ${order.code}`;
+    await mockAuditService.record({
+      actorStaffId: input.authorStaffId,
+      actorName: input.authorStaffName,
+      action: `tab:${input.kind}`,
+      targetType: "order",
+      targetId: order.id,
+      summary: `${input.kind[0].toUpperCase()}${input.kind.slice(1)}ed ${label} — ${input.reasonCode}`,
+      metadata: { sessionId: order.sessionId, amountCents, reasonCode: input.reasonCode, note: input.note },
+    });
+
+    // Void = it never happened — return the void'd units to inventory.
+    // Comp/discount = it happened, inventory stays as-is (product left the building).
+    if (input.kind === "void") {
+      const voidQty = item ? (input.quantity ?? item.quantity) : undefined;
+      const lines = item
+        ? [{ menuItemId: item.menuItemId, quantity: voidQty! }]
+        : order.items.map((oi) => ({ menuItemId: oi.menuItemId, quantity: oi.quantity }));
+      await restoreSale(lines, `Void — ${input.reasonCode}`, adjustment.id);
+    }
+
+    return clone(adjustment);
+  },
+
+  /** Records a reversal row and marks the original superseded — never edited or deleted (INV-I1). */
+  async reverseAdjustment(adjustmentId: string, staffId: string, staffName: string): Promise<TabAdjustment | null> {
+    await delay(300);
+    const original = adjustments.find((a) => a.id === adjustmentId);
+    if (!original || original.reversedByAdjustmentId) return null;
+    const reversal: TabAdjustment = {
+      id: uid("adj"),
+      venueId: mockVenue.id,
+      sessionId: original.sessionId,
+      orderId: original.orderId,
+      orderItemId: original.orderItemId,
+      kind: original.kind,
+      amountCents: 0,
+      reasonCode: original.reasonCode,
+      note: `Reversal of ${original.id}`,
+      authorStaffId: staffId,
+      authorStaffName: staffName,
+      createdAt: new Date().toISOString(),
+    };
+    adjustments = [reversal, ...adjustments];
+    original.reversedByAdjustmentId = reversal.id;
+    await mockAuditService.record({
+      actorStaffId: staffId,
+      actorName: staffName,
+      action: "tab:reverse-adjustment",
+      targetType: "adjustment",
+      targetId: original.id,
+      summary: `Reversed a ${original.kind} adjustment on order ${original.orderId}`,
+      metadata: { sessionId: original.sessionId },
+    });
+    return clone(original);
   },
 };

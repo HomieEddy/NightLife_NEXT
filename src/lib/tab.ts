@@ -189,3 +189,49 @@ export function computeCashoutVariance(
     SETTLEMENT_METHODS.reduce((total, method) => total + rec[method], 0);
   return sum(countedByMethod) - sum(expectedByMethod);
 }
+
+// ---------- Split by item ----------
+// Splitting never creates new orders — it's N receipt views over one session's balance.
+
+export interface SplitAssignment {
+  orderId: string;
+  orderItemId: string;
+  guestIndex: number; // 0-based
+}
+
+/**
+ * Per-guest cents for a "split by item" view: each assigned line's amount
+ * goes to its guest; the session's fees/adjustments/unassigned lines are
+ * spread evenly (evenShares-style, remainder-safe) across every guest.
+ */
+export function splitSessionByItems(
+  orders: Order[],
+  assignments: SplitAssignment[],
+  guestCount: number,
+): number[] {
+  if (guestCount <= 0) return [];
+  const perGuest = new Array(guestCount).fill(0) as number[];
+  let unassignedCents = 0;
+
+  for (const order of orders) {
+    for (const item of order.items) {
+      const assignment = assignments.find((a) => a.orderItemId === item.id && a.orderId === order.id);
+      const amountCents = orderItemAmountCents(item);
+      if (assignment && assignment.guestIndex >= 0 && assignment.guestIndex < guestCount) {
+        perGuest[assignment.guestIndex] += amountCents;
+      } else {
+        unassignedCents += amountCents;
+      }
+    }
+    // Fees/tip ride on top of the item subtotal — spread with the unassigned pool too.
+    const feesAndTipCents = Math.round((order.serviceFee + order.tip) * 100);
+    unassignedCents += feesAndTipCents;
+  }
+
+  const base = Math.floor(unassignedCents / guestCount);
+  const remainder = unassignedCents - base * guestCount;
+  for (let i = 0; i < guestCount; i++) {
+    perGuest[i] += base + (i < remainder ? 1 : 0);
+  }
+  return perGuest;
+}
