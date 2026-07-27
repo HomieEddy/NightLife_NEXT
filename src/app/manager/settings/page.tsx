@@ -12,10 +12,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
 import { venueService } from "@/lib/services/venue-service";
+import { ordersService } from "@/lib/services/orders-service";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
 import { setManagerOnboarded } from "@/lib/onboarding";
 import { cn } from "@/lib/utils";
-import type { ServiceFee, Venue } from "@/lib/types";
+import type { AdjustmentReason, ServiceFee, TabAdjustmentKind, Venue } from "@/lib/types";
 
 export default function ManagerSettingsPage() {
   const router = useRouter();
@@ -544,6 +545,8 @@ export default function ManagerSettingsPage() {
         </CardContent>
       </Card>
 
+      <TabLedgerCard venue={venue} setVenue={setVenue} />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Setup</CardTitle>
@@ -568,5 +571,145 @@ export default function ManagerSettingsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// ---------- Tab ledger: comp threshold, warning ratio, reason codes ----------
+
+const KIND_LABEL: Record<TabAdjustmentKind, string> = { void: "Void", comp: "Comp", discount: "Discount" };
+
+function TabLedgerCard({
+  venue,
+  setVenue,
+}: {
+  venue: Venue;
+  setVenue: (venue: Venue) => void;
+}) {
+  const [reasons, setReasons] = useState<AdjustmentReason[] | null>(null);
+  const [newCode, setNewCode] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [newKind, setNewKind] = useState<TabAdjustmentKind>("comp");
+  const [savingReason, setSavingReason] = useState(false);
+
+  useEffect(() => {
+    ordersService.listAllAdjustmentReasons().then(setReasons);
+  }, []);
+
+  async function addReason() {
+    if (!newCode.trim() || !newLabel.trim()) {
+      toast.error("Give the reason a code and a label");
+      return;
+    }
+    setSavingReason(true);
+    try {
+      const reason = await ordersService.createAdjustmentReason({
+        kind: newKind,
+        code: newCode.trim(),
+        label: newLabel.trim(),
+        isActive: true,
+      });
+      setReasons((prev) => [...(prev ?? []), reason]);
+      setNewCode("");
+      setNewLabel("");
+      toast.success(`Added "${reason.label}"`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not add the reason");
+    } finally {
+      setSavingReason(false);
+    }
+  }
+
+  async function toggleReason(reasonId: string, isActive: boolean) {
+    const updated = await ordersService.setAdjustmentReasonActive(reasonId, isActive);
+    if (updated) setReasons((prev) => (prev ?? []).map((r) => (r.id === reasonId ? updated : r)));
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Tab ledger</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="comp-threshold">Comp threshold ($)</Label>
+            <Input
+              id="comp-threshold"
+              type="number"
+              min={0}
+              step="1"
+              value={venue.compThresholdCents / 100}
+              onChange={(e) =>
+                setVenue({ ...venue, compThresholdCents: Math.round(Number(e.target.value || 0) * 100) })
+              }
+            />
+            <p className="text-xs text-muted-foreground">Comps above this escalate to manager approval.</p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="min-spend-ratio">Minimum-spend warning ratio</Label>
+            <Input
+              id="min-spend-ratio"
+              type="number"
+              min={0}
+              max={1}
+              step="0.05"
+              value={venue.minimumSpendWarningRatio}
+              onChange={(e) => setVenue({ ...venue, minimumSpendWarningRatio: Number(e.target.value || 0) })}
+            />
+            <p className="text-xs text-muted-foreground">Shortfall/minimum ratio that turns the progress ring amber.</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Reason codes</Label>
+          {reasons === null ? (
+            <Skeleton className="h-24 rounded-lg" />
+          ) : (
+            <div className="space-y-1.5">
+              {reasons.map((reason) => (
+                <div key={reason.id} className="flex items-center justify-between gap-3 rounded-lg border bg-card/50 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{reason.label}</p>
+                    <p className="text-xs capitalize text-muted-foreground">{reason.kind} · {reason.code}</p>
+                  </div>
+                  <Switch
+                    checked={reason.isActive}
+                    onCheckedChange={(checked) => toggleReason(reason.id, checked)}
+                    aria-label={`${reason.label} active`}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="grid grid-cols-[7rem_1fr_1fr_auto] items-end gap-2 rounded-lg border p-3">
+            <div className="space-y-1">
+              <Label htmlFor="new-reason-kind" className="text-xs">Kind</Label>
+              <select
+                id="new-reason-kind"
+                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+                value={newKind}
+                onChange={(e) => setNewKind(e.target.value as TabAdjustmentKind)}
+              >
+                {(["void", "comp", "discount"] as const).map((k) => (
+                  <option key={k} value={k}>{KIND_LABEL[k]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="new-reason-code" className="text-xs">Code</Label>
+              <Input id="new-reason-code" value={newCode} onChange={(e) => setNewCode(e.target.value)} placeholder="staff-error" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="new-reason-label" className="text-xs">Label</Label>
+              <Input id="new-reason-label" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Staff error" />
+            </div>
+            <Button type="button" size="sm" onClick={addReason} disabled={savingReason}>
+              <Plus className="size-3.5" /> Add
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
