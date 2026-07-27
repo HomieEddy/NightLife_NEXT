@@ -10,10 +10,8 @@ we run the app locally, never what the app does.
 
 Preconditions: none on the feature plans. The existing `docker-compose.yml`
 (bare Postgres) is the seed; this plan absorbs and replaces it. The PGlite
-integration-test harness (`src/server/test-pglite.ts`) and the
-`@testcontainers/postgresql` devDependency are explicitly **out of scope and
-preserved as-is** — tests keep running in-process with zero Docker
-requirement, per §7b.1.
+integration-test harness (`src/server/test-pglite.ts`) is explicitly **preserved
+as-is** — tests keep running in-process with zero Docker requirement, per §7b.1.
 
 ## Reasoning
 

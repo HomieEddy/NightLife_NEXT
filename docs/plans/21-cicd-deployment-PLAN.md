@@ -1,6 +1,6 @@
 # 21 — CI/CD & Deployment Runbook · PLAN
 
-**Status: not started.**
+**Status: not started — deferred to Phase 7 per AD-23 and ROADMAP.**
 
 Goal: no human runs the verification ladder from memory before a merge, and
 no deploy is a mystery. Ships: a GitHub Actions CI pipeline enforcing the §5
@@ -8,9 +8,14 @@ ladder on every PR, branch protection making it binding, deploy wiring per
 HOSTING.md (Coolify staging/prod, Vercel demo) with notifications and a
 practiced rollback, and the deployment half of `docs/RUNBOOK.md`.
 
-Preconditions: none — this is the first go-live plan to execute, because
-every later plan's PRs should land through this gate. Branch
-`chore/14-cicd-deployment`.
+**Sequencing note:** This plan is deferred to Phase 7 per AD-23 and the
+ROADMAP strategy ("business logic first"). A minimal CI gate (tsc + eslint +
+unit test on PRs to `dev`) is permitted early as a development convenience.
+Full CI/CD with automated deploys, blue-green strategies, and rollback
+automation waits until Phases 1–6 are functionally complete.
+
+Preconditions: none on feature plans — this plan executes standalone in
+Phase 7. Branch `chore/21-cicd-deployment`.
 
 ## Reasoning
 

@@ -40,8 +40,8 @@ Interpretation choices (stated per §1.4):
   watching a whale table spend is the feature.
 - "The spenders" = revenue attributed per promoter, plus per-guest average and
   a top-tables list — enough to answer "who brings volume vs. who brings
-  whales" without building a guest-CRM (out of scope, guests stay
-  pseudonymous per PRD §7).
+  whales". Guest identity and CRM ship in Plan 17; this plan measures
+  promoter-attributed spend without building the guest profile system.
 
 ## Design choices
 

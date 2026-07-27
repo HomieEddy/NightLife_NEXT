@@ -286,12 +286,24 @@ feature's plan names its required tests; don't invent a different set silently.
 4. Version control mechanics — commit cadence, message format, what never to
    do — live in §10.
 
-## 9. Phase 2 — backend migration playbook
+## 9. Product strategy & graduation playbook
+
+**The master roadmap is `docs/ROADMAP.md`** (re-aligned 2026-07-27). It
+organises all work into seven phases: Foundation → Core Ops → Business Logic
+Completion → Automation & Intelligence → Mobile (PWA + Push) → Production
+Readiness → CI/CD. Business logic completes before infrastructure automation.
+
+**Strategy: Business Logic First.** Every operational gap from the comprehensive
+business logic audit must be addressed before CI/CD, deployment automation, or
+production hardening. The PWA is the primary staff delivery target; push
+notifications are a first-class feature, not an afterthought.
+
+**The architecture is governed by `docs/ARD.md`** (PRD/ARD/DDD + per-feature
+plans) — where this section and docs/ disagree, docs/ wins and this file gets
+fixed.
 
 The prototype was built so the backend can land **service by service, not big
 bang**. The whole design bet is the service boundary; cash it in like this.
-Full decisions live in `docs/` (PRD/ARD/DDD/ROADMAP + per-feature plans) —
-where this section and docs/ disagree, docs/ wins and this file gets fixed.
 
 1. **The service interface is the contract — and the mocks never die.** The
    mock-powered Live Demo is a permanent product surface (ARD AD-14): every

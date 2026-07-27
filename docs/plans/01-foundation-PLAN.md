@@ -26,12 +26,11 @@ features move fast.
   it becomes the first unit-tested function).
 - **Env** per AD-13: `src/lib/env.ts` Zod-validates `DATABASE_URL`, secrets at boot.
 - **Dual-mode selector layer** per AD-14: `src/lib/app-mode.ts`
-  (`isDemoMode()` from `NEXT_PUBLIC_APP_MODE`; **unset = demo**, so plain
-  `npm run dev` boots the sandbox with no DB or env — backend work uses a new
-  `dev:live` script) and `src/lib/services/` — one
-  selector file per service exporting the plain name
-  (`export const venueService: VenueService = isDemoMode() ? mockVenueService :
-  realVenueService`, with `type VenueService = typeof mockVenueService`).
+   (`isDemoMode()` from `NEXT_PUBLIC_APP_MODE`; **must be set explicitly** —
+   missing or misspelled values fail configuration at boot, per AD-13).
+   `src/lib/services/` — one selector file per service exporting the plain name
+   (`export const venueService: VenueService = isDemoMode() ? mockVenueService :
+   realVenueService`, with `type VenueService = typeof mockVenueService`).
   Until a real implementation exists, the selector exports the mock for both
   modes — so **this plan already migrates every page import** from
   `mock-services/*` to `services/*` (mechanical, zero behavior change), and adds
@@ -42,9 +41,11 @@ features move fast.
   and inserts them (dollar → cents at the boundary). Mock data stays the single
   source of demo truth (AGENTS.md §9.4).
 - **Test infra** per AD-10: Vitest configured with two projects — `unit` (node, no
-  DB) and `integration` (Testcontainers Postgres, `prisma migrate deploy` +
-  seed-per-suite, truncation between tests). Playwright installed with one smoke
-  spec (landing page renders) to prove the harness.
+   DB) and `integration` (PGlite in-process, `prisma migrate deploy` +
+   seed-per-suite). Playwright installed with one smoke
+   spec (landing page renders) to prove the harness.
+   Integration tests use PGlite — zero Docker requirement per §7b.1.
+   `src/server/test-pglite.ts` provides the harness.
 - **No schema for features yet.** Only the platform-independent primitives:
   `Tenant` (referenced by scoping), `JobRun` (AD-9). Feature tables land with
   their plans — schema-with-its-feature keeps PRs reviewable.
