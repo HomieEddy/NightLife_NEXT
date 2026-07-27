@@ -1,12 +1,15 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { Check, Loader2, UserSquare2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import type { StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
+import { guestService } from "@/lib/services/guest-service";
+import { formatMoney } from "@/lib/format";
+import type { GuestProfile, StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
 
 export type ReservationDraft = {
   guestName: string;
@@ -18,6 +21,8 @@ export type ReservationDraft = {
   note: string;
   promoterId?: string;
   eventId?: string;
+  /** Resolved via dedupe search below — links the booking to a persistent guest identity. */
+  guestProfileId?: string;
 };
 
 export function toLocalInput(iso: string): string {
@@ -70,6 +75,25 @@ export function ReservationFormDialog({
   promoters,
   events,
 }: ReservationFormDialogProps) {
+  const [candidates, setCandidates] = useState<GuestProfile[]>([]);
+  const linkedProfile = candidates.find((c) => c.id === draft.guestProfileId);
+
+  // Dedupe search — phone/email aren't collected on this form yet, so this
+  // matches on name only; the door and reservation-profile-search flows are
+  // where phone/email dedupe actually earns its keep (see mock-services/guest-service.ts).
+  useEffect(() => {
+    if (!open || draft.guestProfileId || draft.guestName.trim().length < 3) {
+      setCandidates([]);
+      return;
+    }
+    const [firstName, ...rest] = draft.guestName.trim().split(/\s+/);
+    const timeout = setTimeout(() => {
+      guestService.findCandidates({ firstName, lastName: rest.join(" ") || undefined }).then(setCandidates);
+    }, 300);
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.guestName, open, draft.guestProfileId]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
@@ -82,9 +106,42 @@ export function ReservationFormDialog({
             <Input
               id="res-name"
               value={draft.guestName}
-              onChange={(e) => setDraft({ ...draft, guestName: e.target.value })}
+              onChange={(e) => setDraft({ ...draft, guestName: e.target.value, guestProfileId: undefined })}
               placeholder="e.g. Jean Dupont"
             />
+            {linkedProfile ? (
+              <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/5 px-2.5 py-1.5 text-xs">
+                <span className="flex items-center gap-1.5">
+                  <Check className="size-3.5 text-primary" /> Linked to {linkedProfile.displayName}
+                  {linkedProfile.vipTier !== "none" && ` · ${linkedProfile.vipTier}`}
+                  {" · "}{linkedProfile.visitCount} visits · {formatMoney(linkedProfile.lifetimeNetCents / 100)}
+                </span>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setDraft({ ...draft, guestProfileId: undefined })}
+                >
+                  Not them
+                </button>
+              </div>
+            ) : (
+              candidates.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Matches an existing guest?</p>
+                  {candidates.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setDraft({ ...draft, guestProfileId: c.id })}
+                      className="flex w-full items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors hover:border-primary/50"
+                    >
+                      <UserSquare2 className="size-3.5 shrink-0 text-muted-foreground" />
+                      {c.displayName} — {c.visitCount} visits
+                    </button>
+                  ))}
+                </div>
+              )
+            )}
           </div>
           {events && events.length > 0 && (
             <div className="space-y-1.5">
