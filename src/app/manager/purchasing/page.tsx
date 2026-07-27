@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowUpDown, Package, Plus, Search, ShoppingCart, Truck } from "lucide-react";
+import { ArrowUpDown, BookOpen, Package, Plus, Pencil, Search, ShoppingCart, Trash2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,12 @@ export default function ManagerPurchasingPage() {
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receivingPO, setReceivingPO] = useState<PurchaseOrder | null>(null);
   const [receiveQty, setReceiveQty] = useState<Record<string, number>>({});
+
+  // Catalogue management dialog
+  const [catOpen, setCatOpen] = useState(false);
+  const [catSupplierId, setCatSupplierId] = useState("");
+  const [catForm, setCatForm] = useState({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false });
+  const [catEditing, setCatEditing] = useState<SupplierItem | null>(null);
 
   const refresh = useCallback(async () => {
     const [sups, pos, its, sis, sts, me] = await Promise.all([
@@ -142,6 +148,44 @@ export default function ManagerPurchasingPage() {
     setSuggestions(s); toast.success(`Found ${s.length} items below par`);
   }
 
+  // ── Catalogue management ──
+  function openCatalogue(supplierId: string) { setCatSupplierId(supplierId); setCatEditing(null); setCatForm({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false }); setCatOpen(true); }
+
+  function editCatalogueItem(si: SupplierItem) {
+    setCatEditing(si);
+    setCatForm({ menuItemId: si.menuItemId, unitCostCents: si.unitCostCents ? String(si.unitCostCents / 100) : "", caseSize: si.caseSize ? String(si.caseSize) : "", caseCostCents: si.caseCostCents ? String(si.caseCostCents / 100) : "", supplierSku: si.supplierSku ?? "", preferred: si.preferred });
+    setCatOpen(true);
+  }
+
+  function addNewCatalogueItem() {
+    setCatEditing(null);
+    setCatForm({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false });
+  }
+
+  async function saveCatalogueItem() {
+    if (!catForm.menuItemId) { toast.error("Select an item"); return; }
+    setBusy(true); try {
+      const si: SupplierItem = {
+        id: catEditing?.id ?? `si-${catSupplierId}-${catForm.menuItemId}`,
+        supplierId: catSupplierId,
+        menuItemId: catForm.menuItemId,
+        unitCostCents: catForm.unitCostCents ? Math.round(parseFloat(catForm.unitCostCents) * 100) : undefined,
+        caseSize: catForm.caseSize ? parseInt(catForm.caseSize) : undefined,
+        caseCostCents: catForm.caseCostCents ? Math.round(parseFloat(catForm.caseCostCents) * 100) : undefined,
+        supplierSku: catForm.supplierSku.trim() || undefined,
+        preferred: catForm.preferred,
+      };
+      await purchasingService.saveSupplierItem(si); await refresh();
+      // Return to list view
+      setCatEditing(null); setCatForm({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false });
+      toast.success(catEditing ? "Catalogue item updated" : "Item added to catalogue");
+    } catch { toast.error("Could not save catalogue item"); } finally { setBusy(false); }
+  }
+
+  async function removeFromCatalogue(siId: string) {
+    setBusy(true); try { await purchasingService.removeSupplierItem(siId); await refresh(); toast.success("Removed from catalogue"); } catch { toast.error("Could not remove"); } finally { setBusy(false); }
+  }
+
   if (!ready) return <ListSkeleton />;
 
   return (
@@ -184,6 +228,7 @@ export default function ManagerPurchasingPage() {
                 {!sup.active && <Badge variant="outline">Inactive</Badge>}
               </div>
               <div className="flex gap-1">
+                <Button size="sm" variant="outline" onClick={() => openCatalogue(sup.id)}><BookOpen className="size-4 mr-1" /> Catalogue</Button>
                 <Button size="sm" variant="outline" onClick={() => computeSuggestions(sup.id)}><ShoppingCart className="size-4 mr-1" /> Par check</Button>
                 <Button size="sm" variant="outline" onClick={() => openPO(sup.id)} disabled={busy}><Plus className="size-4 mr-1" /> New PO</Button>
               </div>
@@ -358,6 +403,79 @@ export default function ManagerPurchasingPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setPoOpen(false)}>Cancel</Button>
             <Button onClick={savePO} disabled={busy}>Create PO</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Catalogue management dialog */}
+      <Dialog open={catOpen} onOpenChange={setCatOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Catalogue — {suppliers.find((s) => s.id === catSupplierId)?.name}</DialogTitle>
+            <DialogDescription>{catEditing ? "Edit catalogue entry" : "Manage which items this supplier carries and at what price."}</DialogDescription>
+          </DialogHeader>
+
+          {/* Add/edit form */}
+          <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <Label className="text-xs">Item</Label>
+                <Select value={catForm.menuItemId} onValueChange={(v) => setCatForm((p) => ({ ...p, menuItemId: v }))}>
+                  <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Select menu item" /></SelectTrigger>
+                  <SelectContent>
+                    {items.filter((i) => catEditing || !supplierItems.some((si) => si.supplierId === catSupplierId && si.menuItemId === i.id)).map((i) => (
+                      <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-24">
+                <Label className="text-xs">Unit cost ($)</Label>
+                <Input className="mt-1 h-8 text-sm" value={catForm.unitCostCents} onChange={(e) => setCatForm((p) => ({ ...p, unitCostCents: e.target.value }))} placeholder="4.00" />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1"><Label className="text-xs">SKU</Label><Input className="mt-1 h-8 text-sm" value={catForm.supplierSku} onChange={(e) => setCatForm((p) => ({ ...p, supplierSku: e.target.value }))} placeholder="GG-750" /></div>
+              <div className="w-20"><Label className="text-xs">Case size</Label><Input className="mt-1 h-8 text-sm" type="number" value={catForm.caseSize} onChange={(e) => setCatForm((p) => ({ ...p, caseSize: e.target.value }))} placeholder="6" /></div>
+              <div className="w-24"><Label className="text-xs">Case cost ($)</Label><Input className="mt-1 h-8 text-sm" value={catForm.caseCostCents} onChange={(e) => setCatForm((p) => ({ ...p, caseCostCents: e.target.value }))} placeholder="24.00" /></div>
+            </div>
+            <label className="flex items-center gap-2 text-xs">
+              <input type="checkbox" checked={catForm.preferred} onChange={(e) => setCatForm((p) => ({ ...p, preferred: e.target.checked }))} />
+              Preferred supplier for this item
+            </label>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={saveCatalogueItem} disabled={!catForm.menuItemId || busy}>{catEditing ? "Update" : "Add to catalogue"}</Button>
+              {catEditing && <Button size="sm" variant="ghost" onClick={addNewCatalogueItem}>Cancel edit</Button>}
+            </div>
+          </div>
+
+          {/* Existing catalogue items */}
+          <div className="max-h-60 space-y-1 overflow-y-auto">
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              {supplierItems.filter((si) => si.supplierId === catSupplierId).length} items in catalogue
+            </p>
+            {supplierItems.filter((si) => si.supplierId === catSupplierId).map((si) => {
+              const mi = items.find((i) => i.id === si.menuItemId);
+              return (
+                <div key={si.id} className="flex items-center gap-2 rounded-md border px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{mi?.name ?? si.menuItemId}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatMoney(si.unitCostCents ?? 0, "CAD")}/unit
+                      {si.supplierSku && ` · ${si.supplierSku}`}
+                      {si.caseSize && ` · case of ${si.caseSize}`}
+                      {si.preferred && <Badge variant="secondary" className="ml-1 text-[9px]">Preferred</Badge>}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => editCatalogueItem(si)}><Pencil className="size-3" /></Button>
+                  <ConfirmDialog trigger={<Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive"><Trash2 className="size-3" /></Button>} title="Remove from catalogue?" description={`Remove ${mi?.name ?? si.menuItemId} from this supplier.`} confirmLabel="Remove" destructive onConfirm={() => removeFromCatalogue(si.id)} />
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCatOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

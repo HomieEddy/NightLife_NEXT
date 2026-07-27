@@ -10,6 +10,8 @@ export const livePurchasingService: typeof mockPurchasingService = {
   listSuppliers: notYetSupported,
   listSupplierItems: notYetSupported,
   saveSupplier: notYetSupported,
+  saveSupplierItem: notYetSupported,
+  removeSupplierItem: notYetSupported,
   listPurchaseOrders: notYetSupported,
   savePurchaseOrder: notYetSupported,
   submitPurchaseOrder: notYetSupported,
