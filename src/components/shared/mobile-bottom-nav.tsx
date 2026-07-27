@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isNavActive } from "@/lib/navigation";
 
 export interface BottomNavItem {
   href: string;
@@ -35,12 +36,12 @@ export function MobileBottomNav({
     >
       <div className="mx-auto flex max-w-lg items-stretch">
         {items.map((item) => {
-          const active =
-            pathname === item.href || (pathname.startsWith(`${item.href}/`) && item.href.split("/").length > 2);
+          const active = isNavActive(pathname, item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors",
                 active ? "text-primary" : "text-muted-foreground hover:text-foreground",

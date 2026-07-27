@@ -2,10 +2,13 @@ import {
   AlertTriangle,
   BarChart3,
   Boxes,
+  Building2,
   CalendarDays,
   Clock,
   CreditCard,
   FileText,
+  Filter,
+  Layers,
   LayoutDashboard,
   ListChecks,
   Map,
@@ -15,6 +18,7 @@ import {
   PartyPopper,
   QrCode,
   Receipt,
+  Rocket,
   Settings,
   ShoppingCart,
   Table2,
@@ -103,6 +107,16 @@ export const MANAGER_FOOTER_ITEMS: NavItem[] = [
 export const DEMO_FOOTER_ITEMS: NavItem[] = [
   { href: "/manager/settings", label: "Settings", icon: Settings },
   { href: "/manager/subscription", label: "Subscription", icon: CreditCard },
+];
+
+/** Admin area — horizontal pill nav at the top. Single group since admin is flat. */
+export const ADMIN_NAV: NavItem[] = [
+  { href: "/admin", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin/leads", label: "Lead pipeline", icon: Filter },
+  { href: "/admin/venues", label: "Tenants", icon: Building2 },
+  { href: "/admin/onboarding", label: "Provisioning", icon: Rocket },
+  { href: "/admin/plans", label: "Plans", icon: Layers },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 // ---------- Collapsible group state ----------
