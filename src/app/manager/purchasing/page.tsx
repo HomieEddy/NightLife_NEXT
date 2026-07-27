@@ -58,6 +58,10 @@ export default function ManagerPurchasingPage() {
   const [catOpen, setCatOpen] = useState(false);
   const [catSupplierId, setCatSupplierId] = useState("");
   const [catForm, setCatForm] = useState({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false });
+
+  // Stocktake create dialog
+  const [stOpen, setStOpen] = useState(false);
+  const [stDate, setStDate] = useState(new Date().toISOString().slice(0, 10));
   const [catEditing, setCatEditing] = useState<SupplierItem | null>(null);
 
   const refresh = useCallback(async () => {
@@ -68,6 +72,45 @@ export default function ManagerPurchasingPage() {
     setSuppliers(sups); setOrders(pos); setItems(its); setSupplierItems(sis); setStocktakes(sts); setMeId(me.id); setReady(true);
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
+
+  async function startStocktake() {
+    setBusy(true);
+    try {
+      const st: Stocktake = {
+        id: `st-${stDate}`,
+        venueId: "venue-1",
+        businessDate: stDate,
+        scope: "full",
+        status: "open",
+        startedAt: new Date().toISOString(),
+        startedByStaffId: meId,
+        lines: items.map((item) => ({
+          id: `stl-${stDate}-${item.id}`,
+          menuItemId: item.id,
+          expectedQty: item.inventory,
+          countedQty: item.inventory,
+          varianceQty: 0,
+          varianceCents: 0,
+        })),
+        totalVarianceCents: 0,
+      };
+      await purchasingService.saveStocktake(st);
+      toast.success(`Stocktake started for ${stDate}`);
+      setStOpen(false);
+      await refresh();
+    } catch { toast.error("Could not start stocktake"); }
+    finally { setBusy(false); }
+  }
+
+  async function commitStocktake(st: Stocktake) {
+    setBusy(true);
+    try {
+      await purchasingService.commitStocktake(st.id);
+      toast.success("Stocktake committed — adjustment movements written");
+      await refresh();
+    } catch { toast.error("Could not commit"); }
+    finally { setBusy(false); }
+  }
 
   // Filtered data
   const filteredSuppliers = suppliers.filter((s) => (supFilter === "all" || s.id === supFilter) && (searchQuery ? s.name.toLowerCase().includes(searchQuery.toLowerCase()) || (s.contactName ?? "").toLowerCase().includes(searchQuery.toLowerCase()) : true));
@@ -259,27 +302,45 @@ export default function ManagerPurchasingPage() {
       ))}
 
       {/* Stocktakes */}
-      {stocktakes.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center justify-between">
-              Stocktakes
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center justify-between">
+            Stocktakes
+            <div className="flex items-center gap-2">
               <Select value={stStatusFilter} onValueChange={setStStatusFilter}>
                 <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="Filter" /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="open">Open</SelectItem><SelectItem value="counting">Counting</SelectItem><SelectItem value="committed">Committed</SelectItem></SelectContent>
               </Select>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {filteredStocktakes.map((st) => (
+              <Button size="sm" variant="outline" onClick={() => { setStDate(new Date().toISOString().slice(0, 10)); setStOpen(true); }}>
+                <Plus className="size-3.5 mr-1" /> New stocktake
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {filteredStocktakes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No stocktakes yet.</p>
+          ) : (
+            filteredStocktakes.map((st) => (
               <div key={st.id} className="flex items-center justify-between rounded-md border px-3 py-2">
                 <div><p className="text-sm font-medium">{st.businessDate}</p><p className="text-xs text-muted-foreground">{st.scope} · {st.status}{st.committedAt && ` · ${new Date(st.committedAt).toLocaleTimeString()}`}</p></div>
-                <div className="text-right"><p className={`text-sm font-semibold tabular-nums ${st.totalVarianceCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{formatMoney(st.totalVarianceCents, "CAD")}</p><p className="text-xs text-muted-foreground">{st.lines.length} lines</p></div>
+                <div className="flex items-center gap-2 text-right">
+                  <div><p className={`text-sm font-semibold tabular-nums ${st.totalVarianceCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{formatMoney(st.totalVarianceCents, "CAD")}</p><p className="text-xs text-muted-foreground">{st.lines.length} lines</p></div>
+                  {st.status !== "committed" && (
+                    <ConfirmDialog
+                      trigger={<Button size="sm" disabled={busy}>Commit</Button>}
+                      title="Commit stocktake?"
+                      description="Writes adjustment movements for every non-zero variance line. This action is audited and irreversible."
+                      confirmLabel="Commit"
+                      onConfirm={() => commitStocktake(st)}
+                    />
+                  )}
+                </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       {suggestions.length > 0 && (
         <Card>
@@ -476,6 +537,28 @@ export default function ManagerPurchasingPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setCatOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stocktake create dialog */}
+      <Dialog open={stOpen} onOpenChange={setStOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Start new stocktake</DialogTitle>
+            <DialogDescription>
+              Snapshots current stock levels for all {items.length} items. Count and commit after.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div><Label htmlFor="st-date">Business date</Label><Input id="st-date" type="date" value={stDate} onChange={(e) => setStDate(e.target.value)} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStOpen(false)}>Cancel</Button>
+            <Button onClick={startStocktake} disabled={busy}>
+              {busy && "Starting…"}
+              {!busy && "Start stocktake"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
