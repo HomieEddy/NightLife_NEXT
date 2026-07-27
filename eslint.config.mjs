@@ -76,6 +76,7 @@ const eslintConfig = defineConfig([
   {
     files: [
       "src/lib/services/**",
+      "src/lib/live-services/**",
       "src/lib/mock-services/**",
       "src/lib/mock-data/**",
       "src/components/demo/**",

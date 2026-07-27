@@ -5,7 +5,9 @@ import type {
   HelpRequestType,
   Incident,
   Order,
+  StaffMember,
   TabAdjustment,
+  TimeEntry,
   Venue,
   VenueTable,
   WaitlistEntry,
@@ -53,6 +55,13 @@ export function computeAttentionItems(
     occupancyWarnRatio: number;
     waitlistEntries: WaitlistEntry[];
     openIncidents: Incident[];
+  },
+  /** Plan 18: workforce coverage gaps and missing clock-outs. */
+  workforce?: {
+    coverageGaps: { zoneId: string; zoneName: string; missingRoles: string[] }[];
+    openTimeEntries: TimeEntry[];
+    nightEndHour: number;
+    clockedInStaff: StaffMember[];
   },
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
@@ -172,6 +181,40 @@ export function computeAttentionItems(
         tableCode: incident.type.replace(/-/g, " "),
         zoneName: zones.find((z) => z.id === incident.zoneId)?.name ?? "",
         message: `Open ${incident.type.replace(/-/g, " ")} incident — ${Math.round(age)} min`,
+        ageMinutes: age,
+      });
+    }
+  }
+
+  if (workforce) {
+    for (const gap of workforce.coverageGaps) {
+      items.push({
+        id: `coverage-${gap.zoneId}`,
+        type: "zone-uncovered",
+        severity: "warning",
+        tableId: gap.zoneId,
+        tableCode: gap.zoneName,
+        zoneName: gap.zoneName,
+        message: `${gap.zoneName} has open orders but no ${gap.missingRoles.join(" or ")} clocked in`,
+        ageMinutes: 0,
+      });
+    }
+
+    const deadlineMs = 4 * 60 * 60_000; // 4h past nightEndHour
+    for (const entry of workforce.openTimeEntries) {
+      if (entry.clockOutAt) continue;
+      const age = ageMinutes(entry.clockInAt!);
+      const missingSince = new Date(entry.clockInAt!).getTime() + deadlineMs;
+      if (Date.now() < missingSince) continue;
+      const staff = workforce.clockedInStaff.find((s) => s.id === entry.staffId);
+      items.push({
+        id: `clock-missing-${entry.id}`,
+        type: "clock-out-missing",
+        severity: "critical",
+        tableId: "workforce",
+        tableCode: staff?.name ?? entry.staffId,
+        zoneName: "",
+        message: `${staff?.name ?? entry.staffId} still clocked in after ${Math.round(age / 60)}h — forgotten clock-out?`,
         ageMinutes: age,
       });
     }

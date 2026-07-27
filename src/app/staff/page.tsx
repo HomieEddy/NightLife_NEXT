@@ -10,6 +10,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { ClockCard } from "@/components/shared/clock-card";
 import { doorService } from "@/lib/services/door-service";
 import { incidentService } from "@/lib/services/incident-service";
 import { ordersService } from "@/lib/services/orders-service";
@@ -299,6 +300,8 @@ export default function StaffHomePage() {
           </p>
         )}
       </div>
+
+      {me && <ClockCard staffId={me.id} />}
 
       {counts === null ? (
         <div className="grid grid-cols-2 gap-3">
