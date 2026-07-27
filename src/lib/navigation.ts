@@ -15,8 +15,8 @@ import {
   PartyPopper,
   QrCode,
   Receipt,
-  ShoppingCart,
   Settings,
+  ShoppingCart,
   Table2,
   Tag,
   UserSquare2,
@@ -45,7 +45,7 @@ export const MANAGER_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
       { href: "/manager/orders", label: "Orders", icon: Receipt },
-      { href: "/manager/purchasing", label: "Purchasing", icon: ShoppingCart },
+      { href: "/manager/pulse", label: "Pulse", icon: AlertTriangle },
       { href: "/manager/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
     ],
   },
@@ -63,6 +63,7 @@ export const MANAGER_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/manager/menu", label: "Menu", icon: Martini },
       { href: "/manager/inventory", label: "Inventory", icon: Boxes, feature: "inventory" },
+      { href: "/manager/purchasing", label: "Purchasing", icon: ShoppingCart },
       { href: "/manager/happy-hour", label: "Happy hour", icon: Clock, feature: "happy-hour" },
       { href: "/manager/promotions", label: "Promotions", icon: Tag, feature: "promotions" },
     ],
@@ -73,7 +74,6 @@ export const MANAGER_NAV_GROUPS: NavGroup[] = [
       { href: "/manager/reservations", label: "Reservations", icon: CalendarDays, feature: "reservations" },
       { href: "/manager/events", label: "Events", icon: PartyPopper, feature: "events" },
       { href: "/manager/guests", label: "Guests", icon: UserSquare2, feature: "guest-crm" },
-      { href: "/manager/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents" },
     ],
   },
   {
@@ -88,6 +88,7 @@ export const MANAGER_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/manager/analytics", label: "Analytics", icon: BarChart3, feature: "analytics" },
       { href: "/manager/reports", label: "Reports", icon: FileText, feature: "reports" },
+      { href: "/manager/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents" },
       { href: "/manager/cashout", label: "Cash-out", icon: Wallet },
       { href: "/manager/audit", label: "Audit trail", icon: ListChecks },
     ],
@@ -97,12 +98,28 @@ export const MANAGER_NAV_GROUPS: NavGroup[] = [
 /** Footer items — always visible, never in the scroll. */
 export const MANAGER_FOOTER_ITEMS: NavItem[] = [
   { href: "/manager/settings", label: "Settings", icon: Settings },
-  // Subscription is demo-only (live uses a plan-10 surface)
 ];
+
 export const DEMO_FOOTER_ITEMS: NavItem[] = [
   { href: "/manager/settings", label: "Settings", icon: Settings },
   { href: "/manager/subscription", label: "Subscription", icon: CreditCard },
 ];
+
+// ---------- Collapsible group state ----------
+
+const COLLAPSED_KEY_PREFIX = "nlx-nav-collapsed-";
+
+export function isGroupCollapsed(label: string): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(`${COLLAPSED_KEY_PREFIX}${label}`) === "1";
+}
+
+export function setGroupCollapsed(label: string, collapsed: boolean): void {
+  if (collapsed) localStorage.setItem(`${COLLAPSED_KEY_PREFIX}${label}`, "1");
+  else localStorage.removeItem(`${COLLAPSED_KEY_PREFIX}${label}`);
+}
+
+// ---------- Active state ----------
 
 /**
  * Active-state helper matching full segment boundaries — kills the two-
@@ -110,7 +127,6 @@ export const DEMO_FOOTER_ITEMS: NavItem[] = [
  */
 export function isNavActive(pathname: string, href: string): boolean {
   if (href === "/manager") return pathname === "/manager";
-  // Ensure /manager/event doesn't match /manager/events
   const nextChar = pathname[href.length];
   return pathname.startsWith(href) && (nextChar === "/" || nextChar === undefined);
 }

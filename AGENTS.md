@@ -133,11 +133,19 @@ Rules that follow from it:
    `ZONE_SWATCH` in `src/lib/zone-colors.ts`.
 4. **Money and counts:** `formatMoney()` + `tabular-nums`, always. Round to
    cents at the service boundary (`Math.round(x * 100) / 100`), not in JSX.
-5. **Every consequential action gets a `ConfirmDialog`.** Status changes,
-   toggles, deletes, order placement, plan changes — wrap the trigger, write a
-   title that names the object (`Set VIP-01 to reserved?`) and a description
-   that states the consequence. Reversible-and-free actions (search, copy
-   link, tab switch) stay one-click.
+5. **Consequential actions use `ConfirmDialog` or undo toast by policy (plan 20).**
+   The rule of thumb, stated once so future features don't relitigate it: **if the
+   action can be silently undone with no ledger entry, use undo; if undoing it
+   would itself be a recorded business event, confirm it.**
+
+   | Pattern | Applies to |
+   |---|---|
+   | **Optimistic + 5s undo toast** | order status transitions, claim/release, table status toggle, help acknowledge, shift toggle, waitlist reorder |
+   | **Keep `ConfirmDialog`** | anything money-touching (comps, voids, discounts, cash-out close, tip distribution), deletes, cancellations, ban/refusal, incident submit, publish schedule, plan changes, last call, stocktake commit |
+
+   ConfirmDialog: wrap the trigger, write a title that names the object
+   (`Set VIP-01 to reserved?`) and a description that states the consequence.
+   Reversible-and-free actions (search, copy link, tab switch) stay one-click.
 6. **Functional state updates for rapid-fire controls.** `setX(prev => ...)`
    for steppers and counters — render-closure reads drop clicks. (This bug
    shipped once, in the bulk-restock stepper. Once.)
