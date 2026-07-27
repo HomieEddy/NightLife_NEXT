@@ -62,6 +62,9 @@ async function assertSessionOrderable(sessionId: string | undefined): Promise<vo
   if (session.status === "closed") {
     throw new Error("This tab is closed. Scan the table QR code to start a new session.");
   }
+  if (session.serviceRefusedAt) {
+    throw new Error("Service has been paused for this table. Please speak with a host.");
+  }
 }
 
 export const mockOrdersService = {

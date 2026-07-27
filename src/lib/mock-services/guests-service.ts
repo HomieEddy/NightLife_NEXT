@@ -10,6 +10,7 @@ import { clone, delay, uid } from "./delay";
 import { mockReservationService } from "./reservation-service";
 import { mockVenueService } from "./venue-service";
 import { mockAuditService } from "./audit-service";
+import { mockIncidentService } from "./incident-service";
 
 let sessions: GuestSession[] = clone(mockGuestSessions);
 let helpRequests: HelpRequest[] = clone(mockHelpRequests);
@@ -164,6 +165,36 @@ export const mockGuestsService = {
       metadata: { childSessionId: child.id },
     });
     return clone(parent);
+  },
+
+  /**
+   * Blocks new orders for this session (see assertSessionOrderable in
+   * orders-service.ts) and logs the reason as an Incident in the same call —
+   * this *is* the "refuse further service" control, not a separate ban.
+   */
+  async refuseService(
+    sessionId: string,
+    reason: string,
+    staffId: string,
+    staffName: string,
+  ): Promise<GuestSession | null> {
+    await delay(400);
+    const session = sessions.find((s) => s.id === sessionId);
+    if (!session) return null;
+    session.serviceRefusedAt = new Date().toISOString();
+    session.serviceRefusedReason = reason.trim();
+    await mockIncidentService.reportIncident({
+      type: "other",
+      severity: "low",
+      tableId: session.tableId,
+      involvedStaffIds: [staffId],
+      narrative: `Service refused for ${session.displayName} at ${session.tableCode} — ${reason.trim()}`,
+      actionsTaken: "Blocked new orders for the session; host informed the guest.",
+      policeInvolved: false,
+      reportedByStaffId: staffId,
+      reportedByStaffName: staffName,
+    });
+    return clone(session);
   },
 
   async listHelpRequests(): Promise<HelpRequest[]> {

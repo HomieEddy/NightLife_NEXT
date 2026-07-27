@@ -110,5 +110,11 @@ export const liveGuestsService = {
       body: JSON.stringify({ parentSessionId, staffId, staffName }),
     });
   },
+
+  // TODO(backend): plan 17 graduation — no route exists yet for refusing
+  // service on a session; responsible-service controls stay demo-track only.
+  async refuseService(): Promise<GuestSession | null> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "./live-fetch";

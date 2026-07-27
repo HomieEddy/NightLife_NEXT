@@ -55,15 +55,23 @@ export const liveEventsService = {
     eventId: string;
     name: string;
     partySize: number;
+    guestProfileId?: string;
   }): Promise<EventGuest> {
     return api<EventGuest>(`/api/events/${encodeURIComponent(input.eventId)}/guests`, {
       method: "POST",
-      body: JSON.stringify({ name: input.name, partySize: input.partySize }),
+      body: JSON.stringify({ name: input.name, partySize: input.partySize, guestProfileId: input.guestProfileId }),
     });
   },
 
   async removeEventGuest(guestId: string): Promise<void> {
     await api<{ ok: boolean }>(`/api/event-guests/${encodeURIComponent(guestId)}`, { method: "DELETE" });
+  },
+
+  // TODO(backend): plan 17 graduation — no PATCH route exists yet for
+  // event-guest status (only POST/DELETE); door check-in stays demo-track
+  // only until that route ships.
+  async setEventGuestStatus(): Promise<EventGuest | null> {
+    throw new Error("Not yet supported in the live build");
   },
 
   async listPublicEvents(

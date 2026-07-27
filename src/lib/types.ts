@@ -282,6 +282,11 @@ export interface GuestSession {
   parentSessionId?: string;
   /** History breadcrumb — the table this session started at, before a transfer. */
   transferredFromTableId?: string;
+  /** Links this session to a persistent guest identity only when a host attaches one (opt-in, plan 17). */
+  guestProfileId?: string;
+  /** Set by service:refuse — blocks new orders for this session with a guest-facing explanation. */
+  serviceRefusedAt?: string;
+  serviceRefusedReason?: string;
 }
 
 export type SettlementMethod = "terminal" | "cash" | "house";
