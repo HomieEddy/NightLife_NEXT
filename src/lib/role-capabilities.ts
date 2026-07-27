@@ -51,16 +51,17 @@ const SECURITY_NAV: StaffNavItem[] = [
   { href: "/staff/door", label: "Door", icon: DoorOpen, feature: "door" },
   { href: "/staff/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents" },
   { href: "/staff/help", label: "Help", icon: Shield },
+  SCHEDULE_ITEM,
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
 ];
 
-/** Host: the floor role most on the door — door sits between Approvals and Help. */
+/** Host: floor role focused on approvals, not the door — that's Security's domain. */
 const HOST_NAV: StaffNavItem[] = [
   { href: "/staff", label: "Home", icon: Home },
   { href: "/staff/orders", label: "Orders", icon: Receipt },
   { href: "/staff/approvals", label: "Approvals", icon: UserCheck },
-  { href: "/staff/door", label: "Door", icon: DoorOpen, feature: "door" },
   { href: "/staff/help", label: "Help", icon: LifeBuoy },
+  SCHEDULE_ITEM,
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
 ];
 
@@ -70,6 +71,7 @@ const PROMOTER_NAV: StaffNavItem[] = [
   { href: "/staff/approvals", label: "Approvals", icon: UserCheck },
   { href: "/staff/events", label: "Events", icon: PartyPopper },
   { href: "/staff/reservations", label: "Reservations", icon: CalendarCheck },
+  SCHEDULE_ITEM,
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
 ];
 
