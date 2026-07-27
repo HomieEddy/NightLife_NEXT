@@ -133,24 +133,34 @@ Rules that follow from it:
    `ZONE_SWATCH` in `src/lib/zone-colors.ts`.
 4. **Money and counts:** `formatMoney()` + `tabular-nums`, always. Round to
    cents at the service boundary (`Math.round(x * 100) / 100`), not in JSX.
-5. **Consequential actions use `ConfirmDialog` or undo toast by policy (plan 20).**
-   The rule of thumb, stated once so future features don't relitigate it: **if the
-   action can be silently undone with no ledger entry, use undo; if undoing it
-   would itself be a recorded business event, confirm it.**
+ 5. **Consequential actions use `ConfirmDialog` or undo toast by policy (plan 20).**
+    **No destructive, audited, or irreversible action fires on a single click — every
+    one requires a modal confirmation explaining what will happen and why.** A
+    "Resolve" button, a "Record" button, or an "Override" toggle that fires
+    instantly is a bug. The rule of thumb, stated once so future features don't
+    relitigate it: **if the action can be silently undone with no ledger entry, use
+    undo; if undoing it would itself be a recorded business event, confirm it.**
 
-   | Pattern | Applies to |
-   |---|---|
-   | **Optimistic + 5s undo toast** | order status transitions, claim/release, table status toggle, help acknowledge, shift toggle, waitlist reorder |
-   | **Keep `ConfirmDialog`** | anything money-touching (comps, voids, discounts, cash-out close, tip distribution), deletes, cancellations, ban/refusal, incident submit, publish schedule, plan changes, last call, stocktake commit |
+    | Pattern | Applies to |
+    |---|---|
+    | **Optimistic + 5s undo toast** | order status transitions, claim/release, table status toggle, help acknowledge, shift toggle, waitlist reorder |
+    | **Keep `ConfirmDialog`** | anything money-touching (comps, voids, discounts, cash-out close, tip distribution), deletes, cancellations, ban/refusal, incident submit, incident resolve, incident record-reported, publish schedule, plan changes, last call, stocktake commit, emergency evacuation/resume, capacity override, certification revocation, guest ban |
 
-   ConfirmDialog: wrap the trigger, write a title that names the object
-   (`Set VIP-01 to reserved?`) and a description that states the consequence.
-   Reversible-and-free actions (search, copy link, tab switch) stay one-click.
+    ConfirmDialog: wrap the trigger, write a title that names the object
+    (`Set VIP-01 to reserved?`) and a description that states the consequence.
+    Reversible-and-free actions (search, copy link, tab switch) stay one-click.
 6. **Functional state updates for rapid-fire controls.** `setX(prev => ...)`
    for steppers and counters — render-closure reads drop clicks. (This bug
    shipped once, in the bulk-restock stepper. Once.)
-7. **Accessibility is not optional chrome:** `aria-label` on icon-only buttons,
-   `Label htmlFor` on inputs, keyboard-reachable everything.
+ 7. **Accessibility is not optional chrome:** `aria-label` on icon-only buttons,
+    `Label htmlFor` on inputs, keyboard-reachable everything.
+ 8. **Every action needs a UI trigger.** A service method + a permission row +
+    a `TODO(backend)` is not a feature — it's three files of dead code. Any new
+    `StaffAction` must ship with a button, switch, form, or confirm dialog on the
+    role's primary page that calls it. The safety features (plans 16-17) shipped
+    with service methods and permissions but no UI to trigger them — five gaps
+    caught at review; this rule exists so it never happens again. Count the
+    touchpoints: one permission → one service method → one UI trigger, minimum.
 
 ## 5. Verification — evidence before assertions
 
@@ -501,6 +511,12 @@ makes it obsolete.
   keeps the client-side `RequireAuth` gate only.
 - Shells read the venue name via `venueService.getVenue()` — never hardcode a
   venue string in layout chrome; demo shows the seeded venue, live the tenant's.
+
+- Before trusting that a feature is complete, count the touchpoints: a new
+  `StaffAction` needs exactly one permission row, one service method, and one UI
+  trigger on a role's page. Finding a service method with no UI to invoke it is
+  the same class of gap as the safety features that shipped half-finished — this
+  appendix entry is the tripwire.
 
 - `useSearchParams` **must** sit under `<Suspense>` — wrap the page content in
   a `*Content` component; the default export renders the boundary.

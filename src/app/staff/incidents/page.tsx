@@ -52,6 +52,7 @@ export default function StaffIncidentsPage() {
   const [narrative, setNarrative] = useState("");
   const [actionsTaken, setActionsTaken] = useState("");
   const [policeInvolved, setPoliceInvolved] = useState(false);
+  const [reportable, setReportable] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -80,6 +81,7 @@ export default function StaffIncidentsPage() {
     setNarrative("");
     setActionsTaken("");
     setPoliceInvolved(false);
+    setReportable(false);
   }
 
   async function submitReport() {
@@ -96,6 +98,7 @@ export default function StaffIncidentsPage() {
         narrative,
         actionsTaken,
         policeInvolved,
+        reportable,
         reportedByStaffId: me.id,
         reportedByStaffName: me.name,
       });
@@ -192,6 +195,13 @@ export default function StaffIncidentsPage() {
               <p className="text-sm font-medium">Police involved</p>
               <Switch checked={policeInvolved} onCheckedChange={setPoliceInvolved} />
             </div>
+            <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+              <div>
+                <p className="text-sm font-medium">Reportable to authority</p>
+                <p className="text-xs text-muted-foreground">Requires filing with a regulatory body</p>
+              </div>
+              <Switch checked={reportable} onCheckedChange={setReportable} />
+            </div>
             <div className="flex gap-2">
               <Button variant="ghost" className="h-12 flex-1" onClick={() => { setReporting(false); resetForm(); }}>
                 Cancel
@@ -235,6 +245,7 @@ export default function StaffIncidentsPage() {
                   {incident.reportedByStaffName} · {timeAgo(incident.occurredAt)} ·{" "}
                   {incident.status === "open" ? "Open" : "Resolved"}
                   {incident.policeInvolved && " · Police involved"}
+                  {incident.reportable && " · Reportable to authority"}
                 </p>
               </CardContent>
             </Card>
