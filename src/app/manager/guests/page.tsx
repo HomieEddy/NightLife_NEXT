@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, Search, ShieldOff, UserPlus, Users } from "lucide-react";
+import { ArrowUpDown, Pencil, Plus, Search, ShieldOff, SlidersHorizontal, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,16 @@ export default function ManagerGuestsPage() {
   const [banReason, setBanReason] = useState("");
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Filters
+  const [vipFilter, setVipFilter] = useState<string>("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
+  const [spendMin, setSpendMin] = useState("");
+  const [spendMax, setSpendMax] = useState("");
+  const [visitsMin, setVisitsMin] = useState("");
+  const [visitsMax, setVisitsMax] = useState("");
+  const [sortBy, setSortBy] = useState<string>("name");
 
   // Create / Edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -47,8 +57,23 @@ export default function ManagerGuestsPage() {
     if (q) list = list.filter((p) => p.displayName.toLowerCase().includes(q) || (p.phone ?? "").includes(q) || (p.email ?? "").toLowerCase().includes(q));
     if (statusFilter === "active") list = list.filter((p) => p.status === "active");
     if (statusFilter === "banned") list = list.filter((p) => p.status === "banned");
+    if (vipFilter !== "all") list = list.filter((p) => p.vipTier === vipFilter);
+    if (tagFilter !== "all") list = list.filter((p) => p.tags.includes(tagFilter as GuestTag));
+    const sMin = parseInt(spendMin); const sMax = parseInt(spendMax);
+    if (!isNaN(sMin)) list = list.filter((p) => p.lifetimeNetCents >= sMin * 100);
+    if (!isNaN(sMax)) list = list.filter((p) => p.lifetimeNetCents <= sMax * 100);
+    const vMin = parseInt(visitsMin); const vMax = parseInt(visitsMax);
+    if (!isNaN(vMin)) list = list.filter((p) => p.visitCount >= vMin);
+    if (!isNaN(vMax)) list = list.filter((p) => p.visitCount <= vMax);
+    // Sort
+    if (sortBy === "name") list = [...list].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    else if (sortBy === "visits") list = [...list].sort((a, b) => b.visitCount - a.visitCount);
+    else if (sortBy === "lifetime") list = [...list].sort((a, b) => b.lifetimeNetCents - a.lifetimeNetCents);
+    else if (sortBy === "lastVisit") list = [...list].sort((a, b) => (b.lastVisitAt ?? "").localeCompare(a.lastVisitAt ?? ""));
     return list;
-  }, [profiles, query, statusFilter]);
+  }, [profiles, query, statusFilter, vipFilter, tagFilter, spendMin, spendMax, visitsMin, visitsMax, sortBy]);
+
+  const filterCount = [vipFilter !== "all", tagFilter !== "all", spendMin || spendMax, visitsMin || visitsMax].filter(Boolean).length;
 
   const mergeCandidates = (profiles ?? []).filter((p) => p.id !== selected?.id);
 
@@ -110,19 +135,56 @@ export default function ManagerGuestsPage() {
         actions={<Button size="sm" onClick={openCreate}><Plus className="size-4 mr-1" /> Add guest</Button>}
       />
 
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search name, phone or email…" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Search name, phone or email…" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8" />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="banned">Banned</SelectItem></SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-40"><ArrowUpDown className="size-3.5 mr-1" /> Sort</SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="visits">Most visits</SelectItem>
+              <SelectItem value="lifetime">Highest spend</SelectItem>
+              <SelectItem value="lastVisit">Last visit</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant={showFilters ? "secondary" : "outline"} size="icon" className="shrink-0" onClick={() => setShowFilters(!showFilters)} aria-label="More filters">
+            <SlidersHorizontal className="size-4" />
+            {filterCount > 0 && <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground">{filterCount}</span>}
+          </Button>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="banned">Banned</SelectItem>
-          </SelectContent>
-        </Select>
+        {showFilters && (
+          <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-3 sm:grid-cols-4">
+            <div>
+              <Label className="text-[11px]">VIP tier</Label>
+              <Select value={vipFilter} onValueChange={setVipFilter}>
+                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All tiers</SelectItem><SelectItem value="none">None</SelectItem><SelectItem value="regular">Regular</SelectItem><SelectItem value="vip">VIP</SelectItem><SelectItem value="host-list">Host list</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-[11px]">Tag</Label>
+              <Select value={tagFilter} onValueChange={setTagFilter}>
+                <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All tags</SelectItem>{TAG_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-1">
+              <div className="flex-1"><Label className="text-[11px]">Spend $ min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={spendMin} onChange={(e) => setSpendMin(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-[11px]">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={spendMax} onChange={(e) => setSpendMax(e.target.value)} /></div>
+            </div>
+            <div className="flex gap-1">
+              <div className="flex-1"><Label className="text-[11px]">Visits min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={visitsMin} onChange={(e) => setVisitsMin(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-[11px]">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={visitsMax} onChange={(e) => setVisitsMax(e.target.value)} /></div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
