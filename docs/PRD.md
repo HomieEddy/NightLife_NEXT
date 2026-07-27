@@ -3,7 +3,10 @@
 Status: Phase 2 shipped through plan 12 (see `docs/ROADMAP.md` for per-feature
 status); plan 13 (embedded reservations & QR gate) is demo-complete, live
 graduation pending; plans 14–15 (promoters · floor-role capability matrix +
-security panel + per-role demo personas) are planned, demo track first ·
+security panel + per-role demo personas) and **plans 16–20, the
+operations-completeness wave** (tab ledger · door & guest identity · workforce ·
+cost & profitability · navigation/UX overhaul) are planned, demo track first;
+plans 21–29 are the production-readiness wave ·
 Owner: Eddy · Last updated: 2026-07-26
 
 ## 1. What we're building
@@ -15,8 +18,12 @@ Postgres in the live build and on the permanent mock sandbox in the demo build:
 
 - **/manager** — venue control room: live pulse, orders, floor map, menu/inventory,
   staff & scheduling, reservations/events/promotions, analytics & reports, settings.
+  Plans 16–19 add the tab ledger (adjustments, cash-out, audit), guests & waitlist,
+  incidents, tips & commissions, and purchasing/stocktake/profitability.
 - **/staff** — mobile floor-crew panel: order dispatch (claim/release), 86-board,
-  show-floor lock, approvals, help queue, chat.
+  show-floor lock, approvals, help queue, chat. Plans 17–18 add the **door**
+  (occupancy, admissions, ID check, waitlist), incident reporting and the time
+  clock.
 - **/guest** — QR table ordering: menu, cart with configurable fees, live ETA,
   bottle gifting, tab closure, receipt with bill splitting.
 - **/admin** — platform SaaS: lead pipeline, tenant management, provisioning.
@@ -30,10 +37,11 @@ selector layer (AD-14): mock and real implementations co-exist permanently.
 
 | User | Job to be done |
 |---|---|
-| Venue manager | Run the night: see problems before guests feel them, control the floor, price the menu, staff the shifts. |
+| Venue manager | Run the night: see problems before guests feel them, control the floor, price the menu, staff the shifts — and know by 04:00 what the night cost, what it made, who worked it and what happened in the room. |
 | Host / bartender / runner | Work a loud, dark, busy room from a phone: claim orders, react to 86s and broadcasts, approve tables. Runners are fulfillment assistants (prepare/ready/deliver, zone-scoped help) — they don't accept orders or approve sessions (plan 15). |
 | Promoter | Funnel guests in and get judged on it: manage their own reservation book from a phone, watch their tables' orders live (read-only), see only their funnel (plan 14). |
-| Security | Keep the room safe: security help requests, their shifts, the security chat channel — nothing else on their phone (plan 15). |
+| Security | Keep the room safe: work the door (occupancy against legal capacity, admissions, ID checks, refusals), file incident reports, handle security help requests, their shifts, the security chat channel (plans 15, 17). |
+| Host | Seat the room well: know who's walking in and what they're worth, manage the waitlist, approve tabs, hold parties to their minimum spend (plans 16–17). |
 | Guest | Order from the booth without flagging anyone down; close out and split the bill without friction. |
 | Platform team | Sell, provision and bill venues; keep tenants isolated and healthy. |
 
@@ -66,6 +74,18 @@ The prototype's limits are now the product's limits:
 - Platform admin: leads, tenant CRUD, provisioning job, Stripe subscription billing.
 - Test suite per AGENTS.md §7 Phase 2 (money/state machines first, route-handler
   integration tests, a handful of Playwright E2E flows).
+- **Operations completeness (plans 16–20)** — the domain gaps found in
+  `docs/BUSINESS-LOGIC-GAP-REVIEW.md` and the navigation gaps in
+  `docs/UX-REVIEW.md`: the tab as a financial object (minimum spend, void/comp/
+  discount with reason codes, transfer/merge/split, shift cash-out, venue audit
+  trail); the door (occupancy, admissions, waitlist, unified check-in, ID-check
+  record, coat check); guest identity (VIP recognition, ban list, no-show,
+  consent); safety (incident reports, refusal of service, responsible-service
+  drink counts); workforce (time clock, dated shifts, swaps/time-off, coverage
+  warnings, tip pooling, promoter commission); cost & supply (suppliers, purchase
+  orders with unit costs, par levels, stocktake variance, waste, by-the-pour) and
+  the profitability layer built on it; and a rebuilt navigation model (grouped
+  nav, ⌘K palette, global attention, URL-backed view state, keyboard, undo).
 - **The mock-powered Live Demo remains a shipped product surface** (AD-14): the
   landing page keeps linking to a fully working demo that needs no accounts and
   resets itself per visitor. Mocks are maintained, not retired.
@@ -76,8 +96,14 @@ The prototype's limits are now the product's limits:
   app, as today. Stripe is used for *SaaS subscriptions only*. Guest payments are a
   Phase 3 flagship (Stripe Connect).
 - Native mobile apps, offline mode, printer/KDS hardware integrations.
-- Multi-venue single-account management (enterprise "groups") beyond the data model
-  allowing it later.
+- **Multi-venue single-account management** (enterprise "groups": cross-venue
+  rollups, shared menus/staff, regional-manager roles) — explicitly deferred out
+  of the 16–20 wave; the data model allows it later. `/admin` remains the only
+  cross-tenant surface.
+- **Paying anyone.** Plans 16–19 compute and record money that is owed — tab
+  balances, tip shares, commission statements, purchase-order totals, cover
+  amounts. None of it moves funds; settlement stays outside the app, consistent
+  with the guest-payments omission above.
 - POS integrations (Toast/Square import) — explicitly not our wedge; see brainstorm
   decision: we are nightly floor operations, not back-office.
 
@@ -128,8 +154,36 @@ end-to-end with webhooks.
 loading skeletons (real latency replaces `delay()`), empty states, toasts, entity
 cross-links, deterministic money display, print styles.
 
+**R11 — Every money mutation is attributable and append-only.** Voids, comps,
+discounts, tip distributions, commission statements, stock receipts, waste and
+stocktake corrections are ledger rows with an author and a reason; corrections
+are new rows, never edits. Every action flagged `sensitive` writes an
+`AuditEntry` in the same transaction as its effect.
+
+**R12 — Occupancy and safety records are first-class.** Live occupancy is a
+counter fed by an append-only event ledger (never inferred from table state) and
+is checked against the venue's legal capacity; refusals, ejections and incidents
+are recorded, timestamped and attributed. A banned guest cannot be admitted
+without an audited manager override.
+
+**R13 — Guest identity is opt-in.** A `GuestProfile` exists only where a guest
+gave identity (reservation, guestlist, door ID check, host tag). The anonymous
+QR path stays anonymous (PRD §7). ID checks record that a check happened — never
+a document image or number. Marketing consent is captured explicitly and is
+per-channel.
+
+**R14 — Every revenue number has a cost counterpart.** Product cost (weighted
+average, from receipted purchase orders) and labour cost (from clocked time)
+flow into the same aggregations as revenue, so pour cost, gross margin, labour
+percentage and per-night contribution are derivable — and targets on them can
+raise alerts.
+
 ## 6. Success criteria
 
+- A GM can run a full night end to end in the demo: door count and admissions,
+  seat a VIP table against its minimum, comp a round, clock the crew in and out,
+  close the tab, reconcile the drawer, split the tips, and read one line that
+  says what the night made. No step requires a developer or a spreadsheet.
 - The 5-minute walkthrough exists in both modes (AD-14): the demo build's `/demo`
   tour runs it on the sandbox, and the live build proves the same night flow with
   two simultaneous authenticated contexts — one staff, one guest — with state

@@ -1,4 +1,4 @@
-# 15 — Security Hardening · PLAN
+# 22 — Security Hardening · PLAN
 
 **Status: not started.**
 
@@ -11,7 +11,7 @@ hashes passwords and manages sessions (AD-4), Zod guards every boundary
 (AD-7), tenant scoping is central (AD-3) with `expectTenantIsolation()`
 canaries — so this plan is a *gap-closing audit with fixes*, not a rebuild.
 
-Preconditions: plans 01–10 complete. Independent of plans 18–22. Branch
+Preconditions: plans 01–10 complete. Independent of plans 25–29. Branch
 `chore/15-security-hardening`.
 
 ## Reasoning
@@ -79,7 +79,7 @@ Out of scope: RLS defense-in-depth (parked, AD-3), WAF/Cloudflare, 2FA
   `.env.example` becomes the canonical var list; boot-time config validation
   (already the house pattern) covers every required secret.
 - **Error hygiene:** the shared route-handler error path returns generic
-  messages + request id (plan 16 adds the id); Prisma error details and
+  messages + request id (plan 23 adds the id); Prisma error details and
   stacks go to logs only. Zod validation errors stay specific — field
   errors are UX, not leakage.
 

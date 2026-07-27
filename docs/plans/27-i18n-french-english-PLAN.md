@@ -1,4 +1,4 @@
-# 20 — i18n: Full French/English Support · PLAN
+# 27 — i18n: Full French/English Support · PLAN
 
 **Status: not started.**
 
@@ -7,14 +7,14 @@ operable in French and English, switched by a locale toggle sitting next to
 the existing dark-mode button in every shell, persisted per user. For a
 product selling to Quebec venues this is not a nicety: the Charter of the
 French Language (Bill 96) expects consumer-facing services in French, and
-plan 22's bilingual policy pages need an app that can actually render in the
+plan 29's bilingual policy pages need an app that can actually render in the
 policy's language. The guest ordering flow is where the legal and product
 pressure concentrates — a francophone guest scanning a QR must get French.
 
-Preconditions: none hard. Land before or alongside plan 22 (its `/privacy`
-and `/terms` render through this plan's locale plumbing); plans 18/19 gain
+Preconditions: none hard. Land before or alongside plan 29 (its `/privacy`
+and `/terms` render through this plan's locale plumbing); plans 25/26 gain
 localized templates here if they've shipped, or ship bilingual from birth if
-this lands first. Branch `feature/20-i18n`.
+this lands first. Branch `feature/27-i18n`.
 
 ## Reasoning
 
@@ -50,7 +50,7 @@ this lands first. Branch `feature/20-i18n`.
    `guestLocale` setting (new venue field, manager-editable in settings)
    seeds the session's default; the guest toggle still overrides, because
    an anglophone at a French venue is Tuesday in Montréal. This also
-   resolves plan 19's "venue's guest-facing language once that setting
+   resolves plan 26's "venue's guest-facing language once that setting
    exists" — this plan creates that setting.
 5. **Track placement: both, like plan 11.** This is presentation-layer and
    ships identically in demo and live builds — a French demo is a sales
@@ -84,7 +84,7 @@ left in the code.
   helpers take the locale instead of hardcoded `en-GB`. Signatures keep
   working via a locale-context accessor so ~every call site doesn't
   change; `tabular-nums` and cents-rounding rules (§4.4) are untouched.
-- **Notification templates (plans 18/19) localize by recipient:**
+- **Notification templates (plans 25/26) localize by recipient:**
   reservation confirmations/PIN SMS follow the locale the guest booked in
   (captured on the reservation — new field, defaulted from venue
   `guestLocale`); staff invites follow the inviting venue's admin locale.
@@ -110,7 +110,7 @@ Each numbered step is a commit-sized workstream with the ladder run (§2.3):
    toasts in `src/components/shared/`, nav labels.
 3. Guest area sweep + French (+ venue `guestLocale` setting in manager
    settings, reservation locale capture, `?lang=` on `/r/[slug]`).
-4. Public/marketing + `/privacy`/`/terms` wiring (plan 22 rendezvous) +
+4. Public/marketing + `/privacy`/`/terms` wiring (plan 29 rendezvous) +
    login/invite pages.
 5. Manager area sweep + French.
 6. Staff area sweep + French.
@@ -159,6 +159,6 @@ A francophone guest completes scan → order → PIN entirely in French on
 both builds; every shell shows the locale toggle beside the theme toggle
 and the choice persists across navigation; venue settings control the
 guest default; money and dates format per locale; notification templates
-send in the recipient's language (or plans 18/19 inherit the variants);
+send in the recipient's language (or plans 25/26 inherit the variants);
 and no swept surface can regress to hardcoded English without a lint or
 type error.

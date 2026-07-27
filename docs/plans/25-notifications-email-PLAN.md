@@ -1,4 +1,4 @@
-# 18 — Notification Core & Email (Resend) · PLAN
+# 25 — Notification Core & Email (Resend) · PLAN
 
 **Status: not started.**
 
@@ -7,13 +7,13 @@ Resend + React Email, AD-9 platform cron + idempotent jobs) and use it to
 close the one unshipped leg of plans 09/09c — scheduled report email — plus
 the email sends other features have been faking: staff invites (today a
 copyable link), reservation confirmations (plan 08/13), and lead
-acknowledgements. SMS (plan 19) and web push (plan 21) plug into the same
+acknowledgements. SMS (plan 26) and web push (plan 28) plug into the same
 dispatch layer; this plan builds the socket they plug into.
 
 Preconditions: plans 02 (Better Auth invites), 08/13 (reservations), 09/09c
 (report engine stores `schedule`, computes due-selection; `computeRollup`/
 `upsertRollup`; `job_runs` table) — all complete. Branch
-`feature/18-notifications-email`.
+`feature/25-notifications-email`.
 
 ## Reasoning
 
@@ -23,7 +23,7 @@ Three forces converge on one plan:
    fully computed but nothing invokes them — no `/api/jobs/*` handler, no
    sender. The infrastructure (due-selection, `job_runs`) was built to be
    called; this plan calls it.
-2. **The channel question.** Plans 19 (SMS) and 21 (push) each need "given a
+2. **The channel question.** Plans 26 (SMS) and 21 (push) each need "given a
    domain event, deliver a message to a recipient over a channel, record the
    attempt, never double-send". Building that three times would be the
    parallel-seam mistake AGENTS.md §1.2 warns about. So this plan ships a
@@ -79,9 +79,9 @@ complexity demands it. Note the deferral in a `TODO(backend)`.
   re-export, per §3. `venueId` scoping enforced like every tenant model;
   platform-level sends (lead ack) use the platform-null convention plan 10
   established.
-- **Email addresses are PII** — never logged in plaintext app logs (plan 16
+- **Email addresses are PII** — never logged in plaintext app logs (plan 23
   redaction covers this); `NotificationLog.recipient` is the one sanctioned
-  store, subject to plan 22 retention.
+  store, subject to plan 29 retention.
 
 ## Implementation strategy
 
