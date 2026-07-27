@@ -33,7 +33,17 @@ export type StaffAction =
   | "guest:read-profile"          // view a guest profile (security sees flags only)
   | "guest:edit-profile"          // edit a guest profile's details/tags
   | "guest:ban"                   // set/lift a guest's banned status
-  | "service:refuse";             // refuse further service to a session
+  | "service:refuse"             // refuse further service to a session
+  | "time:clock-self"            // clock in/out for yourself
+  | "time:edit-others"           // correct another staff member's time entry
+  | "schedule:publish"           // publish a generated week to the crew
+  | "schedule:request-swap"      // offer or claim a shift swap
+  | "schedule:request-time-off"  // request time off
+  | "schedule:approve-swap"      // approve or deny a swap request
+  | "schedule:approve-time-off"  // approve or deny a time-off request
+  | "tips:close-distribution"    // freeze a night's tip pool distribution
+  | "tips:read-own"              // see your own tip share
+  | "commission:approve";        // approve a promoter's commission statement
 
 export type ActionCategory = "orders" | "guests" | "help" | "reservations" | "tab" | "operations" | "door" | "incidents";
 
@@ -216,6 +226,62 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     category: "guests",
     sensitive: true,
   },
+  "time:clock-self": {
+    label: "Clock in / out",
+    description: "Record your own clock-in, breaks and clock-out.",
+    category: "operations",
+  },
+  "time:edit-others": {
+    label: "Edit time entries",
+    description: "Correct or supersede another staff member's clock records with a reason.",
+    category: "operations",
+    sensitive: true,
+  },
+  "schedule:publish": {
+    label: "Publish schedule",
+    description: "Generate and publish a week's shifts from templates to the entire crew.",
+    category: "operations",
+    sensitive: true,
+  },
+  "schedule:request-swap": {
+    label: "Request shift swap",
+    description: "Offer a shift to swap or claim an open swap offer.",
+    category: "operations",
+  },
+  "schedule:request-time-off": {
+    label: "Request time off",
+    description: "Submit a time-off request for manager approval.",
+    category: "operations",
+  },
+  "schedule:approve-swap": {
+    label: "Approve shift swaps",
+    description: "Approve or deny a shift-swap request.",
+    category: "operations",
+    sensitive: true,
+  },
+  "schedule:approve-time-off": {
+    label: "Approve time off",
+    description: "Approve or deny a time-off request.",
+    category: "operations",
+    sensitive: true,
+  },
+  "tips:close-distribution": {
+    label: "Close tip distribution",
+    description: "Freeze a night's tip pool split — writes an audit entry and the shares become visible to staff.",
+    category: "operations",
+    sensitive: true,
+  },
+  "tips:read-own": {
+    label: "View own tips",
+    description: "See your own tip share after the distribution is closed.",
+    category: "operations",
+  },
+  "commission:approve": {
+    label: "Approve commission",
+    description: "Approve a promoter's commission statement — writes an audit entry.",
+    category: "operations",
+    sensitive: true,
+  },
 };
 
 // ---------- Permission matrix ----------
@@ -240,6 +306,11 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     "door:count", "door:admit", "door:admit-banned-override", "door:id-check", "waitlist:manage",
     "incident:create", "incident:read-all",
     "guest:read-profile", "guest:edit-profile", "guest:ban", "service:refuse",
+    "time:clock-self", "time:edit-others", "schedule:publish",
+    "schedule:request-swap", "schedule:request-time-off",
+    "schedule:approve-swap", "schedule:approve-time-off",
+    "tips:close-distribution", "tips:read-own",
+    "commission:approve",
   ],
   host: [
     "order:accept", "order:claim", "order:release", "order:transition", "order:gift",
@@ -247,18 +318,21 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     "tab:void", "tab:comp", "tab:transfer", "tab:merge",
     "door:count", "door:admit", "door:id-check", "waitlist:manage",
     "incident:create", "guest:read-profile", "service:refuse",
+    "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
   ],
   bartender: [
     "order:accept", "order:claim", "order:release", "order:transition",
     "help:respond",
     "tab:void", "cashout:close", // "own drawer" — closes their own till only
     "incident:create", "service:refuse",
+    "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
   ],
   // Fulfillment only — can move orders forward but cannot accept new ones.
   runner: [
     "order:claim", "order:release", "order:transition",
     "help:respond",
     "incident:create",
+    "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
   ],
   // Security — the door, incidents and flags-only guest lookups; no order/session/tab authority.
   security: [
@@ -267,10 +341,12 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     "incident:create", "incident:read-all",
     "guest:read-profile", // flags only — the UI hides visit/lifetime detail for this role
     "service:refuse",
+    "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
   ],
   promoter: [
     "reservation:create-own", "reservation:edit-own",
     "reservation:cancel-own", "reservation:confirm-own",
+    "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
   ],
 };
 

@@ -103,8 +103,17 @@ export interface StaffMember {
   email: string;
   accountStatus: StaffAccountStatus;
   assignedZoneIds: string[];
+  /** Derived (plan 18): an open TimeEntry exists → true. The manual toggle is retired in live builds. */
   isOnShift: boolean;
   avatarInitials: string;
+  /** Plan 18: hourly rate for labour-cost reporting. */
+  hourlyRateCents?: number;
+  /** Plan 18: tip-pool weighting factor (default 1.0). */
+  tipPoolWeight?: number;
+  /** Plan 18: employment classification. */
+  employmentType?: EmploymentType;
+  /** Plan 18: promoter commission rule — attribute bookings to this staff member. */
+  commissionRuleId?: string;
 }
 
 /** One recurring weekly shift block — backed by the StaffShift table (plan 03). */
@@ -514,7 +523,9 @@ export type AttentionItemType =
   | "table-under-minimum"
   | "capacity-warning"
   | "waitlist-overdue"
-  | "incident-open";
+  | "incident-open"
+  | "zone-uncovered"
+  | "clock-out-missing";
 
 /** One row in the manager's live "needs attention" feed — always derived, never stored. */
 export interface AttentionItem {
@@ -1197,4 +1208,168 @@ export interface IncidentNote {
   authorStaffId: string;
   authorStaffName: string;
   createdAt: string; // ISO
+}
+
+// ---------- Workforce: time clock, scheduling, tips & commissions (plan 18) ----------
+
+export type EmploymentType = "hourly" | "salaried" | "contractor" | "commission";
+
+/** A recurring weekly shift template — generates dated Shift instances. */
+export interface ShiftTemplate {
+  id: string;
+  venueId: string;
+  staffId: string;
+  dayOfWeek: number; // 0 = Sunday
+  startTime: string; // "22:00"
+  endTime: string;
+  zoneId: string | null;
+  role?: StaffRole;
+  active: boolean;
+}
+
+export type ShiftStatus = "draft" | "published" | "confirmed" | "in-progress" | "completed" | "no-show" | "cancelled";
+
+/** One dated shift instance for one staff member on one business date. */
+export interface Shift {
+  id: string;
+  venueId: string;
+  staffId: string;
+  businessDate: string; // bucketed via nightEndHour, never toDateString()
+  scheduledStart: string; // "22:00"
+  scheduledEnd: string;
+  zoneId: string | null;
+  role: StaffRole;
+  status: ShiftStatus;
+  templateId?: string;
+  publishedAt?: string; // ISO
+  note?: string;
+}
+
+/** Append-only — every clock action is a new row; edits supersede, never mutate. */
+export interface TimeEntry {
+  id: string;
+  venueId: string;
+  shiftId?: string;
+  staffId: string;
+  clockInAt: string; // ISO
+  clockOutAt?: string;
+  breaks: BreakEntry[];
+  source: "self" | "manager";
+  /** Set when this row supersedes an earlier one — the original is never edited (INV-W3). */
+  supersedesId?: string;
+  editedByStaffId?: string;
+  editReason?: string;
+  /** Derived — minutesWorked with breaks subtracted, computed at clock-out. */
+  minutesWorked?: number;
+}
+
+export interface BreakEntry {
+  startedAt: string; // ISO
+  endedAt?: string;
+  paid: boolean;
+}
+
+export type TimeOffStatus = "requested" | "approved" | "denied";
+
+export interface TimeOffRequest {
+  id: string;
+  venueId: string;
+  staffId: string;
+  startDate: string; // "YYYY-MM-DD"
+  endDate: string;
+  reason: string;
+  status: TimeOffStatus;
+  decidedByStaffId?: string;
+  decidedAt?: string; // ISO
+}
+
+export type ShiftSwapStatus = "open" | "claimed" | "approved" | "denied" | "withdrawn";
+
+export interface ShiftSwapRequest {
+  id: string;
+  venueId: string;
+  shiftId: string;
+  requestedByStaffId: string;
+  offeredToStaffId?: string;
+  status: ShiftSwapStatus;
+  claimedByStaffId?: string;
+  decidedByStaffId?: string;
+}
+
+export type TipPoolBasis = "hours-weighted" | "equal" | "role-percentage";
+
+export interface TipPoolRule {
+  id: string;
+  venueId: string;
+  name: string;
+  basis: TipPoolBasis;
+  /** Required when basis === "role-percentage" — percentages per role. */
+  rolePercentages?: Record<StaffRole, number>;
+  includeRoles: StaffRole[];
+  /** Tip retention is illegal in many jurisdictions — surfaced with a warning, not neutral. */
+  houseRetentionPct: number;
+  active: boolean;
+}
+
+export interface TipDistributionLine {
+  staffId: string;
+  basisValue: number; // hours, weight, or role % — what the share calculation used
+  shareCents: number;
+}
+
+/** Append-only per business date — computed, never hand-edited. Shares sum exactly to poolCents. */
+export interface TipDistribution {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  ruleId: string;
+  poolCents: number;
+  lines: TipDistributionLine[];
+  computedAt: string; // ISO
+  closedByStaffId: string;
+}
+
+export type CommissionBasis = "net-revenue" | "table-minimum" | "per-head" | "per-reservation";
+
+export interface CommissionRule {
+  id: string;
+  venueId: string;
+  staffId?: string;
+  appliesToRole?: StaffRole;
+  basis: CommissionBasis;
+  ratePct?: number;
+  flatCents?: number;
+  qualifier?: {
+    minPartySize?: number;
+    channels?: ReservationChannel[];
+  };
+}
+
+export interface CommissionLine {
+  sourceType: "reservation" | "session" | "order";
+  sourceId: string;
+  basisCents: number;
+  earnedCents: number;
+}
+
+/** Append-only — approved by a manager, writes an audit entry. */
+export interface CommissionStatement {
+  id: string;
+  venueId: string;
+  staffId: string;
+  periodStart: string; // ISO
+  periodEnd: string;
+  lines: CommissionLine[];
+  totalCents: number;
+  status: "draft" | "approved";
+  approvedByStaffId?: string;
+}
+
+/** Per-zone coverage rule — min staff by role the manager sees while scheduling. */
+export interface ZoneCoverageRule {
+  id: string;
+  venueId: string;
+  zoneId: string;
+  role: StaffRole;
+  minStaff: number;
 }
