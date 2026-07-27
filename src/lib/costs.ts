@@ -122,3 +122,19 @@ export function computeEventPnL(
     contribution: attributedRevenue - totalCosts,
   };
 }
+
+/** RV-05: Computes a priority score for an order — higher = fulfill first. Based on zone, minimum spend, session age, and order type. */
+export function computeOrderPriority(
+  zoneName: string,
+  minimumSpendCents: number | undefined,
+  sessionCreatedAt: string,
+  orderItemCount: number,
+): number {
+  const zoneWeights: Record<string, number> = { VIP: 10, "Main floor": 5, Rooftop: 7, Lounge: 4 };
+  let score = zoneWeights[zoneName] ?? 3;
+  if (minimumSpendCents) score += Math.round(minimumSpendCents / 5000);
+  const sessionAgeMinutes = (Date.now() - new Date(sessionCreatedAt).getTime()) / 60000;
+  score += Math.round(sessionAgeMinutes / 30);
+  score += orderItemCount * 2;
+  return Math.max(1, score);
+}
