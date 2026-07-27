@@ -490,7 +490,7 @@ export interface ActiveShow {
 // ---------- Live floor pulse ----------
 
 export type AttentionSeverity = "warning" | "critical";
-export type AttentionItemType = "order-overdue" | "help-open" | "table-closeout";
+export type AttentionItemType = "order-overdue" | "help-open" | "table-closeout" | "table-under-minimum";
 
 /** One row in the manager's live "needs attention" feed — always derived, never stored. */
 export interface AttentionItem {

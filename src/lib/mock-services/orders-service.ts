@@ -372,6 +372,12 @@ export const mockOrdersService = {
     );
   },
 
+  /** Venue-wide — for Pulse's table-under-minimum check and cash-out/analytics rollups. */
+  async listAllAdjustments(): Promise<TabAdjustment[]> {
+    await delay();
+    return clone(adjustments).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
   /**
    * The one entry point for void / comp / discount. Scope is the whole order
    * (no orderItemId), one line (orderItemId, no quantity) or a partial

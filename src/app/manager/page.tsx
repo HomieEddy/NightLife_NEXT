@@ -44,13 +44,15 @@ export default function ManagerDashboardPage() {
   }, []);
 
   const refreshPulse = useCallback(async () => {
-    const [liveOrders, helpRequests, tables, zones, venue, lastCall] = await Promise.all([
+    const [liveOrders, helpRequests, tables, zones, venue, lastCall, sessions, adjustments] = await Promise.all([
       ordersService.listOrders(),
       guestsService.listHelpRequests(),
       venueService.listTables(),
       venueService.listZones(),
       venueService.getVenue(),
       pulseService.getLastCallState(),
+      guestsService.listSessions("approved"),
+      ordersService.listAllAdjustments(),
     ]);
     setAttentionItems(
       computeAttentionItems(
@@ -61,6 +63,9 @@ export default function ManagerDashboardPage() {
         venue.slaThresholds,
         lastCall.active,
         venue.lastCallAutoFlagTables,
+        sessions,
+        adjustments,
+        venue.minimumSpendWarningRatio,
       ),
     );
     setLastCallActive(lastCall.active);

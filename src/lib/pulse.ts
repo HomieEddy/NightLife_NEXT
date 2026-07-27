@@ -1,12 +1,15 @@
 import type {
   AttentionItem,
+  GuestSession,
   HelpRequest,
   HelpRequestType,
   Order,
+  TabAdjustment,
   Venue,
   VenueTable,
   Zone,
 } from "@/lib/types";
+import { computeSessionBalance, shortfallRatio } from "@/lib/tab";
 
 const HELP_LABELS: Record<HelpRequestType, string> = {
   "call-waiter": "Call waiter",
@@ -36,6 +39,10 @@ export function computeAttentionItems(
   thresholds: Venue["slaThresholds"],
   lastCallActive: boolean,
   autoFlagTables: boolean,
+  /** Plan 16: open sessions + their ledger, to flag tables under their minimum at last call. */
+  sessions: GuestSession[] = [],
+  adjustments: TabAdjustment[] = [],
+  minimumSpendWarningRatio = 0.25,
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
 
@@ -74,6 +81,29 @@ export function computeAttentionItems(
         tableCode: table.code,
         zoneName: zones.find((z) => z.id === table.zoneId)?.name ?? "",
         message: "Last call — nudge this table to close out",
+        ageMinutes: 0,
+      });
+    }
+  }
+
+  // At last call, flag every open session still short of its minimum — severity
+  // scales with the shortfall ratio (plan 16). Derived, never stored.
+  if (lastCallActive) {
+    for (const session of sessions) {
+      if (session.status !== "approved") continue;
+      const table = tables.find((t) => t.id === session.tableId);
+      if (!table) continue;
+      const balance = computeSessionBalance(session.id, orders, adjustments, session.minimumSpendCents ?? 0);
+      if (balance.shortfallCents <= 0) continue;
+      const ratio = shortfallRatio(balance);
+      items.push({
+        id: `minimum-${session.id}`,
+        type: "table-under-minimum",
+        severity: ratio >= minimumSpendWarningRatio * 2 ? "critical" : "warning",
+        tableId: table.id,
+        tableCode: table.code,
+        zoneName: zones.find((z) => z.id === table.zoneId)?.name ?? "",
+        message: `${session.displayName} — $${(balance.shortfallCents / 100).toFixed(0)} short of minimum`,
         ageMinutes: 0,
       });
     }

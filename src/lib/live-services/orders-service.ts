@@ -155,6 +155,10 @@ export const liveOrdersService = {
     return api<TabAdjustment[]>(`/api/tab/adjustments?sessionId=${encodeURIComponent(sessionId)}`);
   },
 
+  async listAllAdjustments(): Promise<TabAdjustment[]> {
+    return api<TabAdjustment[]>("/api/tab/adjustments");
+  },
+
   async adjustOrder(input: {
     orderId: string;
     orderItemId?: string;
