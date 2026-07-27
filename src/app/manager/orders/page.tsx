@@ -13,19 +13,23 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
+import { AdjustmentDialog } from "@/components/shared/adjustment-dialog";
 import { menuService } from "@/lib/services/menu-service";
 import { ordersService } from "@/lib/services/orders-service";
 import { staffService } from "@/lib/services/staff-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { venueService } from "@/lib/services/venue-service";
+import { permissionService } from "@/lib/services/permission-service";
+import { canDo } from "@/lib/permissions";
 import { formatMoney } from "@/lib/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { SessionOverview } from "@/components/shared/session-overview";
 import { cn } from "@/lib/utils";
+import { Wallet } from "lucide-react";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { DateRangePicker, getDefaultDateRange, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import type {
-  GuestSession, MenuCategory, MenuItem, Order, OrderStatus, StaffMember, VenueTable, Zone,
+  GuestSession, MenuCategory, MenuItem, Order, OrderStatus, StaffMember, TabAdjustmentKind, VenueTable, Zone,
 } from "@/lib/types";
 
 const STATUS_FILTERS: { id: "all" | "active" | OrderStatus; label: string }[] = [
@@ -47,6 +51,9 @@ export default function ManagerOrdersPage() {
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [view, setView] = useState<"orders" | "sessions">("orders");
   const [sessions, setSessions] = useState<GuestSession[] | null>(null);
+  const [me, setMe] = useState<StaffMember | null>(null);
+  const [permissions, setPermissions] = useState<import("@/lib/permissions").RolePermissions | null>(null);
+  const [compThresholdCents, setCompThresholdCents] = useState(0);
 
   // Filters
   const [query, setQuery] = useState("");
@@ -73,6 +80,9 @@ export default function ManagerOrdersPage() {
     menuService.listItems().then(setItems);
     menuService.listCategories(true).then(setCategories);
     guestsService.listSessions().then(setSessions);
+    staffService.getCurrentStaff().then(setMe);
+    permissionService.getRolePermissions("venue-1").then(setPermissions);
+    venueService.getVenueSnapshot().then((v) => setCompThresholdCents(v.compThresholdCents));
   }, [refresh]);
 
   useLiveEvents({
@@ -322,9 +332,36 @@ export default function ManagerOrdersPage() {
             />
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
-              {visible.map((order) => (
-                <OrderCard key={order.id} order={order} />
-              ))}
+              {visible.map((order) => {
+                const availableKinds: TabAdjustmentKind[] = permissions && me
+                  ? (["void", "comp", "discount"] as const).filter((k) => canDo(permissions, me.role, `tab:${k}` as const))
+                  : [];
+                const canAdjust = !!order.sessionId && order.status !== "pending" && order.status !== "cancelled" && availableKinds.length > 0;
+                return (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    footer={
+                      canAdjust && me ? (
+                        <AdjustmentDialog
+                          order={order}
+                          availableKinds={availableKinds}
+                          authorStaffId={me.id}
+                          authorStaffName={me.name}
+                          compThresholdCents={compThresholdCents}
+                          isManager={me.role === "manager"}
+                          onDone={refresh}
+                          trigger={
+                            <Button variant="outline" size="sm" className="w-full">
+                              <Wallet className="size-3.5" /> Adjust tab
+                            </Button>
+                          }
+                        />
+                      ) : undefined
+                    }
+                  />
+                );
+              })}
             </div>
           )}
         </>
