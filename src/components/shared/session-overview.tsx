@@ -1,19 +1,45 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ChevronRight, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ChevronRight, Users, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 import { OrderCard } from "@/components/shared/order-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { SessionActionsDialog } from "@/components/shared/session-actions-dialog";
+import { ordersService } from "@/lib/services/orders-service";
+import { computeSessionBalance, shortfallRatio } from "@/lib/tab";
 import { formatMoney } from "@/lib/format";
-import type { GuestSession, Order } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { GuestSession, Order, TabAdjustment, VenueTable } from "@/lib/types";
 
 /**
  * Groups orders under their guest session and totals each session
  * independently (every order already carries its own fees in `total`).
  */
-export function SessionOverview({ sessions, orders }: { sessions: GuestSession[]; orders: Order[] }) {
+export function SessionOverview({
+  sessions,
+  orders,
+  tables = [],
+  minimumSpendWarningRatio = 0.25,
+  staffContext,
+}: {
+  sessions: GuestSession[];
+  orders: Order[];
+  /** Tables + staff identity/capabilities — pass to enable transfer/merge actions. Omit for a read-only view. */
+  tables?: VenueTable[];
+  minimumSpendWarningRatio?: number;
+  staffContext?: {
+    staffId: string;
+    staffName: string;
+    canTransfer: boolean;
+    canMerge: boolean;
+    onChange: () => void;
+  };
+}) {
+  const openSessions = sessions.filter((s) => s.status === "approved");
   if (sessions.length === 0) {
     return (
       <EmptyState
@@ -30,15 +56,50 @@ export function SessionOverview({ sessions, orders }: { sessions: GuestSession[]
           key={session.id}
           session={session}
           orders={orders.filter((o) => o.sessionId === session.id)}
+          tables={tables}
+          otherOpenSessions={openSessions.filter((s) => s.id !== session.id)}
+          minimumSpendWarningRatio={minimumSpendWarningRatio}
+          staffContext={staffContext}
         />
       ))}
     </div>
   );
 }
 
-function SessionCard({ session, orders }: { session: GuestSession; orders: Order[] }) {
+function SessionCard({
+  session,
+  orders,
+  tables,
+  otherOpenSessions,
+  minimumSpendWarningRatio,
+  staffContext,
+}: {
+  session: GuestSession;
+  orders: Order[];
+  tables: VenueTable[];
+  otherOpenSessions: GuestSession[];
+  minimumSpendWarningRatio: number;
+  staffContext?: {
+    staffId: string;
+    staffName: string;
+    canTransfer: boolean;
+    canMerge: boolean;
+    onChange: () => void;
+  };
+}) {
   const [open, setOpen] = useState(false);
+  const [adjustments, setAdjustments] = useState<TabAdjustment[]>([]);
   const total = orders.reduce((s, o) => s + o.total, 0);
+
+  useEffect(() => {
+    ordersService.listAdjustments(session.id).then(setAdjustments);
+  }, [session.id, orders]);
+
+  const balance = computeSessionBalance(session.id, orders, adjustments, session.minimumSpendCents ?? 0);
+  const hasMinimum = balance.minimumSpendCents > 0;
+  const progressPct = hasMinimum ? Math.min(100, (balance.netCents / balance.minimumSpendCents) * 100) : 0;
+  const ratio = shortfallRatio(balance);
+  const isWarning = hasMinimum && ratio > 0 && ratio >= minimumSpendWarningRatio;
 
   return (
     <Card className="py-4">
@@ -63,6 +124,53 @@ function SessionCard({ session, orders }: { session: GuestSession; orders: Order
             {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
           </div>
         </button>
+
+        {hasMinimum && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                Minimum spend {formatMoney(balance.minimumSpendCents / 100)}
+              </span>
+              <span className={cn("font-medium tabular-nums", isWarning ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>
+                {balance.shortfallCents > 0
+                  ? `${formatMoney(balance.shortfallCents / 100)} short`
+                  : "Met"}
+              </span>
+            </div>
+            <Progress
+              value={progressPct}
+              className={cn(isWarning && "[&>div]:bg-amber-500")}
+            />
+          </div>
+        )}
+
+        {balance.adjustmentsCents > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {balance.voidCents > 0 && `Void ${formatMoney(balance.voidCents / 100)} · `}
+            {balance.compCents > 0 && `Comp ${formatMoney(balance.compCents / 100)} · `}
+            {balance.discountCents > 0 && `Discount ${formatMoney(balance.discountCents / 100)} · `}
+            Net {formatMoney(balance.netCents / 100)}
+          </p>
+        )}
+
+        {staffContext && session.status === "approved" && (staffContext.canTransfer || staffContext.canMerge) && (
+          <SessionActionsDialog
+            session={session}
+            orders={orders}
+            tables={tables}
+            otherOpenSessions={otherOpenSessions}
+            canTransfer={staffContext.canTransfer}
+            canMerge={staffContext.canMerge}
+            authorStaffId={staffContext.staffId}
+            authorStaffName={staffContext.staffName}
+            onDone={staffContext.onChange}
+            trigger={
+              <Button variant="outline" size="sm">
+                <Wallet className="size-3.5" /> Transfer / merge / split
+              </Button>
+            }
+          />
+        )}
 
         {open &&
           (orders.length === 0 ? (

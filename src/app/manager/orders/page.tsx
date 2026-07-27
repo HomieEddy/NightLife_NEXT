@@ -54,6 +54,7 @@ export default function ManagerOrdersPage() {
   const [me, setMe] = useState<StaffMember | null>(null);
   const [permissions, setPermissions] = useState<import("@/lib/permissions").RolePermissions | null>(null);
   const [compThresholdCents, setCompThresholdCents] = useState(0);
+  const [minimumSpendWarningRatio, setMinimumSpendWarningRatio] = useState(0.25);
 
   // Filters
   const [query, setQuery] = useState("");
@@ -69,6 +70,14 @@ export default function ManagerOrdersPage() {
     setOrders(await ordersService.listOrders());
   }, []);
 
+  const refreshAfterTabAction = useCallback(async () => {
+    await Promise.all([
+      refresh(),
+      guestsService.listSessions().then(setSessions),
+      venueService.listTables().then(setTables),
+    ]);
+  }, [refresh]);
+
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
 
@@ -82,7 +91,10 @@ export default function ManagerOrdersPage() {
     guestsService.listSessions().then(setSessions);
     staffService.getCurrentStaff().then(setMe);
     permissionService.getRolePermissions("venue-1").then(setPermissions);
-    venueService.getVenueSnapshot().then((v) => setCompThresholdCents(v.compThresholdCents));
+    venueService.getVenueSnapshot().then((v) => {
+      setCompThresholdCents(v.compThresholdCents);
+      setMinimumSpendWarningRatio(v.minimumSpendWarningRatio);
+    });
   }, [refresh]);
 
   useLiveEvents({
@@ -374,6 +386,15 @@ export default function ManagerOrdersPage() {
             <SessionOverview
               sessions={sessions.filter((s) => isInCustomDateRange(s.createdAt, sessionDateRange))}
               orders={orders ?? []}
+              tables={tables}
+              minimumSpendWarningRatio={minimumSpendWarningRatio}
+              staffContext={me && permissions ? {
+                staffId: me.id,
+                staffName: me.name,
+                canTransfer: canDo(permissions, me.role, "tab:transfer"),
+                canMerge: canDo(permissions, me.role, "tab:merge"),
+                onChange: refreshAfterTabAction,
+              } : undefined}
             />
           )}
         </>
