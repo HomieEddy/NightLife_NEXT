@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  AlertTriangle,
   BarChart3,
   Boxes,
   CalendarDays,
@@ -22,6 +23,7 @@ import {
   Settings,
   Table2,
   Tag,
+  UserSquare2,
   Users,
   Wallet,
 } from "lucide-react";
@@ -52,6 +54,8 @@ const NAV: { href: string; label: string; icon: React.ComponentType<{ className?
   { href: "/manager/happy-hour", label: "Happy hour", icon: Clock, feature: "happy-hour" },
   { href: "/manager/reservations", label: "Reservations", icon: CalendarDays, feature: "reservations" },
   { href: "/manager/events", label: "Events", icon: PartyPopper, feature: "events" },
+  { href: "/manager/guests", label: "Guests", icon: UserSquare2, feature: "guest-crm" },
+  { href: "/manager/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents" },
   { href: "/manager/promotions", label: "Promotions", icon: Tag, feature: "promotions" },
   { href: "/manager/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
   { href: "/manager/qr", label: "QR codes", icon: QrCode },

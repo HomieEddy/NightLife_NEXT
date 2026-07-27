@@ -20,10 +20,13 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PulseTab } from "@/components/manager/pulse-tab";
 import { useAuth } from "@/context/auth-context";
 import { analyticsService } from "@/lib/services/analytics-service";
+import { doorService } from "@/lib/services/door-service";
 import { guestsService } from "@/lib/services/guests-service";
+import { incidentService } from "@/lib/services/incident-service";
 import { ordersService } from "@/lib/services/orders-service";
 import { pulseService } from "@/lib/services/pulse-service";
 import { venueService } from "@/lib/services/venue-service";
+import { waitlistService } from "@/lib/services/waitlist-service";
 import { computeAttentionItems } from "@/lib/pulse";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { formatMoney, formatPct } from "@/lib/format";
@@ -44,7 +47,7 @@ export default function ManagerDashboardPage() {
   }, []);
 
   const refreshPulse = useCallback(async () => {
-    const [liveOrders, helpRequests, tables, zones, venue, lastCall, sessions, adjustments] = await Promise.all([
+    const [liveOrders, helpRequests, tables, zones, venue, lastCall, sessions, adjustments, occupancy, waitlistEntries, openIncidents] = await Promise.all([
       ordersService.listOrders(),
       guestsService.listHelpRequests(),
       venueService.listTables(),
@@ -53,6 +56,9 @@ export default function ManagerDashboardPage() {
       pulseService.getLastCallState(),
       guestsService.listSessions("approved"),
       ordersService.listAllAdjustments(),
+      doorService.getOccupancy(),
+      waitlistService.listEntries("waiting"),
+      incidentService.listIncidents({ status: "open" }),
     ]);
     setAttentionItems(
       computeAttentionItems(
@@ -66,6 +72,13 @@ export default function ManagerDashboardPage() {
         sessions,
         adjustments,
         venue.minimumSpendWarningRatio,
+        {
+          occupancy: occupancy.current,
+          legalCapacity: occupancy.legalCapacity,
+          occupancyWarnRatio: venue.occupancyWarnRatio,
+          waitlistEntries,
+          openIncidents,
+        },
       ),
     );
     setLastCallActive(lastCall.active);

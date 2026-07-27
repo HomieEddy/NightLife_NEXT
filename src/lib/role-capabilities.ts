@@ -9,6 +9,8 @@ import {
   CalendarDays,
   PartyPopper,
   Shield,
+  DoorOpen,
+  AlertTriangle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -43,11 +45,22 @@ const RUNNER_NAV: StaffNavItem[] = [
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
 ];
 
-/** Security: trouble, hours, radio — no orders or approvals. */
+/** Security: door + trouble + hours + radio — no orders or approvals. */
 const SECURITY_NAV: StaffNavItem[] = [
   { href: "/staff", label: "Home", icon: Home },
+  { href: "/staff/door", label: "Door", icon: DoorOpen, feature: "door" },
+  { href: "/staff/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents" },
   { href: "/staff/help", label: "Help", icon: Shield },
-  SCHEDULE_ITEM,
+  { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
+];
+
+/** Host: the floor role most on the door — door sits between Approvals and Help. */
+const HOST_NAV: StaffNavItem[] = [
+  { href: "/staff", label: "Home", icon: Home },
+  { href: "/staff/orders", label: "Orders", icon: Receipt },
+  { href: "/staff/approvals", label: "Approvals", icon: UserCheck },
+  { href: "/staff/door", label: "Door", icon: DoorOpen, feature: "door" },
+  { href: "/staff/help", label: "Help", icon: LifeBuoy },
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
 ];
 
@@ -69,7 +82,7 @@ const FLOOR_NAV: StaffNavItem[] = [
 
 const STAFF_NAV: Record<StaffRole, StaffNavItem[]> = {
   manager: FLOOR_NAV,
-  host: FLOOR_NAV,
+  host: HOST_NAV,
   bartender: FLOOR_NAV,
   runner: RUNNER_NAV,
   security: SECURITY_NAV,

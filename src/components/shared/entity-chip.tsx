@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarCheck, Map, Martini, PartyPopper, Table2, Tag, Users } from "lucide-react";
+import { AlertTriangle, CalendarCheck, DoorOpen, Map, Martini, PartyPopper, Table2, Tag, UserSquare2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  doorHref,
   eventHref,
+  guestProfileHref,
+  incidentHref,
   menuCategoryHref,
   promotionHref,
   reservationHref,
   tableHref,
+  waitlistHref,
   zoneHref,
   zoneStaffHref,
   zoneTablesHref,
@@ -22,7 +26,11 @@ export type EntityChipType =
   | "menu-category" // → menu filtered to category
   | "reservation" // → reservations page, highlighted
   | "event" // → events page, highlighted
-  | "promotion"; // → promotions page, highlighted
+  | "promotion" // → promotions page, highlighted
+  | "door" // → the door surface
+  | "waitlist" // → the waitlist tab
+  | "incident" // → incidents page, highlighted
+  | "guest-profile"; // → guests page, highlighted
 
 const CONFIG: Record<EntityChipType, { icon: typeof Map; href: (id: string) => string }> = {
   zone: { icon: Map, href: zoneHref },
@@ -33,6 +41,10 @@ const CONFIG: Record<EntityChipType, { icon: typeof Map; href: (id: string) => s
   reservation: { icon: CalendarCheck, href: reservationHref },
   event: { icon: PartyPopper, href: eventHref },
   promotion: { icon: Tag, href: promotionHref },
+  door: { icon: DoorOpen, href: doorHref },
+  waitlist: { icon: Users, href: waitlistHref },
+  incident: { icon: AlertTriangle, href: incidentHref },
+  "guest-profile": { icon: UserSquare2, href: guestProfileHref },
 };
 
 /** Small link-wrapped badge for navigating entity relationships. */

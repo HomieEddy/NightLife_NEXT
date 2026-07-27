@@ -3,13 +3,16 @@ import type {
   GuestSession,
   HelpRequest,
   HelpRequestType,
+  Incident,
   Order,
   TabAdjustment,
   Venue,
   VenueTable,
+  WaitlistEntry,
   Zone,
 } from "@/lib/types";
 import { computeSessionBalance, shortfallRatio } from "@/lib/tab";
+import { occupancyRatio } from "@/lib/door";
 
 const HELP_LABELS: Record<HelpRequestType, string> = {
   "call-waiter": "Call waiter",
@@ -43,6 +46,14 @@ export function computeAttentionItems(
   sessions: GuestSession[] = [],
   adjustments: TabAdjustment[] = [],
   minimumSpendWarningRatio = 0.25,
+  /** Plan 17: door capacity, the walk-in waitlist and open incidents feed three more attention types. */
+  door?: {
+    occupancy: number;
+    legalCapacity: number;
+    occupancyWarnRatio: number;
+    waitlistEntries: WaitlistEntry[];
+    openIncidents: Incident[];
+  },
 ): AttentionItem[] {
   const items: AttentionItem[] = [];
 
@@ -105,6 +116,63 @@ export function computeAttentionItems(
         zoneName: zones.find((z) => z.id === table.zoneId)?.name ?? "",
         message: `${session.displayName} — $${(balance.shortfallCents / 100).toFixed(0)} short of minimum`,
         ageMinutes: 0,
+      });
+    }
+  }
+
+  if (door) {
+    const ratio = occupancyRatio(door.occupancy, door.legalCapacity);
+    if (ratio >= 1) {
+      items.push({
+        id: "capacity-critical",
+        type: "capacity-warning",
+        severity: "critical",
+        tableId: "venue",
+        tableCode: "DOOR",
+        zoneName: "",
+        message: `At capacity — ${door.occupancy}/${door.legalCapacity}`,
+        ageMinutes: 0,
+      });
+    } else if (ratio >= door.occupancyWarnRatio) {
+      items.push({
+        id: "capacity-warning",
+        type: "capacity-warning",
+        severity: "warning",
+        tableId: "venue",
+        tableCode: "DOOR",
+        zoneName: "",
+        message: `Approaching capacity — ${door.occupancy}/${door.legalCapacity}`,
+        ageMinutes: 0,
+      });
+    }
+
+    for (const entry of door.waitlistEntries) {
+      if (entry.status !== "waiting") continue;
+      const age = ageMinutes(entry.joinedAt);
+      if (age <= entry.quotedMinutes) continue;
+      items.push({
+        id: `waitlist-${entry.id}`,
+        type: "waitlist-overdue",
+        severity: age >= entry.quotedMinutes * 2 ? "critical" : "warning",
+        tableId: "waitlist",
+        tableCode: entry.name,
+        zoneName: "",
+        message: `${entry.name}, party of ${entry.partySize} — ${Math.round(age)} min, quoted ${entry.quotedMinutes}`,
+        ageMinutes: age,
+      });
+    }
+
+    for (const incident of door.openIncidents) {
+      const age = ageMinutes(incident.occurredAt);
+      items.push({
+        id: `incident-${incident.id}`,
+        type: "incident-open",
+        severity: incident.severity === "high" ? "critical" : "warning",
+        tableId: incident.tableId ?? "incident",
+        tableCode: incident.type.replace(/-/g, " "),
+        zoneName: zones.find((z) => z.id === incident.zoneId)?.name ?? "",
+        message: `Open ${incident.type.replace(/-/g, " ")} incident — ${Math.round(age)} min`,
+        ageMinutes: age,
       });
     }
   }
