@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Package, Pencil, Plus, ShoppingCart, Truck } from "lucide-react";
+import { ArrowUpDown, Package, Plus, Search, ShoppingCart, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -33,6 +34,13 @@ export default function ManagerPurchasingPage() {
   const [meId, setMeId] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Filters
+  const [supFilter, setSupFilter] = useState<string>("all");
+  const [poStatusFilter, setPoStatusFilter] = useState<string>("all");
+  const [stStatusFilter, setStStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState<string>("newest");
+
   // Supplier dialog
   const [supOpen, setSupOpen] = useState(false);
   const [supEditing, setSupEditing] = useState<Supplier | null>(null);
@@ -51,6 +59,16 @@ export default function ManagerPurchasingPage() {
     setSuppliers(sups); setOrders(pos); setItems(its); setSupplierItems(sis); setStocktakes(sts); setMeId(me.id); setReady(true);
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Filtered data
+  const filteredSuppliers = suppliers.filter((s) => (supFilter === "all" || s.id === supFilter) && (searchQuery ? s.name.toLowerCase().includes(searchQuery.toLowerCase()) || (s.contactName ?? "").toLowerCase().includes(searchQuery.toLowerCase()) : true));
+  const filteredOrders = orders.filter((po) => {
+    if (supFilter !== "all" && po.supplierId !== supFilter) return false;
+    if (poStatusFilter !== "all" && po.status !== poStatusFilter) return false;
+    if (searchQuery && !po.code.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  }).sort((a, b) => sortOrder === "newest" ? (b.submittedAt ?? "").localeCompare(a.submittedAt ?? "") : (a.submittedAt ?? "").localeCompare(b.submittedAt ?? ""));
+  const filteredStocktakes = stocktakes.filter((st) => stStatusFilter === "all" || st.status === stStatusFilter).sort((a, b) => b.businessDate.localeCompare(a.businessDate));
 
   // ── Supplier CRUD ──
   function openSupCreate() { setSupEditing(null); setSupForm({ name: "", contactName: "", email: "", phone: "", leadTimeDays: "2", minOrder: "" }); setSupOpen(true); }
@@ -110,9 +128,31 @@ export default function ManagerPurchasingPage() {
         actions={<Button size="sm" onClick={openSupCreate}><Plus className="size-4 mr-1" /> Add supplier</Button>}
       />
 
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-2">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Search suppliers, PO codes…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 h-9 text-sm" />
+        </div>
+        <Select value={supFilter} onValueChange={setSupFilter}>
+          <SelectTrigger className="w-40 h-9 text-sm"><SelectValue placeholder="All suppliers" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+        </Select>
+        <Select value={poStatusFilter} onValueChange={setPoStatusFilter}>
+          <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="PO status" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">All POs</SelectItem><SelectItem value="draft">Draft</SelectItem><SelectItem value="submitted">Submitted</SelectItem><SelectItem value="partially-received">Partial</SelectItem><SelectItem value="received">Received</SelectItem><SelectItem value="cancelled">Cancelled</SelectItem></SelectContent>
+        </Select>
+        <Select value={sortOrder} onValueChange={setSortOrder}>
+          <SelectTrigger className="w-32 h-9 text-sm"><ArrowUpDown className="size-3 mr-1" /></SelectTrigger>
+          <SelectContent><SelectItem value="newest">Newest</SelectItem><SelectItem value="oldest">Oldest</SelectItem></SelectContent>
+        </Select>
+      </div>
+
       {suppliers.length === 0 ? (
         <EmptyState icon={Truck} title="No suppliers" description="Add your suppliers to start ordering." action={<Button onClick={openSupCreate}><Plus className="size-4 mr-1" /> Add supplier</Button>} />
-      ) : suppliers.map((sup) => (
+      ) : filteredSuppliers.length === 0 ? (
+        <EmptyState icon={Truck} title="No matching suppliers" description="Try clearing the filters." />
+      ) : filteredSuppliers.map((sup) => (
         <Card key={sup.id}>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center justify-between">
@@ -129,7 +169,7 @@ export default function ManagerPurchasingPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-xs text-muted-foreground">Lead: {sup.leadTimeDays}d · Min: {sup.minimumOrderCents ? formatMoney(sup.minimumOrderCents, "CAD") : "none"}{sup.contactName && ` · ${sup.contactName}`}{sup.email && ` · ${sup.email}`}</p>
-            {orders.filter((po) => po.supplierId === sup.id).map((po) => (
+            {filteredOrders.filter((po) => po.supplierId === sup.id).map((po) => (
               <div key={po.id} className="rounded-md border px-3 py-2">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{po.code}</p>
@@ -154,9 +194,17 @@ export default function ManagerPurchasingPage() {
       {/* Stocktakes */}
       {stocktakes.length > 0 && (
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Stocktakes</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center justify-between">
+              Stocktakes
+              <Select value={stStatusFilter} onValueChange={setStStatusFilter}>
+                <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="Filter" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="open">Open</SelectItem><SelectItem value="counting">Counting</SelectItem><SelectItem value="committed">Committed</SelectItem></SelectContent>
+              </Select>
+            </CardTitle>
+          </CardHeader>
           <CardContent className="space-y-2">
-            {stocktakes.map((st) => (
+            {filteredStocktakes.map((st) => (
               <div key={st.id} className="flex items-center justify-between rounded-md border px-3 py-2">
                 <div><p className="text-sm font-medium">{st.businessDate}</p><p className="text-xs text-muted-foreground">{st.scope} · {st.status}{st.committedAt && ` · ${new Date(st.committedAt).toLocaleTimeString()}`}</p></div>
                 <div className="text-right"><p className={`text-sm font-semibold tabular-nums ${st.totalVarianceCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{formatMoney(st.totalVarianceCents, "CAD")}</p><p className="text-xs text-muted-foreground">{st.lines.length} lines</p></div>
