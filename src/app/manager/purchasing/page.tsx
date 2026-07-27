@@ -19,7 +19,7 @@ import { menuService } from "@/lib/services/menu-service";
 import { staffService } from "@/lib/services/staff-service";
 import { suggestPurchaseOrder } from "@/lib/costs";
 import { formatMoney } from "@/lib/format";
-import type { PurchaseOrder, PurchaseOrderLine, Stocktake, Supplier, SupplierItem, MenuItem } from "@/lib/types";
+import type { PurchaseOrder, Stocktake, Supplier, SupplierItem, MenuItem } from "@/lib/types";
 
 const STATUS_BADGE: Record<string, "default" | "secondary" | "outline"> = { draft: "outline", submitted: "secondary", "partially-received": "secondary", received: "default", cancelled: "outline" };
 
@@ -46,7 +46,10 @@ export default function ManagerPurchasingPage() {
   const [supEditing, setSupEditing] = useState<Supplier | null>(null);
   const [supForm, setSupForm] = useState({ name: "", contactName: "", email: "", phone: "", leadTimeDays: "2", minOrder: "" });
 
-  // PO receive dialog
+  // PO create dialog
+  const [poOpen, setPoOpen] = useState(false);
+  const [poSupplierId, setPoSupplierId] = useState("");
+  const [poLines, setPoLines] = useState<{ menuItemId: string; qty: string }[]>([]);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receivingPO, setReceivingPO] = useState<PurchaseOrder | null>(null);
   const [receiveQty, setReceiveQty] = useState<Record<string, number>>({});
@@ -83,14 +86,33 @@ export default function ManagerPurchasingPage() {
   }
 
   // ── PO actions ──
-  async function createPO(supplierId: string) {
+  function openPO(supplierId: string) {
+    setPoSupplierId(supplierId);
+    const supplierCatalogue = supplierItems.filter((si) => si.supplierId === supplierId);
+    setPoLines(supplierCatalogue.slice(0, 10).map((si) => ({ menuItemId: si.menuItemId, qty: "" })));
+    setPoOpen(true);
+  }
+
+  async function savePO() {
+    const active = poLines.filter((l) => parseInt(l.qty) > 0);
+    if (active.length === 0) { toast.error("Add at least one item with quantity"); return; }
     setBusy(true); try {
-      const po: PurchaseOrder = { id: `po-${Date.now()}`, venueId: "venue-1", supplierId, code: `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Date.now() % 100}`, status: "draft", lines: items.slice(0, 3).map((mi, i) => ({ id: `pol-${Date.now()}-${i}`, menuItemId: mi.id, qtyOrdered: 6, qtyReceived: 0, unitCostCents: supplierItems.find((si) => si.menuItemId === mi.id && si.supplierId === supplierId)?.unitCostCents ?? Math.round(mi.price * 35), lineTotalCents: 0 })), subtotalCents: 0 };
-      const lines = po.lines as PurchaseOrderLine[];
-      po.subtotalCents = lines.reduce((s, l) => s + l.qtyOrdered * l.unitCostCents, 0);
-      for (const l of lines) l.lineTotalCents = l.qtyOrdered * l.unitCostCents;
-      await purchasingService.savePurchaseOrder(po); await refresh();
-      toast.success("PO created");
+      const ts = Date.now();
+      const lines = active.map((l, i) => {
+        const si = supplierItems.find((s) => s.menuItemId === l.menuItemId && s.supplierId === poSupplierId);
+        const mi = items.find((it) => it.id === l.menuItemId);
+        const qty = parseInt(l.qty);
+        const unit = si?.unitCostCents ?? Math.round((mi?.price ?? 0) * 35);
+        return { id: `pol-${ts}-${i}`, menuItemId: l.menuItemId, qtyOrdered: qty, qtyReceived: 0, unitCostCents: unit, lineTotalCents: qty * unit };
+      });
+      const subtotal = lines.reduce((s, l) => s + l.lineTotalCents, 0);
+      const po: PurchaseOrder = {
+        id: `po-${ts}`, venueId: "venue-1", supplierId: poSupplierId,
+        code: `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(ts % 1000).padStart(3, "0")}`,
+        status: "draft", lines, subtotalCents: subtotal,
+      };
+      await purchasingService.savePurchaseOrder(po); await refresh(); setPoOpen(false);
+      toast.success(`PO created with ${active.length} items`);
     } catch { toast.error("Could not create PO"); } finally { setBusy(false); }
   }
 
@@ -163,7 +185,7 @@ export default function ManagerPurchasingPage() {
               </div>
               <div className="flex gap-1">
                 <Button size="sm" variant="outline" onClick={() => computeSuggestions(sup.id)}><ShoppingCart className="size-4 mr-1" /> Par check</Button>
-                <Button size="sm" variant="outline" onClick={() => createPO(sup.id)} disabled={busy}><Plus className="size-4 mr-1" /> New PO</Button>
+                <Button size="sm" variant="outline" onClick={() => openPO(sup.id)} disabled={busy}><Plus className="size-4 mr-1" /> New PO</Button>
               </div>
             </CardTitle>
           </CardHeader>
@@ -264,6 +286,78 @@ export default function ManagerPurchasingPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
             <Button onClick={receivePO} disabled={busy}>Confirm receipt</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create PO dialog */}
+      <Dialog open={poOpen} onOpenChange={setPoOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New purchase order</DialogTitle>
+            <DialogDescription>
+              {suppliers.find((s) => s.id === poSupplierId)?.name} — select items and quantities
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-80 space-y-2 overflow-y-auto">
+            {(() => {
+              const supplierCatalogue = supplierItems.filter((si) => si.supplierId === poSupplierId);
+              const allItemIds = new Set(supplierCatalogue.map((si) => si.menuItemId));
+              // Show catalogue items first, then other menu items for convenience
+              const ordered = [...supplierCatalogue.map((si) => si.menuItemId), ...items.filter((i) => !allItemIds.has(i.id)).map((i) => i.id)];
+              const seen = new Set<string>();
+              return ordered.map((itemId) => {
+                if (seen.has(itemId)) return null; seen.add(itemId);
+                const mi = items.find((i) => i.id === itemId);
+                if (!mi) return null;
+                const si = supplierCatalogue.find((s) => s.menuItemId === itemId);
+                const line = poLines.find((l) => l.menuItemId === itemId);
+                const qty = line ? parseInt(line.qty) || 0 : 0;
+                const isInCatalogue = !!si;
+                return (
+                  <div key={itemId} className={`flex items-center gap-3 rounded-md border px-3 py-2 ${qty > 0 ? "border-primary/40 bg-primary/5" : isInCatalogue ? "" : "opacity-60"}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{mi.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {isInCatalogue ? `${formatMoney(si?.unitCostCents ?? 0, "CAD")}/unit` : "Not in catalogue"}
+                        {si?.supplierSku && ` · SKU: ${si.supplierSku}`}
+                      </p>
+                    </div>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={line?.qty ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPoLines((prev) => {
+                          const exists = prev.find((l) => l.menuItemId === itemId);
+                          if (exists) return prev.map((l) => l.menuItemId === itemId ? { ...l, qty: val } : l);
+                          return [...prev, { menuItemId: itemId, qty: val }];
+                        });
+                      }}
+                      className="w-20 text-sm shrink-0"
+                    />
+                  </div>
+                );
+              });
+            })()}
+          </div>
+          <div className="text-xs text-muted-foreground text-right">
+            {(() => {
+              const active = poLines.filter((l) => parseInt(l.qty) > 0);
+              if (active.length === 0) return "No items selected";
+              const total = active.reduce((s, l) => {
+                const si = supplierItems.find((si) => si.menuItemId === l.menuItemId && si.supplierId === poSupplierId);
+                const mi = items.find((i) => i.id === l.menuItemId);
+                return s + parseInt(l.qty) * (si?.unitCostCents ?? Math.round((mi?.price ?? 0) * 35));
+              }, 0);
+              return `${active.length} items · subtotal ${formatMoney(total, "CAD")}`;
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPoOpen(false)}>Cancel</Button>
+            <Button onClick={savePO} disabled={busy}>Create PO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
