@@ -195,21 +195,21 @@ export default function ManagerPurchasingPage() {
       />
 
       {/* Filter bar */}
-      <div className="flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-0 flex-1 basis-48">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search suppliers, PO codes…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 h-9 text-sm" />
         </div>
         <Select value={supFilter} onValueChange={setSupFilter}>
-          <SelectTrigger className="w-40 h-9 text-sm"><SelectValue placeholder="All suppliers" /></SelectTrigger>
+          <SelectTrigger className="h-9 w-40 text-sm"><SelectValue placeholder="All suppliers" /></SelectTrigger>
           <SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={poStatusFilter} onValueChange={setPoStatusFilter}>
-          <SelectTrigger className="w-36 h-9 text-sm"><SelectValue placeholder="PO status" /></SelectTrigger>
+          <SelectTrigger className="h-9 w-36 text-sm"><SelectValue placeholder="PO status" /></SelectTrigger>
           <SelectContent><SelectItem value="all">All POs</SelectItem><SelectItem value="draft">Draft</SelectItem><SelectItem value="submitted">Submitted</SelectItem><SelectItem value="partially-received">Partial</SelectItem><SelectItem value="received">Received</SelectItem><SelectItem value="cancelled">Cancelled</SelectItem></SelectContent>
         </Select>
         <Select value={sortOrder} onValueChange={setSortOrder}>
-          <SelectTrigger className="w-32 h-9 text-sm"><ArrowUpDown className="size-3 mr-1" /></SelectTrigger>
+          <SelectTrigger className="h-9 w-32 text-sm"><ArrowUpDown className="size-3 mr-1" /></SelectTrigger>
           <SelectContent><SelectItem value="newest">Newest</SelectItem><SelectItem value="oldest">Oldest</SelectItem></SelectContent>
         </Select>
       </div>
