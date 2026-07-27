@@ -89,4 +89,18 @@ export const mockCertificationService = {
     cert.verifiedAt = new Date().toISOString();
     return clone(cert);
   },
+
+  async updateCertification(
+    id: string,
+    patch: { expiresAt?: string; issuingBody?: string; referenceNumber?: string },
+  ): Promise<Certification | null> {
+    await delay(250);
+    const cert = certifications.find((c) => c.id === id);
+    if (!cert) return null;
+    if (patch.expiresAt) cert.expiresAt = patch.expiresAt;
+    if (patch.issuingBody !== undefined) cert.issuingBody = patch.issuingBody;
+    if (patch.referenceNumber !== undefined) cert.referenceNumber = patch.referenceNumber;
+    cert.status = new Date(cert.expiresAt) < new Date() ? "expired" : "active";
+    return clone(cert);
+  },
 };
