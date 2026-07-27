@@ -179,6 +179,8 @@ export interface StockMovement {
   delta: number; // positive = stock in, negative = stock out
   note?: string;
   createdAt: string;
+  /** Set when this movement is the stock-return side of a void TabAdjustment (INV-T2). */
+  voidAdjustmentId?: string;
 }
 
 /** Logged the moment a bottle sells out or gets manually 86'd — feeds the live 86-board. */
@@ -238,7 +240,8 @@ export type GuestSessionStatus =
   | "approved"
   | "denied"
   | "closure-requested" // guest asked to close the tab (all orders delivered)
-  | "closed";
+  | "closed"
+  | "merged"; // folded into another session's tab (see parentSessionId) — plan 16
 
 export interface GuestSession {
   id: string;
@@ -253,9 +256,111 @@ export interface GuestSession {
   settlementMethod?: SettlementMethod;
   // TODO(backend): stamped at seat time from the reservation that gated the table
   promoterId?: string;
+  /**
+   * The venue's commitment for this tab, snapshotted from the table (or the
+   * seating reservation's own minimumSpendCents, when set) at approval time —
+   * editing the table's minimum mid-night must never rewrite an open tab.
+   */
+  minimumSpendCents?: number;
+  /** Set when this session absorbed another via mockGuestsService.mergeSession(). */
+  parentSessionId?: string;
+  /** History breadcrumb — the table this session started at, before a transfer. */
+  transferredFromTableId?: string;
 }
 
 export type SettlementMethod = "terminal" | "cash" | "house";
+
+// ---------- Tab ledger: adjustments, audit trail, cash-out (plan 16) ----------
+
+/**
+ * void — it never happened: removes the line from revenue AND returns stock.
+ * comp — it happened, the guest doesn't pay: stays in depletion/performance volume,
+ *   leaves revenue, lands in a comp-cost bucket. Writes no stock movement.
+ * discount — it happened, the guest pays less: reduces revenue by the delta only.
+ */
+export type TabAdjustmentKind = "void" | "comp" | "discount";
+
+/**
+ * Append-only tab ledger row — the record of every correction made to a
+ * session's balance after an order was placed. Corrections are new rows (a
+ * reversal), never edits or deletes (same rule as StockMovement, INV-I1).
+ */
+export interface TabAdjustment {
+  id: string;
+  venueId: string;
+  sessionId: string;
+  orderId?: string;
+  orderItemId?: string;
+  kind: TabAdjustmentKind;
+  /** Positive amount in cents — the size of the correction, never signed. */
+  amountCents: number;
+  /** Quantity of the line affected, for partial-quantity voids/comps. */
+  quantity?: number;
+  reasonCode: string; // matches an AdjustmentReason.code for this venue+kind
+  note?: string;
+  authorStaffId: string;
+  authorStaffName: string;
+  createdAt: string; // ISO
+  /** Set on the original row once a later row reverses it — the original is never edited. */
+  reversedByAdjustmentId?: string;
+}
+
+/** Venue-configurable reason vocabulary — mandatory dropdown, no free-text-only adjustments. */
+export interface AdjustmentReason {
+  id: string;
+  venueId: string;
+  kind: TabAdjustmentKind;
+  code: string;
+  label: string;
+  isActive: boolean;
+}
+
+/**
+ * Derived, never stored (same rule as AttentionItem) — one pure function in
+ * src/lib/tab.ts computes this from a session's orders + adjustments.
+ */
+export interface SessionBalance {
+  sessionId: string;
+  grossCents: number; // sum of order totals, unadjusted
+  voidCents: number;
+  compCents: number;
+  discountCents: number;
+  adjustmentsCents: number; // voidCents + compCents + discountCents
+  netCents: number; // grossCents - adjustmentsCents
+  minimumSpendCents: number; // 0 when the tab has no commitment
+  shortfallCents: number; // max(0, minimumSpendCents - netCents)
+  settledCents: number; // netCents + shortfallCents — what closes the tab
+}
+
+/** Every action already flagged `sensitive: true` writes one, plus the new tab/cashout actions. */
+export interface AuditEntry {
+  id: string;
+  venueId: string;
+  actorStaffId: string;
+  actorName: string;
+  action: string; // StaffAction | AdminAction — kept as string so this table stays generic across plans
+  targetType: string; // "order" | "session" | "cashout" | ...
+  targetId: string;
+  summary: string; // human-readable one-liner, e.g. "Comped 1× Grey Goose 750ml — service recovery"
+  metadata?: Record<string, unknown>;
+  createdAt: string; // ISO
+}
+
+/** One per-shift reconciliation — the Z-report. */
+export interface ShiftCashout {
+  id: string;
+  venueId: string;
+  staffId?: string; // set for a bartender's own drawer; absent for the manager's venue-wide close
+  businessDate: string; // "YYYY-MM-DD" bucketed by the venue's night config, never toDateString()
+  openedAt: string; // ISO
+  closedAt: string; // ISO
+  expectedByMethod: Record<SettlementMethod, number>; // cents
+  countedByMethod: Record<SettlementMethod, number>; // cents, entered by the closer
+  varianceCents: number; // Σ counted - Σ expected
+  note?: string;
+  closedByStaffId: string;
+  closedByStaffName: string;
+}
 
 // ---------- Orders ----------
 
@@ -554,6 +659,19 @@ export interface PromoterAnalytics {
   totalAttributedRevenue: number;
 }
 
+export interface AdjustmentAnalytics {
+  voidCount: number;
+  compCount: number;
+  discountCount: number;
+  voidCents: number;
+  compCents: number;
+  discountCents: number;
+  voidRate: number; // adjustmentsCents / grossCents, per kind
+  compRate: number;
+  discountRate: number;
+  byReason: { kind: TabAdjustmentKind; reasonCode: string; count: number; amountCents: number }[];
+}
+
 export interface OrderEtaMetrics {
   avgAcceptMinutes: number;
   avgPrepMinutes: number;
@@ -585,6 +703,7 @@ export interface AnalyticsSummary {
   orderFunnel?: OrderFunnelAnalytics;
   inventoryDepth?: InventoryDepthAnalytics;
   promoters?: PromoterAnalytics;
+  adjustments?: AdjustmentAnalytics;
 }
 
 export interface HistoricalAnalytics {
@@ -609,6 +728,7 @@ export interface HistoricalAnalytics {
   orderFunnel?: OrderFunnelAnalytics;
   inventoryDepth?: InventoryDepthAnalytics;
   promoters?: PromoterAnalytics;
+  adjustments?: AdjustmentAnalytics;
 }
 
 export const REPORT_METRICS = [
@@ -626,6 +746,7 @@ export const REPORT_METRICS = [
   { id: "service-fees", label: "Service fees" },
   { id: "promoter-funnel", label: "Promoter funnel" },
   { id: "promoter-revenue", label: "Promoter revenue" },
+  { id: "adjustments", label: "Comps, voids & discounts" },
 ] as const;
 
 export type ReportMetric = (typeof REPORT_METRICS)[number]["id"];
@@ -811,6 +932,10 @@ export interface Reservation {
   reservationPin?: string;
   // TODO(backend): FK to staff_profiles; set when a promoter creates the reservation or assigned by manager
   promoterId?: string;
+  /** Bottle-service term negotiated at booking time — makes BottlePackage reachable pre-seating. */
+  packageId?: string;
+  /** Overrides the table's default minimum for this booking; wins over the table at seating. */
+  minimumSpendCents?: number;
   createdAt: string; // ISO
 }
 
