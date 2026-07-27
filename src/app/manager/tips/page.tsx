@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { tipsService } from "@/lib/services/tips-service";
 import { timeService } from "@/lib/services/time-service";
 import { staffService } from "@/lib/services/staff-service";
@@ -36,6 +37,7 @@ export default function ManagerTipsPage() {
   const [saving, setSaving] = useState(false);
   const [me, setMe] = useState<StaffMember | null>(null);
   const [permissions, setPermissions] = useState<RolePermissions | null>(null);
+  const [page, setPage] = useState(1);
 
   // Rule edit dialog
   const [ruleOpen, setRuleOpen] = useState(false);
@@ -136,7 +138,7 @@ export default function ManagerTipsPage() {
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-base">Distributions</CardTitle></CardHeader>
               <CardContent className="space-y-2">
-                {distributions.map((d) => {
+                {paginate(distributions, page).map((d) => {
                   const closed = !!d.closedByStaffId;
                   return (
                     <div key={d.id} className="rounded-md border px-3 py-2">
@@ -157,6 +159,7 @@ export default function ManagerTipsPage() {
               </CardContent>
             </Card>
           )}
+          <Pagination totalItems={distributions.length} currentPage={page} onPageChange={setPage} className="mt-3" />
         </>
       )}
 

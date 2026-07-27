@@ -53,6 +53,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { menuService } from "@/lib/services/menu-service";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -113,6 +114,7 @@ function InventoryPageContent() {
   const [formItem, setFormItem] = useState<MenuItem | null>(null); // null = create
   const [draft, setDraft] = useState<ItemDraft | null>(null);
   const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [its, cats, moves] = await Promise.all([
@@ -300,8 +302,9 @@ function InventoryPageContent() {
               description="Try a different search or category, or add a new bottle."
             />
           ) : (
+            <>
             <div className="space-y-2">
-              {visible.map((item) => {
+              {paginate(visible, page).map((item) => {
                 const soldOut = item.inventory === 0;
                 const low = !soldOut && item.inventory <= 5;
                 return (
@@ -372,6 +375,8 @@ function InventoryPageContent() {
                 );
               })}
             </div>
+            <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+            </>
           )}
 
           {/* ---------- Movement log ---------- */}

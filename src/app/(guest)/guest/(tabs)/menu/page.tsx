@@ -13,6 +13,7 @@ import { PackageCard, type PackageWithQuote } from "@/components/guest/package-c
 import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/lib/services/menu-service";
 import { cn } from "@/lib/utils";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
 export default function GuestMenuPage() {
@@ -24,6 +25,7 @@ export default function GuestMenuPage() {
   const [activeCategory, setActiveCategory] = useState<string>("packages");
   const [query, setQuery] = useState("");
   const [openItem, setOpenItem] = useState<MenuItem | null>(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,9 +125,10 @@ export default function GuestMenuPage() {
             {visiblePackages.map((pkg, i) => (
               <PackageCard key={pkg.id} pkg={pkg} featured={i === 0} />
             ))}
-            {visible.map((item) => (
+            {paginate(visible, page).map((item) => (
               <MenuItemCard key={item.id} item={item} onClick={() => setOpenItem(item)} />
             ))}
+            <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
           </div>
         )
       ) : activeCategory === "packages" ? (
@@ -150,9 +153,10 @@ export default function GuestMenuPage() {
         />
       ) : (
         <div key={`${activeCategory}-${query}`} className="space-y-2.5 stagger-children">
-          {visible.map((item) => (
+          {paginate(visible, page).map((item) => (
             <MenuItemCard key={item.id} item={item} onClick={() => setOpenItem(item)} />
           ))}
+          <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
         </div>
       )}
 

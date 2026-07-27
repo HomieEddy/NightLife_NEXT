@@ -38,6 +38,7 @@ import { publicReservationHref } from "@/lib/entity-links";
 import { formatTime } from "@/lib/format";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { SearchInput } from "@/components/shared/search-input";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { cn } from "@/lib/utils";
 import type { Reservation, ReservationStatus, StaffMember, Venue, VenueEvent, VenueTable, Zone } from "@/lib/types";
 
@@ -84,6 +85,7 @@ function ReservationsContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ReservationDraft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [list, z, t, v, allStaff, allEvents] = await Promise.all([
@@ -329,7 +331,7 @@ function ReservationsContent() {
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {visible.map((res) => (
+          {paginate(visible, page).map((res) => (
             <Card key={res.id} className="py-4">
               <CardContent className="space-y-3 px-4">
                 <div className="flex items-start justify-between gap-2">
@@ -417,6 +419,8 @@ function ReservationsContent() {
           ))}
         </div>
       )}
+
+      <Pagination totalItems={visible?.length ?? 0} currentPage={page} onPageChange={setPage} className="mt-3" />
 
       <ReservationFormDialog
         open={dialogOpen}
