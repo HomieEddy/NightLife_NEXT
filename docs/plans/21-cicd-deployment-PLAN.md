@@ -1,4 +1,4 @@
-# 14 — CI/CD & Deployment Runbook · PLAN
+# 21 — CI/CD & Deployment Runbook · PLAN
 
 **Status: not started.**
 
@@ -57,9 +57,9 @@ deployment documented.
   credentials because it never deploys; the platforms pull on push. This
   keeps the checklist's "secrets not in build output" trivially true for
   CI artifacts.
-- **Deploy notifications:** Coolify webhook → email (plan 18's infra when
+- **Deploy notifications:** Coolify webhook → email (plan 25's infra when
   it lands; a plain SMTP/Discord webhook until then) announcing
-  deploy start/success/failure with the git SHA. Sentry (plan 16) release
+  deploy start/success/failure with the git SHA. Sentry (plan 23) release
   tagging ties errors to deploys.
 - **Rollback = redeploy previous image** in Coolify (both stage and prod
   keep N previous builds). The wrinkle worth documenting honestly:

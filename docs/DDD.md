@@ -9,23 +9,35 @@ gets fixed (AGENTS.md §9.9).
 ## 1. Bounded contexts
 
 ```
-┌────────────────────────────── VENUE (tenant-scoped) ─────────────────────────────┐
-│                                                                                  │
-│  Venue Config      Catalog &         Ordering (CORE)      Floor Coordination     │
-│  venue, zones,     Inventory         orders, sessions,    broadcasts, last call, │
-│  tables, fees,     categories,       help requests,       claims, show lock,     │
-│  floor map, SLA    items, packages,  gifts, fee lines     86 events              │
-│                    movements,                                                    │
-│                    happy hour        Workforce            Hospitality Calendar   │
-│                                      staff, shifts,       reservations, events,  │
-│  Analytics & Reporting               chat                 guestlists, promotions │
-│  rollups, saved reports                                                          │
-└──────────────────────────────────────────────────────────────────────────────────┘
-┌────────────────────────────── PLATFORM (cross-tenant) ───────────────────────────┐
-│  Identity & Access (users, roles, invites, guest table tokens)                   │
-│  Sales & Provisioning (leads, activity)   Tenancy & Billing (tenants, Stripe)    │
-└──────────────────────────────────────────────────────────────────────────────────┘
++------------------------------ VENUE (tenant-scoped) -----------------------------+
+|                                                                                  |
+|  Venue Config      Catalog, Cost &     Ordering (CORE)       Floor Coordination   |
+|  venue, zones,     Inventory           orders, sessions,     broadcasts, last     |
+|  tables, fees,     categories, items,  help requests,        call, claims, show   |
+|  floor map, SLA,   packages, movements,gifts, fee lines,     lock, 86 events      |
+|  capacity, targets happy hour,         tab adjustments,                           |
+|                    suppliers, POs,     minimum spend,        Door & Admission     |
+|  Analytics &       stocktakes, waste   transfers, cash-out   occupancy,           |
+|  Profitability                                               admissions, waitlist,|
+|  rollups, reports, Workforce           Hospitality Calendar  coat check, ID checks|
+|  margin, P&L       staff, shift        reservations, events,                      |
+|                    templates &         guestlists,           Safety & Compliance  |
+|  Accountability    instances, time     promotions            incidents, refusals, |
+|  audit trail       entries, tips,                            responsible service  |
+|                    commissions, chat   Guest Identity                             |
+|                                        profiles, VIP, bans, consent               |
++----------------------------------------------------------------------------------+
++------------------------------ PLATFORM (cross-tenant) ---------------------------+
+|  Identity & Access (users, roles, invites, guest table tokens)                    |
+|  Sales & Provisioning (leads, activity)   Tenancy & Billing (tenants, Stripe)     |
++----------------------------------------------------------------------------------+
 ```
+
+Contexts added by plans 16-19: **Door & Admission** and **Safety & Compliance**
+(plan 17), **Guest Identity** (plan 17), **Accountability** (plan 16), and the
+cost half of **Catalog, Cost & Inventory** (plan 19). Workforce grows from a
+roster into time, tips and commissions (plan 18). Multi-venue grouping is
+deliberately absent - see the roadmap parking lot.
 
 **Ordering is the core domain** — it's where money, inventory and guest experience
 meet, and where a silent bug costs real money. It gets the strictest invariants and
@@ -131,6 +143,94 @@ status directly.
 **VenueEvent** (root) + `EventGuest[]` guestlist. **Promotion** (root) —
 `redemptionCount` increments only inside an order transaction that applied it.
 
+### Accountability context (plan 16)
+
+**TabAdjustment** (append-only) - void / comp / discount against a session,
+order or line, with a reason code and an author.
+- INV-T1: session net = gross - Σ adjustments, always; `SessionBalance` is
+  **derived, never stored**.
+- INV-T2: a **void** returns stock (writes a `StockMovement`) in the same
+  transaction; a **comp** and a **discount** do not. INV-I1 must hold at every
+  instant.
+- INV-T3: an adjustment never exceeds the remaining un-adjusted amount of its
+  target - no over-comping.
+- INV-T4: adjustments are never updated or deleted; a correction is a reversal
+  row referencing the original.
+
+**AuditEntry** (append-only, venue-scoped) - every action whose `ACTION_META`
+carries `sensitive: true`, plus door overrides, time edits, tip closes and
+commission approvals.
+- INV-T5: the audit row is written in the **same transaction** as the effect it
+  records - never best-effort after the fact.
+
+**ShiftCashout** - expected-by-settlement-method vs. counted, per business date.
+- INV-T6: business date derives from the venue's `nightStartHour`/`nightEndHour`,
+  never from the calendar day.
+
+### Door & Admission context (plan 17)
+
+**Admission** (append-only) + **OccupancyEvent** (append-only).
+- INV-D1: current occupancy = Σ `OccupancyEvent.delta` for the business date; it
+  is **never inferred from table state**.
+- INV-D2: occupancy never goes negative; a re-entry reuses its original
+  admission and does not double-count the cover.
+- INV-D3: a `banned` `GuestProfile` cannot be admitted without the
+  `door:admit-banned-override` capability, and the override always writes an
+  `AuditEntry`.
+
+**WaitlistEntry** - waiting -> notified -> seated | left | expired; position is
+**derived** from `joinedAt` within `waiting`, never a stored mutable integer.
+
+**Incident** (root) + append-only `IncidentNote[]`.
+- INV-D4: the narrative is immutable after submit; follow-ups are notes.
+- INV-D5: a refusal of entry is an `Incident` of type `refused-entry` - there is
+  no second refusal table.
+
+### Guest Identity context (plan 17)
+
+**GuestProfile** (root) - created **only** where a guest gave identity
+(reservation, guestlist, door ID check, host tag); anonymous QR sessions carry no
+profile (PRD R13). `GuestLink` joins profiles to sessions/reservations/event
+guests/admissions.
+- INV-G1: `visitCount` and `lifetimeNetCents` are rollups recomputed from
+  sessions - never hand-edited (same rule as INV-P1).
+- INV-G2: ID-check fields record *that* a check occurred (`dobVerified`,
+  `byStaffId`, `at`) - never a document number or image.
+- INV-G3: marketing consent is per-channel with a capture timestamp and source.
+
+### Workforce context additions (plan 18)
+
+**ShiftTemplate** (recurring) and **Shift** (dated instance) are different
+objects; generating a week from templates is an explicit manager action.
+**TimeEntry** (append-only, supersede-only), **TipDistribution** (append-only),
+**CommissionStatement** (append-only).
+- INV-W1: at most one open `TimeEntry` per staff member (enforced by a partial
+  unique index, not by a handler).
+- INV-W2: Σ `TipDistribution.lines.shareCents` === `poolCents` exactly;
+  remainder cents by largest-remainder.
+- INV-W3: `TimeEntry` rows are never mutated - an edit is a superseding row with
+  an author and a reason.
+- INV-W4: published shifts are cancelled, never deleted.
+- INV-W5: `isOnShift` is **derived** (an open `TimeEntry` exists) in live mode.
+
+### Cost & Supply context (plan 19)
+
+**Supplier**, **SupplierItem**, **PurchaseOrder** (root) + lines,
+**Stocktake** (root) + lines. `StockMovementType` widens to
+`restock | sale | adjustment | waste | transfer | return`; `adjustment` narrows
+to "the count was wrong".
+- INV-C1: INV-I1 (`inventory === Σ movements.delta`) holds across every new
+  movement type.
+- INV-C2: committing a stocktake writes exactly one `adjustment` movement per
+  non-zero variance line, carries `stocktakeId`, and can never be re-committed.
+- INV-C3: `qtyReceived <= qtyOrdered` unless an over-receipt is explicitly
+  acknowledged.
+- INV-C4: `avgCostCents` is written **only** by the receipt path (weighted
+  average, AD-18) - never editable from the item form.
+- INV-C5: a void's stock return (INV-T2) re-enters at the cost it left at, not at
+  the current average. This is the one seam where plans 16 and 19 can silently
+  disagree; it is tested from both sides.
+
 ### Platform context
 
 **Tenant** (root) — plan, status, Stripe refs; INV-P1: `monthlyRevenue`/limits
@@ -149,6 +249,17 @@ LastCallStarted, LastCallEnded, ShowStarted, ShowFinished`
 Planned but not yet published (add to the union when their producer lands):
 
 `ReservationSeated, GuestCheckedIn, TenantProvisioned, SubscriptionChanged`
+
+Added by plans 16-19 (each with its producer):
+
+- plan 16 - `TabAdjusted, SessionTransferred, SessionsMerged, CashoutClosed`
+- plan 17 - `GuestAdmitted, GuestExited, OccupancyChanged, WaitlistChanged,
+  IncidentReported, ServiceRefused` (plus `GuestCheckedIn`/`ReservationSeated`,
+  whose producers finally land here)
+- plan 18 - `ShiftPublished, ClockedIn, ClockedOut, SwapRequested,
+  TipsDistributed`
+- plan 19 - `PurchaseOrderSubmitted, StockReceived, StocktakeCommitted,
+  WasteRecorded, TargetBreached`
 
 Events carry `venueId`, aggregate id, and a minimal payload; they are the *only*
 things published on NOTIFY and the only things UIs react to live. Each is also
@@ -181,6 +292,21 @@ Phase 1 duplicated display fields for UI convenience. Verdicts:
 - **"Pulse"** = the derived needs-attention feed; **SLA thresholds** are venue
   config, not global.
 - **"Last call"** = venue-wide ordering stop + optional table-closeout nudges.
+- **"Void" / "comp" / "discount"** = three distinct events, never synonyms: a
+  void didn't happen (stock returns), a comp happened and isn't paid for (stock
+  doesn't), a discount happened and is partly paid for.
+- **"Minimum"** = a table's or reservation's committed spend; the **shortfall**
+  is what's left of it. It is surfaced and warned on, never enforced by blocking
+  orders.
+- **"The door"** = the admission surface and the people working it;
+  **occupancy** is the counted number in the room, distinct from seated covers.
+- **"86"** now also distinguishes a manual 86 (`EightySixEntry`) from stock
+  reaching zero - both feed the same board.
+- **"Pour cost"** = COGS / net revenue; **variance** = counted minus expected at
+  a stocktake; **shrinkage** is variance expressed as a rate.
+- **"Business date"** = the night a thing belongs to, from the venue's
+  `nightStartHour`/`nightEndHour` - never the calendar day. Shifts, cash-outs,
+  occupancy, admissions and stocktakes all bucket by it.
 - **"Tenant"** (platform) vs **"Venue"** (inside the app): same entity, two
   contexts; platform code says tenant, venue code says venue.
 

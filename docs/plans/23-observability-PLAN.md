@@ -1,4 +1,4 @@
-# 16 — Observability: Logging, Errors, Health & Uptime · PLAN
+# 23 — Observability: Logging, Errors, Health & Uptime · PLAN
 
 **Status: not started.**
 
@@ -19,7 +19,7 @@ a one-process app on one VPS serving its first venues, that's
 over-instrumentation — the failure modes that matter are: the app is down,
 the app is erroring, a request is slow, the DB is the reason. Those four
 are covered by health checks + uptime pings, error tracking, request-id'd
-JSON logs with durations, and plan 17's slow-query logging. A metrics
+JSON logs with durations, and plan 24's slow-query logging. A metrics
 timeseries stack is deferred with a named trigger: when tuning alert
 thresholds or capacity needs *trends* rather than *incidents*, deploy
 Grafana + Loki/Prometheus via Coolify then. This is the same YAGNI ladder
@@ -30,7 +30,7 @@ Tool choices favor boring and self-hostable per AD-15's cost logic:
 - **pino** for logging — the standard, fast, structured, redaction built in.
 - **Sentry** for errors — free tier is ample at this scale; deployment- and
   release-aware grouping is exactly the checklist's ask. (GlitchTip
-  self-hosted is the fallback if data-residency review in plan 22 objects
+  self-hosted is the fallback if data-residency review in plan 29 objects
   to Sentry's hosting; the SDK is API-compatible, so the choice is
   swappable and noted in SECURITY.md.)
 - **Uptime Kuma** self-hosted via Coolify one-click — external-ish ping
@@ -56,7 +56,7 @@ Tool choices favor boring and self-hostable per AD-15's cost logic:
   local dev and demo build ship no DSN), release tagged from the git SHA at
   build (Coolify provides it), environment tag staging/production. Alert
   rules configured in-product: new issue, and error-rate spike; routed to
-  email now, plan 18/19 channels later if wanted.
+  email now, plan 25/26 channels later if wanted.
 - **Health:** `GET /api/health` — 200 with `{status, uptime, checks: {db}}`;
   the DB check is a `SELECT 1` with a short timeout; DB-down returns 503.
   Unauthenticated but rate-limited (plan 15's limiter) and deliberately
@@ -70,7 +70,7 @@ Tool choices favor boring and self-hostable per AD-15's cost logic:
   solved at the container layer, no logrotate on the app). Search =
   `docker logs` + grep by request id, adequate at one process; Loki is the
   named upgrade when multi-service search hurts.
-- **Audit trail:** plan 10 already ships the platform audit log; plan 18's
+- **Audit trail:** plan 10 already ships the platform audit log; plan 25's
   `NotificationLog` covers sends. This plan adds auth-event logging (login
   success/failure, logout, invite accept) via the pino logger — queryable
   by the request-id pipeline, satisfying the checklist's auth-events row

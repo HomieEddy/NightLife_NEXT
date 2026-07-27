@@ -2,13 +2,13 @@
 
 Status: written ahead of first provision · Owner: Eddy · Last updated: 2026-07-20
 Cross-ref: `docs/HOSTING.md` (topology), `docs/ARD.md` AD-15 (decision),
-plan 16 (deploy flow → `RUNBOOK.md`), plan 17 (app-layer security),
-plan 19 (database backups/restore).
+plan 21 (deploy flow → `RUNBOOK.md`), plan 22 (app-layer security),
+plan 24 (database backups/restore).
 
 Scope: everything between "ordered the VPS" and "Coolify is ready for its
-first deploy". App-layer security (headers, rate limits, cookies) is plan 17;
-deploy/rollback procedure is plan 16; pg_dump backups and the restore drill
-are plan 19. This runbook is the layer under all three: the OS, SSH, the
+first deploy". App-layer security (headers, rate limits, cookies) is plan 22;
+deploy/rollback procedure is plan 21; pg_dump backups and the restore drill
+are plan 24. This runbook is the layer under all three: the OS, SSH, the
 firewall, and Docker/Coolify baseline.
 
 Every step is idempotent or says when it isn't. Run top to bottom on a fresh
@@ -24,7 +24,7 @@ VPS; nothing here assumes app code exists yet.
 | Region | **Beauharnois (BHS)** — Quebec; Law 25 / PIPEDA residency |
 | OS | Ubuntu 24.04 LTS |
 | Billing | 12-month upfront |
-| Automated backup | Yes (~$1.80/mo) — full-VPS daily snapshot, distinct from plan 19's pg_dump |
+| Automated backup | Yes (~$1.80/mo) — full-VPS daily snapshot, distinct from plan 24's pg_dump |
 | Snapshot / extra IP / panels | No |
 
 OVHcloud emails the initial credentials. The default sudo user on their
@@ -154,7 +154,7 @@ sudo fail2ban-client status sshd   # verify the jail is up
 ```
 
 App-layer brute force (login, PIN attempts) is rate-limited in the app
-itself — plan 17. Fail2Ban here covers SSH only.
+itself — plan 22. Fail2Ban here covers SSH only.
 
 ## 6. Coolify install
 
@@ -179,7 +179,7 @@ Immediately after install:
    env set. Env vars per `.env.example`; secrets generated fresh —
    staging and prod never share `AUTH_SECRET`/`QR_TOKEN_SECRET`.
 
-Deploy wiring, notifications, and rollback rehearsal are plan 16 — stop
+Deploy wiring, notifications, and rollback rehearsal are plan 21 — stop
 here on the infra side.
 
 ## 7. Docker/host hygiene
@@ -200,7 +200,7 @@ here on the infra side.
 - Coolify manages image updates for its own stack; app images rebuild per
   deploy. Run `docker system prune -f` monthly or enable Coolify's
   scheduled cleanup — old build layers are the usual disk filler.
-- Disk watch: `df -h /` weekly (or via plan 18 monitoring when it lands).
+- Disk watch: `df -h /` weekly (or via plan 23 monitoring when it lands).
   Above 80%, prune images and check Postgres/log growth.
 
 ## 8. Cloudflare (recommended, free tier)
@@ -211,10 +211,10 @@ here on the infra side.
 - SSL mode **Full (strict)** — Traefik still holds a Let's Encrypt cert, so
   the CF→origin hop is verified TLS. ("Flexible" would silently serve the
   origin over HTTP — never.)
-- Once proxied, the app sees Cloudflare's IPs — plan 17's rate limiting
+- Once proxied, the app sees Cloudflare's IPs — plan 22's rate limiting
   must key on the forwarded client IP (`CF-Connecting-IP`), and Coolify's
   Traefik must be told to trust Cloudflare's ranges as proxies. Note this
-  in the plan 17 PR if Cloudflare is in front by then.
+  in the plan 22 PR if Cloudflare is in front by then.
 - Optional tightening: UFW-allow 80/443 from
   [Cloudflare's published ranges](https://www.cloudflare.com/ips/) only, so
   the origin can't be hit directly by IP. Do this only after everything
@@ -249,9 +249,9 @@ provision — evidence, not assertion (§5 house rule).
 ## 10. What this runbook deliberately leaves out
 
 - **App-layer security** (headers, HSTS, rate limits, cookie flags) —
-  plan 17, in code, testable.
-- **Deploy/rollback/notifications** — plan 16, `RUNBOOK.md`.
-- **Database backups + restore drill** — plan 19. The OVHcloud automated
+  plan 22, in code, testable.
+- **Deploy/rollback/notifications** — plan 21, `RUNBOOK.md`.
+- **Database backups + restore drill** — plan 24. The OVHcloud automated
   backup (§0) is a convenience snapshot of the whole VPS, not a substitute:
   it lives in the same account and can't do point-in-time or per-DB restore.
 - **WireGuard/Tailscale admin VPN** — worth doing when there's real payment
@@ -265,6 +265,6 @@ provision — evidence, not assertion (§5 house rule).
 - Locked out of SSH: OVHcloud control panel → KVM console → fix
   `sshd_config` drop-in, or boot rescue mode and mount the disk.
 - Lost the VPS entirely: re-run this runbook on a fresh VPS (≈30 min),
-  restore DB per plan 19's drill, repoint DNS. The VPS is cattle; the
-  database is the pet — which is why plan 19's off-VPS backups are the one
+  restore DB per plan 24's drill, repoint DNS. The VPS is cattle; the
+  database is the pet — which is why plan 24's off-VPS backups are the one
   thing this runbook cannot replace.

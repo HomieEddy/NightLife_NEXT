@@ -58,3 +58,7 @@ AGENTS.md
 CLAUDE.md
 
 .vercel
+
+# Review outputs — the plans they produce go in docs/plans/
+docs/BUSINESS-LOGIC-GAP-REVIEW.md
+docs/UX-REVIEW.md
