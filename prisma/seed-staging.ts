@@ -274,6 +274,9 @@ async function main() {
           avatarInitials: def.initials,
           assignedZoneIds: [],
           isOnShift: true,
+          hourlyRateCents: s.role === "manager" ? 2500 : s.role === "bartender" ? 2200 : 1800,
+          tipPoolWeight: 1.0,
+          employmentType: "hourly",
         },
       });
     }
@@ -308,6 +311,12 @@ async function main() {
         nightStartHour: tenantDef.nightStartHour,
         nightEndHour: tenantDef.nightEndHour,
         publicSlug: tenantDef.slug,
+        compThresholdCents: 10000,
+        minimumSpendWarningRatio: 0.25,
+        legalCapacity: 400,
+        occupancyWarnRatio: 0.9,
+        coatCheckEnabled: true,
+        doorRequiresIdCheck: true,
       },
     });
     console.log(`Venue config seeded`);

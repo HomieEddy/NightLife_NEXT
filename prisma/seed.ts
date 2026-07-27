@@ -148,6 +148,9 @@ async function main() {
       avatarInitials: "AD",
       assignedZoneIds: [],
       isOnShift: true,
+      hourlyRateCents: 2500,
+      tipPoolWeight: 1.0,
+      employmentType: "salaried",
     },
   });
 
@@ -161,6 +164,9 @@ async function main() {
       avatarInitials: "NK",
       assignedZoneIds: zoneIdsForRole("runner"),
       isOnShift: true,
+      hourlyRateCents: 1800,
+      tipPoolWeight: 1.0,
+      employmentType: "hourly",
     },
   });
 
@@ -175,6 +181,9 @@ async function main() {
         avatarInitials: s.def.initials,
         assignedZoneIds: zoneIdsForRole(s.def.role),
         isOnShift: true,
+        hourlyRateCents: s.def.role === "bartender" ? 2200 : s.def.role === "host" ? 2000 : 1800,
+        tipPoolWeight: 1.0,
+        employmentType: "hourly",
       },
     });
   }
@@ -202,6 +211,12 @@ async function main() {
       defaultTipPct: mockVenue.defaultTipPct,
       nightStartHour: mockVenue.nightStartHour,
       nightEndHour: mockVenue.nightEndHour,
+      compThresholdCents: mockVenue.compThresholdCents,
+      minimumSpendWarningRatio: mockVenue.minimumSpendWarningRatio,
+      legalCapacity: mockVenue.legalCapacity,
+      occupancyWarnRatio: mockVenue.occupancyWarnRatio,
+      coatCheckEnabled: mockVenue.coatCheckEnabled,
+      doorRequiresIdCheck: mockVenue.doorRequiresIdCheck,
     },
   });
   console.log(`Venue config seeded for ${org.name}`);

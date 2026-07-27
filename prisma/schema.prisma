@@ -189,6 +189,10 @@ model StaffProfile {
   avatarInitials  String   @map("avatar_initials")
   assignedZoneIds String[] @default([]) @map("assigned_zone_ids")
   isOnShift       Boolean  @default(false) @map("is_on_shift")
+  hourlyRateCents Int?     @map("hourly_rate_cents")
+  tipPoolWeight   Float?   @default(1.0) @map("tip_pool_weight")
+  employmentType  String?  @map("employment_type")
+  commissionRuleId String? @map("commission_rule_id")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -220,6 +224,12 @@ model Venue {
   nightStartHour         Int      @default(18) @map("night_start_hour")
   nightEndHour           Int      @default(10) @map("night_end_hour")
   publicSlug             String?  @unique @map("public_slug")
+  compThresholdCents     Int      @default(10000) @map("comp_threshold_cents")
+  minimumSpendWarningRatio Float  @default(0.25) @map("minimum_spend_warning_ratio")
+  legalCapacity          Int      @default(300) @map("legal_capacity")
+  occupancyWarnRatio     Float    @default(0.9) @map("occupancy_warn_ratio")
+  coatCheckEnabled       Boolean  @default(false) @map("coat_check_enabled")
+  doorRequiresIdCheck    Boolean  @default(false) @map("door_requires_id_check")
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -348,6 +358,14 @@ model MenuItem {
   isAvailable    Boolean  @default(true) @map("is_available")
   /// Cached running balance — always updated inside the same transaction as a StockMovement row.
   inventory      Int      @default(0)
+  isAlcoholic    Boolean  @default(false) @map("is_alcoholic")
+  abv            Float?   @map("abv")
+  allergens      String[] @default([]) @map("allergens")
+  unitOfMeasure  String?  @map("unit_of_measure")
+  servingSize    Int?     @map("serving_size")
+  parLevels      Json?    @map("par_levels")
+  reorderPoint   Int?     @map("reorder_point")
+  avgCostCents   Int?     @map("avg_cost_cents")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -363,14 +381,18 @@ model MenuItem {
 
 /// Append-only ledger — no UPDATE/DELETE in prod (DDD §6).
 model StockMovement {
-  id         String   @id @default(cuid())
-  venueId    String   @map("venue_id")
-  menuItemId String   @map("menu_item_id")
-  itemName   String   @map("item_name")
-  type       String
-  delta      Int
-  note       String?
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  menuItemId      String   @map("menu_item_id")
+  itemName        String   @map("item_name")
+  type            String
+  delta           Int
+  note            String?
+  unitCostCents   Int?     @map("unit_cost_cents")
+  purchaseOrderId String?  @map("purchase_order_id")
+  stocktakeId     String?  @map("stocktake_id")
+  wasteReason     String?  @map("waste_reason")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   venue    Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
@@ -559,6 +581,13 @@ model GuestSession {
   status      GuestSessionStatus @default(pending)
   settledExternallyAt DateTime? @map("settled_externally_at") @db.Timestamptz
   settlementMethod SettlementMethod? @map("settlement_method")
+  minimumSpendCents   Int?     @map("minimum_spend_cents")
+  promoterId          String?  @map("promoter_id")
+  parentSessionId     String?  @map("parent_session_id")
+  transferredFromTableId String? @map("transferred_from_table_id")
+  guestProfileId      String?  @map("guest_profile_id")
+  serviceRefusedAt    DateTime? @map("service_refused_at") @db.Timestamptz
+  serviceRefusedReason String? @map("service_refused_reason")
   createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
