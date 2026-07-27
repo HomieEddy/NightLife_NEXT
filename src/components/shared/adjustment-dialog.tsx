@@ -77,14 +77,18 @@ export function AdjustmentDialog({
     ordersService.listAdjustmentReasons(kind).then(setReasons);
   }, [open, kind]);
 
+  // Reset the draft only on the closed→open transition — NOT on every parent
+  // re-render. `availableKinds` is a fresh array on each render (built inline
+  // by the caller), so keying this effect on it would silently wipe an
+  // in-progress selection whenever a background poll refreshes the page.
   useEffect(() => {
-    if (open) {
-      setItemId("");
-      setKind(availableKinds[0] ?? "comp");
-      setQuantity(1);
-      setNote("");
-    }
-  }, [open, availableKinds]);
+    if (!open) return;
+    setItemId("");
+    setKind(availableKinds[0] ?? "comp");
+    setQuantity(1);
+    setNote("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally excludes availableKinds, see comment above
+  }, [open]);
 
   useEffect(() => {
     setQuantity(item?.quantity ?? 1);
