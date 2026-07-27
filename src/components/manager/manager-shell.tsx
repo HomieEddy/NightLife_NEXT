@@ -139,13 +139,21 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Critical items toast
+  // Track which critical items have already been toasted to prevent spam on refresh
+  const toastedIds = useRef<Set<string>>(new Set());
+
+  // Critical items toast — only fire for new items, not on every refresh
   useEffect(() => {
     const critical = attentionItems.filter((i) => i.severity === "critical" && i.type !== "clock-out-missing");
-    if (critical.length === 0) return;
-    // Toast once per critical item id; sonner deduplicates by id
     for (const item of critical.slice(0, 3)) {
-      toast.warning(item.message, { id: item.id, duration: 5000 });
+      if (toastedIds.current.has(item.id)) continue;
+      toastedIds.current.add(item.id);
+      toast.warning(item.message, { id: item.id, duration: 8000 });
+    }
+    // Prune stale ids that are no longer in the attention list
+    const currentIds = new Set(attentionItems.map((i) => i.id));
+    for (const id of toastedIds.current) {
+      if (!currentIds.has(id)) toastedIds.current.delete(id);
     }
   }, [attentionItems]);
 
@@ -288,7 +296,8 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
               </button>
             </SheetTrigger>
             <SheetContent side="right" className="w-80 overflow-y-auto">
-              <div className="pt-4">
+              <div className="p-4">
+                <h2 className="text-sm font-semibold mb-3">Attention feed</h2>
                 <PulseTab
                   items={attentionItems}
                   lastCallActive={lastCallActive}
@@ -331,7 +340,8 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                   </button>
                 </SheetTrigger>
                 <SheetContent side="right" className="w-full max-w-sm overflow-y-auto">
-                  <div className="pt-4">
+                  <div className="p-4">
+                    <h2 className="text-sm font-semibold mb-3">Attention feed</h2>
                     <PulseTab
                       items={attentionItems}
                       lastCallActive={lastCallActive}
