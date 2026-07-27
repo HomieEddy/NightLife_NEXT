@@ -3,10 +3,10 @@
 import { FeatureGate } from "@/components/shared/feature-gate";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { Code, Loader2, PartyPopper, Pencil, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarCheck, Code, Link2, Loader2, PartyPopper, Pencil, Plus, Ticket, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -20,14 +20,13 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { EventCard, EventActionGold, EventActionChrome } from "@/components/shared/event-card";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { eventsService } from "@/lib/services/events-service";
 import { venueService } from "@/lib/services/venue-service";
-import { publicReservationHref } from "@/lib/entity-links";
+import { publicEventsHref, publicReservationHref } from "@/lib/entity-links";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
-import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
 import type { EventGuest, EventStatus, Venue, VenueEvent, Zone } from "@/lib/types";
@@ -53,6 +52,8 @@ type EventDraft = {
   capacity: number;
   status: EventStatus;
   guestlistEnabled: boolean;
+  ticketEnabled: boolean;
+  ticketUrl: string;
 };
 
 const EMPTY_DRAFT: EventDraft = {
@@ -64,16 +65,18 @@ const EMPTY_DRAFT: EventDraft = {
   capacity: 50,
   status: "draft",
   guestlistEnabled: false,
+  ticketEnabled: false,
+  ticketUrl: "",
 };
 
 function EventsContent() {
+  const router = useRouter();
   const [events, setEvents] = useState<VenueEvent[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [venue, setVenue] = useState<Venue | null>(null);
   const [guestsByEvent, setGuestsByEvent] = useState<Record<string, EventGuest[]>>({});
   const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all");
-  const [dateRange, setDateRange] = useState<DateRange>("week");
-  const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
+  const [dateRange, setDateRange] = useState<DateRange>("all");
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -120,6 +123,8 @@ function EventsContent() {
       capacity: ev.capacity,
       status: ev.status,
       guestlistEnabled: ev.guestlistEnabled,
+      ticketEnabled: !!ev.ticketUrl,
+      ticketUrl: ev.ticketUrl ?? "",
     });
     setDialogOpen(true);
   }
@@ -127,6 +132,17 @@ function EventsContent() {
   async function save() {
     if (!draft.name.trim()) return toast.error("Event name is required.");
     setSaving(true);
+    const rawTicketUrl = draft.ticketEnabled ? draft.ticketUrl.trim() : "";
+    if (rawTicketUrl && !/^https?:\/\/.+/.test(rawTicketUrl)) {
+      toast.error("Ticket URL must start with http:// or https://");
+      setSaving(false);
+      return;
+    }
+    if (draft.ticketEnabled && !rawTicketUrl) {
+      toast.error("Paste a ticket URL or turn off the ticket link toggle.");
+      setSaving(false);
+      return;
+    }
     const payload = {
       name: draft.name.trim(),
       description: draft.description.trim(),
@@ -136,6 +152,7 @@ function EventsContent() {
       capacity: draft.capacity,
       status: draft.status,
       guestlistEnabled: draft.guestlistEnabled,
+      ticketUrl: rawTicketUrl || undefined,
     };
     if (editingId) {
       await eventsService.updateEvent(editingId, payload);
@@ -175,7 +192,6 @@ function EventsContent() {
   const visible = (events ?? []).filter((ev) => {
     if (statusFilter !== "all" && ev.status !== statusFilter) return false;
     if (!isInDateRange(ev.startsAt, dateRange)) return false;
-    if ((customRange.from || customRange.to) && !isInCustomDateRange(ev.startsAt, customRange)) return false;
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       if (!`${ev.name} ${ev.description} ${zoneName(ev.zoneId)}`.toLowerCase().includes(q)) return false;
@@ -191,18 +207,31 @@ function EventsContent() {
         actions={
           <div className="flex items-center gap-2">
             {venue && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
-                  const snippet = `<iframe src="${url}" width="100%" height="700" frameborder="0"></iframe>`;
-                  navigator.clipboard.writeText(snippet);
-                  toast.success("Embed snippet copied");
-                }}
-              >
-                <Code className="size-4" /> Embed reservations
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}${publicEventsHref(venue.publicSlug)}`;
+                    navigator.clipboard.writeText(url);
+                    toast.success("Events link copied");
+                  }}
+                >
+                  <Link2 className="size-4" /> Copy link
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
+                    const snippet = `<iframe src="${url}" width="100%" height="700" frameborder="0"></iframe>`;
+                    navigator.clipboard.writeText(snippet);
+                    toast.success("Embed snippet copied");
+                  }}
+                >
+                  <Code className="size-4" /> Embed reservations
+                </Button>
+              </>
             )}
             <Button onClick={openCreate}>
               <Plus className="size-4" /> New event
@@ -240,8 +269,6 @@ function EventsContent() {
           </div>
           <div className="h-4 w-px bg-border" />
           <DateFilter value={dateRange} onChange={setDateRange} />
-          <div className="h-4 w-px bg-border" />
-          <DateRangePicker value={customRange} onChange={setCustomRange} />
         </div>
       </div>
 
@@ -259,53 +286,13 @@ function EventsContent() {
             const guests = guestsByEvent[ev.id] ?? [];
             const expanded = openId === ev.id;
             return (
-              <Card key={ev.id} className="py-4">
-                <CardContent className="space-y-3 px-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{ev.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {zoneName(ev.zoneId)} · cap {ev.capacity}
-                      </p>
-                    </div>
-                    <StatusBadge status={ev.status} />
-                  </div>
-                  {ev.description && <p className="text-sm text-muted-foreground">{ev.description}</p>}
-                  <p className="text-sm">
-                    {new Date(ev.startsAt).toLocaleDateString()} {new Date(ev.startsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    {" – "}
-                    {new Date(ev.endsAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-
-                  <div className="flex flex-wrap items-center gap-1.5 border-t pt-2">
-                    <Button size="sm" variant="ghost" onClick={() => openEdit(ev)}>
-                      <Pencil className="size-3.5" /> Edit
-                    </Button>
-                    <ConfirmDialog
-                      trigger={
-                        <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400">
-                          <Trash2 className="size-3.5" /> Delete
-                        </Button>
-                      }
-                      title={`Delete ${ev.name}?`}
-                      description="This also removes its guestlist."
-                      confirmLabel="Delete event"
-                      destructive
-                      onConfirm={() => remove(ev)}
-                    />
-                    {ev.guestlistEnabled && (
-                      <Button size="sm" variant="ghost" onClick={() => setOpenId(expanded ? null : ev.id)}>
-                        <Users className="size-3.5" /> Guestlist ({guests.length})
-                      </Button>
-                    )}
-                    <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-                      Guestlist
-                      <Switch checked={ev.guestlistEnabled} onCheckedChange={() => toggleGuestlist(ev)} />
-                    </label>
-                  </div>
-
-                  {expanded && ev.guestlistEnabled && (
-                    <div className="space-y-2 border-t pt-2">
+              <EventCard
+                key={ev.id}
+                event={ev}
+                zoneName={zoneName(ev.zoneId)}
+                detail={
+                  expanded && ev.guestlistEnabled ? (
+                    <div className="space-y-2 border-t border-gold/15 pt-2 dark:border-gold/10">
                       <div className="flex gap-2">
                         <Input
                           placeholder="Add guest name…"
@@ -334,9 +321,42 @@ function EventsContent() {
                         </ul>
                       )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  ) : undefined
+                }
+                actions={
+                  <>
+                    {ev.status !== "draft" && ev.status !== "ended" && (
+                      <EventActionGold onClick={() => router.push(`/manager/reservations?newForEvent=${ev.id}`)}>
+                        <CalendarCheck className="size-3.5" /> Book
+                      </EventActionGold>
+                    )}
+                    <EventActionChrome onClick={() => openEdit(ev)}>
+                      <Pencil className="size-3.5" /> Edit
+                    </EventActionChrome>
+                    <ConfirmDialog
+                      trigger={
+                        <EventActionChrome destructive>
+                          <Trash2 className="size-3.5" /> Delete
+                        </EventActionChrome>
+                      }
+                      title={`Delete ${ev.name}?`}
+                      description="This also removes its guestlist."
+                      confirmLabel="Delete event"
+                      destructive
+                      onConfirm={() => remove(ev)}
+                    />
+                    {ev.guestlistEnabled && (
+                      <EventActionChrome onClick={() => setOpenId(expanded ? null : ev.id)}>
+                        <Users className="size-3.5" /> Guestlist ({guests.length})
+                      </EventActionChrome>
+                    )}
+                    <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+                      Guestlist
+                      <Switch checked={ev.guestlistEnabled} onCheckedChange={() => toggleGuestlist(ev)} />
+                    </label>
+                  </>
+                }
+              />
             );
           })}
         </div>
@@ -394,6 +414,30 @@ function EventsContent() {
               Enable guestlist
               <Switch checked={draft.guestlistEnabled} onCheckedChange={(v) => setDraft({ ...draft, guestlistEnabled: v })} />
             </label>
+            <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+              Sell tickets via external link
+              <Switch
+                checked={draft.ticketEnabled}
+                onCheckedChange={(v) =>
+                  setDraft({ ...draft, ticketEnabled: v, ticketUrl: v ? draft.ticketUrl : "" })
+                }
+                aria-label="Enable ticket link"
+              />
+            </label>
+            {draft.ticketEnabled && (
+              <div className="space-y-1.5">
+                <Label htmlFor="ev-ticket-url" className="flex items-center gap-1.5">
+                  <Ticket className="size-3.5" /> Ticket URL
+                </Label>
+                <Input
+                  id="ev-ticket-url"
+                  type="url"
+                  placeholder="https://www.eventbrite.com/e/…"
+                  value={draft.ticketUrl}
+                  onChange={(e) => setDraft({ ...draft, ticketUrl: e.target.value })}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>

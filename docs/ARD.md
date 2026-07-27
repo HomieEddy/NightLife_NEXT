@@ -2,7 +2,9 @@
 
 Status: living document · Companion to `docs/PRD.md` and `docs/DDD.md`.
 Phase 2 has shipped plans 01–12 (see ROADMAP); decisions below are implemented
-unless an "Implementation status" note says otherwise.
+unless an "Implementation status" note says otherwise. **AD-16, AD-17 and AD-18
+are decided but not yet implemented** — they govern plans 16–19, the
+operations-completeness wave.
 
 Each decision: context → choice → alternatives considered → consequences. These are
 defaults, not dogma — overturn one by editing this file in the same PR that departs
@@ -302,6 +304,102 @@ traffic patterns (Friday/Saturday peaks, quiet weekdays).
   `prod` = OVHcloud production, demo = Vercel (not a backend environment).
 - All customer PII stays in Quebec (OVHcloud BHS) — no cross-border transfer.
 
+## AD-16 · Accountability: one audit trail, ledgers everywhere
+
+**Context:** plans 16-19 add many actions that change money, stock, hours or a
+person's ability to enter the building. `ACTION_META` already flagged the
+sensitive ones (`order:gift`, `session:deny`, …) but nothing recorded who did
+them. Scattering per-feature history tables would produce five half-audits and
+no single answer to "what happened last night".
+
+**Choice:**
+- **One `audit_entries` table**, venue-scoped, append-only, written by every
+  action whose capability is `sensitive: true` — comps and voids (16), door
+  overrides and refusals (17), time-entry edits and tip closes (18), stocktake
+  commits and cost changes (19), plus the pre-existing sensitive actions.
+- **The audit row is written inside the same transaction as its effect.** A
+  best-effort write-after is not an audit trail; if the effect commits and the
+  record doesn't, the trail lies.
+- **Ledger discipline is the default for domain history**, extending the pattern
+  `stock_movements` already proved: `tab_adjustments`, `occupancy_events`,
+  `admissions`, `time_entries`, `tip_distributions`, `incident_notes` are all
+  INSERT-only, with no UPDATE/DELETE grants in production. A correction is a new
+  row (reversal or supersede), never an edit.
+- **Derived-not-stored stays the rule** for anything computable: session
+  balances, occupancy totals, waitlist positions, pour cost, coverage gaps and
+  attention items are functions over ledgers, exactly like `AttentionItem` and
+  `AnalyticsSummary` are today.
+
+**Alternatives:** per-feature history tables (five schemas, five query shapes,
+no cross-cutting view); an event-sourced core (right answer for a bigger team,
+disproportionate here — `domain_events` already gives an event log for the
+realtime vocabulary without making it the write model).
+
+**Consequences:** "who comped that bottle / admitted that guest / edited those
+hours" is one query. Plan 29's retention job has one obvious table to schedule
+alongside the guest data. Reversals mean every ledger read must respect the
+supersede/reversal chain — encoded once in the pure functions, tested there.
+
+## AD-17 · Guest identity: opt-in, pseudonymous by default
+
+**Context:** plan 17 introduces persistent `GuestProfile` records so a host can
+recognise a regular and a door can refuse a banned patron. That is a material
+change to a product whose stated privacy posture (PRD §7) is "guests are
+pseudonymous, first name only" — under Law 25 and PIPEDA, in a venue serving
+alcohol at night.
+
+**Choice:**
+- **A profile is created only where identity was given**: a reservation, a
+  guestlist entry, a door ID check, or a host explicitly tagging a party. The
+  anonymous QR-order path creates no profile and links to none — it stays exactly
+  as private as it is today.
+- **ID verification records the check, never the document.** `dobVerified`,
+  `idCheckedBy`, `idCheckedAt`, optionally a year of birth. No scans, no images,
+  no document numbers — data we would have to defend and never need to read.
+- **Consent is per-channel and explicit** (`marketingConsent.email/sms` with a
+  capture timestamp and source), so plan 29 can honour it and CASL is satisfiable
+  if marketing messaging is ever built.
+- **Cross-tenant lookup is impossible by construction** — profiles are
+  `venueId`-scoped like every other tenant row (AD-3), and the door search is
+  covered by an explicit isolation canary. A guest known to venue A must never
+  surface at venue B's door.
+- **Bans are venue-local and audited**, with an optional expiry; there is no
+  shared industry blacklist and we will not build one.
+
+**Alternatives:** platform-wide guest identity (a far more valuable product and
+a far worse liability — a cross-venue behavioural record of nightlife patrons;
+declined); no identity at all (leaves the review's §4 gap open, and leaves a
+venue unable to enforce its own ban list).
+
+**Consequences:** plan 29's data inventory gains `guest_profiles`, `admissions`
+and `incidents` with distinct retention periods (incidents longest — licence
+defence). The demo build seeds fictional profiles only. Recognition features
+degrade gracefully: every screen that shows profile context must render
+correctly when there is no profile, because most guests won't have one.
+
+## AD-18 · Product cost: weighted average, carried on the movement
+
+**Context:** plan 19 adds the cost side so revenue reports can become margin
+reports. Inventory costing method is a decision that is expensive to change
+later, because it is baked into every historical aggregation.
+
+**Choice:** **weighted average cost (WAC)**, with `unitCostCents` carried on each
+inbound `StockMovement` and `MenuItem.avgCostCents` recomputed on each receipt.
+Consumption values at the average in force at the time. The item's average is
+written **only** by the receipt path (INV-C4) and never editable by hand.
+
+**Alternatives:** FIFO/lot tracking (more precise, needs lot-level allocation on
+every sale and a lot table — the precision does not change a single decision a
+bar manager makes); standard cost with periodic revaluation (hides supplier price
+creep, which is exactly what the price-change flag exists to expose); last-cost
+(simple, and wrong the moment prices move mid-week).
+
+**Consequences:** pour cost and margin are computable from movements alone, with
+no join to open lots. A void's stock return (plan 16) must re-enter at the cost
+it left at rather than the current average (INV-C5) — the one cross-plan seam,
+tested from both sides. Historical margin does not retroactively change when a
+new shipment arrives at a different price.
+
 ## System sketch
 
 ```
@@ -319,5 +417,11 @@ Next.js route handlers + server actions
    │   PostgreSQL ── append-only ledgers, integer cents, LISTEN/NOTIFY
    ├─ SSE /api/live streams ◄── NOTIFY fan-out (AD-6)
    ├─ Stripe webhooks (AD-12)      ├─ Resend email (AD-8)
-   └─ Cron job handlers (AD-9)     └─ nightly_rollups (AD-11)
+   ├─ Cron job handlers (AD-9)     ├─ nightly_rollups (AD-11)
+   └─ audit_entries (AD-16) ── written in-transaction with every sensitive effect
 ```
+
+Append-only ledgers, in one place (AD-16): `stock_movements`, `tab_adjustments`,
+`occupancy_events`, `admissions`, `time_entries`, `tip_distributions`,
+`commission_statements`, `incident_notes`, `lead_activity`, `chat_messages`,
+`broadcasts`, `sold_out_events`, `domain_events`, `audit_entries`.

@@ -13,18 +13,38 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { guestsService } from "@/lib/services/guests-service";
+import { reservationService } from "@/lib/services/reservation-service";
+import { staffService } from "@/lib/services/staff-service";
+import { canDo } from "@/lib/permissions";
+import { permissionService } from "@/lib/services/permission-service";
+import type { RolePermissions } from "@/lib/permissions";
 import { timeAgo } from "@/lib/format";
 import { useLiveEvents } from "@/lib/use-live-events";
-import type { GuestSession, SettlementMethod } from "@/lib/types";
+import type { GuestSession, SettlementMethod, StaffMember } from "@/lib/types";
 
 export default function StaffApprovalsPage() {
   const [sessions, setSessions] = useState<GuestSession[] | null>(null);
+  const [me, setMe] = useState<StaffMember | null>(null);
+  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [closing, setClosing] = useState<GuestSession | null>(null);
   const [settlementMethod, setSettlementMethod] = useState<SettlementMethod | "">("");
 
   const refresh = useCallback(async () => {
-    setSessions(await guestsService.listSessions());
+    const [allSessions, currentStaff, perms] = await Promise.all([
+      guestsService.listSessions(),
+      staffService.getCurrentStaff(),
+      permissionService.getRolePermissions("venue-1"),
+    ]);
+    setMe(currentStaff);
+    setPermissions(perms);
+    if (currentStaff.role === "promoter") {
+      const myRes = await reservationService.listMyReservations(currentStaff.id);
+      const myTableIds = new Set(myRes.map((r) => r.tableId).filter(Boolean));
+      setSessions(allSessions.filter((s) => s.promoterId === currentStaff.id || myTableIds.has(s.tableId)));
+    } else {
+      setSessions(allSessions);
+    }
   }, []);
 
   const refreshRef = useRef(refresh);
@@ -75,6 +95,18 @@ export default function StaffApprovalsPage() {
     .filter((s) => !["pending", "closure-requested"].includes(s.status))
     .slice(0, 6);
 
+  if (me && permissions && !canDo(permissions, me.role, "session:approve")) {
+    return (
+      <div className="p-4">
+        <EmptyState
+          icon={UserCheck}
+          title="Not available for your role"
+          description="Guest approvals are handled by hosts and managers."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 p-4">
       <h1 className="text-display text-xl">Guest approvals</h1>
@@ -109,6 +141,7 @@ export default function StaffApprovalsPage() {
                         {timeAgo(session.createdAt)}
                       </span>
                     </div>
+                    {me?.role !== "promoter" && (
                     <div className="flex gap-2">
                       <ConfirmDialog
                         trigger={
@@ -138,6 +171,7 @@ export default function StaffApprovalsPage() {
                         onConfirm={() => decide(session, "denied")}
                       />
                     </div>
+                    )}
                   </CardContent>
                 </Card>
               ))

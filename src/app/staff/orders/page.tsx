@@ -12,8 +12,12 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ordersService, nextStatus } from "@/lib/services/orders-service";
+import { guestsService } from "@/lib/services/guests-service";
 import { showQueueService, orderNeedsShow } from "@/lib/services/show-queue-service";
 import { staffService } from "@/lib/services/staff-service";
+import { canDo } from "@/lib/permissions";
+import { permissionService } from "@/lib/services/permission-service";
+import type { RolePermissions } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { ActiveShow, Order, OrderStatus, StaffMember } from "@/lib/types";
@@ -23,6 +27,10 @@ const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
   accepted: "Start preparing",
   preparing: "Mark ready",
   ready: "Mark delivered",
+};
+
+const RUNNER_HINT: Partial<Record<OrderStatus, string>> = {
+  pending: "Awaiting bartender",
 };
 
 const FILTERS: { id: "active" | "new" | "done"; label: string }[] = [
@@ -35,22 +43,32 @@ function StaffOrdersContent() {
   const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
+  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
   const [filter, setFilter] = useState<"active" | "new" | "done">("active");
   const [zoneScoped, setZoneScoped] = useState(searchParams.get("scope") === "mine");
   // Forward-compatible hook for manager/floor-map links into the feed.
   const tableFilter = searchParams.get("table");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [activeShow, setActiveShow] = useState<ActiveShow | null>(null);
+  const [promoterSessionIds, setPromoterSessionIds] = useState<Set<string> | null>(null);
 
   const refresh = useCallback(async () => {
-    const [orderList, currentStaff, show] = await Promise.all([
+    const [orderList, currentStaff, show, perms] = await Promise.all([
       ordersService.listOrders(),
       staffService.getCurrentStaff(),
       showQueueService.getActiveShow(),
+      permissionService.getRolePermissions("venue-1"),
     ]);
     setOrders(orderList);
     setMe(currentStaff);
     setActiveShow(show);
+    setPermissions(perms);
+    if (currentStaff.role === "promoter") {
+      const sessions = await guestsService.listSessions();
+      setPromoterSessionIds(new Set(
+        sessions.filter((s) => s.promoterId === currentStaff.id).map((s) => s.id),
+      ));
+    }
   }, []);
 
   const refreshRef = useRef(refresh);
@@ -148,9 +166,13 @@ function StaffOrdersContent() {
     }
   }
 
+  const isPromoter = me?.role === "promoter";
+
   const visible = (orders ?? []).filter((o) => {
     if (tableFilter && o.tableId !== tableFilter) return false;
-    if (zoneScoped && me && !me.assignedZoneIds.includes(o.zoneId)) return false;
+    if (isPromoter && promoterSessionIds && o.sessionId && !promoterSessionIds.has(o.sessionId)) return false;
+    if (isPromoter && promoterSessionIds && !o.sessionId) return false;
+    if (zoneScoped && me && !isPromoter && !me.assignedZoneIds.includes(o.zoneId)) return false;
     if (filter === "new") return o.status === "pending";
     if (filter === "done") return ["delivered", "cancelled"].includes(o.status);
     return !["delivered", "cancelled"].includes(o.status);
@@ -183,12 +205,14 @@ function StaffOrdersContent() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <Switch id="zone-scope" checked={zoneScoped} onCheckedChange={setZoneScoped} />
-          <Label htmlFor="zone-scope" className="text-xs text-muted-foreground">
-            My zones
-          </Label>
-        </div>
+        {!isPromoter && (
+          <div className="flex items-center gap-2">
+            <Switch id="zone-scope" checked={zoneScoped} onCheckedChange={setZoneScoped} />
+            <Label htmlFor="zone-scope" className="text-xs text-muted-foreground">
+              My zones
+            </Label>
+          </div>
+        )}
       </div>
 
       {orders === null ? (
@@ -207,12 +231,16 @@ function StaffOrdersContent() {
         <div className="space-y-3">
           {visible.map((order) => {
             const label = ADVANCE_LABEL[order.status];
+            const canAccept = (me && permissions) ? canDo(permissions, me.role, "order:accept") : true;
+            const isPending = order.status === "pending";
+            // Runner sees pending orders but can't accept them — show a hint instead.
+            const runnerHint = isPending && !canAccept ? RUNNER_HINT[order.status] : undefined;
             return (
               <OrderCard
                 key={order.id}
                 order={order}
                 footer={
-                  label ? (
+                  label && !isPromoter ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         {order.claimedByStaffId ? (
@@ -233,7 +261,7 @@ function StaffOrdersContent() {
                           >
                             Release
                           </button>
-                        ) : !order.claimedByStaffId ? (
+                        ) : !order.claimedByStaffId && permissions && canDo(permissions, me?.role ?? "runner", "order:claim") ? (
                           <button
                             type="button"
                             onClick={() => claim(order)}
@@ -243,67 +271,75 @@ function StaffOrdersContent() {
                           </button>
                         ) : null}
                       </div>
-                      {orderNeedsShow(order) && order.status === "ready" && (
-                        <div className="rounded-lg border border-primary/30 bg-primary/5 p-2 text-xs">
-                          {activeShow?.orderId === order.id ? (
-                            <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-1.5 font-medium text-primary">
-                                <PartyPopper className="size-3.5" /> Walking now — {activeShow.label}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={finishShow}
-                                className="font-medium text-primary hover:underline"
-                              >
-                                Finish show
-                              </button>
-                            </div>
-                          ) : activeShow ? (
-                            <span className="text-muted-foreground">
-                              Show floor busy — {activeShow.tableCode}&apos;s presentation is walking
-                            </span>
-                          ) : (
-                            <div className="flex items-center justify-between">
-                              <span className="text-muted-foreground">Needs a presentation walk-out</span>
-                              <button
-                                type="button"
-                                onClick={() => startShow(order)}
-                                className="font-medium text-primary hover:underline"
-                              >
-                                Start show
-                              </button>
+                      {runnerHint ? (
+                        <p className="rounded-lg border border-muted bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                          {runnerHint}
+                        </p>
+                      ) : (
+                        <>
+                          {orderNeedsShow(order) && order.status === "ready" && (
+                            <div className="rounded-lg border border-primary/30 bg-primary/5 p-2 text-xs">
+                              {activeShow?.orderId === order.id ? (
+                                <div className="flex items-center justify-between">
+                                  <span className="flex items-center gap-1.5 font-medium text-primary">
+                                    <PartyPopper className="size-3.5" /> Walking now — {activeShow.label}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={finishShow}
+                                    className="font-medium text-primary hover:underline"
+                                  >
+                                    Finish show
+                                  </button>
+                                </div>
+                              ) : activeShow ? (
+                                <span className="text-muted-foreground">
+                                  Show floor busy — {activeShow.tableCode}&apos;s presentation is walking
+                                </span>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <span className="text-muted-foreground">Needs a presentation walk-out</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => startShow(order)}
+                                    className="font-medium text-primary hover:underline"
+                                  >
+                                    Start show
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
-                        </div>
+                          <div className="flex gap-2">
+                            <ConfirmDialog
+                              trigger={
+                                <Button className="h-11 flex-1" disabled={busyId === order.id}>
+                                  <CheckCheck className="size-4" />
+                                  {busyId === order.id ? "Updating…" : label}
+                                </Button>
+                              }
+                              title={`${label} — ${order.code}?`}
+                              description={`${order.tableCode} · ${order.guestName} · the guest sees the status change immediately.`}
+                              confirmLabel={label ?? "Confirm"}
+                              onConfirm={() => advance(order)}
+                            />
+                            {isPending && (
+                              <ConfirmDialog
+                                trigger={
+                                  <Button variant="outline" size="icon" className="h-11 w-11 text-red-600 dark:text-red-400" aria-label="Cancel order">
+                                    <XCircle className="size-4" />
+                                  </Button>
+                                }
+                                title={`Cancel ${order.code}?`}
+                                description="The guest will see their order as cancelled. This can't be undone."
+                                confirmLabel="Cancel order"
+                                destructive
+                                onConfirm={() => cancel(order)}
+                              />
+                            )}
+                          </div>
+                        </>
                       )}
-                      <div className="flex gap-2">
-                      <ConfirmDialog
-                        trigger={
-                          <Button className="h-11 flex-1" disabled={busyId === order.id}>
-                            <CheckCheck className="size-4" />
-                            {busyId === order.id ? "Updating…" : label}
-                          </Button>
-                        }
-                        title={`${label} — ${order.code}?`}
-                        description={`${order.tableCode} · ${order.guestName} · the guest sees the status change immediately.`}
-                        confirmLabel={label ?? "Confirm"}
-                        onConfirm={() => advance(order)}
-                      />
-                      {order.status === "pending" && (
-                        <ConfirmDialog
-                          trigger={
-                            <Button variant="outline" size="icon" className="h-11 w-11 text-red-600 dark:text-red-400" aria-label="Cancel order">
-                              <XCircle className="size-4" />
-                            </Button>
-                          }
-                          title={`Cancel ${order.code}?`}
-                          description="The guest will see their order as cancelled. This can't be undone."
-                          confirmLabel="Cancel order"
-                          destructive
-                          onConfirm={() => cancel(order)}
-                        />
-                      )}
-                      </div>
                     </div>
                   ) : undefined
                 }

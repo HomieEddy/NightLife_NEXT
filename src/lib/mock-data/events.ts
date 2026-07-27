@@ -19,6 +19,7 @@ export const mockEvents: VenueEvent[] = [
     capacity: 120,
     status: "published",
     guestlistEnabled: true,
+    ticketUrl: "https://www.eventbrite.com/e/demo-soiree-saint-laurent",
   },
   {
     id: "evt-2",

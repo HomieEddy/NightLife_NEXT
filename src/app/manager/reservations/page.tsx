@@ -2,7 +2,8 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
   Check,
@@ -19,42 +20,36 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { ReservationFormDialog, type ReservationDraft, EMPTY_DRAFT, toLocalInput, fromLocalInput } from "@/components/shared/reservation-form-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { eventsService } from "@/lib/services/events-service";
 import { reservationService } from "@/lib/services/reservation-service";
+import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { isDemoMode } from "@/lib/app-mode";
 import { publicReservationHref } from "@/lib/entity-links";
 import { formatTime } from "@/lib/format";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
-import { DateRangePicker, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/lib/utils";
-import type { Reservation, ReservationStatus, Venue, VenueTable, Zone } from "@/lib/types";
+import type { Reservation, ReservationStatus, StaffMember, Venue, VenueEvent, VenueTable, Zone } from "@/lib/types";
 
 const CHANNEL_LABEL: Record<string, string> = {
   embed: "Embed",
   direct: "Direct",
   "walk-in": "Walk-in",
+  promoter: "Promoter",
 };
 
 const CHANNEL_CLS: Record<string, string> = {
   embed: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   direct: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
   "walk-in": "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  promoter: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
 };
 
 const selectCls =
@@ -68,44 +63,17 @@ const STATUS_ACTIONS: Record<ReservationStatus, string> = {
   completed: "—",
 };
 
-function toLocalInput(iso: string): string {
-  const d = new Date(iso);
-  const off = d.getTimezoneOffset();
-  return new Date(d.getTime() - off * 60000).toISOString().slice(0, 16);
-}
-
-function fromLocalInput(value: string): string {
-  return new Date(value).toISOString();
-}
-
-type ReservationDraft = {
-  guestName: string;
-  partySize: number;
-  zoneId: string;
-  tableId: string;
-  startsAt: string; // local input string
-  endsAt: string;
-  note: string;
-};
-
-const EMPTY_DRAFT: ReservationDraft = {
-  guestName: "",
-  partySize: 2,
-  zoneId: "",
-  tableId: "",
-  startsAt: toLocalInput(new Date().toISOString()),
-  endsAt: "",
-  note: "",
-};
-
 function ReservationsContent() {
+  const searchParams = useSearchParams();
+  const newForEventHandled = useRef(false);
   const [reservations, setReservations] = useState<Reservation[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [tables, setTables] = useState<VenueTable[]>([]);
   const [venue, setVenue] = useState<Venue | null>(null);
+  const [promoters, setPromoters] = useState<StaffMember[]>([]);
+  const [events, setEvents] = useState<VenueEvent[]>([]);
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
-  const [customRange, setCustomRange] = useState<DateRangeValue>({ from: "", to: "" });
   const [zoneFilter, setZoneFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -114,24 +82,48 @@ function ReservationsContent() {
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [list, z, t, v] = await Promise.all([
+    const [list, z, t, v, allStaff, allEvents] = await Promise.all([
       reservationService.listReservations(),
       venueService.listZones(),
       venueService.listTables(),
       venueService.getVenue(),
+      staffService.listStaff(),
+      eventsService.listEvents(),
     ]);
     setReservations(list);
     setZones(z);
     setTables(t);
     setVenue(v);
+    setPromoters(allStaff.filter((s) => s.role === "promoter"));
+    setEvents(allEvents.filter((e) => e.status !== "draft"));
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    const eventId = searchParams.get("newForEvent");
+    if (!eventId || newForEventHandled.current || events.length === 0) return;
+    newForEventHandled.current = true;
+    const evt = events.find((e) => e.id === eventId);
+    if (!evt) return;
+    setEditingId(null);
+    setDraft({
+      ...EMPTY_DRAFT,
+      eventId,
+      zoneId: evt.zoneId ?? zones[0]?.id ?? "",
+      tableId: "",
+      startsAt: toLocalInput(evt.startsAt),
+      endsAt: toLocalInput(evt.endsAt),
+    });
+    setDialogOpen(true);
+    window.history.replaceState(null, "", "/manager/reservations");
+  }, [searchParams, events, zones]);
+
   const zoneName = (id?: string) => zones.find((z) => z.id === id)?.name ?? "—";
   const tableName = (id?: string) => tables.find((t) => t.id === id)?.code ?? "—";
+  const eventName = (id?: string) => events.find((e) => e.id === id)?.name;
 
   const tablesForZone = useMemo(
     () => (draft.zoneId ? tables.filter((t) => t.zoneId === draft.zoneId) : tables),
@@ -162,6 +154,8 @@ function ReservationsContent() {
       startsAt: toLocalInput(res.startsAt),
       endsAt: res.endsAt ? toLocalInput(res.endsAt) : "",
       note: res.note ?? "",
+      promoterId: res.promoterId,
+      eventId: res.eventId,
     });
     setDialogOpen(true);
   }
@@ -179,6 +173,9 @@ function ReservationsContent() {
       endsAt: draft.endsAt ? fromLocalInput(draft.endsAt) : undefined,
       note: draft.note,
       source: "manager" as const,
+      promoterId: draft.promoterId,
+      eventId: draft.eventId,
+      ...(draft.promoterId ? { channel: "promoter" as const } : {}),
     };
     if (editingId) {
       await reservationService.updateReservation(editingId, payload);
@@ -203,7 +200,6 @@ function ReservationsContent() {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (zoneFilter !== "all" && r.zoneId !== zoneFilter) return false;
       if (!isInDateRange(r.startsAt, dateRange)) return false;
-      if ((customRange.from || customRange.to) && !isInCustomDateRange(r.startsAt, customRange)) return false;
       if (query.trim()) {
         const q = query.trim().toLowerCase();
         if (!`${r.guestName} ${zoneName(r.zoneId)} ${tableName(r.tableId)}`.toLowerCase().includes(q)) return false;
@@ -291,8 +287,6 @@ function ReservationsContent() {
           </div>
           <div className="h-4 w-px bg-border" />
           <DateFilter value={dateRange} onChange={setDateRange} />
-          <div className="h-4 w-px bg-border" />
-          <DateRangePicker value={customRange} onChange={setCustomRange} />
         </div>
       </div>
 
@@ -315,6 +309,11 @@ function ReservationsContent() {
                     <p className="text-xs text-muted-foreground">
                       {zoneName(res.zoneId)} · {tableName(res.tableId)} · {res.partySize} guests
                     </p>
+                    {res.eventId && eventName(res.eventId) && (
+                      <p className="flex items-center gap-1 text-xs text-primary">
+                        <CalendarDays className="size-3" /> {eventName(res.eventId)}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5">
                     {res.channel && (
@@ -376,107 +375,19 @@ function ReservationsContent() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Edit reservation" : "New reservation"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="res-name">Guest name</Label>
-              <Input
-                id="res-name"
-                value={draft.guestName}
-                onChange={(e) => setDraft({ ...draft, guestName: e.target.value })}
-                placeholder="e.g. Jean Dupont"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="res-party">Party size</Label>
-                <Input
-                  id="res-party"
-                  type="number"
-                  min={1}
-                  value={draft.partySize}
-                  onChange={(e) => setDraft({ ...draft, partySize: Math.max(1, Number(e.target.value)) })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="res-zone">Zone</Label>
-                <select
-                  id="res-zone"
-                  className={selectCls}
-                  value={draft.zoneId}
-                  onChange={(e) => setDraft({ ...draft, zoneId: e.target.value, tableId: "" })}
-                >
-                  <option value="">Select zone…</option>
-                  {zones.map((z) => (
-                    <option key={z.id} value={z.id}>
-                      {z.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="res-table">Table (optional)</Label>
-              <select
-                id="res-table"
-                className={selectCls}
-                value={draft.tableId}
-                onChange={(e) => setDraft({ ...draft, tableId: e.target.value })}
-              >
-                <option value="">No specific table</option>
-                {tablesForZone.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.code} — {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="res-start">Starts</Label>
-                <Input
-                  id="res-start"
-                  type="datetime-local"
-                  value={draft.startsAt}
-                  onChange={(e) => setDraft({ ...draft, startsAt: e.target.value })}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="res-end">Ends (optional)</Label>
-                <Input
-                  id="res-end"
-                  type="datetime-local"
-                  value={draft.endsAt}
-                  onChange={(e) => setDraft({ ...draft, endsAt: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="res-note">Note</Label>
-              <Textarea
-                id="res-note"
-                rows={2}
-                value={draft.note}
-                onChange={(e) => setDraft({ ...draft, note: e.target.value })}
-                placeholder="Birthday, VIP client, etc."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={save} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : editingId ? "Save" : "Create reservation"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReservationFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        draft={draft}
+        setDraft={setDraft}
+        zones={zones}
+        tablesForZone={tablesForZone}
+        saving={saving}
+        onSave={save}
+        editingId={editingId}
+        promoters={promoters}
+        events={events}
+      />
 
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <UserCheck className="size-3.5" /> Prototype note: confirming a reservation marks its table

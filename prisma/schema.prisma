@@ -177,6 +177,8 @@ enum StaffRole {
   host
   bartender
   runner
+  security
+  promoter
 }
 
 model StaffProfile {
@@ -580,6 +582,7 @@ model HelpRequest {
   venueId   String            @map("venue_id")
   sessionId String            @map("session_id")
   tableCode String            @map("table_code")
+  zoneId    String?           @map("zone_id")
   zoneName  String            @map("zone_name")
   guestName String            @map("guest_name")
   type      String

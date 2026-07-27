@@ -2,19 +2,24 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertOctagon, ArrowRight, LifeBuoy, MapPin, Moon, PartyPopper, Receipt, UserCheck } from "lucide-react";
+import {
+  AlertOctagon, ArrowRight, CalendarCheck, CalendarDays, Clock,
+  DollarSign, LifeBuoy, MapPin, MessageSquare, Moon,
+  PartyPopper, Receipt, Shield, UserCheck, Users,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ordersService } from "@/lib/services/orders-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { menuService } from "@/lib/services/menu-service";
+import { reservationService } from "@/lib/services/reservation-service";
 import { showQueueService } from "@/lib/services/show-queue-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
-import { timeAgo } from "@/lib/format";
+import { formatMoney, timeAgo } from "@/lib/format";
 import { useLiveEvents } from "@/lib/use-live-events";
-import type { ActiveShow, SoldOutEvent, StaffMember, Zone } from "@/lib/types";
+import type { ActiveShow, ChatMessage, Order, Reservation, SoldOutEvent, StaffMember, StaffShift, Zone } from "@/lib/types";
 
 interface QueueCounts {
   pendingOrders: number;
@@ -23,12 +28,128 @@ interface QueueCounts {
   openHelp: number;
 }
 
+interface PromoterStats {
+  requested: number;
+  confirmed: number;
+  seated: number;
+  guestsInHouse: number;
+  attributedRevenue: number;
+}
+
+function computePromoterStats(reservations: Reservation[], sessions: { id: string; promoterId?: string; partySize: number; status: string }[], orders: Order[], promoterId: string): PromoterStats {
+  const requested = reservations.filter((r) => r.status === "requested").length;
+  const confirmed = reservations.filter((r) => r.status === "confirmed").length;
+  const seated = reservations.filter((r) => r.status === "seated").length;
+  const mySessions = sessions.filter((s) => s.promoterId === promoterId && s.status === "approved");
+  const guestsInHouse = mySessions.reduce((sum, s) => sum + s.partySize, 0);
+  const sessionIds = new Set(mySessions.map((s) => s.id));
+  const attributedRevenue = orders
+    .filter((o) => o.sessionId && sessionIds.has(o.sessionId) && o.status !== "cancelled")
+    .reduce((sum, o) => sum + o.total, 0);
+  return { requested, confirmed, seated, guestsInHouse, attributedRevenue: Math.round(attributedRevenue * 100) / 100 };
+}
+
+// ---------- Security home ----------
+
+interface SecurityHomeProps {
+  me: StaffMember;
+  openSecurityCount: number;
+  todayShifts: StaffShift[];
+  securityBroadcasts: ChatMessage[];
+}
+
+function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts }: SecurityHomeProps) {
+  return (
+    <div className="space-y-4 p-4">
+      <div>
+        <h1 className="text-display flex items-center gap-2 text-xl">
+          Good evening, {me.name.split(" ")[0]}
+          <Shield className="size-4 text-primary" />
+        </h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">Security · stay sharp out there</p>
+      </div>
+
+      {/* Open security requests */}
+      <Link href="/staff/help">
+        <Card className={`py-4 transition-colors hover:border-primary/50 ${openSecurityCount > 0 ? "border-red-500/40" : ""}`}>
+          <CardContent className="flex items-center justify-between px-4">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <Shield className="size-4 text-primary" />
+                {openSecurityCount > 0 && (
+                  <span className="size-2 animate-pulse rounded-full bg-red-400" />
+                )}
+              </div>
+              <p className="mt-2 text-3xl font-bold tabular-nums">{openSecurityCount}</p>
+              <p className="text-xs text-muted-foreground">Open security requests</p>
+            </div>
+            <ArrowRight className="size-4 text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </Link>
+
+      {/* Tonight's shift */}
+      <Card className="py-4">
+        <CardContent className="space-y-2 px-4">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <CalendarDays className="size-4 text-primary" /> Tonight&apos;s shift
+          </p>
+          {todayShifts.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No shift scheduled for today.</p>
+          ) : (
+            todayShifts.map((shift) => (
+              <div key={shift.id} className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Clock className="size-3.5" />
+                {shift.startTime} – {shift.endTime}
+              </div>
+            ))
+          )}
+          <Button size="sm" variant="outline" asChild className="mt-1">
+            <Link href="/staff/schedule">Full schedule <ArrowRight className="size-3.5" /></Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Latest security broadcasts */}
+      {securityBroadcasts.length > 0 && (
+        <Card className="py-4">
+          <CardContent className="space-y-2 px-4">
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              <MessageSquare className="size-4 text-primary" /> Security channel
+            </p>
+            <ul className="space-y-2">
+              {securityBroadcasts.map((msg) => (
+                <li key={msg.id} className="text-sm">
+                  <span className="font-medium">{msg.authorName}</span>
+                  <span className="mx-1 text-muted-foreground">·</span>
+                  <span className="text-xs text-muted-foreground">{timeAgo(msg.sentAt)}</span>
+                  <p className="mt-0.5 text-muted-foreground">{msg.body}</p>
+                </li>
+              ))}
+            </ul>
+            <Button size="sm" variant="outline" asChild className="mt-1">
+              <Link href="/staff/chat">Open chat <ArrowRight className="size-3.5" /></Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ---------- Main home ----------
+
 export default function StaffHomePage() {
   const [counts, setCounts] = useState<QueueCounts | null>(null);
+  const [promoStats, setPromoStats] = useState<PromoterStats | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [soldOut, setSoldOut] = useState<SoldOutEvent[]>([]);
   const [activeShow, setActiveShow] = useState<ActiveShow | null>(null);
+  // Security-specific state
+  const [securityRequestCount, setSecurityRequestCount] = useState(0);
+  const [todayShifts, setTodayShifts] = useState<StaffShift[]>([]);
+  const [securityBroadcasts, setSecurityBroadcasts] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
     Promise.all([
@@ -37,7 +158,7 @@ export default function StaffHomePage() {
       guestsService.listHelpRequests(),
       staffService.getCurrentStaff(),
       venueService.listZones(),
-    ]).then(([orders, pendingSessions, help, currentStaff, zoneList]) => {
+    ]).then(async ([orders, pendingSessions, help, currentStaff, zoneList]) => {
       setCounts({
         pendingOrders: orders.filter((o) => o.status === "pending").length,
         activeOrders: orders.filter((o) =>
@@ -48,6 +169,26 @@ export default function StaffHomePage() {
       });
       setMe(currentStaff);
       setZones(zoneList);
+
+      if (currentStaff.role === "promoter") {
+        const [myRes, allSessions, allOrders] = await Promise.all([
+          reservationService.listMyReservations(currentStaff.id),
+          guestsService.listSessions(),
+          ordersService.listOrders(),
+        ]);
+        setPromoStats(computePromoterStats(myRes, allSessions, allOrders, currentStaff.id));
+      }
+
+      if (currentStaff.role === "security") {
+        const today = new Date().getDay();
+        const [allShifts, secMsgs] = await Promise.all([
+          staffService.listShifts(),
+          staffService.listMessages("security"),
+        ]);
+        setSecurityRequestCount(help.filter((h) => h.type === "security" && h.status !== "resolved").length);
+        setTodayShifts(allShifts.filter((s) => s.staffId === currentStaff.id && s.dayOfWeek === today));
+        setSecurityBroadcasts(secMsgs.slice(-3).reverse());
+      }
     });
   }, []);
 
@@ -72,13 +213,36 @@ export default function StaffHomePage() {
     ? zones.filter((z) => me.assignedZoneIds.includes(z.id)).map((z) => z.name)
     : [];
 
+  const isPromoter = me?.role === "promoter";
+  const isSecurity = me?.role === "security";
+  const isRunner = me?.role === "runner";
+
+  // Security home delegates to its own component once data is ready.
+  if (isSecurity && me && counts !== null) {
+    return (
+      <SecurityHome
+        me={me}
+        openSecurityCount={securityRequestCount}
+        todayShifts={todayShifts}
+        securityBroadcasts={securityBroadcasts}
+      />
+    );
+  }
+
   const tiles = counts
-    ? [
-        { href: "/staff/orders", label: "New orders", value: counts.pendingOrders, icon: Receipt, urgent: counts.pendingOrders > 0 },
-        { href: "/staff/orders", label: "In progress", value: counts.activeOrders, icon: Receipt, urgent: false },
-        { href: "/staff/approvals", label: "Approvals", value: counts.pendingApprovals, icon: UserCheck, urgent: counts.pendingApprovals > 0 },
-        { href: "/staff/help", label: "Help requests", value: counts.openHelp, icon: LifeBuoy, urgent: counts.openHelp > 0 },
-      ]
+    ? isPromoter && promoStats
+      ? [
+          { href: "/staff/reservations", label: "Requested", value: String(promoStats.requested), icon: CalendarCheck, urgent: false },
+          { href: "/staff/reservations", label: "Confirmed", value: String(promoStats.confirmed), icon: CalendarCheck, urgent: false },
+          { href: "/staff/reservations", label: "Seated", value: String(promoStats.seated), icon: Users, urgent: false },
+          { href: "/staff/orders", label: "Revenue", value: formatMoney(promoStats.attributedRevenue), icon: DollarSign, urgent: false },
+        ]
+      : [
+          { href: "/staff/orders", label: "New orders", value: String(counts.pendingOrders), icon: Receipt, urgent: counts.pendingOrders > 0 },
+          { href: "/staff/orders", label: "In progress", value: String(counts.activeOrders), icon: Receipt, urgent: false },
+          ...(!isRunner ? [{ href: "/staff/approvals", label: "Approvals", value: String(counts.pendingApprovals), icon: UserCheck, urgent: counts.pendingApprovals > 0 }] : []),
+          { href: "/staff/help", label: "Help requests", value: String(counts.openHelp), icon: LifeBuoy, urgent: counts.openHelp > 0 },
+        ]
     : [];
 
   return (
@@ -126,21 +290,43 @@ export default function StaffHomePage() {
         </div>
       )}
 
-      <Card className="py-4">
-        <CardContent className="flex items-center justify-between px-4">
-          <div>
-            <p className="text-sm font-medium">Runner mode</p>
-            <p className="text-xs text-muted-foreground">
-              See only orders in your assigned zones
-            </p>
-          </div>
-          <Button size="sm" variant="outline" asChild>
-            <Link href="/staff/orders?scope=mine">
-              Open <ArrowRight className="size-3.5" />
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
+      {isPromoter && promoStats && promoStats.guestsInHouse > 0 && (
+        <Card className="border-primary/40 py-4">
+          <CardContent className="flex items-center justify-between px-4">
+            <div>
+              <p className="flex items-center gap-1.5 text-sm font-medium">
+                <Users className="size-4 text-primary" /> Guests in house
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {promoStats.guestsInHouse} from your reservations
+              </p>
+            </div>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/staff/orders">
+                Orders <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {isRunner && (
+        <Card className="py-4">
+          <CardContent className="flex items-center justify-between px-4">
+            <div>
+              <p className="text-sm font-medium">My zones</p>
+              <p className="text-xs text-muted-foreground">
+                See only orders in your assigned zones
+              </p>
+            </div>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/staff/orders?scope=mine">
+                Open <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {activeShow && (
         <Card className="border-primary/40 py-4">

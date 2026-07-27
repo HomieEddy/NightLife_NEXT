@@ -75,10 +75,10 @@ export interface VenueTable {
 
 // ---------- Staff ----------
 
-export type StaffRole = "manager" | "host" | "bartender" | "runner" | "security";
+export type StaffRole = "manager" | "host" | "bartender" | "runner" | "security" | "promoter";
 
-/** Roles a manager can assign when creating/editing staff ("security" is legacy). */
-export const ASSIGNABLE_ROLES = ["manager", "host", "bartender", "runner"] as const;
+/** Roles a manager can assign when creating/editing staff. */
+export const ASSIGNABLE_ROLES = ["manager", "host", "bartender", "runner", "security", "promoter"] as const;
 
 export type StaffAccountStatus = "active" | "invited" | "suspended";
 
@@ -251,6 +251,8 @@ export interface GuestSession {
   createdAt: string; // ISO
   settledExternallyAt?: string;
   settlementMethod?: SettlementMethod;
+  // TODO(backend): stamped at seat time from the reservation that gated the table
+  promoterId?: string;
 }
 
 export type SettlementMethod = "terminal" | "cash" | "house";
@@ -334,6 +336,7 @@ export interface HelpRequest {
   id: string;
   sessionId: string;
   tableCode: string;
+  zoneId: string;
   zoneName: string;
   guestName: string;
   type: HelpRequestType;
@@ -531,6 +534,26 @@ export interface InventoryDepthAnalytics {
   deadItems: number;
 }
 
+export interface PromoterPerformance {
+  promoterId: string;
+  promoterName: string;
+  reservationsCreated: number;
+  reservationsConfirmed: number;
+  reservationsSeated: number;
+  showUpRate: number;
+  guestsFunneled: number;
+  attributedRevenue: number;
+  avgSpendPerGuest: number;
+  avgSpendPerParty: number;
+  topTable?: { tableCode: string; revenue: number };
+}
+
+export interface PromoterAnalytics {
+  promoters: PromoterPerformance[];
+  totalGuestsFunneled: number;
+  totalAttributedRevenue: number;
+}
+
 export interface OrderEtaMetrics {
   avgAcceptMinutes: number;
   avgPrepMinutes: number;
@@ -561,6 +584,7 @@ export interface AnalyticsSummary {
   promotions?: PromotionAnalytics;
   orderFunnel?: OrderFunnelAnalytics;
   inventoryDepth?: InventoryDepthAnalytics;
+  promoters?: PromoterAnalytics;
 }
 
 export interface HistoricalAnalytics {
@@ -584,6 +608,7 @@ export interface HistoricalAnalytics {
   promotions?: PromotionAnalytics;
   orderFunnel?: OrderFunnelAnalytics;
   inventoryDepth?: InventoryDepthAnalytics;
+  promoters?: PromoterAnalytics;
 }
 
 export const REPORT_METRICS = [
@@ -599,6 +624,8 @@ export const REPORT_METRICS = [
   { id: "promotions", label: "Promotions" },
   { id: "order-funnel", label: "Order funnel" },
   { id: "service-fees", label: "Service fees" },
+  { id: "promoter-funnel", label: "Promoter funnel" },
+  { id: "promoter-revenue", label: "Promoter revenue" },
 ] as const;
 
 export type ReportMetric = (typeof REPORT_METRICS)[number]["id"];
@@ -745,6 +772,7 @@ export interface AuthUser {
   email: string;
   role: AuthRole;
   venueId?: string;
+  staffRole?: StaffRole;
 }
 
 export interface SignInInput {
@@ -762,7 +790,7 @@ export type ReservationStatus =
   | "cancelled"
   | "completed";
 
-export type ReservationChannel = "embed" | "direct" | "walk-in";
+export type ReservationChannel = "embed" | "direct" | "walk-in" | "promoter";
 
 export interface Reservation {
   id: string;
@@ -781,6 +809,8 @@ export interface Reservation {
   guestEmail?: string;
   guestPhone?: string;
   reservationPin?: string;
+  // TODO(backend): FK to staff_profiles; set when a promoter creates the reservation or assigned by manager
+  promoterId?: string;
   createdAt: string; // ISO
 }
 
@@ -799,6 +829,8 @@ export interface VenueEvent {
   capacity: number;
   status: EventStatus;
   guestlistEnabled: boolean;
+  // TODO(backend): stored as nullable text column; validated as URL by the API layer.
+  ticketUrl?: string;
 }
 
 /** Event-scoped attendee name — not a stored customer/profile. */

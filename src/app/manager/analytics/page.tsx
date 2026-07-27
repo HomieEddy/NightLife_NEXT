@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, Boxes, CalendarCheck, CalendarRange, CircleDollarSign,
-  Clock, HandHelping, PartyPopper, Receipt, Tag, Timer, Trophy, Users,
+  Clock, HandHelping, Megaphone, PartyPopper, Receipt, Tag, Timer, Trophy, Users,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -238,6 +238,9 @@ function AnalyticsPageContent() {
             </TabsTrigger>
             <TabsTrigger value="promotions">
               <Tag className="size-3.5" /> Promotions
+            </TabsTrigger>
+            <TabsTrigger value="promoters">
+              <Megaphone className="size-3.5" /> Promoters
             </TabsTrigger>
           </TabsList>
 
@@ -927,6 +930,119 @@ function AnalyticsPageContent() {
               </>
             ) : (
               <p className="text-sm text-muted-foreground">No promotion data available for this range.</p>
+            )}
+          </TabsContent>
+
+          {/* ---------- Promoters ---------- */}
+          <TabsContent value="promoters" className="space-y-6 pt-4">
+            {data.promoters && data.promoters.promoters.length > 0 ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <MetricCard
+                    label="Total attributed"
+                    value={formatMoney(data.promoters.totalAttributedRevenue)}
+                    icon={CircleDollarSign}
+                    info="Revenue from orders placed in sessions attributed to a promoter."
+                    hint={`${data.days} nights`}
+                  />
+                  <MetricCard
+                    label="Guests funneled"
+                    value={String(data.promoters.totalGuestsFunneled)}
+                    icon={Users}
+                    info="Total guests who arrived through promoter-sourced reservations."
+                  />
+                  <MetricCard
+                    label="Top promoter"
+                    value={
+                      [...data.promoters.promoters].sort((a, b) => b.attributedRevenue - a.attributedRevenue)[0]
+                        ?.promoterName.split(" ")[0] ?? "—"
+                    }
+                    icon={Trophy}
+                    info="Promoter with the highest attributed revenue in the range."
+                    hint="By revenue"
+                  />
+                  <MetricCard
+                    label="Avg show-up"
+                    value={formatPct(
+                      data.promoters.promoters.reduce((s, p) => s + p.showUpRate, 0) / data.promoters.promoters.length,
+                    )}
+                    icon={CalendarCheck}
+                    info="Average show-up rate across all promoters (seated ÷ confirmed)."
+                  />
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Promoter leaderboard</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {(() => {
+                      const sorted = [...data.promoters!.promoters].sort((a, b) => b.attributedRevenue - a.attributedRevenue);
+                      const maxRev = sorted[0]?.attributedRevenue ?? 1;
+                      return sorted.map((p) => (
+                        <BarRow
+                          key={p.promoterId}
+                          left={
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="truncate">{p.promoterName}</span>
+                              <RoleBadge role="promoter" className="px-1.5 py-0 text-[10px]" />
+                            </span>
+                          }
+                          right={
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {p.guestsFunneled} guests ·{" "}
+                              <span className="font-medium text-foreground tabular-nums">
+                                {formatMoney(p.attributedRevenue)}
+                              </span>
+                            </span>
+                          }
+                          ratio={p.attributedRevenue / maxRev}
+                        />
+                      ));
+                    })()}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Reservation funnel by promoter</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-muted-foreground">
+                            <th className="pb-2 pr-4 font-medium">Promoter</th>
+                            <th className="pb-2 pr-4 text-right font-medium">Created</th>
+                            <th className="pb-2 pr-4 text-right font-medium">Confirmed</th>
+                            <th className="pb-2 pr-4 text-right font-medium">Seated</th>
+                            <th className="pb-2 pr-4 text-right font-medium">Show-up</th>
+                            <th className="pb-2 pr-4 text-right font-medium">Guests</th>
+                            <th className="pb-2 pr-4 text-right font-medium">Revenue</th>
+                            <th className="pb-2 text-right font-medium">Avg / guest</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.promoters!.promoters.map((p) => (
+                            <tr key={p.promoterId} className="border-b last:border-0">
+                              <td className="py-2 pr-4">{p.promoterName}</td>
+                              <td className="py-2 pr-4 text-right tabular-nums">{p.reservationsCreated}</td>
+                              <td className="py-2 pr-4 text-right tabular-nums">{p.reservationsConfirmed}</td>
+                              <td className="py-2 pr-4 text-right tabular-nums">{p.reservationsSeated}</td>
+                              <td className="py-2 pr-4 text-right tabular-nums">{formatPct(p.showUpRate)}</td>
+                              <td className="py-2 pr-4 text-right tabular-nums">{p.guestsFunneled}</td>
+                              <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(p.attributedRevenue)}</td>
+                              <td className="py-2 text-right tabular-nums">{formatMoney(p.avgSpendPerGuest)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No promoter data available for this range.</p>
             )}
           </TabsContent>
         </Tabs>

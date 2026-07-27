@@ -1,4 +1,4 @@
-# 19 — SMS Notifications (Twilio) · PLAN
+# 26 — SMS Notifications (Twilio) · PLAN
 
 **Status: not started.**
 
@@ -8,10 +8,10 @@ reservation PIN (plan 13's explicit TODO — a guest standing at a table needs
 the code *now*, not in a spam folder) and reservation confirmations/reminders
 for guests who gave a phone number instead of an email.
 
-Preconditions: plan 18 complete (dispatch core, `NotificationLog`,
+Preconditions: plan 25 complete (dispatch core, `NotificationLog`,
 `EMAIL_DRIVER` pattern to mirror); plan 13's `guestPhone` and
 `reservationPin` schema fields (committed). Branch
-`feature/19-notifications-sms`.
+`feature/26-notifications-sms`.
 
 ## Reasoning
 
@@ -33,8 +33,8 @@ Preconditions: plan 18 complete (dispatch core, `NotificationLog`,
    on the public reservation form states what it's used for), every SMS
    identifies the venue, and "Reply STOP" handling comes free with Twilio's
    default opt-out management. Marketing SMS is explicitly out of scope and
-   stays out until plan 22's consent infrastructure exists.
-4. **Track placement:** live-track, same shape as plan 18 — server-side side
+   stays out until plan 29's consent infrastructure exists.
+4. **Track placement:** live-track, same shape as plan 25 — server-side side
    effect, no demo analog. The demo reservation flow shows the PIN on-screen
    after booking (that on-screen reveal becomes the demo simulation; the
    live flow shows "PIN sent to your phone" instead, gated with
@@ -68,7 +68,7 @@ preferences.
   segments to `NotificationLog.meta`.
 - **Send points:** PIN on reservation `confirmed` (with `guestPhone`);
   confirmation SMS when phone-only; reminder via a `/api/jobs/reservation-reminders`
-  cron handler (plan 18's pattern: `CRON_SECRET`, `job_runs`, idempotent per
+  cron handler (plan 25's pattern: `CRON_SECRET`, `job_runs`, idempotent per
   reservation) firing a configurable window before the slot.
 
 ## Implementation strategy
@@ -102,7 +102,7 @@ preferences.
 ## Review checklist
 
 - No marketing content in any template; venue identified in every message.
-- PIN never appears in app logs (only `NotificationLog`, plan 22 retention).
+- PIN never appears in app logs (only `NotificationLog`, plan 29 retention).
 - Demo build shows on-screen PIN, live build never does — both modes driven.
 - Cap + rate limit actually enforced (test proves it, not the code comment).
 - Twilio creds only via env; absent in demo build entirely.

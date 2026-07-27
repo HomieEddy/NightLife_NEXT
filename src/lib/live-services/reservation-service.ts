@@ -29,6 +29,12 @@ export const liveReservationService = {
     return api<Reservation[]>(`/api/reservations${qs ? `?${qs}` : ""}`);
   },
 
+  // TODO(backend): add promoterId filter to reservation list query
+  async listMyReservations(promoterId: string): Promise<Reservation[]> {
+    const params = new URLSearchParams({ promoterId });
+    return api<Reservation[]>(`/api/reservations?${params}`);
+  },
+
   async getReservation(id: string): Promise<Reservation | null> {
     const res = await liveFetch(`/api/reservations/${encodeURIComponent(id)}`);
     if (res.status === 404) return null;
@@ -49,6 +55,7 @@ export const liveReservationService = {
     guestEmail?: string;
     guestPhone?: string;
     eventId?: string;
+    promoterId?: string;
   }): Promise<Reservation> {
     return api<Reservation>("/api/reservations", {
       method: "POST",

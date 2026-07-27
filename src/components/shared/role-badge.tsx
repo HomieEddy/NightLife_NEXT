@@ -7,6 +7,7 @@ const ROLE_STYLES: Record<StaffRole, string> = {
   bartender: "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/30",
   runner: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
   security: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
+  promoter: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
 };
 
 export function RoleBadge({ role, className }: { role: StaffRole; className?: string }) {

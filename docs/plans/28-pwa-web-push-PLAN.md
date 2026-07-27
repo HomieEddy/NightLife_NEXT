@@ -1,4 +1,4 @@
-# 21 — PWA & Web Push · PLAN
+# 28 — PWA & Web Push · PLAN
 
 **Status: not started.**
 
@@ -13,9 +13,9 @@ buys. Preferences naturally live here because push is the channel that
 makes fine-grained control feel worthwhile: once you can receive three
 channel types, you need a place to tune them.
 
-Preconditions: plan 18 complete (dispatch core, `NotificationLog`); plan 07
+Preconditions: plan 25 complete (dispatch core, `NotificationLog`); plan 07
 realtime (the domain events in `src/server/events.ts` are the triggers push
-subscribes to). Plan 19 is independent. Branch `feature/21-pwa-web-push`.
+subscribes to). Plan 26 is independent. Branch `feature/28-pwa-web-push`.
 
 ## Reasoning
 
@@ -64,7 +64,7 @@ subscribes to). Plan 19 is independent. Branch `feature/21-pwa-web-push`.
   self-clean at send time). Tenant-scoped like everything else.
 - **Dispatch channel:** `push.ts` transport using `web-push` + VAPID keys
   (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT`, fail-closed in
-  live when unset; `PUSH_DRIVER=webpush|log` mirrors plan 18). Payloads are
+  live when unset; `PUSH_DRIVER=webpush|log` mirrors plan 25). Payloads are
   small JSON: title, body, URL to open. One `NotificationLog` row per
   attempt, dead-endpoint cleanup recorded.
 - **Wired events (staff/manager, controlled per-user by preferences — see
@@ -96,7 +96,7 @@ subscribes to). Plan 19 is independent. Branch `feature/21-pwa-web-push`.
      zone", not "order.placed").
   3. **Demo mode**: renders a static explainer card — no permission prompt,
      no API calls, no misleading toggles. (`isDemoMode()` gate, same
-     pattern as plan 18's demo no-op.)
+     pattern as plan 25's demo no-op.)
   Permission is only ever requested from the push toggle tap — never on
   page load.
 

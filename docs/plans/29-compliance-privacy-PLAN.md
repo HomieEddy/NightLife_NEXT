@@ -1,4 +1,4 @@
-# 22 — Compliance & Privacy (Law 25 / PIPEDA) · PLAN
+# 29 — Compliance & Privacy (Law 25 / PIPEDA) · PLAN
 
 **Status: not started.**
 
@@ -9,10 +9,10 @@ with an enforcement job, account/tenant deletion, and an incident-response
 procedure. Staging can run without this; **production cannot onboard a real
 venue before it** — that's the gate this plan defines.
 
-Preconditions: plan 18 (the retention job rides the cron infra; breach
+Preconditions: plan 25 (the retention job rides the cron infra; breach
 notification uses the email channel). Legal-document *review* by an actual
 lawyer is recommended and explicitly outside what code review can approve.
-Branch `feature/22-compliance-privacy`.
+Branch `feature/29-compliance-privacy`.
 
 ## Reasoning
 
@@ -25,8 +25,8 @@ the foundation of everything else, and a first pass from the schema:
   `guestEmail`, `guestPhone`, PIN (plans 08/13); orders tie to sessions.
   Guests are the volume and the sensitivity: consumers, not businesses.
 - **Leads:** contact info from the public form (plan 10).
-- **Derived:** `NotificationLog` recipients (plan 18/19), auth event logs
-  (plan 16), backups (plan 17).
+- **Derived:** `NotificationLog` recipients (plan 25/26), auth event logs
+  (plan 23), backups (plan 24).
 
 Law 25's teeth relevant at this scale: a designated privacy officer
 (published contact), transparency at collection (state purpose, no
@@ -56,17 +56,17 @@ banner would be cargo cult; documented in the policy instead).
 - **Consent at collection, not blanket checkboxes:** signup and lead forms
   get a purpose statement + policy link + affirmative checkbox; the public
   reservation form states what the email/phone are used for (confirmation
-  + PIN — plan 19 wrote the field copy; this plan makes it policy-linked).
+  + PIN — plan 26 wrote the field copy; this plan makes it policy-linked).
   Guest QR join collects nothing identifying beyond the session — stated
   in the policy as the privacy-by-default posture.
 - **Retention enforced by a cron job**, not by promise:
-  `/api/jobs/data-retention` (plan 18 pattern: `CRON_SECRET`, `job_runs`,
+  `/api/jobs/data-retention` (plan 25 pattern: `CRON_SECRET`, `job_runs`,
   idempotent) applying the inventory's schedule — e.g. closed guest
   sessions and their PII-bearing fields anonymized after N days (aggregates
   and rollups keep the numbers, lose the person — analytics, plan 09/09c,
   must survive anonymization by design: verify rollups don't join back to
   guest identity), stale leads purged, `NotificationLog` recipients
-  truncated after M days, auth logs per plan 16's retention. N/M values
+  truncated after M days, auth logs per plan 23's retention. N/M values
   proposed in the inventory, decided by the owner, recorded there.
 - **Deletion paths, two shapes:**
   - **Individual (staff user or guest request):** a documented DSAR
@@ -79,7 +79,7 @@ banner would be cargo cult; documented in the policy instead).
     confirm-dialog-gated tenant deletion that cascades the venue's data
     (schema already hangs everything off `venueId`), with a grace-period
     soft-disable first (export window for the venue), then hard delete
-    including a note that backups age out per plan 17's retention — stated
+    including a note that backups age out per plan 24's retention — stated
     honestly in the ToS.
 - **Breach procedure:** RUNBOOK.md §incident-response — contain, assess
   "risk of serious injury", CAI + affected-person notification templates,
@@ -89,7 +89,7 @@ banner would be cargo cult; documented in the policy instead).
 
 ## Implementation strategy
 
-1. Data inventory first — walk the Prisma schema and plans 16–21's new
+1. Data inventory first — walk the Prisma schema and plans 23–28's new
    stores; owner signs off retention numbers.
 2. Privacy policy + ToS drafts (FR/EN) from the inventory; `/privacy` and
    `/terms` pages on the live build; footer links; demo cross-links.
@@ -126,7 +126,7 @@ banner would be cargo cult; documented in the policy instead).
   spot-checked pre/post).
 - No consent dark patterns: unchecked by default, no bundling of
   necessary-service consent with anything optional.
-- ToS honestly states backup-tail deletion timing (plan 17 retention).
+- ToS honestly states backup-tail deletion timing (plan 24 retention).
 
 ## Exit criteria
 

@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Pencil, Trash2, UserPlus, Users } from "lucide-react";
+import { CalendarDays, Pencil, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import { EntityChip } from "@/components/shared/entity-chip";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { RoleBadge } from "@/components/shared/role-badge";
+import { RolesAccessTab } from "@/components/manager/roles-access-tab";
 import { ScheduleTab } from "@/components/manager/schedule-tab";
 import { StaffEditDialog } from "@/components/manager/staff-edit-dialog";
 import { staffService } from "@/lib/services/staff-service";
@@ -27,6 +28,9 @@ import { SearchInput } from "@/components/shared/search-input";
 import { DateRangePicker, getDefaultDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { cn } from "@/lib/utils";
 import type { StaffAccountStatus, StaffMember, StaffRole, Zone } from "@/lib/types";
+
+// TODO(backend): derive from the authenticated session's venueId.
+const VENUE_ID = "venue-1";
 
 const ACCOUNT_BADGE: Record<StaffAccountStatus, { label: string; className: string } | null> = {
   active: null, // the default — no badge noise
@@ -38,6 +42,7 @@ function StaffContent() {
   const searchParams = useSearchParams();
   const [staff, setStaff] = useState<StaffMember[] | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
+  const [currentUserRole, setCurrentUserRole] = useState<StaffRole | null>(null);
   const [zoneFilter, setZoneFilter] = useState(searchParams.get("zone") ?? "all");
   const [roleFilter, setRoleFilter] = useState<StaffRole | "all">("all");
   const [query, setQuery] = useState("");
@@ -52,6 +57,7 @@ function StaffContent() {
   useEffect(() => {
     refresh();
     venueService.listZones().then(setZones);
+    staffService.getCurrentStaff().then((me) => setCurrentUserRole(me.role));
   }, [refresh]);
 
   async function toggleShift(member: StaffMember) {
@@ -117,7 +123,7 @@ function StaffContent() {
           className="w-full sm:w-56"
         />
         <div className="flex flex-wrap gap-1.5">
-          {(["all", "manager", "bartender", "runner", "host"] as const).map((r) => (
+          {(["all", "manager", "bartender", "runner", "host", "promoter"] as const).map((r) => (
             <button
               key={r}
               type="button"
@@ -142,6 +148,9 @@ function StaffContent() {
           </TabsTrigger>
           <TabsTrigger value="schedule">
             <CalendarDays className="size-3.5" /> Schedule
+          </TabsTrigger>
+          <TabsTrigger value="roles">
+            <ShieldCheck className="size-3.5" /> Roles &amp; Access
           </TabsTrigger>
         </TabsList>
 
@@ -262,6 +271,11 @@ function StaffContent() {
         <TabsContent value="schedule" className="pt-3 space-y-4">
           <DateRangePicker value={scheduleDateRange} onChange={setScheduleDateRange} />
           <ScheduleTab staff={staff ?? []} zones={zones} dateRange={scheduleDateRange} />
+        </TabsContent>
+
+        {/* ---------- Roles & Access tab ---------- */}
+        <TabsContent value="roles" className="pt-3">
+          <RolesAccessTab currentUserRole={currentUserRole} venueId={VENUE_ID} />
         </TabsContent>
       </Tabs>
 

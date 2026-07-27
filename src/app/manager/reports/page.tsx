@@ -484,6 +484,38 @@ function ReportsPageContent() {
                 ))}
               </div>
             )}
+            {viewing.report.metrics.includes("promoter-funnel") && viewing.data.promoters && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Promoter funnel</p>
+                {viewing.data.promoters.promoters.map((p) => (
+                  <div key={p.promoterId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
+                    <span>{p.promoterName}</span>
+                    <span className="text-muted-foreground">
+                      {p.reservationsCreated} created · {p.reservationsSeated} seated · {formatPct(p.showUpRate)} show-up ·{" "}
+                      <span className="font-medium text-foreground tabular-nums">{p.guestsFunneled} guests</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {viewing.report.metrics.includes("promoter-revenue") && viewing.data.promoters && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Promoter revenue</p>
+                {viewing.data.promoters.promoters.map((p) => (
+                  <div key={p.promoterId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
+                    <span>{p.promoterName}</span>
+                    <span className="text-muted-foreground">
+                      {formatMoney(p.avgSpendPerGuest)} / guest ·{" "}
+                      <span className="font-medium text-foreground tabular-nums">{formatMoney(p.attributedRevenue)}</span>
+                    </span>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-1 text-sm font-medium">
+                  <span>Total</span>
+                  <span className="tabular-nums">{formatMoney(viewing.data.promoters.totalAttributedRevenue)}</span>
+                </div>
+              </div>
+            )}
             {viewing.report.metrics.includes("order-funnel") && viewing.data.orderFunnel && (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Order funnel</p>
