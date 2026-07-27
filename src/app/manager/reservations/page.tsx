@@ -61,6 +61,7 @@ const STATUS_ACTIONS: Record<ReservationStatus, string> = {
   seated: "Complete",
   cancelled: "—",
   completed: "—",
+  "no-show": "—",
 };
 
 function ReservationsContent() {

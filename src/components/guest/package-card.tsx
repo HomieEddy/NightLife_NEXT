@@ -31,6 +31,8 @@ export function PackageCard({ pkg, featured = false }: { pkg: PackageWithQuote; 
     tags: [],
     isAvailable: true,
     inventory: pkg.quote.maxQuantity,
+    isAlcoholic: true,
+    allergens: [],
   };
 
   return (

@@ -73,6 +73,11 @@ export async function findTableByQrSlug(
       // TODO(backend): plan 16 graduation — see venue-core.ts's toVenue() note.
       compThresholdCents: 10000,
       minimumSpendWarningRatio: 0.25,
+      // TODO(backend): plan 17 graduation — see venue-core.ts's toVenue() note.
+      legalCapacity: 400,
+      occupancyWarnRatio: 0.9,
+      coatCheckEnabled: false,
+      doorRequiresIdCheck: false,
     },
   };
 }

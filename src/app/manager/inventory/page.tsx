@@ -233,6 +233,8 @@ function InventoryPageContent() {
         inventory: Math.max(0, draft.inventory),
         tags: [],
         isAvailable: true,
+        isAlcoholic: true,
+        allergens: [],
       });
       toast.success(`${draft.name.trim()} added to inventory`);
     }
