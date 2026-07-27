@@ -149,8 +149,15 @@ Rules that follow from it:
 6. **Functional state updates for rapid-fire controls.** `setX(prev => ...)`
    for steppers and counters — render-closure reads drop clicks. (This bug
    shipped once, in the bulk-restock stepper. Once.)
-7. **Accessibility is not optional chrome:** `aria-label` on icon-only buttons,
-   `Label htmlFor` on inputs, keyboard-reachable everything.
+ 7. **Accessibility is not optional chrome:** `aria-label` on icon-only buttons,
+    `Label htmlFor` on inputs, keyboard-reachable everything.
+ 8. **Every action needs a UI trigger.** A service method + a permission row +
+    a `TODO(backend)` is not a feature — it's three files of dead code. Any new
+    `StaffAction` must ship with a button, switch, form, or confirm dialog on the
+    role's primary page that calls it. The safety features (plans 16-17) shipped
+    with service methods and permissions but no UI to trigger them — five gaps
+    caught at review; this rule exists so it never happens again. Count the
+    touchpoints: one permission → one service method → one UI trigger, minimum.
 
 ## 5. Verification — evidence before assertions
 
@@ -501,6 +508,12 @@ makes it obsolete.
   keeps the client-side `RequireAuth` gate only.
 - Shells read the venue name via `venueService.getVenue()` — never hardcode a
   venue string in layout chrome; demo shows the seeded venue, live the tenant's.
+
+- Before trusting that a feature is complete, count the touchpoints: a new
+  `StaffAction` needs exactly one permission row, one service method, and one UI
+  trigger on a role's page. Finding a service method with no UI to invoke it is
+  the same class of gap as the safety features that shipped half-finished — this
+  appendix entry is the tripwire.
 
 - `useSearchParams` **must** sit under `<Suspense>` — wrap the page content in
   a `*Content` component; the default export renders the boundary.
