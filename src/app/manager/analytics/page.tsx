@@ -342,6 +342,48 @@ function AnalyticsPageContent() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Comps, voids & discounts — live from tonight's tab ledger (plan 16) */}
+            {data.adjustments && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Comps, voids & discounts</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm lg:grid-cols-3">
+                    <Stat label="Voids" info="Lines removed from revenue with stock returned to inventory.">
+                      {data.adjustments.voidCount}{" "}
+                      <span className="text-xs text-muted-foreground">
+                        ({formatMoney(data.adjustments.voidCents / 100)} · {formatPct(data.adjustments.voidRate)})
+                      </span>
+                    </Stat>
+                    <Stat label="Comps" info="Lines waived as a house gift — inventory stays depleted.">
+                      {data.adjustments.compCount}{" "}
+                      <span className="text-xs text-muted-foreground">
+                        ({formatMoney(data.adjustments.compCents / 100)} · {formatPct(data.adjustments.compRate)})
+                      </span>
+                    </Stat>
+                    <Stat label="Discounts" info="Revenue reduced by a negotiated delta.">
+                      {data.adjustments.discountCount}{" "}
+                      <span className="text-xs text-muted-foreground">
+                        ({formatMoney(data.adjustments.discountCents / 100)} · {formatPct(data.adjustments.discountRate)})
+                      </span>
+                    </Stat>
+                  </div>
+                  {data.adjustments.byReason.length > 0 && (
+                    <div className="space-y-1 border-t pt-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">By reason</p>
+                      {data.adjustments.byReason.map((r) => (
+                        <div key={`${r.kind}:${r.reasonCode}`} className="flex justify-between text-sm">
+                          <span className="capitalize text-muted-foreground">{r.kind} · {r.reasonCode}</span>
+                          <span className="tabular-nums">{r.count} · {formatMoney(r.amountCents / 100)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* ---------- Staff ---------- */}
