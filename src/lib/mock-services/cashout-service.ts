@@ -3,12 +3,13 @@
  * Live mode persists this as an insert-only shift_cashouts table.
  */
 import type { GuestSession, Order, SettlementMethod, ShiftCashout, TabAdjustment } from "@/lib/types";
+import { mockCashouts } from "@/lib/mock-data/tab";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { computeCashoutExpected, computeCashoutVariance, emptyMethodTotals } from "@/lib/tab";
 import { clone, delay, uid } from "./delay";
 import { mockAuditService } from "./audit-service";
 
-let cashouts: ShiftCashout[] = [];
+let cashouts: ShiftCashout[] = clone(mockCashouts);
 
 export const mockCashoutService = {
   async listCashouts(staffId?: string): Promise<ShiftCashout[]> {

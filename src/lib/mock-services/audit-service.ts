@@ -5,10 +5,11 @@
  * Live mode persists this as an insert-only audit_entries table.
  */
 import type { AuditEntry } from "@/lib/types";
+import { mockAuditEntries } from "@/lib/mock-data/tab";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { clone, delay, uid } from "./delay";
 
-let entries: AuditEntry[] = [];
+let entries: AuditEntry[] = clone(mockAuditEntries);
 
 export const mockAuditService = {
   /** Records one audit row. Called in the same synchronous step as the effect it describes. */
