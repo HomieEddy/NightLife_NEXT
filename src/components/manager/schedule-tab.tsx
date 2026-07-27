@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarPlus, Loader2, X } from "lucide-react";
+import { CalendarPlus, Loader2, X, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -17,9 +18,11 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { staffService } from "@/lib/services/staff-service";
+import { timeService } from "@/lib/services/time-service";
+import { generateWeekFromTemplates } from "@/lib/workforce";
 import { cn } from "@/lib/utils";
 import type { DateRangeValue } from "@/components/shared/date-range-picker";
-import type { StaffMember, StaffShift, Zone } from "@/lib/types";
+import type { StaffMember, StaffShift, Shift, Zone } from "@/lib/types";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // Nightclub week: render Thursday→Sunday first, quiet days last.
@@ -50,6 +53,8 @@ function getDaysInRange(range?: DateRangeValue): Set<number> | null {
 /** Weekly recurring schedule: shifts grouped by night, add/remove per staff. */
 export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[]; zones: Zone[]; dateRange?: DateRangeValue }) {
   const [shifts, setShifts] = useState<StaffShift[] | null>(null);
+  const [publishedShifts, setPublishedShifts] = useState<Shift[]>([]);
+  const [publishing, setPublishing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState<ShiftDraft>({
     staffId: "",
@@ -62,6 +67,7 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
 
   const refresh = useCallback(async () => {
     setShifts(await staffService.listShifts());
+    setPublishedShifts(await timeService.listShifts());
   }, []);
 
   useEffect(() => {
@@ -103,6 +109,23 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
     await refresh();
   }
 
+  async function publishWeek() {
+    setPublishing(true);
+    try {
+      const templates = await staffService.listShifts();
+      const shiftTemplates = templates.map((t) => ({ ...t, venueId: "venue-1", active: true }));
+      const allStaff = staff;
+      const monday = new Date();
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+      const weekStart = monday.toISOString().slice(0, 10);
+      const generated = generateWeekFromTemplates(shiftTemplates, allStaff, weekStart, "venue-1");
+      await timeService.publishShifts(generated);
+      toast.success(`${generated.length} shifts published for the week of ${weekStart}`);
+      await refresh();
+    } catch { toast.error("Could not publish week"); }
+    finally { setPublishing(false); }
+  }
+
   async function remove(shift: StaffShift) {
     await staffService.removeShift(shift.id);
     toast.info(`${staffName(shift.staffId)} unscheduled from ${DAY_LABELS[shift.dayOfWeek]}`);
@@ -117,11 +140,35 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button onClick={() => openAdd()}>
+      <div className="flex justify-end gap-2">
+        <ConfirmDialog
+          trigger={<Button disabled={publishing}><Send className="size-4 mr-1" /> Publish next week</Button>}
+          title="Generate & publish next week?"
+          description="Converts the recurring schedule below into dated shifts that staff can see and swap."
+          confirmLabel="Publish"
+          onConfirm={publishWeek}
+        />
+        <Button variant="outline" onClick={() => openAdd()}>
           <CalendarPlus className="size-4" /> Add shift
         </Button>
       </div>
+
+      {/* Published shifts */}
+      {publishedShifts.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="space-y-2 px-4 py-3">
+            <p className="text-sm font-semibold text-primary">Published shifts</p>
+            <div className="flex flex-wrap gap-1.5">
+              {publishedShifts.slice(0, 12).map((s) => (
+                <Badge key={s.id} variant="outline" className="text-xs">
+                  {staffName(s.staffId)} · {new Date(s.businessDate).toLocaleDateString("en-CA", { weekday: "short" })}
+                </Badge>
+              ))}
+              {publishedShifts.length > 12 && <Badge variant="outline" className="text-xs">+{publishedShifts.length - 12} more</Badge>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2">
         {filteredDays.map((day) => {

@@ -27,3 +27,6 @@ export const publicReservationHref = (publicSlug: string, date?: string, eventId
   const qs = params.toString();
   return `/r/${publicSlug}${qs ? `?${qs}` : ""}`;
 };
+export const staffScheduleHref = (staffId: string) => `/manager/staff?tab=schedule&staff=${staffId}`;
+export const commissionHref = () => `/manager/commission`;
+export const staffCommissionHref = (staffId: string) => `/manager/commission?staff=${staffId}`;

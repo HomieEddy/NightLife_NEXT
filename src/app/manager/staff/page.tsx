@@ -27,6 +27,7 @@ import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { SearchInput } from "@/components/shared/search-input";
 import { DateRangePicker, getDefaultDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
+import { isDemoMode } from "@/lib/app-mode";
 import { cn } from "@/lib/utils";
 import { Pagination, paginate } from "@/components/shared/pagination";
 import type { StaffAccountStatus, StaffMember, StaffRole, Zone } from "@/lib/types";
@@ -91,31 +92,6 @@ function StaffContent() {
       <PageHeader
         title="Staff"
         description={staff ? `${visible.length} team members · ${onShift} on shift` : "Loading…"}
-        actions={
-          <div className="flex items-center gap-2">
-            <Select value={zoneFilter} onValueChange={setZoneFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="All zones" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All zones</SelectItem>
-                {zones.map((zone) => (
-                  <SelectItem key={zone.id} value={zone.id}>
-                    {zone.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              onClick={() => {
-                setEditing(null);
-                setDialogOpen(true);
-              }}
-            >
-              <UserPlus className="size-4" /> Add staff
-            </Button>
-          </div>
-        }
       />
 
       <div className="flex flex-wrap items-center gap-3">
@@ -217,23 +193,29 @@ function StaffContent() {
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         <div className="flex flex-col items-center gap-1">
-                          <ConfirmDialog
-                            trigger={
-                              <Switch checked={member.isOnShift} aria-label="Toggle shift" />
-                            }
-                            title={
-                              member.isOnShift
-                                ? `Clock ${member.name} out?`
-                                : `Clock ${member.name} in?`
-                            }
-                            description={
-                              member.isOnShift
-                                ? "They stop receiving orders from their zones."
-                                : "They start receiving orders from their assigned zones."
-                            }
-                            confirmLabel={member.isOnShift ? "Clock out" : "Clock in"}
-                            onConfirm={() => toggleShift(member)}
-                          />
+                          {isDemoMode() ? (
+                            <ConfirmDialog
+                              trigger={
+                                <Switch checked={member.isOnShift} aria-label="Toggle shift" />
+                              }
+                              title={
+                                member.isOnShift
+                                  ? `Clock ${member.name} out?`
+                                  : `Clock ${member.name} in?`
+                              }
+                              description={
+                                member.isOnShift
+                                  ? "They stop receiving orders from their zones."
+                                  : "They start receiving orders from their assigned zones."
+                              }
+                              confirmLabel={member.isOnShift ? "Clock out" : "Clock in"}
+                              onConfirm={() => toggleShift(member)}
+                            />
+                          ) : (
+                            <span
+                              className={`size-2 rounded-full ${member.isOnShift ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
+                            />
+                          )}
                           <span className="text-[10px] text-muted-foreground">
                             {member.isOnShift ? "On shift" : "Off"}
                           </span>

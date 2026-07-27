@@ -85,6 +85,7 @@ export const MANAGER_NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/manager/staff", label: "Staff", icon: Users },
       { href: "/manager/tips", label: "Tips", icon: Wallet },
+      { href: "/manager/commission", label: "Commission", icon: Wallet, feature: "reservations" },
     ],
   },
   {
