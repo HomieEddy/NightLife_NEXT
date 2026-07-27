@@ -19,10 +19,6 @@ import type { Shift, StaffMember, Zone, TimeOffRequest, ShiftSwapRequest } from 
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function dayLabel(d: Date): string {
-  return DAY_LABELS[d.getDay()];
-}
-
 function shiftTime(s: Shift): string {
   if (!s.scheduledStart) return "—";
   const start = new Date(s.scheduledStart);
