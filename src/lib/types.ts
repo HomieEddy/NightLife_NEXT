@@ -185,11 +185,21 @@ export interface MenuItem {
   isAlcoholic: boolean;
   abv?: number; // % alcohol by volume, alcoholic items only
   allergens: string[]; // e.g. ["nuts", "dairy"] — empty = none declared
+  /** Plan 19: unit of measure for costing and partial-bottle tracking. */
+  unitOfMeasure?: "bottle" | "ml" | "oz" | "each" | "keg";
+  /** Plan 19: serving size in the item's own unit — drives pour depletion vs whole-bottle depletion. */
+  servingSize?: number;
+  /** Plan 19: per-day-of-week par levels — Wednesday par ≠ Saturday par. */
+  parLevels?: Record<number, number>; // dayOfWeek: quantity
+  /** Plan 19: trigger point for the reorder alert below parForDate. */
+  reorderPoint?: number;
+  /** Plan 19: weighted average cost, recomputed on each receipt — never hand-edited (INV-C4). */
+  avgCostCents?: number;
 }
 
 // ---------- Inventory ----------
 
-export type StockMovementType = "restock" | "sale" | "adjustment";
+export type StockMovementType = "restock" | "sale" | "adjustment" | "waste" | "transfer" | "return";
 
 /**
  * Every inventory change is a movement — restocks, sales and manual
@@ -206,6 +216,14 @@ export interface StockMovement {
   createdAt: string;
   /** Set when this movement is the stock-return side of a void TabAdjustment (INV-T2). */
   voidAdjustmentId?: string;
+  /** Plan 19: per-unit cost at receipt — consumption costs at weighted average. */
+  unitCostCents?: number;
+  /** Plan 19: links this restock to its purchase order line. */
+  purchaseOrderId?: string;
+  /** Plan 19: links this adjustment to its stocktake session. */
+  stocktakeId?: string;
+  /** Plan 19: reason code for waste events (spill, breakage, expired, comp-prep, training). */
+  wasteReason?: string;
 }
 
 /** Logged the moment a bottle sells out or gets manually 86'd — feeds the live 86-board. */
@@ -525,7 +543,10 @@ export type AttentionItemType =
   | "waitlist-overdue"
   | "incident-open"
   | "zone-uncovered"
-  | "clock-out-missing";
+  | "clock-out-missing"
+  | "stock-below-par"
+  | "po-overdue"
+  | "target-breach";
 
 /** One row in the manager's live "needs attention" feed — always derived, never stored. */
 export interface AttentionItem {
@@ -1372,4 +1393,126 @@ export interface ZoneCoverageRule {
   zoneId: string;
   role: StaffRole;
   minStaff: number;
+}
+
+// ---------- Cost, supply chain & profitability (plan 19) ----------
+
+export interface Supplier {
+  id: string;
+  venueId: string;
+  name: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  accountNumber?: string;
+  leadTimeDays: number;
+  orderDays: number[]; // allowed ordering days (0=Sun)
+  minimumOrderCents?: number;
+  notes?: string;
+  active: boolean;
+}
+
+export interface SupplierItem {
+  id: string;
+  supplierId: string;
+  menuItemId: string;
+  supplierSku?: string;
+  caseSize?: number;
+  caseCostCents?: number;
+  unitCostCents?: number; // derived from caseCostCents / caseSize
+  lastPriceChangeAt?: string; // ISO
+  preferred: boolean;
+}
+
+export type PurchaseOrderStatus = "draft" | "submitted" | "partially-received" | "received" | "cancelled";
+
+export interface PurchaseOrderLine {
+  id: string;
+  menuItemId: string;
+  qtyOrdered: number;
+  qtyReceived: number;
+  unitCostCents: number;
+  lineTotalCents: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  venueId: string;
+  supplierId: string;
+  code: string; // e.g. "PO-2026-001"
+  status: PurchaseOrderStatus;
+  expectedAt?: string; // ISO
+  submittedAt?: string;
+  submittedByStaffId?: string;
+  lines: PurchaseOrderLine[];
+  subtotalCents: number;
+  notes?: string;
+}
+
+export type StocktakeScope = "full" | "zone" | "category";
+export type StocktakeStatus = "open" | "counting" | "committed" | "cancelled";
+
+export interface StocktakeLine {
+  id: string;
+  menuItemId: string;
+  expectedQty: number; // snapshot at open
+  countedQty?: number;
+  secondCountQty?: number;
+  varianceQty: number; // derived: countedQty - expectedQty
+  varianceCents: number; // derived: variance × avgCostCents
+  countedByStaffId?: string;
+}
+
+export interface Stocktake {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  scope: StocktakeScope;
+  status: StocktakeStatus;
+  startedAt: string; // ISO
+  committedAt?: string;
+  startedByStaffId: string;
+  lines: StocktakeLine[];
+  totalVarianceCents: number; // derived
+}
+
+export interface EightySixEntry {
+  id: string;
+  menuItemId: string;
+  reason: string;
+  byStaffId: string;
+  at: string; // ISO
+  reinstatedAt?: string;
+}
+
+export type ProfitMetric = "pour-cost" | "gross-margin" | "labour-pct" | "comp-pct";
+
+export interface ProfitTarget {
+  id: string;
+  venueId: string;
+  metric: ProfitMetric;
+  scope: "venue" | "category";
+  categoryId?: string;
+  targetValue: number; // e.g. 0.22 for 22% pour cost target
+  warnAt: number; // threshold to raise Pulse alert
+  direction: "above" | "below"; // above=bad (pour-cost), below=bad (margin)
+}
+
+export interface EventCost {
+  id: string;
+  eventId: string;
+  label: string;
+  kind: "talent" | "marketing" | "production" | "other";
+  amountCents: number;
+}
+
+export interface EventPnL {
+  eventId: string;
+  eventName: string;
+  attributedRevenue: number;
+  attributedProductCost: number;
+  attributedLabourCost: number;
+  eventCosts: EventCost[];
+  totalCosts: number;
+  contribution: number; // revenue - product - labour - event costs
 }

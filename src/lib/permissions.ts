@@ -43,7 +43,15 @@ export type StaffAction =
   | "schedule:approve-time-off"  // approve or deny a time-off request
   | "tips:close-distribution"    // freeze a night's tip pool distribution
   | "tips:read-own"              // see your own tip share
-  | "commission:approve";        // approve a promoter's commission statement
+  | "commission:approve"        // approve a promoter's commission statement
+  | "purchasing:draft"           // create and edit draft purchase orders
+  | "purchasing:submit"          // submit a PO to a supplier
+  | "purchasing:receive"         // receive goods against a PO (writes restock movements)
+  | "stocktake:count"            // count items on a stocktake
+  | "stocktake:commit"           // commit a stocktake (writes adjustment movements)
+  | "inventory:waste"            // record waste/spillage
+  | "inventory:86"              // manually 86 an item
+  | "cost:read";                // view supplier pricing and margin data
 
 export type ActionCategory = "orders" | "guests" | "help" | "reservations" | "tab" | "operations" | "door" | "incidents";
 
@@ -282,6 +290,49 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     category: "operations",
     sensitive: true,
   },
+  "purchasing:draft": {
+    label: "Draft purchase orders",
+    description: "Create and edit draft purchase orders from suggested or manual inputs.",
+    category: "operations",
+  },
+  "purchasing:submit": {
+    label: "Submit purchase orders",
+    description: "Submit a finalised purchase order to a supplier.",
+    category: "operations",
+    sensitive: true,
+  },
+  "purchasing:receive": {
+    label: "Receive purchase orders",
+    description: "Record goods received against a PO — writes restock movements and recomputes average cost.",
+    category: "operations",
+    sensitive: true,
+  },
+  "stocktake:count": {
+    label: "Count stocktake items",
+    description: "Record counted quantities on an open stocktake session.",
+    category: "operations",
+  },
+  "stocktake:commit": {
+    label: "Commit stocktake",
+    description: "Finalise a stocktake — writes one adjustment movement per variance line.",
+    category: "operations",
+    sensitive: true,
+  },
+  "inventory:waste": {
+    label: "Record waste",
+    description: "Log a spill, breakage or other waste event against an inventory item.",
+    category: "operations",
+  },
+  "inventory:86": {
+    label: "86 an item",
+    description: "Manually mark an item as unavailable with a reason, distinct from a natural sell-out.",
+    category: "operations",
+  },
+  "cost:read": {
+    label: "View cost data",
+    description: "See supplier pricing, margin reports and profitability analytics.",
+    category: "operations",
+  },
 };
 
 // ---------- Permission matrix ----------
@@ -311,6 +362,9 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     "schedule:approve-swap", "schedule:approve-time-off",
     "tips:close-distribution", "tips:read-own",
     "commission:approve",
+    "purchasing:draft", "purchasing:submit", "purchasing:receive",
+    "stocktake:count", "stocktake:commit",
+    "inventory:waste", "inventory:86", "cost:read",
   ],
   host: [
     "order:accept", "order:claim", "order:release", "order:transition", "order:gift",
@@ -319,13 +373,15 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     "door:count", "door:admit", "door:id-check", "waitlist:manage",
     "incident:create", "guest:read-profile", "service:refuse",
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
+    "stocktake:count", "inventory:waste", "inventory:86",
   ],
   bartender: [
     "order:accept", "order:claim", "order:release", "order:transition",
     "help:respond",
-    "tab:void", "cashout:close", // "own drawer" — closes their own till only
+    "tab:void", "cashout:close",
     "incident:create", "service:refuse",
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
+    "purchasing:draft", "stocktake:count", "inventory:waste", "inventory:86",
   ],
   // Fulfillment only — can move orders forward but cannot accept new ones.
   runner: [

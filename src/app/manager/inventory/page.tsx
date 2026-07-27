@@ -76,6 +76,9 @@ const MOVEMENT_META: Record<
   restock: { label: "Restock", className: "text-emerald-600 dark:text-emerald-400" },
   sale: { label: "Sale", className: "text-muted-foreground" },
   adjustment: { label: "Adjustment", className: "text-amber-600 dark:text-amber-400" },
+  waste: { label: "Waste", className: "text-red-600 dark:text-red-400" },
+  transfer: { label: "Transfer", className: "text-blue-600 dark:text-blue-400" },
+  return: { label: "Return", className: "text-orange-600 dark:text-orange-400" },
 };
 
 interface ItemDraft {
