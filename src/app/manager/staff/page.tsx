@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Pencil, ShieldCheck, ShieldPlus, Trash2, UserPlus, Users } from "lucide-react";
+import { CalendarDays, Pencil, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,6 @@ import { PageHeader } from "@/components/shared/page-header";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { RolesAccessTab } from "@/components/manager/roles-access-tab";
 import { ScheduleTab } from "@/components/manager/schedule-tab";
-import { CertificationsTab } from "@/components/manager/certifications-tab";
 import { StaffEditDialog } from "@/components/manager/staff-edit-dialog";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
@@ -155,9 +154,6 @@ function StaffContent() {
           <TabsTrigger value="roles">
             <ShieldCheck className="size-3.5" /> Roles &amp; Access
           </TabsTrigger>
-          <TabsTrigger value="certifications">
-            <ShieldPlus className="size-3.5" /> Certifications
-          </TabsTrigger>
         </TabsList>
 
         {/* ---------- Team tab ---------- */}
@@ -286,11 +282,6 @@ function StaffContent() {
         {/* ---------- Roles & Access tab ---------- */}
         <TabsContent value="roles" className="pt-3">
           <RolesAccessTab currentUserRole={currentUserRole} venueId={VENUE_ID} />
-        </TabsContent>
-
-        {/* ---------- Certifications tab ---------- */}
-        <TabsContent value="certifications" className="pt-3">
-          <CertificationsTab />
         </TabsContent>
       </Tabs>
 

@@ -547,8 +547,6 @@ export default function ManagerSettingsPage() {
 
       <TabLedgerCard venue={venue} setVenue={setVenue} />
 
-      <DoorSafetyCard venue={venue} setVenue={setVenue} />
-
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Setup</CardTitle>
@@ -710,95 +708,8 @@ function TabLedgerCard({
               <Plus className="size-3.5" /> Add
             </Button>
           </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // ---------- Door & Safety (S-01, S-03, S-13) ----------
-
-  function DoorSafetyCard({
-    venue,
-    setVenue,
-  }: {
-    venue: Venue;
-    setVenue: (venue: Venue) => void;
-  }) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Door & Safety</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="legal-capacity">Legal capacity</Label>
-              <Input
-                id="legal-capacity"
-                type="number"
-                min={1}
-                value={venue.legalCapacity}
-                onChange={(e) => setVenue({ ...venue, legalCapacity: Math.max(1, Number(e.target.value) || 400) })}
-              />
-              <p className="text-xs text-muted-foreground">Fire-code maximum — the door counts against this.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="occupancy-warn">Occupancy warning ratio</Label>
-              <Input
-                id="occupancy-warn"
-                type="number"
-                min={0}
-                max={1}
-                step="0.05"
-                value={venue.occupancyWarnRatio}
-                onChange={(e) => setVenue({ ...venue, occupancyWarnRatio: Number(e.target.value || 0) })}
-              />
-              <p className="text-xs text-muted-foreground">Ratio at which Pulse raises a capacity warning.</p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="legal-drinking-age">Legal drinking age</Label>
-              <Input
-                id="legal-drinking-age"
-                type="number"
-                min={16}
-                max={21}
-                value={venue.legalDrinkingAge}
-                onChange={(e) => setVenue({ ...venue, legalDrinkingAge: Number(e.target.value || 18) })}
-              />
-              <p className="text-xs text-muted-foreground">Jurisdiction minimum — underage admission is blocked at the door.</p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div>
-              <p className="text-sm font-medium">Require ID check at door</p>
-              <p className="text-xs text-muted-foreground">
-                Forces the ID-check toggle on at admission time. Records the check only — never a document scan.
-              </p>
-            </div>
-            <Switch
-              checked={venue.doorRequiresIdCheck}
-              onCheckedChange={(checked) => setVenue({ ...venue, doorRequiresIdCheck: checked })}
-            />
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div>
-              <p className="text-sm font-medium">Coat check</p>
-              <p className="text-xs text-muted-foreground">
-                Enables the entire coat-check surface. Disable if your venue doesn&apos;t run one.
-              </p>
-            </div>
-            <Switch
-              checked={venue.coatCheckEnabled}
-              onCheckedChange={(checked) => setVenue({ ...venue, coatCheckEnabled: checked })}
-            />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

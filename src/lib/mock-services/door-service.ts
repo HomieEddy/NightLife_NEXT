@@ -6,20 +6,15 @@
 import type { Admission, AdmissionType, CoatCheckTicket, OccupancyEvent } from "@/lib/types";
 import { mockAdmissions, mockCoatCheckTickets, mockOccupancyEvents } from "@/lib/mock-data/door";
 import { mockVenue } from "@/lib/mock-data/venue";
-import { businessDateFor, canApplyOccupancyDelta, canAdmitWithinCapacity, checkAgeOnAdmission, computeOccupancy } from "@/lib/door";
+import { businessDateFor, canApplyOccupancyDelta, computeOccupancy } from "@/lib/door";
 import { clone, delay, uid } from "./delay";
 import { mockAuditService } from "./audit-service";
-import { mockGuestService } from "./guest-service";
 import { mockVenueService } from "./venue-service";
 
 let occupancyEvents: OccupancyEvent[] = clone(mockOccupancyEvents);
 let admissions: Admission[] = clone(mockAdmissions);
 let coatCheckTickets: CoatCheckTicket[] = clone(mockCoatCheckTickets);
 let coatCheckCounter = 103;
-
-// S-03: Evacuation state — starts normal, switched during an evacuation workflow
-let evacuationState: "normal" | "evacuating" | "evacuated" = "normal";
-let headcountAtEvacuation = 0;
 
 async function currentBusinessDate(): Promise<string> {
   const venue = await mockVenueService.getVenueSnapshot();
@@ -81,46 +76,12 @@ export const mockDoorService = {
     source: Admission["source"];
     reservationId?: string;
     eventGuestId?: string;
-    idCheck?: { checked: boolean; dobVerified: boolean; yearOfBirth?: number };
+    idCheck?: { checked: boolean; dobVerified: boolean };
     staffId: string;
     staffName: string;
   }): Promise<Admission> {
     await delay(400);
-
-    // S-03: block admission while evacuating
-    if (evacuationState !== "normal") {
-      throw new Error("Admissions are disabled during an emergency evacuation.");
-    }
-
-    // Shared venue snapshot for S-01 + S-13 checks
-    const venueSnapshot = await mockVenueService.getVenueSnapshot();
-
-    // S-01: age verification — block underage admission (hard legal boundary, no override)
-    let yearOfBirth: number | undefined;
-    if (input.idCheck?.yearOfBirth !== undefined) {
-      yearOfBirth = input.idCheck.yearOfBirth;
-    } else if (input.guestProfileId) {
-      const profile = await mockGuestService.getProfile(input.guestProfileId);
-      if (profile?.dobYear !== undefined) yearOfBirth = profile.dobYear;
-    }
-    if (yearOfBirth !== undefined) {
-      const denial = checkAgeOnAdmission(yearOfBirth, venueSnapshot.legalDrinkingAge, undefined);
-      if (denial === "underage") {
-        throw new Error(
-          `Guest is under the legal drinking age of ${venueSnapshot.legalDrinkingAge}. Admission blocked — this cannot be overridden.`,
-        );
-      }
-    }
-
-    // S-13: legal capacity enforcement — refuse when at/over capacity
     const date = await currentBusinessDate();
-    const current = computeOccupancy(occupancyEvents, date);
-    if (!canAdmitWithinCapacity(current, input.partySize, venueSnapshot.legalCapacity)) {
-      throw new Error(
-        `At legal capacity (${venueSnapshot.legalCapacity}). Only a manager with capacity-override can admit further.`,
-      );
-    }
-
     const now = new Date().toISOString();
     const admission: Admission = {
       id: uid("adm"),
@@ -133,7 +94,7 @@ export const mockDoorService = {
       source: input.source,
       reservationId: input.reservationId,
       eventGuestId: input.eventGuestId,
-      idCheck: input.idCheck ? { checked: input.idCheck.checked, dobVerified: input.idCheck.dobVerified, yearOfBirth, byStaffId: input.staffId, at: now } : undefined,
+      idCheck: input.idCheck ? { ...input.idCheck, byStaffId: input.staffId, at: now } : undefined,
       admittedByStaffId: input.staffId,
       admittedByStaffName: input.staffName,
       admittedAt: now,
@@ -236,100 +197,5 @@ export const mockDoorService = {
     if (!ticket) return null;
     ticket.claimedAt = new Date().toISOString();
     return clone(ticket);
-  },
-
-  // ---------- S-03: Emergency evacuation ----------
-
-  async getEvacuationState(): Promise<{ state: string; headcountAtEvacuation: number }> {
-    await delay(100);
-    return { state: evacuationState, headcountAtEvacuation };
-  },
-
-  /** One-action evacuate: zero occupancy delta, sets evacuation flag, audits, returns headcount. */
-  async evacuate(staffId: string, staffName: string): Promise<{ headcount: number }> {
-    await delay(400);
-    if (evacuationState !== "normal") throw new Error("Already evacuating.");
-    const date = await currentBusinessDate();
-    const current = computeOccupancy(occupancyEvents, date);
-    headcountAtEvacuation = current;
-    const event: OccupancyEvent = {
-      id: uid("oe"),
-      venueId: mockVenue.id,
-      businessDate: date,
-      delta: -current,
-      reason: "emergency-evacuation",
-      staffId,
-      at: new Date().toISOString(),
-    };
-    occupancyEvents = [event, ...occupancyEvents];
-    evacuationState = "evacuated";
-    await mockAuditService.record({
-      actorStaffId: staffId,
-      actorName: staffName,
-      action: "emergency:evacuate",
-      targetType: "occupancy",
-      targetId: event.id,
-      summary: `Emergency evacuation — occupancy zeroed from ${current} to 0`,
-      metadata: { headcountAtEvacuation: current },
-    });
-    return { headcount: current };
-  },
-
-  /** Resume normal operations after an evacuation — manager only. Restores the headcount. */
-  async resumeEvacuation(staffId: string, staffName: string): Promise<void> {
-    await delay(400);
-    if (evacuationState !== "evacuated") throw new Error("No active evacuation to resume from.");
-    const date = await currentBusinessDate();
-    const event: OccupancyEvent = {
-      id: uid("oe"),
-      venueId: mockVenue.id,
-      businessDate: date,
-      delta: headcountAtEvacuation,
-      reason: "emergency-resume",
-      staffId,
-      at: new Date().toISOString(),
-    };
-    occupancyEvents = [event, ...occupancyEvents];
-    evacuationState = "normal";
-    headcountAtEvacuation = 0;
-    await mockAuditService.record({
-      actorStaffId: staffId,
-      actorName: staffName,
-      action: "emergency:resume",
-      targetType: "occupancy",
-      targetId: event.id,
-      summary: `Emergency evacuation ended — operations resumed at headcount ${headcountAtEvacuation}`,
-    });
-  },
-
-  // ---------- S-13: Capacity-override admission ----------
-
-  /** Manager-only bypass of the legal-capacity check — always writes an audit entry. */
-  async admitCapacityOverride(input: {
-    guestProfileId?: string;
-    partySize: number;
-    reason: string;
-    staffId: string;
-    staffName: string;
-  }): Promise<Admission> {
-    const admission = await mockDoorService.admit({
-      guestProfileId: input.guestProfileId,
-      partySize: input.partySize,
-      admissionType: "cover",
-      amountOwedCents: 0,
-      source: "walk-in",
-      staffId: input.staffId,
-      staffName: input.staffName,
-    });
-    await mockAuditService.record({
-      actorStaffId: input.staffId,
-      actorName: input.staffName,
-      action: "door:admit-capacity-override",
-      targetType: "admission",
-      targetId: admission.id,
-      summary: `Capacity override — admitted party of ${input.partySize} past legal capacity: ${input.reason}`,
-      metadata: { admissionId: admission.id },
-    });
-    return admission;
   },
 };

@@ -62,12 +62,11 @@ function toVenue(
     compThresholdCents: 10000,
     minimumSpendWarningRatio: 0.25,
     // TODO(backend): plan 17 graduation — add legalCapacity/occupancyWarnRatio/
-    // coatCheckEnabled/doorRequiresIdCheck/legalDrinkingAge columns; door is demo-track only until then.
+    // coatCheckEnabled/doorRequiresIdCheck columns; door is demo-track only until then.
     legalCapacity: 400,
     occupancyWarnRatio: 0.9,
     coatCheckEnabled: false,
     doorRequiresIdCheck: false,
-    legalDrinkingAge: 18,
   };
 }
 

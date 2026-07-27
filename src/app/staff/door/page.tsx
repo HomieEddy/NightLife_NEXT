@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertOctagon, Check, Clock, DoorOpen, LogOut, Minus, Plus,
-  Search, Shield, ShieldOff, Shirt, Siren, UserPlus, Users,
+  Search, Shield, ShieldOff, Shirt, UserPlus, Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -59,14 +59,9 @@ export default function StaffDoorPage() {
   const [admissionType, setAdmissionType] = useState<AdmissionType>("cover");
   const [idChecked, setIdChecked] = useState(false);
   const [dobVerified, setDobVerified] = useState(false);
-  const [yearOfBirth, setYearOfBirth] = useState("");
   const [overrideReason, setOverrideReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
-
-  // S-03: Evacuation state
-  const [evacState, setEvacState] = useState<string>("normal");
-  const [admitError, setAdmitError] = useState<string | null>(null);
 
   // Waitlist join form
   const [wlName, setWlName] = useState("");
@@ -74,14 +69,13 @@ export default function StaffDoorPage() {
   const [wlQuote, setWlQuote] = useState(15);
 
   const refresh = useCallback(async () => {
-    const [currentStaff, perms, v, occ, adm, wl, evac] = await Promise.all([
+    const [currentStaff, perms, v, occ, adm, wl] = await Promise.all([
       staffService.getCurrentStaff(),
       permissionService.getRolePermissions("venue-1"),
       venueService.getVenue(),
       doorService.getOccupancy(),
       doorService.listAdmissions(),
       waitlistService.listEntries(),
-      doorService.getEvacuationState(),
     ]);
     setMe(currentStaff);
     setPermissions(perms);
@@ -89,7 +83,6 @@ export default function StaffDoorPage() {
     setOccupancy(occ);
     setAdmissions(adm);
     setWaitlist(wl);
-    setEvacState(evac.state);
     setIdChecked(v.doorRequiresIdCheck);
     if (v.coatCheckEnabled) setCoatCheck(await doorService.listCoatCheckTickets());
   }, []);
@@ -106,9 +99,6 @@ export default function StaffDoorPage() {
   const canCount = !!(me && permissions && canDo(permissions, me.role, "door:count"));
   const canOverrideBan = !!(me && permissions && canDo(permissions, me.role, "door:admit-banned-override"));
   const canManageWaitlist = !!(me && permissions && canDo(permissions, me.role, "waitlist:manage"));
-  const canEvacuate = !!(me && permissions && canDo(permissions, me.role, "emergency:evacuate"));
-  const canResume = !!(me && permissions && canDo(permissions, me.role, "emergency:resume"));
-  const canOverrideCapacity = !!(me && permissions && canDo(permissions, me.role, "door:admit-capacity-override"));
 
   async function runSearch(q: string) {
     setQuery(q);
@@ -142,8 +132,6 @@ export default function StaffDoorPage() {
   function selectResult(result: SearchResult) {
     setSelected(result);
     setOverrideReason("");
-    setAdmitError(null);
-    setYearOfBirth("");
     const size = result.kind === "reservation" ? result.reservation.partySize : 2;
     setPartySize(size);
     setAdmissionType(result.kind === "reservation" ? "reservation" : "cover");
@@ -173,7 +161,6 @@ export default function StaffDoorPage() {
   async function admit() {
     if (!me || !selected) return;
     setBusy(true);
-    setAdmitError(null);
     try {
       const guestProfileId = selectedProfile?.id;
       const reservationId = selected.kind === "reservation" ? selected.reservation.id : undefined;
@@ -184,7 +171,7 @@ export default function StaffDoorPage() {
         amountOwedCents: admissionType === "cover" ? partySize * 4000 : 0,
         source: reservationId ? "reservation" : "walk-in",
         reservationId,
-        idCheck: idChecked ? { checked: true, dobVerified, yearOfBirth: yearOfBirth ? Number(yearOfBirth) : undefined } : undefined,
+        idCheck: idChecked ? { checked: true, dobVerified } : undefined,
         staffId: me.id,
         staffName: me.name,
       });
@@ -197,9 +184,7 @@ export default function StaffDoorPage() {
       setResults(null);
       await refresh();
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "Could not admit this party";
-      setAdmitError(msg);
-      toast.error(msg);
+      toast.error(error instanceof Error ? error.message : "Could not admit this party");
     } finally {
       setBusy(false);
     }
@@ -223,61 +208,6 @@ export default function StaffDoorPage() {
       await refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not admit this party");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // ---------- S-03: Emergency evacuation ----------
-
-  async function doEvacuate() {
-    if (!me) return;
-    setBusy(true);
-    try {
-      await doorService.evacuate(me.id, me.name);
-      toast.success("Emergency evacuation triggered — occupancy zeroed");
-      await refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not trigger evacuation");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function doResumeEvacuation() {
-    if (!me) return;
-    setBusy(true);
-    try {
-      await doorService.resumeEvacuation(me.id, me.name);
-      toast.success("Operations resumed — admissions re-enabled");
-      await refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not resume");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // ---------- S-13: Capacity override ----------
-
-  async function capacityOverride() {
-    if (!me || !selected) return;
-    setBusy(true);
-    try {
-      await doorService.admitCapacityOverride({
-        guestProfileId: selectedProfile?.id,
-        partySize,
-        reason: overrideReason.trim(),
-        staffId: me.id,
-        staffName: me.name,
-      });
-      toast.success(`Capacity override — admitted ${selected.label}, party of ${partySize}`);
-      setSelected(null);
-      setQuery("");
-      setResults(null);
-      await refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Override failed");
     } finally {
       setBusy(false);
     }
@@ -370,30 +300,6 @@ export default function StaffDoorPage() {
         </h1>
         <p className="mt-0.5 text-sm text-muted-foreground">Occupancy, arrivals and the waitlist</p>
       </div>
-
-      {/* S-03: Evacuation banner */}
-      {evacState !== "normal" && (
-        <Card className="border-red-500/40 bg-red-500/10 py-4">
-          <CardContent className="px-5 text-center space-y-3">
-            <Siren className="size-8 text-red-500 mx-auto" />
-            <p className="font-bold text-lg text-red-600 dark:text-red-400">Emergency Evacuation Active</p>
-            <p className="text-sm text-muted-foreground">Admissions are disabled. All staff and guests must exit.</p>
-            {canResume && (
-              <ConfirmDialog
-                trigger={
-                  <Button variant="outline" className="border-red-500/50" disabled={busy}>
-                    Resume normal operations
-                  </Button>
-                }
-                title="Resume normal operations?"
-                description="This ends the evacuation, restores the headcount, and re-enables admissions. This action is audited."
-                confirmLabel="Resume operations"
-                onConfirm={doResumeEvacuation}
-              />
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Occupancy header — big count, ≥56px thumb targets */}
       <Card
@@ -612,52 +518,9 @@ export default function StaffDoorPage() {
                       <Switch checked={idChecked} onCheckedChange={setIdChecked} />
                     </div>
                     {idChecked && (
-                      <>
-                        <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-                          <p className="text-sm font-medium">Age verified 18+</p>
-                          <Switch checked={dobVerified} onCheckedChange={setDobVerified} />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="yob">Year of birth (optional — never stored as a full date)</Label>
-                          <Input
-                            id="yob"
-                            type="number"
-                            min={1900}
-                            max={new Date().getFullYear()}
-                            value={yearOfBirth}
-                            onChange={(e) => setYearOfBirth(e.target.value)}
-                            placeholder="e.g. 1996"
-                            className="h-11"
-                          />
-                        </div>
-                      </>
-                    )}
-                    {admitError && admitError.includes("capacity") && canOverrideCapacity && (
-                      <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
-                        <p className="text-sm font-medium text-amber-600 dark:text-amber-400">At capacity — manager override required</p>
-                        <Label htmlFor="override-reason-cancel">Override reason</Label>
-                        <Input
-                          id="override-reason-cancel"
-                          value={overrideReason}
-                          onChange={(e) => setOverrideReason(e.target.value)}
-                          placeholder="Why is this admission necessary?"
-                          className="h-11"
-                        />
-                        <ConfirmDialog
-                          trigger={
-                            <Button
-                              variant="outline"
-                              className="h-11 w-full border-amber-500/50"
-                              disabled={!overrideReason.trim() || busy}
-                            >
-                              Override capacity and admit
-                            </Button>
-                          }
-                          title="Override legal capacity?"
-                          description={`This admits ${selected?.label} past the legal capacity limit — the reason is recorded in the audit trail and cannot be undone silently.`}
-                          confirmLabel="Override and admit"
-                          onConfirm={capacityOverride}
-                        />
+                      <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+                        <p className="text-sm font-medium">Age verified 18+</p>
+                        <Switch checked={dobVerified} onCheckedChange={setDobVerified} />
                       </div>
                     )}
                     <div className="flex gap-2">
@@ -792,27 +655,6 @@ export default function StaffDoorPage() {
                 ))}
             </div>
           )}
-        </section>
-      )}
-
-      {/* S-03: Emergency evacuation trigger — visible to security + managers only */}
-      {canEvacuate && evacState === "normal" && (
-        <section className="space-y-3 border-t border-red-500/20 pt-4">
-          <ConfirmDialog
-            trigger={
-              <Button variant="destructive" className="h-14 w-full text-base" disabled={busy}>
-                <Siren className="size-5" /> Trigger Emergency Evacuation
-              </Button>
-            }
-            title="Trigger emergency evacuation?"
-            description="This zeros occupancy, blocks all admissions, and creates a permanent audit entry. All staff will see the evacuation alert."
-            confirmLabel="Evacuate now"
-            destructive
-            onConfirm={doEvacuate}
-          />
-          <p className="text-center text-xs text-muted-foreground">
-            Only use in a real emergency — this is audited and cannot be undone silently.
-          </p>
         </section>
       )}
 

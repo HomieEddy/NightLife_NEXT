@@ -50,7 +50,6 @@ export function getDb(session: SessionContext) {
           "FeeLine",
           "EventGuest",
           "ReportRun",
-          "NotificationLog",
         ];
         if (platformModels.includes(model)) return query(args);
 
