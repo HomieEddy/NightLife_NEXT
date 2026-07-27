@@ -129,6 +129,11 @@ export async function setReservationStatus(
   id: string,
   status: ReservationStatus,
 ): Promise<{ ok: true; reservation: Reservation } | { ok: false; error: string }> {
+  // TODO(backend): plan 17 added "no-show" to ReservationStatus on the demo track only;
+  // the live migration (Prisma enum + route handler) is graduation step 7-9, not yet done.
+  if (status === "no-show") {
+    return { ok: false, error: "no-show is not yet supported in the live build" };
+  }
   const prisma = getRawPrisma();
 
   try {

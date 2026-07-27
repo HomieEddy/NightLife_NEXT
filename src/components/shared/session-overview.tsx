@@ -13,7 +13,7 @@ import { ordersService } from "@/lib/services/orders-service";
 import { computeSessionBalance, shortfallRatio } from "@/lib/tab";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { GuestSession, Order, TabAdjustment, VenueTable } from "@/lib/types";
+import type { GuestSession, MenuItem, Order, TabAdjustment, VenueTable } from "@/lib/types";
 
 /**
  * Groups orders under their guest session and totals each session
@@ -23,6 +23,7 @@ export function SessionOverview({
   sessions,
   orders,
   tables = [],
+  menuItems = [],
   minimumSpendWarningRatio = 0.25,
   staffContext,
 }: {
@@ -30,12 +31,15 @@ export function SessionOverview({
   orders: Order[];
   /** Tables + staff identity/capabilities — pass to enable transfer/merge actions. Omit for a read-only view. */
   tables?: VenueTable[];
+  /** For the responsible-service drink counter (plan 17). */
+  menuItems?: MenuItem[];
   minimumSpendWarningRatio?: number;
   staffContext?: {
     staffId: string;
     staffName: string;
     canTransfer: boolean;
     canMerge: boolean;
+    canRefuseService?: boolean;
     onChange: () => void;
   };
 }) {
@@ -57,6 +61,7 @@ export function SessionOverview({
           session={session}
           orders={orders.filter((o) => o.sessionId === session.id)}
           tables={tables}
+          menuItems={menuItems}
           otherOpenSessions={openSessions.filter((s) => s.id !== session.id)}
           minimumSpendWarningRatio={minimumSpendWarningRatio}
           staffContext={staffContext}
@@ -70,6 +75,7 @@ function SessionCard({
   session,
   orders,
   tables,
+  menuItems,
   otherOpenSessions,
   minimumSpendWarningRatio,
   staffContext,
@@ -77,6 +83,7 @@ function SessionCard({
   session: GuestSession;
   orders: Order[];
   tables: VenueTable[];
+  menuItems: MenuItem[];
   otherOpenSessions: GuestSession[];
   minimumSpendWarningRatio: number;
   staffContext?: {
@@ -84,6 +91,7 @@ function SessionCard({
     staffName: string;
     canTransfer: boolean;
     canMerge: boolean;
+    canRefuseService?: boolean;
     onChange: () => void;
   };
 }) {
@@ -153,14 +161,16 @@ function SessionCard({
           </p>
         )}
 
-        {staffContext && session.status === "approved" && (staffContext.canTransfer || staffContext.canMerge) && (
+        {staffContext && session.status === "approved" && (staffContext.canTransfer || staffContext.canMerge || staffContext.canRefuseService) && (
           <SessionActionsDialog
             session={session}
             orders={orders}
             tables={tables}
+            menuItems={menuItems}
             otherOpenSessions={otherOpenSessions}
             canTransfer={staffContext.canTransfer}
             canMerge={staffContext.canMerge}
+            canRefuseService={staffContext.canRefuseService}
             authorStaffId={staffContext.staffId}
             authorStaffName={staffContext.staffName}
             onDone={staffContext.onChange}

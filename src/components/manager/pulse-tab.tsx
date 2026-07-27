@@ -10,7 +10,20 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EntityChip } from "@/components/shared/entity-chip";
 import { cn } from "@/lib/utils";
-import type { AttentionItem } from "@/lib/types";
+import type { AttentionItem, AttentionItemType } from "@/lib/types";
+import type { EntityChipType } from "@/components/shared/entity-chip";
+
+/** Most attention items link to their table; the three door-side ones link elsewhere. */
+function chipFor(item: AttentionItem): { type: EntityChipType; id: string } {
+  const byType: Partial<Record<AttentionItemType, EntityChipType>> = {
+    "capacity-warning": "door",
+    "waitlist-overdue": "waitlist",
+    "incident-open": "incident",
+  };
+  const type = byType[item.type] ?? "table";
+  const id = type === "incident" ? item.id.replace(/^incident-/, "") : item.tableId;
+  return { type, id };
+}
 
 /**
  * Presentational — the manager Dashboard owns polling/state so the tab
@@ -140,7 +153,7 @@ export function PulseTab({
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <EntityChip type="table" id={item.tableId} label={item.tableCode} />
+                      <EntityChip {...chipFor(item)} label={item.tableCode} />
                       {item.zoneName && (
                         <span className="text-xs text-muted-foreground">{item.zoneName}</span>
                       )}
