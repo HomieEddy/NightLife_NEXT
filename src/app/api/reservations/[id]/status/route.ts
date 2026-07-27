@@ -24,17 +24,24 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
   const result = await setReservationStatus(db, venueId, id, parsed.data);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 409 });
 
-  // Plan 25: send confirmation email when a reservation is confirmed and guestEmail exists
-  if (parsed.data === "confirmed" && result.reservation?.guestEmail) {
+  // Plans 25-26: send confirmation email + SMS when a reservation is confirmed
+  const hasEmail = !!result.reservation?.guestEmail;
+  const hasPhone = !!((result.reservation as unknown as Record<string, unknown>).guestPhone);
+  if (parsed.data === "confirmed" && (hasEmail || hasPhone)) {
     try {
       await import("@/server/notifications/templates");
       const { dispatch } = await import("@/server/notifications/dispatch");
+      const { normalizePhone } = await import("@/lib/phone");
       const prisma = getRawPrisma();
       const r = result.reservation as unknown as Record<string, unknown>;
+      const phone = hasPhone ? normalizePhone(r.guestPhone as string) : undefined;
       await dispatch(prisma, {
         venueId,
         template: "reservation-confirmation",
-        recipients: [{ email: result.reservation.guestEmail }],
+        recipients: [{
+          email: result.reservation.guestEmail,
+          phone: phone ?? undefined,
+        }],
         data: {
           venueName: venueId, // ponytail: TODO fetch org name via prisma.organization
           guestName: r.guestName,
