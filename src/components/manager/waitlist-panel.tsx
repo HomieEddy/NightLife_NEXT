@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { waitlistService } from "@/lib/services/waitlist-service";
-import type { WaitlistEntryWithPosition } from "@/lib/mock-services/waitlist-service";
+import type { WaitlistEntryWithPosition } from "@/lib/services/waitlist-service";
 import { cn } from "@/lib/utils";
 
 const QUOTE_PRESETS = [15, 30, 45];
@@ -30,12 +30,17 @@ export function WaitlistPanel() {
   const [partySize, setPartySize] = useState(2);
   const [quotedMinutes, setQuotedMinutes] = useState(15);
   const [busy, setBusy] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const refresh = useCallback(async () => {
     setEntries(await waitlistService.listEntries());
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   const active = (entries ?? []).filter((e) => e.status === "waiting" || e.status === "notified");
   const history = (entries ?? []).filter((e) => e.status !== "waiting" && e.status !== "notified");
@@ -72,7 +77,7 @@ export function WaitlistPanel() {
         ) : (
           <div className="space-y-2">
             {active.map((entry) => {
-              const elapsed = Math.round((Date.now() - new Date(entry.joinedAt).getTime()) / 60_000);
+              const elapsed = Math.round((nowMs - new Date(entry.joinedAt).getTime()) / 60_000);
               const over = elapsed > entry.quotedMinutes;
               return (
                 <Card key={entry.id} className={cn(over && "border-amber-500/40")}>

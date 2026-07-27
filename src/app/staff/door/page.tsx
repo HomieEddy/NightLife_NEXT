@@ -25,7 +25,7 @@ import { reservationService } from "@/lib/services/reservation-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { waitlistService } from "@/lib/services/waitlist-service";
-import type { WaitlistEntryWithPosition } from "@/lib/mock-services/waitlist-service";
+import type { WaitlistEntryWithPosition } from "@/lib/services/waitlist-service";
 import { canDo } from "@/lib/permissions";
 import type { RolePermissions } from "@/lib/permissions";
 import { isBanned, occupancyRatio } from "@/lib/door";
@@ -61,6 +61,7 @@ export default function StaffDoorPage() {
   const [dobVerified, setDobVerified] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   // Waitlist join form
   const [wlName, setWlName] = useState("");
@@ -89,6 +90,10 @@ export default function StaffDoorPage() {
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
   useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   const canAdmit = !!(me && permissions && canDo(permissions, me.role, "door:admit"));
   const canCount = !!(me && permissions && canDo(permissions, me.role, "door:count"));
@@ -550,7 +555,7 @@ export default function StaffDoorPage() {
                 {waitlist
                   .filter((w) => w.status === "waiting" || w.status === "notified")
                   .map((entry) => {
-                    const elapsed = Math.round((Date.now() - new Date(entry.joinedAt).getTime()) / 60_000);
+                    const elapsed = Math.round((nowMs - new Date(entry.joinedAt).getTime()) / 60_000);
                     const over = elapsed > entry.quotedMinutes;
                     return (
                       <Card key={entry.id} className={cn(over && "border-amber-500/40")}>
