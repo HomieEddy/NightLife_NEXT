@@ -58,6 +58,8 @@ export interface Venue {
   coatCheckEnabled: boolean;
   /** Forces the ID-check toggle on at admission time (plan 17). */
   doorRequiresIdCheck: boolean;
+  /** The legal drinking age in this venue's jurisdiction — defaults to 18 (Quebec). */
+  legalDrinkingAge: number;
 }
 
 export interface Zone {
@@ -1113,6 +1115,8 @@ export type AdmissionSource = "walk-in" | "reservation" | "guestlist" | "re-entr
 export interface AdmissionIdCheck {
   checked: boolean;
   dobVerified: boolean;
+  /** Year of birth verified at the door — never the full DOB unless the guest profile gives it explicitly (Law 25). */
+  yearOfBirth?: number;
   byStaffId: string;
   at: string; // ISO
 }
@@ -1219,6 +1223,14 @@ export interface Incident {
   reportedByStaffId: string;
   reportedByStaffName: string;
   status: IncidentStatus;
+  /** S-02: set when this incident must be reported to a regulatory authority. */
+  reportable: boolean;
+  /** S-02: deadline by which reportable incidents must be filed with the authority. */
+  regulatoryDeadline?: string; // ISO date
+  /** S-02: when the report was actually filed with the authority. */
+  reportedToAuthorityAt?: string; // ISO
+  /** S-02: name of the regulatory authority (e.g. "Régie des alcools, des courses et des jeux"). */
+  regulatoryAuthority?: string;
 }
 
 /** Append-only follow-up on an Incident — the narrative itself never changes after submit. */
@@ -1229,6 +1241,34 @@ export interface IncidentNote {
   authorStaffId: string;
   authorStaffName: string;
   createdAt: string; // ISO
+}
+
+// ---------- Safety: certification tracking (S-04, plan 17) ----------
+
+/** Venue-configurable certification type — seeded with common nightclub-required certs. */
+export type CertificationType = "smart-serve" | "first-aid" | "security-guard" | "food-handler" | "crowd-manager";
+
+export const CERTIFICATION_TYPE_LABELS: Record<CertificationType, string> = {
+  "smart-serve": "Smart Serve (responsible alcohol service)",
+  "first-aid": "First Aid / CPR",
+  "security-guard": "Security Guard Licence",
+  "food-handler": "Food Handler Certificate",
+  "crowd-manager": "Crowd Manager Certification",
+};
+
+export interface Certification {
+  id: string;
+  venueId: string;
+  staffId: string;
+  type: CertificationType;
+  issuedAt: string; // ISO
+  expiresAt: string; // ISO
+  issuingBody?: string;
+  referenceNumber?: string;
+  verifiedByStaffId?: string;
+  verifiedAt?: string; // ISO
+  /** Derived from expiresAt — "active" when not yet expired, "expired" past due, "revoked" by manager. */
+  status: "active" | "expired" | "revoked";
 }
 
 // ---------- Workforce: time clock, scheduling, tips & commissions (plan 18) ----------

@@ -26,4 +26,8 @@ export const liveDoorService: typeof mockDoorService = {
   listCoatCheckTickets: notYetSupported,
   checkInCoat: notYetSupported,
   claimCoat: notYetSupported,
+  getEvacuationState: notYetSupported,
+  evacuate: notYetSupported,
+  resumeEvacuation: notYetSupported,
+  admitCapacityOverride: notYetSupported,
 };

@@ -7,7 +7,7 @@ function demoHandler() {
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb, getRawPrisma } = await import("@/server/db");
   const { setReservationStatus } = await import("@/server/reservation-core");
   const { zReservationStatus } = await import("@/server/schemas/reservations");
 
@@ -23,6 +23,33 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
   const db = getDb({ venueId });
   const result = await setReservationStatus(db, venueId, id, parsed.data);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 409 });
+
+  // Plan 25: send confirmation email when a reservation is confirmed and guestEmail exists
+  if (parsed.data === "confirmed" && result.reservation?.guestEmail) {
+    try {
+      await import("@/server/notifications/templates");
+      const { dispatch } = await import("@/server/notifications/dispatch");
+      const prisma = getRawPrisma();
+      const r = result.reservation as unknown as Record<string, unknown>;
+      await dispatch(prisma, {
+        venueId,
+        template: "reservation-confirmation",
+        recipients: [{ email: result.reservation.guestEmail }],
+        data: {
+          venueName: venueId, // ponytail: TODO fetch org name via prisma.organization
+          guestName: r.guestName,
+          date: new Date(r.startsAt as string).toLocaleDateString("en-CA", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
+          time: new Date(r.startsAt as string).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" }),
+          partySize: r.partySize,
+          reservationPin: r.reservationPin,
+        },
+        idempotencyKey: `confirm:${id}`,
+      });
+    } catch (err) {
+      console.error("[reservation-confirm] Notification failed:", err);
+    }
+  }
+
   return NextResponse.json(result.reservation);
 }
 

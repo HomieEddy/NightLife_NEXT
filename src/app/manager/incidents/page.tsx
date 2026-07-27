@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
@@ -42,6 +43,9 @@ export default function ManagerIncidentsPage() {
   const [noteDraft, setNoteDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(1);
+  // S-02: Reportable incident controls
+  const [regDeadline, setRegDeadline] = useState("");
+  const [regAuthority, setRegAuthority] = useState("");
 
   const refresh = useCallback(async () => {
     setIncidents(await incidentService.listIncidents());
@@ -94,6 +98,45 @@ export default function ManagerIncidentsPage() {
     await incidentService.setStatus(incidentId, "resolved");
     toast.success("Incident marked resolved");
     await refresh();
+  }
+
+  // S-02: Reportable incident controls
+  async function markReportable(incidentId: string) {
+    if (!user || !regDeadline || !regAuthority.trim()) {
+      toast.error("Provide a deadline and regulatory authority");
+      return;
+    }
+    setSaving(true);
+    try {
+      await incidentService.markReportable(incidentId, {
+        regulatoryDeadline: regDeadline,
+        regulatoryAuthority: regAuthority.trim(),
+        staffId: user.id,
+        staffName: user.name,
+      });
+      toast.success("Incident marked as reportable");
+      setRegDeadline("");
+      setRegAuthority("");
+      await refresh();
+    } catch {
+      toast.error("Could not mark as reportable");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function recordReported(incidentId: string) {
+    if (!user) return;
+    setSaving(true);
+    try {
+      await incidentService.recordReportedToAuthority(incidentId, user.id, user.name);
+      toast.success("Reported to authority");
+      await refresh();
+    } catch {
+      toast.error("Could not record the report");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -174,9 +217,13 @@ export default function ManagerIncidentsPage() {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     {incident.status === "open" && (
-                      <Button size="sm" variant="outline" onClick={() => resolveIncident(incident.id)}>
-                        Resolve
-                      </Button>
+                      <ConfirmDialog
+                        trigger={<Button size="sm" variant="outline">Resolve</Button>}
+                        title={`Resolve this ${incident.type.replace(/-/g, " ")} incident?`}
+                        description="This closes the incident as dealt with. The narrative and follow-up notes remain on file permanently."
+                        confirmLabel="Resolve"
+                        onConfirm={() => resolveIncident(incident.id)}
+                      />
                     )}
                     <Button size="sm" variant="ghost" onClick={() => toggleExpand(incident)}>
                       {expanded === incident.id ? "Hide" : "Details"}
@@ -190,6 +237,53 @@ export default function ManagerIncidentsPage() {
                       <span className="font-medium">Actions taken: </span>
                       {incident.actionsTaken}
                     </p>
+                    {/* S-02: Reportable incident controls */}
+                    {incident.reportable && (
+                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+                        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Reportable to authority</p>
+                        {incident.regulatoryAuthority && (
+                          <p className="text-xs text-muted-foreground">
+                            {incident.regulatoryAuthority}
+                            {incident.regulatoryDeadline && ` · Deadline: ${formatDate(incident.regulatoryDeadline)}`}
+                          </p>
+                        )}
+                        {incident.reportedToAuthorityAt ? (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                            Reported {formatDate(incident.reportedToAuthorityAt)}
+                          </p>
+                        ) : (
+                          <ConfirmDialog
+                            trigger={<Button size="sm" variant="outline" className="mt-1 h-8" disabled={saving}>Record as reported</Button>}
+                            title="Record as reported to authority?"
+                            description={`This confirms the incident was filed with ${incident.regulatoryAuthority ?? "the regulatory authority"}. This action is audited.`}
+                            confirmLabel="Record report"
+                            onConfirm={() => recordReported(incident.id)}
+                          />
+                        )}
+                      </div>
+                    )}
+                    {!incident.reportable && (
+                      <div className="space-y-1.5 rounded-lg border px-3 py-2">
+                        <p className="text-xs font-medium">Mark as reportable (S-02)</p>
+                        <div className="flex gap-2">
+                          <Input
+                            type="date"
+                            value={regDeadline}
+                            onChange={(e) => setRegDeadline(e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                          <Input
+                            placeholder="Authority (e.g. Régie des alcools)"
+                            value={regAuthority}
+                            onChange={(e) => setRegAuthority(e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                          <Button size="sm" className="h-8 shrink-0" disabled={saving} onClick={() => markReportable(incident.id)}>
+                            Set
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     {(notes[incident.id] ?? []).length > 0 && (
                       <ul className="space-y-1.5">
                         {(notes[incident.id] ?? []).map((note) => (

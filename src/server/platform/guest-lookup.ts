@@ -78,6 +78,7 @@ export async function findTableByQrSlug(
       occupancyWarnRatio: 0.9,
       coatCheckEnabled: false,
       doorRequiresIdCheck: false,
+      legalDrinkingAge: 18,
     },
   };
 }

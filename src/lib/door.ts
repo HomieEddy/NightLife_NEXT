@@ -112,3 +112,48 @@ export function countDeliveredAlcoholicDrinks(orders: Order[], menuItems: MenuIt
       0,
     );
 }
+
+// ---------- S-01: Age verification ----------
+
+/**
+ * True when the guest's verified year of birth proves they are of legal drinking age
+ * (current-year minus yearOfBirth ≥ legalDrinkingAge). The exact date-of-birth path
+ * (from a GuestProfile.dobYear) is also checked here — at the door the year of birth
+ * from the ID check is the minimum PII we store (Law 25).
+ */
+export function isOfLegalAge(yearOfBirth: number, legalDrinkingAge: number, now = new Date()): boolean {
+  return now.getFullYear() - yearOfBirth >= legalDrinkingAge;
+}
+
+/**
+ * S-01 enforcement: underage admission results in a blocking error reason.
+ * Returns null when the age is verified; returns a denial reason string when underage.
+ */
+export function checkAgeOnAdmission(
+  yearOfBirth: number | undefined,
+  legalDrinkingAge: number,
+  guestProfileDobYear: number | undefined,
+): string | null {
+  const effectiveYear = yearOfBirth ?? guestProfileDobYear;
+  if (effectiveYear === undefined) return null; // no age data — not blocked, but unverified
+  if (!isOfLegalAge(effectiveYear, legalDrinkingAge)) {
+    return "underage";
+  }
+  return null;
+}
+
+// ---------- S-13: Legal capacity enforcement ----------
+
+/**
+ * True when adding `partySize` to `currentOccupancy` stays within `legalCapacity`.
+ * A null/infinite capacity means the check always passes (venue capped only by fire-code,
+ * capacity is informational).
+ */
+export function canAdmitWithinCapacity(
+  currentOccupancy: number,
+  partySize: number,
+  legalCapacity: number,
+): boolean {
+  if (legalCapacity <= 0) return true;
+  return currentOccupancy + partySize <= legalCapacity;
+}
