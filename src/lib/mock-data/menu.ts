@@ -173,11 +173,36 @@ const rawMenuItems: Omit<MenuItem, "isAlcoholic" | "allergens">[] = [
   { id: "mi-redbull-6pack", categoryId: "cat-washers", name: "Red Bull 6-pack", description: "Pack de 6 canettes.", price: 30, icon: "washer", tags: [], isAvailable: true, inventory: 40 },
 ];
 
-export const mockMenuItems: MenuItem[] = rawMenuItems.map((item) => ({
-  ...item,
-  isAlcoholic: item.categoryId !== "cat-washers",
-  allergens: [],
-}));
+export const mockMenuItems: MenuItem[] = rawMenuItems.map((item) => {
+  const par = parLevelsForItem(item.id);
+  return {
+    ...item,
+    isAlcoholic: item.categoryId !== "cat-washers",
+    allergens: [],
+    ...(par ? { parLevels: par, reorderPoint: Math.round(par[5]! * 0.4) } : {}),
+    unitOfMeasure: item.categoryId === "cat-washers" ? "each" as const : "bottle" as const,
+    servingSize: item.categoryId === "cat-washers" ? undefined : 1,
+  };
+});
+
+function parLevelsForItem(id: string): Record<number, number> | null {
+  const map: Record<string, Record<number, number>> = {
+    "mi-ace": { 4: 3, 5: 4, 6: 4, 0: 2 },
+    "mi-cristal": { 5: 2, 6: 2 },
+    "mi-moet": { 4: 6, 5: 8, 6: 8 },
+    "mi-dom": { 4: 4, 5: 5, 6: 5 },
+    "mi-greygoose": { 4: 5, 5: 8, 6: 8 },
+    "mi-belvedere": { 4: 3, 5: 5, 6: 5 },
+    "mi-hennessy": { 4: 4, 5: 6, 6: 6 },
+    "mi-dusse": { 4: 3, 5: 4, 6: 4 },
+    "mi-don-julio": { 4: 4, 5: 5, 6: 5 },
+    "mi-coke": { 4: 50, 5: 80, 6: 80 },
+    "mi-redbull": { 4: 40, 5: 60, 6: 60 },
+    "mi-tonic-water": { 5: 30, 6: 30 },
+    "mi-spring-water-12": { 5: 10, 6: 10 },
+  };
+  return map[id] ?? null;
+}
 
 export const mockPackages: BottlePackage[] = [
   {

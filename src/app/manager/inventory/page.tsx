@@ -55,6 +55,7 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination, paginate } from "@/components/shared/pagination";
 import { menuService } from "@/lib/services/menu-service";
+import { purchasingService } from "@/lib/services/purchasing-service";
 import { formatMoney, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { BottleIconKey, MenuCategory, MenuItem, StockMovement } from "@/lib/types";
@@ -115,6 +116,11 @@ function InventoryPageContent() {
   const [draft, setDraft] = useState<ItemDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState(1);
+
+  // Waste dialog
+  const [wasteItem, setWasteItem] = useState<MenuItem | null>(null);
+  const [wasteQty, setWasteQty] = useState(1);
+  const [wasteReason, setWasteReason] = useState("spill");
 
   const refresh = useCallback(async () => {
     const [its, cats, moves] = await Promise.all([
@@ -240,6 +246,29 @@ function InventoryPageContent() {
     await refresh();
   }
 
+  async function handleWaste() {
+    if (!wasteItem) return;
+    setBusy(true);
+    try {
+      await purchasingService.recordWaste(wasteItem.id, wasteQty, wasteReason, "staff-amara");
+      toast.info(`${wasteQty} × ${wasteItem.name} recorded as waste (${wasteReason})`);
+    } catch { toast.error("Could not record waste"); }
+    finally {
+      setBusy(false);
+      setWasteItem(null);
+      await refresh();
+    }
+  }
+
+  async function handle86(item: MenuItem) {
+    setBusy(true);
+    try {
+      await purchasingService.eightySixItem(item.id, "Manual 86 from inventory", "staff-amara");
+      toast.info(`${item.name} marked as sold out`);
+    } catch { toast.error("Could not mark as 86"); }
+    finally { setBusy(false); await refresh(); }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -353,6 +382,20 @@ function InventoryPageContent() {
                           }}
                         >
                           <SlidersHorizontal className="size-4" /> Adjust count
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setWasteItem(item);
+                            setWasteQty(1);
+                            setWasteReason("spill");
+                          }}
+                        >
+                          <Trash2 className="size-4" /> Record waste
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handle86(item)}
+                        >
+                          <AlertTriangle className="size-4" /> Mark 86'd
                         </DropdownMenuItem>
                         <ConfirmDialog
                           trigger={
@@ -581,6 +624,51 @@ function InventoryPageContent() {
             <Button onClick={handleFormSave} disabled={busy}>
               {busy && <Loader2 className="size-4 animate-spin" />}
               {busy ? "Saving…" : formItem ? "Save changes" : "Add bottle"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---------- Waste dialog ---------- */}
+      <Dialog open={wasteItem !== null} onOpenChange={(open) => !open && setWasteItem(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Record waste: {wasteItem?.name}</DialogTitle>
+            <DialogDescription>
+              Logs a waste event — shown in the movement log and reported separately from variance.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="waste-qty">Quantity wasted</Label>
+              <Input
+                id="waste-qty"
+                type="number"
+                min={1}
+                max={wasteItem?.inventory ?? 0}
+                value={wasteQty}
+                onChange={(e) => setWasteQty(Math.max(1, Number(e.target.value)))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="waste-reason">Reason</Label>
+              <Select value={wasteReason} onValueChange={setWasteReason}>
+                <SelectTrigger id="waste-reason"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="spill">Spill</SelectItem>
+                  <SelectItem value="breakage">Breakage</SelectItem>
+                  <SelectItem value="expired">Expired</SelectItem>
+                  <SelectItem value="comp-prep">Comp / prep</SelectItem>
+                  <SelectItem value="training">Training</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setWasteItem(null)} disabled={busy}>Cancel</Button>
+            <Button onClick={handleWaste} disabled={busy}>
+              {busy && <Loader2 className="size-4 animate-spin" />}
+              {busy ? "Saving…" : "Record waste"}
             </Button>
           </DialogFooter>
         </DialogContent>

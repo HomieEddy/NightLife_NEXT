@@ -158,8 +158,22 @@ export const mockPurchasingService = {
   },
 
   // Waste
-  async recordWaste(movement: StockMovement): Promise<StockMovement> {
+  async recordWaste(itemId: string, quantity: number, reason: string, staffId: string): Promise<StockMovement> {
     await delay(200);
+    const item = mockMenuItems.find((i) => i.id === itemId);
+    const label = item?.name ?? itemId;
+    const movement: StockMovement = {
+      id: uid("waste"),
+      menuItemId: itemId,
+      itemName: label,
+      type: "waste",
+      delta: -Math.abs(quantity),
+      note: reason,
+      wasteReason: reason,
+      createdAt: new Date().toISOString(),
+    };
+    if (item) item.inventory = Math.max(0, item.inventory - Math.abs(quantity));
+    mockStockMovements.push(movement);
     return clone(movement);
   },
 
