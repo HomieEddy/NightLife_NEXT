@@ -33,6 +33,8 @@ export const mockVenue: Venue = {
   lastCallAutoFlagTables: true,
   tipPresets: [15, 20],
   defaultTipPct: 15,
+  compThresholdCents: 10000, // comps over $100 escalate to manager approval
+  minimumSpendWarningRatio: 0.25,
 };
 
 export const mockZones: Zone[] = [

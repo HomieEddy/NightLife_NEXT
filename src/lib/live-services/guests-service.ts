@@ -82,5 +82,33 @@ export const liveGuestsService = {
       body: JSON.stringify({ status }),
     });
   },
+
+  // TODO(backend): plan 16 graduation — SessionTransferred/SessionsMerged domain
+  // events (AD-6) so the host's session sheet updates live on the other device.
+  async transferSession(
+    sessionId: string,
+    toTableId: string,
+    toTableCode: string,
+    toZoneName: string,
+    staffId: string,
+    staffName: string,
+  ): Promise<GuestSession | null> {
+    return api<GuestSession>(`/api/tab/sessions/${encodeURIComponent(sessionId)}/transfer`, {
+      method: "PATCH",
+      body: JSON.stringify({ toTableId, toTableCode, toZoneName, staffId, staffName }),
+    });
+  },
+
+  async mergeSession(
+    childSessionId: string,
+    parentSessionId: string,
+    staffId: string,
+    staffName: string,
+  ): Promise<GuestSession | null> {
+    return api<GuestSession>(`/api/tab/sessions/${encodeURIComponent(childSessionId)}/merge`, {
+      method: "PATCH",
+      body: JSON.stringify({ parentSessionId, staffId, staffName }),
+    });
+  },
 };
 import { liveFetch } from "./live-fetch";

@@ -14,9 +14,17 @@ export type StaffAction =
   | "reservation:create-own"
   | "reservation:edit-own"
   | "reservation:cancel-own"
-  | "reservation:confirm-own";
+  | "reservation:confirm-own"
+  | "tab:void"              // remove a line from revenue and return stock
+  | "tab:comp"              // waive a line, stock stays depleted (≤ venue comp threshold)
+  | "tab:transfer"          // move an open session to another table
+  | "tab:merge"             // fold one session's tab into another's
+  | "tab:discount"          // reduce a line's revenue by a delta
+  | "tab:override-minimum"  // change a snapshotted minimum-spend commitment
+  | "cashout:close"         // close a shift/venue cash-out reconciliation
+  | "audit:read";           // view the venue-wide audit trail
 
-export type ActionCategory = "orders" | "guests" | "help" | "reservations";
+export type ActionCategory = "orders" | "guests" | "help" | "reservations" | "tab" | "operations";
 
 /** Metadata for each action — consumed by a future role-editor UI. */
 export interface ActionMeta {
@@ -91,6 +99,53 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     description: "Promote a requested reservation to confirmed status.",
     category: "reservations",
   },
+  "tab:void": {
+    label: "Void order lines",
+    description: "Remove a wrongly-rung line from revenue and return the stock to inventory.",
+    category: "tab",
+    sensitive: true,
+  },
+  "tab:comp": {
+    label: "Comp order lines",
+    description: "Waive a line as a house gift, up to the venue's comp threshold. Stock stays depleted.",
+    category: "tab",
+    sensitive: true,
+  },
+  "tab:discount": {
+    label: "Discount order lines",
+    description: "Reduce a line's revenue by a negotiated delta.",
+    category: "tab",
+    sensitive: true,
+  },
+  "tab:transfer": {
+    label: "Transfer sessions",
+    description: "Move an open tab from one table to another.",
+    category: "tab",
+    sensitive: true,
+  },
+  "tab:merge": {
+    label: "Merge sessions",
+    description: "Fold one party's tab into another's, keeping the higher minimum.",
+    category: "tab",
+    sensitive: true,
+  },
+  "tab:override-minimum": {
+    label: "Override minimum spend",
+    description: "Change a session's snapshotted minimum-spend commitment.",
+    category: "tab",
+    sensitive: true,
+  },
+  "cashout:close": {
+    label: "Close cash-out",
+    description: "Reconcile a shift or the venue's night by settlement method.",
+    category: "operations",
+    sensitive: true,
+  },
+  "audit:read": {
+    label: "View audit trail",
+    description: "See every sensitive action taken tonight, by whom and why.",
+    category: "operations",
+  },
 };
 
 // ---------- Permission matrix ----------
@@ -110,14 +165,18 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   manager: [
     "order:accept", "order:claim", "order:release", "order:transition", "order:gift",
     "session:approve", "session:deny", "help:respond",
+    "tab:void", "tab:comp", "tab:discount", "tab:transfer", "tab:merge", "tab:override-minimum",
+    "cashout:close", "audit:read",
   ],
   host: [
     "order:accept", "order:claim", "order:release", "order:transition", "order:gift",
     "session:approve", "session:deny", "help:respond",
+    "tab:void", "tab:comp", "tab:transfer", "tab:merge",
   ],
   bartender: [
     "order:accept", "order:claim", "order:release", "order:transition",
     "help:respond",
+    "tab:void", "cashout:close", // "own drawer" — closes their own till only
   ],
   // Fulfillment only — can move orders forward but cannot accept new ones.
   runner: [

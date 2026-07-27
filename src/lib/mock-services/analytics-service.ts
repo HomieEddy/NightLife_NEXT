@@ -2,12 +2,15 @@
  * mockAnalyticsService — demo-mode analytics with seeded data.
  */
 import type {
+  AdjustmentAnalytics,
   AnalyticsSummary,
   RevenuePoint,
   HistoricalAnalytics,
+  TabAdjustmentKind,
 } from "@/lib/types";
 import { mockAnalytics } from "@/lib/mock-data/analytics";
 import { aggregateWeekly } from "@/lib/analytics";
+import { mockOrdersService } from "./orders-service";
 import { clone, delay } from "./delay";
 
 export { aggregateWeekly };
@@ -33,11 +36,48 @@ function nightFor(date: Date): RevenuePoint {
   return { label, revenue, orders };
 }
 
+/** Live (not seeded) comp/void/discount rollup — reflects tonight's actual ledger, unlike the rest of this generator. */
+async function computeAdjustmentAnalytics(): Promise<AdjustmentAnalytics> {
+  const [orders, adjustments] = await Promise.all([
+    mockOrdersService.listOrders(),
+    mockOrdersService.listAllAdjustments(),
+  ]);
+  const grossCents = orders
+    .filter((o) => o.status !== "cancelled")
+    .reduce((sum, o) => sum + Math.round(o.total * 100), 0);
+  const live = adjustments.filter((a) => !a.reversedByAdjustmentId);
+  const byKind = (kind: TabAdjustmentKind) => live.filter((a) => a.kind === kind);
+  const centsOf = (kind: TabAdjustmentKind) => byKind(kind).reduce((sum, a) => sum + a.amountCents, 0);
+  const voidCents = centsOf("void");
+  const compCents = centsOf("comp");
+  const discountCents = centsOf("discount");
+  const byReason = new Map<string, { kind: TabAdjustmentKind; reasonCode: string; count: number; amountCents: number }>();
+  for (const a of live) {
+    const key = `${a.kind}:${a.reasonCode}`;
+    const entry = byReason.get(key) ?? { kind: a.kind, reasonCode: a.reasonCode, count: 0, amountCents: 0 };
+    entry.count += 1;
+    entry.amountCents += a.amountCents;
+    byReason.set(key, entry);
+  }
+  return {
+    voidCount: byKind("void").length,
+    compCount: byKind("comp").length,
+    discountCount: byKind("discount").length,
+    voidCents,
+    compCents,
+    discountCents,
+    voidRate: grossCents > 0 ? voidCents / grossCents : 0,
+    compRate: grossCents > 0 ? compCents / grossCents : 0,
+    discountRate: grossCents > 0 ? discountCents / grossCents : 0,
+    byReason: Array.from(byReason.values()),
+  };
+}
+
 export const mockAnalyticsService = {
   /** Tonight's live snapshot — powers the manager dashboard. */
   async getSummary(): Promise<AnalyticsSummary> {
     await delay(600);
-    return clone(mockAnalytics);
+    return { ...clone(mockAnalytics), adjustments: await computeAdjustmentAnalytics() };
   },
 
   /** Historical aggregates over an inclusive date range. */
@@ -185,6 +225,9 @@ export const mockAnalyticsService = {
             totalAttributedRevenue: Math.round(mockAnalytics.promoters.totalAttributedRevenue * scale),
           }
         : undefined,
+      // Live, not scaled — the demo's ledger only ever holds "tonight"; a real backend
+      // would query the range directly instead of projecting a single night forward.
+      adjustments: await computeAdjustmentAnalytics(),
     };
   },
 };

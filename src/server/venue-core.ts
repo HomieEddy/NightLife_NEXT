@@ -57,6 +57,10 @@ function toVenue(
     defaultTipPct: row.defaultTipPct,
     nightStartHour: row.nightStartHour,
     nightEndHour: row.nightEndHour,
+    // TODO(backend): plan 16 graduation — add compThresholdCents/minimumSpendWarningRatio
+    // columns; until then the live track uses the same defaults as the demo seed.
+    compThresholdCents: 10000,
+    minimumSpendWarningRatio: 0.25,
   };
 }
 

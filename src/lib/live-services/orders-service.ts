@@ -1,6 +1,6 @@
 "use client";
 
-import type { MenuItem, Order, OrderStatus } from "@/lib/types";
+import type { AdjustmentReason, MenuItem, Order, OrderStatus, TabAdjustment, TabAdjustmentKind } from "@/lib/types";
 import type { CartLine } from "@/lib/types";
 import { toCents } from "@/server/money";
 
@@ -126,6 +126,64 @@ export const liveOrdersService = {
 
   async cancelOrder(orderId: string): Promise<Order | null> {
     return api<Order>(`/api/orders/${encodeURIComponent(orderId)}/cancel`, { method: "PATCH" });
+  },
+
+  // TODO(backend): plan 16 graduation — route handlers under /api/tab/* with
+  // Zod boundaries, server-side capability checks and the adjustment + stock
+  // movement written in one transaction with the item row locked (INV-O4).
+  async listAdjustmentReasons(kind?: TabAdjustmentKind): Promise<AdjustmentReason[]> {
+    const qs = kind ? `?kind=${encodeURIComponent(kind)}` : "";
+    return api<AdjustmentReason[]>(`/api/tab/reasons${qs}`);
+  },
+
+  async listAllAdjustmentReasons(): Promise<AdjustmentReason[]> {
+    return api<AdjustmentReason[]>("/api/tab/reasons?all=1");
+  },
+
+  async createAdjustmentReason(input: Omit<AdjustmentReason, "id" | "venueId">): Promise<AdjustmentReason> {
+    return api<AdjustmentReason>("/api/tab/reasons", { method: "POST", body: JSON.stringify(input) });
+  },
+
+  async setAdjustmentReasonActive(reasonId: string, isActive: boolean): Promise<AdjustmentReason | null> {
+    return api<AdjustmentReason>(`/api/tab/reasons/${encodeURIComponent(reasonId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ isActive }),
+    });
+  },
+
+  async listAdjustments(sessionId: string): Promise<TabAdjustment[]> {
+    return api<TabAdjustment[]>(`/api/tab/adjustments?sessionId=${encodeURIComponent(sessionId)}`);
+  },
+
+  async listAllAdjustments(): Promise<TabAdjustment[]> {
+    return api<TabAdjustment[]>("/api/tab/adjustments");
+  },
+
+  async adjustOrder(input: {
+    orderId: string;
+    orderItemId?: string;
+    quantity?: number;
+    kind: TabAdjustmentKind;
+    reasonCode: string;
+    note?: string;
+    authorStaffId: string;
+    authorStaffName: string;
+  }): Promise<TabAdjustment> {
+    return api<TabAdjustment>("/api/tab/adjustments", { method: "POST", body: JSON.stringify(input) });
+  },
+
+  async reverseAdjustment(adjustmentId: string, staffId: string, staffName: string): Promise<TabAdjustment | null> {
+    return api<TabAdjustment>(`/api/tab/adjustments/${encodeURIComponent(adjustmentId)}/reverse`, {
+      method: "PATCH",
+      body: JSON.stringify({ staffId, staffName }),
+    });
+  },
+
+  async reassignOrdersToSession(fromSessionId: string, toSessionId: string): Promise<void> {
+    await api(`/api/tab/sessions/${encodeURIComponent(fromSessionId)}/reassign`, {
+      method: "PATCH",
+      body: JSON.stringify({ toSessionId }),
+    });
   },
 };
 import { liveFetch } from "./live-fetch";

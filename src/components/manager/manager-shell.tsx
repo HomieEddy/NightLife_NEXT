@@ -11,6 +11,7 @@ import {
   CreditCard,
   FileText,
   LayoutDashboard,
+  ListChecks,
   Map,
   MapPin,
   Martini,
@@ -22,6 +23,7 @@ import {
   Table2,
   Tag,
   Users,
+  Wallet,
 } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { RequireAuth } from "@/components/shared/require-auth";
@@ -53,6 +55,8 @@ const NAV: { href: string; label: string; icon: React.ComponentType<{ className?
   { href: "/manager/promotions", label: "Promotions", icon: Tag, feature: "promotions" },
   { href: "/manager/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
   { href: "/manager/qr", label: "QR codes", icon: QrCode },
+  { href: "/manager/cashout", label: "Cash-out", icon: Wallet },
+  { href: "/manager/audit", label: "Audit trail", icon: ListChecks },
   ...(isDemoMode() ? [{ href: "/manager/subscription", label: "Subscription", icon: CreditCard }] : []),
   { href: "/manager/settings", label: "Settings", icon: Settings },
 ];

@@ -124,6 +124,17 @@ export function renderCsv(
     rows.push(["Total", String(data.promoters.totalAttributedRevenue), "", "", "", ""]);
     rows.push([]);
   }
+  if (metrics.includes("adjustments") && data.adjustments) {
+    const a = data.adjustments;
+    rows.push(["Comps, Voids & Discounts"]);
+    rows.push(["Kind", "Count", "Amount ($)", "Rate"]);
+    rows.push(["Void", String(a.voidCount), String(a.voidCents / 100), String(a.voidRate)]);
+    rows.push(["Comp", String(a.compCount), String(a.compCents / 100), String(a.compRate)]);
+    rows.push(["Discount", String(a.discountCount), String(a.discountCents / 100), String(a.discountRate)]);
+    rows.push(["Kind", "Reason", "Count", "Amount ($)"]);
+    for (const r of a.byReason) rows.push([r.kind, r.reasonCode, String(r.count), String(r.amountCents / 100)]);
+    rows.push([]);
+  }
 
   return rows.map((r) => r.map(escapeCell).join(",")).join("\n");
 }

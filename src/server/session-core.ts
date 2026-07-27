@@ -13,12 +13,15 @@ type ScopedDb = ReturnType<typeof getDb>;
 
 // ── Status mapping ───────────────────────────────────────────────────
 
+// TODO(backend): "merged" (plan 16, demo-track only so far) has no Prisma enum
+// value yet — sessions/merge graduates alongside the rest of the tab ledger.
 const DOMAIN_TO_PRISMA: Record<GuestSessionStatus, PrismaSessionStatus> = {
   pending: "pending",
   approved: "approved",
   denied: "denied",
   "closure-requested": "closure_requested",
   closed: "closed",
+  merged: "closed",
 };
 
 const PRISMA_TO_DOMAIN: Record<PrismaSessionStatus, GuestSessionStatus> = {
@@ -37,6 +40,7 @@ const VALID_TRANSITIONS: Record<GuestSessionStatus, GuestSessionStatus[]> = {
   denied: [],
   "closure-requested": ["closed"],
   closed: [],
+  merged: [],
 };
 
 export function isValidTransition(from: GuestSessionStatus, to: GuestSessionStatus): boolean {

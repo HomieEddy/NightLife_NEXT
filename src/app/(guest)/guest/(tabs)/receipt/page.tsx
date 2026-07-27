@@ -15,11 +15,13 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { CountUp } from "@/components/fx/count-up";
 import { useGuest } from "@/context/guest-context";
 import { ordersService } from "@/lib/services/orders-service";
+import { guestsService } from "@/lib/services/guests-service";
 import { formatDate, formatMoney, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { orderLineSubtotal } from "@/lib/order-line";
 import { evenShares, summarizeReceipt } from "@/lib/receipt";
-import type { Order, Venue } from "@/lib/types";
+import { computeSessionBalance } from "@/lib/tab";
+import type { Order, TabAdjustment, Venue } from "@/lib/types";
 import { isDemoMode } from "@/lib/app-mode";
 
 function OrderLines({ order }: { order: Order }) {
@@ -308,6 +310,8 @@ function SplitBill({ total }: { total: number }) {
 function NightReceipt() {
   const { guestName, table, venue, sessionId } = useGuest();
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [adjustments, setAdjustments] = useState<TabAdjustment[]>([]);
+  const [minimumSpendCents, setMinimumSpendCents] = useState(0);
   const [email, setEmail] = useState("");
 
   useEffect(() => {
@@ -318,6 +322,14 @@ function NightReceipt() {
     load.then((result) => {
       if (!cancelled) setOrders(result.filter((o) => o.status === "delivered"));
     });
+    if (sessionId) {
+      ordersService.listAdjustments(sessionId).then((result) => {
+        if (!cancelled) setAdjustments(result);
+      });
+      guestsService.getSession(sessionId).then((session) => {
+        if (!cancelled) setMinimumSpendCents(session?.minimumSpendCents ?? 0);
+      });
+    }
     return () => {
       cancelled = true;
     };
@@ -332,6 +344,9 @@ function NightReceipt() {
 
   const { subtotal, tip, total, promoCents, feeLines } = summarizeReceipt(orders);
   const firstAt = orders[0]?.placedAt;
+  const balance = sessionId
+    ? computeSessionBalance(sessionId, orders, adjustments, minimumSpendCents)
+    : null;
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-2 py-4 text-center animate-pop-in">
@@ -444,10 +459,40 @@ function NightReceipt() {
               <span>TIP</span>
               <span className="tabular-nums">{formatMoney(tip)}</span>
             </div>
+            {balance && balance.voidCents > 0 && (
+              <div className="flex justify-between text-zinc-600">
+                <span>VOID</span>
+                <span className="tabular-nums">−{formatMoney(balance.voidCents / 100)}</span>
+              </div>
+            )}
+            {balance && balance.compCents > 0 && (
+              <div className="flex justify-between text-zinc-600">
+                <span>COMP</span>
+                <span className="tabular-nums">−{formatMoney(balance.compCents / 100)}</span>
+              </div>
+            )}
+            {balance && balance.discountCents > 0 && (
+              <div className="flex justify-between text-zinc-600">
+                <span>DISCOUNT</span>
+                <span className="tabular-nums">−{formatMoney(balance.discountCents / 100)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-dashed border-zinc-400 pt-1 text-sm font-bold">
-              <span>TOTAL</span>
+              <span>{balance && balance.adjustmentsCents > 0 ? "GROSS TOTAL" : "TOTAL"}</span>
               <span className="tabular-nums">{formatMoney(total)}</span>
             </div>
+            {balance && balance.adjustmentsCents > 0 && (
+              <div className="flex justify-between text-sm font-bold">
+                <span>NET TOTAL</span>
+                <span className="tabular-nums">{formatMoney(balance.netCents / 100)}</span>
+              </div>
+            )}
+            {balance && balance.shortfallCents > 0 && (
+              <div className="flex justify-between text-zinc-600">
+                <span>MINIMUM SPEND SHORTFALL</span>
+                <span className="tabular-nums">{formatMoney(balance.shortfallCents / 100)}</span>
+              </div>
+            )}
           </div>
 
           <p className="text-center text-[10px] text-zinc-500">
