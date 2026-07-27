@@ -39,6 +39,7 @@ export const mockVenue: Venue = {
   occupancyWarnRatio: 0.9,
   coatCheckEnabled: true,
   doorRequiresIdCheck: true,
+  legalDrinkingAge: 18,
 };
 
 export const mockZones: Zone[] = [

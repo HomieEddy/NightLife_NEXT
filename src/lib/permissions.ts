@@ -34,6 +34,11 @@ export type StaffAction =
   | "guest:edit-profile"          // edit a guest profile's details/tags
   | "guest:ban"                   // set/lift a guest's banned status
   | "service:refuse"             // refuse further service to a session
+  | "emergency:evacuate"         // trigger emergency evacuation (zero occupancy, broadcast) — manager + security-lead
+  | "emergency:resume"           // resume normal operations after an evacuation — manager only
+  | "door:admit-capacity-override" // bypass the legal-capacity check at the door (always audited)
+  | "incident:mark-reportable"    // mark an incident as reportable to a regulatory authority
+  | "certification:manage"        // create, edit, verify and revoke staff certifications
   | "time:clock-self"            // clock in/out for yourself
   | "time:edit-others"           // correct another staff member's time entry
   | "schedule:publish"           // publish a generated week to the crew
@@ -234,6 +239,36 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     category: "guests",
     sensitive: true,
   },
+  "emergency:evacuate": {
+    label: "Emergency evacuation",
+    description: "Trigger emergency evacuation — zeros occupancy, broadcasts to all channels, and disables admissions.",
+    category: "door",
+    sensitive: true,
+  },
+  "emergency:resume": {
+    label: "Resume normal operations",
+    description: "End an evacuation and restore normal admission operations.",
+    category: "door",
+    sensitive: true,
+  },
+  "door:admit-capacity-override": {
+    label: "Override capacity",
+    description: "Bypass the legal-capacity check — always writes an audit entry.",
+    category: "door",
+    sensitive: true,
+  },
+  "incident:mark-reportable": {
+    label: "Mark incident reportable",
+    description: "Flag an incident as requiring regulatory reporting and set a deadline.",
+    category: "incidents",
+    sensitive: true,
+  },
+  "certification:manage": {
+    label: "Manage certifications",
+    description: "Create, edit, verify and revoke staff certifications (Smart Serve, First Aid, etc.).",
+    category: "operations",
+    sensitive: true,
+  },
   "time:clock-self": {
     label: "Clock in / out",
     description: "Record your own clock-in, breaks and clock-out.",
@@ -355,8 +390,11 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     "tab:void", "tab:comp", "tab:discount", "tab:transfer", "tab:merge", "tab:override-minimum",
     "cashout:close", "audit:read",
     "door:count", "door:admit", "door:admit-banned-override", "door:id-check", "waitlist:manage",
-    "incident:create", "incident:read-all",
+    "door:admit-capacity-override",
+    "incident:create", "incident:read-all", "incident:mark-reportable",
     "guest:read-profile", "guest:edit-profile", "guest:ban", "service:refuse",
+    "emergency:evacuate", "emergency:resume",
+    "certification:manage",
     "time:clock-self", "time:edit-others", "schedule:publish",
     "schedule:request-swap", "schedule:request-time-off",
     "schedule:approve-swap", "schedule:approve-time-off",
@@ -394,9 +432,10 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   security: [
     "help:respond",
     "door:count", "door:admit", "door:id-check",
-    "incident:create", "incident:read-all",
+    "incident:create", "incident:read-all", "incident:mark-reportable",
     "guest:read-profile", // flags only — the UI hides visit/lifetime detail for this role
     "service:refuse",
+    "emergency:evacuate", // security lead in real life, but in the demo matrix security can evacuate
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
   ],
   promoter: [

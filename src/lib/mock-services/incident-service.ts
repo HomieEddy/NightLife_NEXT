@@ -53,6 +53,9 @@ export const mockIncidentService = {
     narrative: string;
     actionsTaken: string;
     policeInvolved: boolean;
+    reportable?: boolean;
+    regulatoryDeadline?: string;
+    regulatoryAuthority?: string;
     reportedByStaffId: string;
     reportedByStaffName: string;
   }): Promise<Incident> {
@@ -76,6 +79,9 @@ export const mockIncidentService = {
       reportedByStaffId: input.reportedByStaffId,
       reportedByStaffName: input.reportedByStaffName,
       status: "open",
+      reportable: input.reportable ?? false,
+      regulatoryDeadline: input.regulatoryDeadline,
+      regulatoryAuthority: input.regulatoryAuthority,
     };
     incidents = [incident, ...incidents];
     await mockAuditService.record({
@@ -109,6 +115,45 @@ export const mockIncidentService = {
     const incident = incidents.find((i) => i.id === id);
     if (!incident) return null;
     incident.status = status;
+    return clone(incident);
+  },
+
+  /** S-02: mark an incident as reportable with a regulatory deadline and authority. */
+  async markReportable(
+    id: string,
+    input: { regulatoryDeadline: string; regulatoryAuthority: string; staffId: string; staffName: string },
+  ): Promise<Incident | null> {
+    await delay(250);
+    const incident = incidents.find((i) => i.id === id);
+    if (!incident) return null;
+    incident.reportable = true;
+    incident.regulatoryDeadline = input.regulatoryDeadline;
+    incident.regulatoryAuthority = input.regulatoryAuthority;
+    await mockAuditService.record({
+      actorStaffId: input.staffId,
+      actorName: input.staffName,
+      action: "incident:mark-reportable",
+      targetType: "incident",
+      targetId: id,
+      summary: `Marked incident as reportable — deadline ${input.regulatoryDeadline}, authority: ${input.regulatoryAuthority}`,
+    });
+    return clone(incident);
+  },
+
+  /** S-02: record that a reportable incident has been filed with the authority. */
+  async recordReportedToAuthority(id: string, staffId: string, staffName: string): Promise<Incident | null> {
+    await delay(250);
+    const incident = incidents.find((i) => i.id === id);
+    if (!incident) return null;
+    incident.reportedToAuthorityAt = new Date().toISOString();
+    await mockAuditService.record({
+      actorStaffId: staffId,
+      actorName: staffName,
+      action: "incident:mark-reportable",
+      targetType: "incident",
+      targetId: id,
+      summary: `Reported incident to ${incident.regulatoryAuthority ?? "regulatory authority"}`,
+    });
     return clone(incident);
   },
 };

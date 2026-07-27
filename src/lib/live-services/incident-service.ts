@@ -19,4 +19,6 @@ export const liveIncidentService: typeof mockIncidentService = {
   reportIncident: notYetSupported,
   addNote: notYetSupported,
   setStatus: notYetSupported,
+  markReportable: notYetSupported,
+  recordReportedToAuthority: notYetSupported,
 };
