@@ -21,6 +21,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { TableCard } from "@/components/shared/table-card";
 import { venueService } from "@/lib/services/venue-service";
 import { SearchInput } from "@/components/shared/search-input";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { useHighlight } from "@/lib/use-highlight";
 import { cn } from "@/lib/utils";
 import type { TableStatus, VenueTable, Zone } from "@/lib/types";
@@ -46,6 +47,7 @@ function TablesContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<TableDraft | null>(null);
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
   const highlighted = useHighlight();
 
   const refresh = useCallback(async () => {
@@ -200,7 +202,7 @@ function TablesContent() {
         <EmptyState icon={Table2} title="No tables match" description="Try adjusting the filters." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((table) => (
+          {paginate(visible, page).map((table) => (
             <div key={table.id} id={`highlight-${table.id}`}>
             <TableCard
               table={table}
@@ -260,6 +262,8 @@ function TablesContent() {
           ))}
         </div>
       )}
+
+      <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
 
       {/* ---------- Create / edit dialog ---------- */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

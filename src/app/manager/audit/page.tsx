@@ -10,6 +10,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { auditService } from "@/lib/services/audit-service";
 import { staffService } from "@/lib/services/staff-service";
 import { permissionService } from "@/lib/services/permission-service";
@@ -24,6 +25,7 @@ export default function AuditTrailPage() {
   const [actorFilter, setActorFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [currentStaff, permissions] = await Promise.all([
@@ -103,9 +105,10 @@ export default function AuditTrailPage() {
       ) : visible.length === 0 ? (
         <EmptyState icon={ListChecks} title="No entries match" description="Sensitive actions will appear here as they happen." />
       ) : (
+        <>
         <Card>
           <CardContent className="divide-y p-0">
-            {visible.map((entry) => (
+            {paginate(visible, page).map((entry) => (
               <div key={entry.id} className="flex items-start justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{entry.summary}</p>
@@ -120,6 +123,8 @@ export default function AuditTrailPage() {
             ))}
           </CardContent>
         </Card>
+        <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+        </>
       )}
     </div>
   );

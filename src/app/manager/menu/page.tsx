@@ -21,6 +21,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MenuItemCard } from "@/components/shared/menu-item-card";
 import { PageHeader } from "@/components/shared/page-header";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { PackageEditor, type PackageDraft } from "@/components/manager/package-editor";
 import { ModifierPresetEditor } from "@/components/manager/modifier-preset-editor";
 import { menuService, type PackageQuote } from "@/lib/services/menu-service";
@@ -38,6 +39,8 @@ function MenuContent() {
   const [activeCategory, setActiveCategory] = useState<string>(
     searchParams.get("category") ?? "",
   );
+  const [itemsPage, setItemsPage] = useState(1);
+  const [packagesPage, setPackagesPage] = useState(1);
   const [editing, setEditing] = useState<MenuItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -228,7 +231,7 @@ function MenuContent() {
               />
             ) : (
               <div className="grid gap-2.5 lg:grid-cols-2">
-                {visibleItems.map((item) => (
+                {paginate(visibleItems, itemsPage).map((item) => (
                   <MenuItemCard
                     key={item.id}
                     item={item}
@@ -266,6 +269,7 @@ function MenuContent() {
                 ))}
               </div>
             )}
+            <Pagination totalItems={visibleItems.length} currentPage={itemsPage} onPageChange={setItemsPage} className="mt-3" />
           </TabsContent>
 
           {/* ---------- Packages tab ---------- */}
@@ -289,7 +293,7 @@ function MenuContent() {
               />
             ) : (
               <div className="grid gap-3 lg:grid-cols-2">
-                {packages.map((pkg) => (
+                {paginate(packages, packagesPage).map((pkg) => (
                   <Card key={pkg.id} className={`py-4 ${pkg.isActive ? "" : "opacity-60"}`}>
                     <CardContent className="space-y-3 px-4">
                       <div className="flex items-start gap-3">
@@ -382,6 +386,7 @@ function MenuContent() {
                 ))}
               </div>
             )}
+            <Pagination totalItems={packages.length} currentPage={packagesPage} onPageChange={setPackagesPage} className="mt-3" />
           </TabsContent>
         </Tabs>
       )}

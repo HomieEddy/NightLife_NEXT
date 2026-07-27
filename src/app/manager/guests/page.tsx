@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { guestService } from "@/lib/services/guest-service";
 import { formatMoney, formatDate } from "@/lib/format";
 import type { GuestProfile, GuestTag, GuestVipTier } from "@/lib/types";
@@ -33,6 +34,7 @@ export default function ManagerGuestsPage() {
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [busy, setBusy] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
 
   // Filters
   const [vipFilter, setVipFilter] = useState<string>("all");
@@ -189,8 +191,9 @@ export default function ManagerGuestsPage() {
 
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
         {profiles === null ? <ListSkeleton rows={5} rowHeight="h-16" /> : visible.length === 0 ? <EmptyState icon={UserPlus} title="No guests match" description="Profiles are created from reservations, guestlists and door ID checks." /> : (
+          <>
           <Card><CardContent className="divide-y p-0">
-            {visible.map((profile) => (
+            {paginate(visible, page).map((profile) => (
               <div key={profile.id} className={`flex items-center justify-between gap-2 px-4 py-3 transition-colors ${selected?.id === profile.id ? "bg-accent/60" : "hover:bg-accent/30"}`}>
                 <button type="button" onClick={() => { setSelected(profile); setBanReason(""); setMergeTargetId(""); }} className="flex-1 text-left min-w-0">
                   <p className="flex items-center gap-2 font-medium">{profile.displayName}
@@ -203,6 +206,8 @@ export default function ManagerGuestsPage() {
               </div>
             ))}
           </CardContent></Card>
+          <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+          </>
         )}
 
         {selected && (

@@ -15,6 +15,7 @@ import {
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { incidentService } from "@/lib/services/incident-service";
 import { permissionService } from "@/lib/services/permission-service";
 import { staffService } from "@/lib/services/staff-service";
@@ -52,6 +53,7 @@ export default function StaffIncidentsPage() {
   const [actionsTaken, setActionsTaken] = useState("");
   const [policeInvolved, setPoliceInvolved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [currentStaff, perms] = await Promise.all([
@@ -219,7 +221,7 @@ export default function StaffIncidentsPage() {
         <EmptyState icon={ListChecks} title="No incidents" description="Filed reports will show up here." />
       ) : (
         <div className="space-y-2">
-          {incidents.map((incident) => (
+          {paginate(incidents, page).map((incident) => (
             <Card key={incident.id}>
               <CardContent className="space-y-1.5 px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
@@ -237,6 +239,7 @@ export default function StaffIncidentsPage() {
               </CardContent>
             </Card>
           ))}
+          <Pagination totalItems={incidents.length} currentPage={page} onPageChange={setPage} className="mt-3" />
         </div>
       )}
     </div>

@@ -13,6 +13,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
+import { Pagination, paginate } from "@/components/shared/pagination";
 import { useAuth } from "@/context/auth-context";
 import { incidentService } from "@/lib/services/incident-service";
 import { formatDate, formatTime } from "@/lib/format";
@@ -40,6 +41,7 @@ export default function ManagerIncidentsPage() {
   const [notes, setNotes] = useState<Record<string, IncidentNote[]>>({});
   const [noteDraft, setNoteDraft] = useState("");
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     setIncidents(await incidentService.listIncidents());
@@ -140,8 +142,9 @@ export default function ManagerIncidentsPage() {
       ) : visible.length === 0 ? (
         <EmptyState icon={ListChecks} title="No incidents match" description="Filed reports will appear here." />
       ) : (
+        <>
         <div className="space-y-3">
-          {visible.map((incident) => (
+          {paginate(visible, page).map((incident) => (
             <Card key={incident.id} id={incident.id}>
               <CardContent className="space-y-2 px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
@@ -217,6 +220,8 @@ export default function ManagerIncidentsPage() {
             </Card>
           ))}
         </div>
+        <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+        </>
       )}
     </div>
   );
