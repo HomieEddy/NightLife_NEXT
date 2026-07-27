@@ -20,6 +20,7 @@ export const mockIncidents: Incident[] = [
     reportedByStaffId: "st-viktor",
     reportedByStaffName: "Viktor Michaud",
     status: "resolved",
+    reportable: false,
   },
   {
     id: "inc-2",
@@ -36,6 +37,7 @@ export const mockIncidents: Incident[] = [
     reportedByStaffId: "st-marcus",
     reportedByStaffName: "Marcus Fontaine",
     status: "open",
+    reportable: false,
   },
   {
     id: "inc-3",
@@ -52,6 +54,7 @@ export const mockIncidents: Incident[] = [
     reportedByStaffId: "st-nina",
     reportedByStaffName: "Nina Côté",
     status: "resolved",
+    reportable: false,
   },
   {
     id: "inc-4",
@@ -69,6 +72,7 @@ export const mockIncidents: Incident[] = [
     reportedByStaffId: "st-viktor",
     reportedByStaffName: "Viktor Michaud",
     status: "open",
+    reportable: false,
   },
   {
     id: "inc-5",
@@ -85,6 +89,9 @@ export const mockIncidents: Incident[] = [
     reportedByStaffId: "st-viktor",
     reportedByStaffName: "Viktor Michaud",
     status: "open",
+    reportable: true,
+    regulatoryDeadline: new Date(Date.now() + 48 * 3600_000).toISOString(),
+    regulatoryAuthority: "SPVM (Service de police de la Ville de Montréal)",
   },
 ];
 
