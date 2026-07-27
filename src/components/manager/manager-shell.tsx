@@ -4,28 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  AlertTriangle,
-  BarChart3,
-  Boxes,
-  CalendarDays,
-  Clock,
   CreditCard,
-  FileText,
-  LayoutDashboard,
-  ListChecks,
-  Map,
-  MapPin,
-  Martini,
-  MessageSquare,
-  PartyPopper,
-  QrCode,
-  Receipt,
-  Settings,
-  Table2,
-  Tag,
-  UserSquare2,
-  Users,
-  Wallet,
+  Ellipsis,
 } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { RequireAuth } from "@/components/shared/require-auth";
@@ -37,54 +17,41 @@ import { cn } from "@/lib/utils";
 import { isDemoMode } from "@/lib/app-mode";
 import { venueService } from "@/lib/services/venue-service";
 import { useEntitlements } from "@/lib/use-entitlements";
-import type { FeatureKey } from "@/lib/types";
-
-// Entries without a feature key are core and never hidden by the plan.
-const NAV: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; feature?: FeatureKey }[] = [
-  { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/manager/orders", label: "Orders", icon: Receipt },
-  { href: "/manager/analytics", label: "Analytics", icon: BarChart3, feature: "analytics" },
-  { href: "/manager/reports", label: "Reports", icon: FileText, feature: "reports" },
-  { href: "/manager/menu", label: "Menu", icon: Martini },
-  { href: "/manager/inventory", label: "Inventory", icon: Boxes, feature: "inventory" },
-  { href: "/manager/floor-map", label: "Floor map", icon: Map, feature: "floor-map" },
-  { href: "/manager/zones", label: "Zones", icon: MapPin },
-  { href: "/manager/tables", label: "Tables", icon: Table2 },
-  { href: "/manager/staff", label: "Staff", icon: Users },
-  { href: "/manager/happy-hour", label: "Happy hour", icon: Clock, feature: "happy-hour" },
-  { href: "/manager/reservations", label: "Reservations", icon: CalendarDays, feature: "reservations" },
-  { href: "/manager/events", label: "Events", icon: PartyPopper, feature: "events" },
-  { href: "/manager/guests", label: "Guests", icon: UserSquare2, feature: "guest-crm" },
-  { href: "/manager/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents" },
-  { href: "/manager/promotions", label: "Promotions", icon: Tag, feature: "promotions" },
-  { href: "/manager/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
-  { href: "/manager/qr", label: "QR codes", icon: QrCode },
-  { href: "/manager/cashout", label: "Cash-out", icon: Wallet },
-  { href: "/manager/audit", label: "Audit trail", icon: ListChecks },
-  ...(isDemoMode() ? [{ href: "/manager/subscription", label: "Subscription", icon: CreditCard }] : []),
-  { href: "/manager/settings", label: "Settings", icon: Settings },
-];
+import {
+  MANAGER_NAV_GROUPS,
+  MANAGER_FOOTER_ITEMS,
+  DEMO_FOOTER_ITEMS,
+  isNavActive,
+} from "@/lib/navigation";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import type { NavGroup } from "@/lib/navigation";
 
 export function ManagerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [venueName, setVenueName] = useState<string | null>(null);
   const { hasFeature } = useEntitlements();
-  const nav = NAV.filter((item) => !item.feature || hasFeature(item.feature));
+
+  // Filter groups by entitlements — a group with zero visible items hides entirely.
+  const groups: NavGroup[] = MANAGER_NAV_GROUPS
+    .map((g) => ({
+      label: g.label,
+      items: g.items.filter((item) => !item.feature || hasFeature(item.feature)),
+    }))
+    .filter((g) => g.items.length > 0);
+
+  const footerItems = isDemoMode() ? DEMO_FOOTER_ITEMS : MANAGER_FOOTER_ITEMS;
 
   useEffect(() => {
     venueService.getVenue().then((v) => setVenueName(v.name));
   }, []);
   const onOnboarding = pathname.startsWith("/manager/onboarding");
-  const isActive = (href: string) =>
-    href === "/manager" ? pathname === "/manager" : pathname.startsWith(href);
 
   // First run: the demo starts with the onboarding wizard.
   useEffect(() => {
     if (isDemoMode() && !onOnboarding && !isManagerOnboarded()) router.replace("/manager/onboarding");
   }, [onOnboarding, pathname, router]);
 
-  // The wizard gets a clean, chrome-free canvas.
   if (onOnboarding) {
     return (
       <RequireAuth>
@@ -101,6 +68,63 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  function navLink(item: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }, className?: string) {
+    const active = isNavActive(pathname, item.href);
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+          active
+            ? "bg-primary/15 text-primary"
+            : "text-muted-foreground hover:bg-accent hover:text-foreground",
+          className,
+        )}
+      >
+        <item.icon className="size-4" />
+        {item.label}
+      </Link>
+    );
+  }
+
+  function groupedNav() {
+    return (
+      <>
+        {groups.map((group) => (
+          <div key={group.label} className="mb-1">
+            <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              {group.label}
+            </p>
+            {group.items.map((item) => navLink(item))}
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  function footer() {
+    return (
+      <div className="border-t p-3 space-y-1">
+        {footerItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <item.icon className="size-3.5" />
+            {item.label}
+          </Link>
+        ))}
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          <p className="font-medium text-foreground">{venueName ?? "…"}</p>
+          <AuthBanner className="mt-0.5" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <RequireAuth>
     <div className="flex min-h-dvh">
@@ -110,57 +134,37 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
           <BrandLogo href="/manager" />
           <ThemeToggle />
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive(item.href)
-                  ? "bg-primary/15 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
-              )}
-            >
-              <item.icon className="size-4" />
-              {item.label}
-            </Link>
-          ))}
+        <nav className="flex-1 overflow-y-auto p-3">
+          {groupedNav()}
         </nav>
-        <div className="border-t p-4 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">{venueName ?? "…"}</p>
-          <AuthBanner className="mt-1" />
-        </div>
+        {footer()}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile header + scrolling nav */}
+        {/* Mobile header + bottom nav */}
         <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-lg md:hidden print:hidden">
           <div className="flex h-12 items-center justify-between px-4">
             <BrandLogo href="/manager" variant="mark" />
             <div className="flex items-center gap-1">
               <RoleBadge role="manager" />
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button className="flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium" aria-label="More navigation">
+                    <Ellipsis className="size-4" /> More
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-[80dvh] overflow-y-auto rounded-t-xl">
+                  <div className="space-y-4 pt-2">
+                    {groupedNav()}
+                    <hr />
+                    {footer()}
+                  </div>
+                </SheetContent>
+              </Sheet>
               <AuthBanner className="[&>span]:hidden sm:[&>span]:inline" />
               <ThemeToggle />
             </div>
           </div>
-          <nav className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">
-            {nav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                  isActive(item.href)
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "text-muted-foreground",
-                )}
-              >
-                <item.icon className="size-3.5" />
-                {item.label}
-              </Link>
-            ))}
-          </nav>
         </header>
 
         <main className="mx-auto w-full max-w-5xl flex-1 p-4 sm:p-6">{children}</main>
