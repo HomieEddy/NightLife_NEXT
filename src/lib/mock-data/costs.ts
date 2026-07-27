@@ -30,12 +30,12 @@ export const mockSuppliers: Supplier[] = [
 ];
 
 export const mockSupplierItems: SupplierItem[] = [
-  { id: "si-1", supplierId: "sup-saq", menuItemId: "item-grey-goose", supplierSku: "GG-750", caseSize: 6, caseCostCents: 24000, unitCostCents: 4000, preferred: true },
-  { id: "si-2", supplierId: "sup-saq", menuItemId: "item-hennessy", supplierSku: "HN-750", caseSize: 6, caseCostCents: 33000, unitCostCents: 5500, preferred: true },
-  { id: "si-3", supplierId: "sup-diaco", menuItemId: "item-grey-goose", supplierSku: "GG-D750", caseSize: 12, caseCostCents: 45600, unitCostCents: 3800, preferred: false },
-  { id: "si-4", supplierId: "sup-diaco", menuItemId: "item-don-julio", supplierSku: "DJ-750", caseSize: 6, caseCostCents: 36000, unitCostCents: 6000, preferred: true },
-  { id: "si-5", supplierId: "sup-mixos", menuItemId: "item-redbull", supplierSku: "RB-24", caseSize: 24, caseCostCents: 4800, unitCostCents: 200, preferred: true },
-  { id: "si-6", supplierId: "sup-mixos", menuItemId: "item-evian", supplierSku: "EV-24", caseSize: 24, caseCostCents: 3600, unitCostCents: 150, preferred: true },
+  { id: "si-1", supplierId: "sup-saq", menuItemId: "mi-greygoose", supplierSku: "GG-750", caseSize: 6, caseCostCents: 24000, unitCostCents: 4000, preferred: true },
+  { id: "si-2", supplierId: "sup-saq", menuItemId: "mi-hennessy", supplierSku: "HN-750", caseSize: 6, caseCostCents: 33000, unitCostCents: 5500, preferred: true },
+  { id: "si-3", supplierId: "sup-diaco", menuItemId: "mi-greygoose", supplierSku: "GG-D750", caseSize: 12, caseCostCents: 45600, unitCostCents: 3800, preferred: false },
+  { id: "si-4", supplierId: "sup-diaco", menuItemId: "mi-don-julio", supplierSku: "DJ-750", caseSize: 6, caseCostCents: 36000, unitCostCents: 6000, preferred: true },
+  { id: "si-5", supplierId: "sup-mixos", menuItemId: "mi-redbull", supplierSku: "RB-24", caseSize: 24, caseCostCents: 4800, unitCostCents: 200, preferred: true },
+  { id: "si-6", supplierId: "sup-mixos", menuItemId: "mi-spring-water-12", supplierSku: "EV-24", caseSize: 24, caseCostCents: 3600, unitCostCents: 150, preferred: true },
 ];
 
 export const mockPurchaseOrders: PurchaseOrder[] = [
@@ -46,8 +46,8 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
     submittedAt: "2026-07-23T10:00:00-04:00",
     submittedByStaffId: "st-amara",
     lines: [
-      { id: "pol-1", menuItemId: "item-grey-goose", qtyOrdered: 12, qtyReceived: 12, unitCostCents: 4000, lineTotalCents: 48000 },
-      { id: "pol-2", menuItemId: "item-hennessy", qtyOrdered: 6, qtyReceived: 6, unitCostCents: 5500, lineTotalCents: 33000 },
+      { id: "pol-1", menuItemId: "mi-greygoose", qtyOrdered: 12, qtyReceived: 12, unitCostCents: 4000, lineTotalCents: 48000 },
+      { id: "pol-2", menuItemId: "mi-hennessy", qtyOrdered: 6, qtyReceived: 6, unitCostCents: 5500, lineTotalCents: 33000 },
     ],
     subtotalCents: 81000,
     notes: "Friday restock",
@@ -59,7 +59,7 @@ export const mockPurchaseOrders: PurchaseOrder[] = [
     submittedAt: "2026-07-24T16:00:00-04:00",
     submittedByStaffId: "st-amara",
     lines: [
-      { id: "pol-3", menuItemId: "item-don-julio", qtyOrdered: 6, qtyReceived: 0, unitCostCents: 6000, lineTotalCents: 36000 },
+      { id: "pol-3", menuItemId: "mi-don-julio", qtyOrdered: 6, qtyReceived: 0, unitCostCents: 6000, lineTotalCents: 36000 },
     ],
     subtotalCents: 36000,
   },
@@ -73,15 +73,15 @@ export const mockStocktakes: Stocktake[] = [
     committedAt: "2026-07-25T05:15:00-04:00",
     startedByStaffId: "st-sofia",
     lines: [
-      { id: "stl-1", menuItemId: "item-grey-goose", expectedQty: 5, countedQty: 4, varianceQty: -1, varianceCents: -4000 },
-      { id: "stl-2", menuItemId: "item-hennessy", expectedQty: 3, countedQty: 3, varianceQty: 0, varianceCents: 0 },
+      { id: "stl-1", menuItemId: "mi-greygoose", expectedQty: 5, countedQty: 4, varianceQty: -1, varianceCents: -4000 },
+      { id: "stl-2", menuItemId: "mi-hennessy", expectedQty: 3, countedQty: 3, varianceQty: 0, varianceCents: 0 },
     ],
     totalVarianceCents: -4000,
   },
 ];
 
 export const mockEightySixEntries: EightySixEntry[] = [
-  { id: "86-1", menuItemId: "item-ace-spades", reason: "Sold out — last bottle sold at 01:30", byStaffId: "st-sofia", at: "2026-07-25T01:30:00-04:00" },
+  { id: "86-1", menuItemId: "mi-ace", reason: "Sold out — last bottle sold at 01:30", byStaffId: "st-sofia", at: "2026-07-25T01:30:00-04:00" },
 ];
 
 export const mockProfitTargets: ProfitTarget[] = [
