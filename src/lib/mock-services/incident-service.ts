@@ -58,6 +58,10 @@ export const mockIncidentService = {
     regulatoryAuthority?: string;
     reportedByStaffId: string;
     reportedByStaffName: string;
+    escalationLevel?: Incident["escalationLevel"];
+    witnesses?: Incident["witnesses"];
+    cctvReference?: Incident["cctvReference"];
+    medicalChecklist?: Incident["medicalChecklist"];
   }): Promise<Incident> {
     await delay(500);
     const venue = await mockVenueService.getVenueSnapshot();
@@ -82,6 +86,10 @@ export const mockIncidentService = {
       reportable: input.reportable ?? false,
       regulatoryDeadline: input.regulatoryDeadline,
       regulatoryAuthority: input.regulatoryAuthority,
+      escalationLevel: input.escalationLevel,
+      witnesses: input.witnesses,
+      cctvReference: input.cctvReference,
+      medicalChecklist: input.medicalChecklist,
     };
     incidents = [incident, ...incidents];
     await mockAuditService.record({
