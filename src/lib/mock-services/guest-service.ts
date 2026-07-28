@@ -62,6 +62,8 @@ export const mockGuestService = {
     notes?: string;
     marketingConsent?: { email: boolean; sms: boolean };
     source: string;
+    photoUrl?: string;
+    preferences?: GuestProfile["preferences"];
   }): Promise<GuestProfile> {
     await delay(400);
     const now = new Date().toISOString();
@@ -87,6 +89,8 @@ export const mockGuestService = {
       createdAt: now,
       visitCount: 0,
       lifetimeNetCents: 0,
+      photoUrl: input.photoUrl,
+      preferences: input.preferences,
     };
     profiles = [profile, ...profiles];
     return clone(profile);
@@ -94,7 +98,7 @@ export const mockGuestService = {
 
   async updateProfile(
     id: string,
-    patch: Partial<Pick<GuestProfile, "firstName" | "lastName" | "phone" | "email" | "dobYear" | "tags" | "vipTier" | "notes">>,
+    patch: Partial<Pick<GuestProfile, "firstName" | "lastName" | "phone" | "email" | "dobYear" | "tags" | "vipTier" | "notes" | "photoUrl" | "preferences">>,
     staffId: string,
     staffName: string,
   ): Promise<GuestProfile | null> {
