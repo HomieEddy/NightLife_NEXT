@@ -48,9 +48,10 @@ export function OrderCard({
           </div>
           <div className="text-right">
             <p className="font-semibold tabular-nums">{formatMoney(order.total)}</p>
-            <p className="text-xs text-muted-foreground">{timeAgo(order.placedAt)}</p>
-            {order.status !== "delivered" && order.status !== "cancelled" && (
-              <p className="text-xs text-muted-foreground">⏱ {Math.round((Date.now() - new Date(order.placedAt).getTime()) / 60000)} min ago</p>
+            {order.status !== "delivered" && order.status !== "cancelled" ? (
+              <p className="text-xs text-muted-foreground">⏱ {timeAgo(order.placedAt)}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">{timeAgo(order.placedAt)}</p>
             )}
             {order.priorityScore != null && (
               <p className="text-[10px] text-muted-foreground">Priority: {order.priorityScore}</p>
