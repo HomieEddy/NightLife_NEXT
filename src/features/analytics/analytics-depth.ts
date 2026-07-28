@@ -39,6 +39,11 @@ function addDays(s: string, n: number): string {
   return fmtIso(d);
 }
 
+/** Resolve a night boundary from optional date range params, falling back to tonight. */
+function resolveBoundary(nightConfig: NightConfig, toISO?: string | null): NightBoundary {
+  return toISO ? nightForDate(toISO, nightConfig) : nightContaining(new Date(), nightConfig);
+}
+
 // ── AI-01: Night-over-night comparison ──────────────────────────────
 
 export async function getNightComparison(
@@ -127,9 +132,11 @@ export async function getPerHourAnalytics(
   _db: ScopedDb,
   venueId: string,
   nightConfig: NightConfig,
+  fromISO?: string | null,
+  toISO?: string | null,
 ): Promise<PerHourAnalytics> {
   const rawPrisma = getRawPrisma();
-  const boundary = nightContaining(new Date(), nightConfig);
+  const boundary = resolveBoundary(nightConfig, toISO);
   const tz = nightConfig.timezone;
 
   const orderRows = await rawPrisma.$queryRawUnsafe<Array<{
@@ -211,9 +218,11 @@ export async function getDoorToTableFunnel(
   _db: ScopedDb,
   venueId: string,
   nightConfig: NightConfig,
+  fromISO?: string | null,
+  toISO?: string | null,
 ): Promise<DoorToTableFunnel> {
   const rawPrisma = getRawPrisma();
-  const boundary = nightContaining(new Date(), nightConfig);
+  const boundary = resolveBoundary(nightConfig, toISO);
 
   const [admissions, sessions, ordersPlaced, ordersDelivered, menuResult] = await Promise.all([
     rawPrisma.admission.count({ where: { venueId, businessDate: boundary.label } }),
@@ -273,9 +282,11 @@ export async function getTableTurnAnalytics(
   _db: ScopedDb,
   venueId: string,
   nightConfig: NightConfig,
+  fromISO?: string | null,
+  toISO?: string | null,
 ): Promise<TableTurnAnalytics> {
   const rawPrisma = getRawPrisma();
-  const boundary = nightContaining(new Date(), nightConfig);
+  const boundary = resolveBoundary(nightConfig, toISO);
 
   const rows = await rawPrisma.$queryRawUnsafe<Array<{
     table_id: string; table_code: string; zone_id: string; zone_name: string;
@@ -346,12 +357,18 @@ export async function getOrderSlaAnalytics(
   _db: ScopedDb,
   venueId: string,
   nightConfig: NightConfig,
+  fromISO?: string | null,
+  toISO?: string | null,
 ): Promise<OrderSlaAnalytics> {
   const rawPrisma = getRawPrisma();
-  const boundary = nightContaining(new Date(), nightConfig);
+  const boundary = resolveBoundary(nightConfig, toISO);
 
-  const times = await rawPrisma.$queryRawUnsafe<Array<{ minutes: number }>>(
-    `SELECT EXTRACT(EPOCH FROM (updated_at - placed_at)) / 60 AS minutes
+  const times = await rawPrisma.$queryRawUnsafe<Array<{ minutes: number; accept_minutes: number | null }>>(
+    `SELECT
+       EXTRACT(EPOCH FROM (updated_at - placed_at)) / 60 AS minutes,
+       CASE WHEN accepted_at IS NOT NULL
+         THEN EXTRACT(EPOCH FROM (accepted_at - placed_at)) / 60
+       END AS accept_minutes
      FROM orders
      WHERE venue_id = $1
        AND placed_at >= $2::timestamptz AND placed_at < $3::timestamptz
@@ -450,9 +467,17 @@ export async function getOrderSlaAnalytics(
   );
   const autoEscalationCount = Number(escResult[0]?.count ?? BigInt(0));
 
+  const acceptValues = times
+    .filter((t) => t.accept_minutes != null)
+    .map((t) => t.accept_minutes!);
+  const avgAccept = acceptValues.length > 0
+    ? acceptValues.reduce((s, v) => s + v, 0) / acceptValues.length
+    : avg * 0.2; // ponytail: fallback ratio if accepted_at never populated
+  const avgPrep = Math.max(0, avg - avgAccept);
+
   return {
-    avgAcceptMinutes: Math.round(avg * 0.2 * 10) / 10,
-    avgPrepMinutes: Math.round(avg * 0.8 * 10) / 10,
+    avgAcceptMinutes: Math.round(avgAccept * 10) / 10,
+    avgPrepMinutes: Math.round(avgPrep * 10) / 10,
     avgTotalMinutes: Math.round(avg * 10) / 10,
     p50Minutes: Math.round(p50 * 10) / 10,
     p95Minutes: Math.round(p95 * 10) / 10,
@@ -472,9 +497,11 @@ export async function getCompVoidRatioAnalytics(
   _db: ScopedDb,
   venueId: string,
   nightConfig: NightConfig,
+  fromISO?: string | null,
+  toISO?: string | null,
 ): Promise<CompVoidRatioAnalytics> {
   const rawPrisma = getRawPrisma();
-  const boundary = nightContaining(new Date(), nightConfig);
+  const boundary = resolveBoundary(nightConfig, toISO);
 
   const adjRows = await rawPrisma.$queryRawUnsafe<Array<{
     staff_id: string; staff_name: string;
@@ -551,10 +578,12 @@ export async function getPromoterPerformanceReport(
   _db: ScopedDb,
   venueId: string,
   _nightConfig: NightConfig,
+  fromISO?: string | null,
+  _toISO?: string | null,
 ): Promise<PromoterPerformanceReport[]> {
   const rawPrisma = getRawPrisma();
   const now = new Date();
-  const from = new Date(now.getTime() - 30 * 86400000).toISOString();
+  const from = fromISO ?? fmtIso(new Date(now.getTime() - 30 * 86400000));
 
   const rows = await rawPrisma.$queryRawUnsafe<Array<{
     promoter_id: string; name: string;
@@ -650,11 +679,13 @@ export async function getIncidentPatternReport(
   _db: ScopedDb,
   venueId: string,
   nightConfig: NightConfig,
+  fromISO?: string | null,
+  toISO?: string | null,
 ): Promise<IncidentPatternReport> {
   const rawPrisma = getRawPrisma();
   const tz = nightConfig.timezone;
-  const from = addDays(fmtIso(new Date()), -30);
-  const to = fmtIso(new Date());
+  const from = fromISO ?? addDays(fmtIso(new Date()), -30);
+  const to = toISO ?? fmtIso(new Date());
 
   const [byZone, byHour, byDow, hotspots] = await Promise.all([
     rawPrisma.$queryRawUnsafe<Array<{
@@ -742,13 +773,15 @@ export async function getGuestRetentionMetrics(
   _db: ScopedDb,
   venueId: string,
   _nightConfig: NightConfig,
+  fromISO?: string | null,
+  toISO?: string | null,
 ): Promise<GuestRetentionMetrics> {
   const rawPrisma = getRawPrisma();
-  const now = new Date();
-  const currFrom = new Date(now.getTime() - 30 * 86400000);
-  const currTo = now;
-  const prevFrom = new Date(now.getTime() - 60 * 86400000);
-  const prevTo = new Date(now.getTime() - 30 * 86400000);
+  const currFrom = fromISO ? new Date(`${fromISO}T00:00:00`) : new Date(Date.now() - 30 * 86400000);
+  const currTo = toISO ? new Date(`${toISO}T23:59:59`) : new Date();
+  const rangeMs = currTo.getTime() - currFrom.getTime();
+  const prevFrom = new Date(currFrom.getTime() - rangeMs);
+  const prevTo = currFrom;
 
   const [
     newGuests, totalResult, powerUsers,
@@ -842,9 +875,11 @@ export async function getBottleServiceAnalytics(
   _db: ScopedDb,
   venueId: string,
   nightConfig: NightConfig,
+  fromISO?: string | null,
+  toISO?: string | null,
 ): Promise<BottleServiceAnalytics> {
   const rawPrisma = getRawPrisma();
-  const boundary = nightContaining(new Date(), nightConfig);
+  const boundary = resolveBoundary(nightConfig, toISO);
   const tz = nightConfig.timezone;
 
   const bottleRows = await rawPrisma.$queryRawUnsafe<Array<{
@@ -949,9 +984,11 @@ export async function getCapacityUtilizationAnalytics(
   _db: ScopedDb,
   venueId: string,
   nightConfig: NightConfig,
+  fromISO?: string | null,
+  toISO?: string | null,
 ): Promise<CapacityUtilizationAnalytics> {
   const rawPrisma = getRawPrisma();
-  const boundary = nightContaining(new Date(), nightConfig);
+  const boundary = resolveBoundary(nightConfig, toISO);
 
   const venue = await rawPrisma.venue.findUnique({
     where: { id: venueId }, select: { legalCapacity: true },

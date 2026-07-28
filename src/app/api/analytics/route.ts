@@ -40,43 +40,43 @@ async function liveHandler(request: NextRequest, method: string) {
   }
   if (type === "per-hour") {
     const { getPerHourAnalytics } = await import("@/features/analytics/analytics-depth");
-    return NextResponse.json(await getPerHourAnalytics(db, venueId, nightConfig));
+    return NextResponse.json(await getPerHourAnalytics(db, venueId, nightConfig, from, to));
   }
   if (type === "door-to-table") {
     const { getDoorToTableFunnel } = await import("@/features/analytics/analytics-depth");
-    return NextResponse.json(await getDoorToTableFunnel(db, venueId, nightConfig));
+    return NextResponse.json(await getDoorToTableFunnel(db, venueId, nightConfig, from, to));
   }
   if (type === "table-turn") {
     const { getTableTurnAnalytics } = await import("@/features/analytics/analytics-depth");
-    return NextResponse.json(await getTableTurnAnalytics(db, venueId, nightConfig));
+    return NextResponse.json(await getTableTurnAnalytics(db, venueId, nightConfig, from, to));
   }
   if (type === "order-sla") {
     const { getOrderSlaAnalytics } = await import("@/features/analytics/analytics-depth");
-    return NextResponse.json(await getOrderSlaAnalytics(db, venueId, nightConfig));
+    return NextResponse.json(await getOrderSlaAnalytics(db, venueId, nightConfig, from, to));
   }
   if (type === "comp-void") {
     const { getCompVoidRatioAnalytics } = await import("@/features/analytics/analytics-depth");
-    return NextResponse.json(await getCompVoidRatioAnalytics(db, venueId, nightConfig));
+    return NextResponse.json(await getCompVoidRatioAnalytics(db, venueId, nightConfig, from, to));
   }
   if (type === "promoter-performance") {
     const { getPromoterPerformanceReport } = await import("@/features/analytics/analytics-depth");
-    return NextResponse.json(await getPromoterPerformanceReport(db, venueId, nightConfig));
+    return NextResponse.json(await getPromoterPerformanceReport(db, venueId, nightConfig, from, to));
   }
   if (type === "incident-pattern") {
     const { getIncidentPatternReport } = await import("@/features/analytics/analytics-depth");
-    return NextResponse.json(await getIncidentPatternReport(db, venueId, nightConfig));
+    return NextResponse.json(await getIncidentPatternReport(db, venueId, nightConfig, from, to));
   }
   if (type === "guest-retention") {
     const { getGuestRetentionMetrics } = await import("@/features/analytics/analytics-depth");
-    return NextResponse.json(await getGuestRetentionMetrics(db, venueId, nightConfig));
+    return NextResponse.json(await getGuestRetentionMetrics(db, venueId, nightConfig, from, to));
   }
   if (type === "bottle-service") {
     const { getBottleServiceAnalytics } = await import("@/features/analytics/analytics-depth");
-    return NextResponse.json(await getBottleServiceAnalytics(db, venueId, nightConfig));
+    return NextResponse.json(await getBottleServiceAnalytics(db, venueId, nightConfig, from, to));
   }
   if (type === "capacity") {
     const { getCapacityUtilizationAnalytics } = await import("@/features/analytics/analytics-depth");
-    return NextResponse.json(await getCapacityUtilizationAnalytics(db, venueId, nightConfig));
+    return NextResponse.json(await getCapacityUtilizationAnalytics(db, venueId, nightConfig, from, to));
   }
   if (type === "night-summary") {
     const { getNightSummary } = await import("@/features/analytics/analytics-depth");

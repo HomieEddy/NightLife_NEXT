@@ -97,10 +97,10 @@ export function ComparisonTab() {
         <CardHeader><CardTitle className="text-base">Deltas</CardTitle></CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm lg:grid-cols-4">
-            <Stat label="Revenue delta"><span className={deltaColor(deltas.revenuePct)}>{deltas.revenuePct > 0 ? "+" : ""}{formatPct(deltas.revenuePct / 100)}</span></Stat>
-            <Stat label="Orders delta"><span className={deltaColor(deltas.ordersPct)}>{deltas.ordersPct > 0 ? "+" : ""}{formatPct(deltas.ordersPct / 100)}</span></Stat>
-            <Stat label="AOV delta"><span className={deltaColor(deltas.avgOrderValuePct)}>{deltas.avgOrderValuePct > 0 ? "+" : ""}{formatPct(deltas.avgOrderValuePct / 100)}</span></Stat>
-            <Stat label="Covers delta"><span className={deltaColor(deltas.coversPct)}>{deltas.coversPct > 0 ? "+" : ""}{formatPct(deltas.coversPct / 100)}</span></Stat>
+            <Stat label="Revenue delta"><span className={deltaColor(deltas.revenuePct)}>{deltas.revenuePct > 0 ? "+" : ""}{deltas.revenuePct.toFixed(1)}%</span></Stat>
+            <Stat label="Orders delta"><span className={deltaColor(deltas.ordersPct)}>{deltas.ordersPct > 0 ? "+" : ""}{deltas.ordersPct.toFixed(1)}%</span></Stat>
+            <Stat label="AOV delta"><span className={deltaColor(deltas.avgOrderValuePct)}>{deltas.avgOrderValuePct > 0 ? "+" : ""}{deltas.avgOrderValuePct.toFixed(1)}%</span></Stat>
+            <Stat label="Covers delta"><span className={deltaColor(deltas.coversPct)}>{deltas.coversPct > 0 ? "+" : ""}{deltas.coversPct.toFixed(1)}%</span></Stat>
           </div>
         </CardContent>
       </Card>
@@ -134,7 +134,7 @@ export function ForecastTab() {
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Pace: {data.paceMultiplier.toFixed(2)}x</span>
             <span className={`font-medium ${deltaColor}`}>
-              {data.variancePct > 0 ? "+" : ""}{(data.variancePct * 100).toFixed(1)}% vs avg
+              {data.variancePct > 0 ? "+" : ""}{data.variancePct.toFixed(1)}% vs avg
             </span>
           </div>
           {data.eventBoost && (
@@ -156,6 +156,10 @@ export function PerHourTab() {
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
+      <p className="text-xs text-muted-foreground flex items-center gap-1">
+        Per-hour data reflects tonight&apos;s live snapshot.
+        <InfoTip text="Per-hour analytics always show tonight's live data regardless of the date range selected above. Historical per-hour aggregation is planned for a future update." />
+      </p>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard label="Peak hour" value={data.peakHour} icon={Clock} info="Hour with the highest revenue." />
         <MetricCard label="Peak revenue" value={formatMoney(data.peakRevenue)} icon={CircleDollarSign} featured />
