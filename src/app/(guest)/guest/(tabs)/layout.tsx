@@ -37,7 +37,7 @@ export default function GuestTabsLayout({ children }: { children: React.ReactNod
           <hr className="rule-gold" aria-hidden="true" />
         </header>
       </div>
-      <main className="flex-1 pb-24">{children}</main>
+      <main key={pathname} className="flex-1 pb-24 animate-fade-up">{children}</main>
       {!isCartPage && <CartSheet />}
       <MobileBottomNav
         className="mx-auto max-w-lg"
