@@ -209,6 +209,37 @@ export function getApplicableCoverPrice(
   }
   return 0;
 }
+
+/** OE-17: Checks whether adding a guest list entry would exceed the event's capacity allocation. */
+export function checkGuestListCapacity(
+  currentEntries: number,
+  eventCapacity: number,
+  perPromoterAllocation: Record<string, number>,
+  promoterId?: string,
+): { allowed: boolean; currentCount: number; limit: number } {
+  if (promoterId && perPromoterAllocation[promoterId] != null) {
+    const limit = perPromoterAllocation[promoterId];
+    return { allowed: currentEntries < limit, currentCount: currentEntries, limit };
+  }
+  return { allowed: currentEntries < eventCapacity, currentCount: currentEntries, limit: eventCapacity };
+}
+
+/** OE-18: Parses CSV guest list data. Returns parsed entries with validation errors. */
+export function parseGuestListCsv(
+  csv: string,
+): { entries: { name: string; email?: string; phone?: string; plusOnes: number }[]; errors: string[] } {
+  const lines = csv.trim().split("\n");
+  const errors: string[] = [];
+  const entries: { name: string; email?: string; phone?: string; plusOnes: number }[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(",").map((c) => c.trim());
+    const name = cols[0];
+    if (!name) { errors.push(`Row ${i}: missing name`); continue; }
+    const plusOnes = parseInt(cols[3] ?? "0") || 0;
+    entries.push({ name, email: cols[1] || undefined, phone: cols[2] || undefined, plusOnes });
+  }
+  return { entries, errors };
+}
 export function computeOrderPriority(
   zoneName: string,
   minimumSpendCents: number | undefined,

@@ -3,8 +3,9 @@
  * Live sessions are keyed by signed table QR tokens; approval pushes
  * over WebSocket to the waiting guest.
  */
-import type { GuestSession, HelpRequest, HelpRequestType, SettlementMethod } from "@/lib/types";
+import type { BarTab, GuestSession, HelpRequest, HelpRequestType, SettlementMethod, SplitBillAssignment } from "@/lib/types";
 import { mockGuestSessions, mockHelpRequests } from "@/lib/mock-data/orders";
+import { mockOrders } from "@/lib/mock-data/orders";
 import { mergedMinimumSpendCents } from "@/lib/tab";
 import { clone, delay, uid } from "./delay";
 import { mockReservationService } from "./reservation-service";
@@ -15,6 +16,7 @@ import { mockGuestService } from "./guest-service";
 
 let sessions: GuestSession[] = clone(mockGuestSessions);
 let helpRequests: HelpRequest[] = clone(mockHelpRequests);
+let barTabs: BarTab[] = [];
 
 export const mockGuestsService = {
   async listSessions(status?: GuestSession["status"]): Promise<GuestSession[]> {
@@ -177,7 +179,7 @@ export const mockGuestsService = {
     guestProfileId?: string,
   ): Promise<void> {
     await delay(400);
-    await this.refuseService(sessionId, reason, staffId, staffName);
+    await this.refuseService(sessionId, "Ejection: " + reason, staffId, staffName);
     if (guestProfileId) {
       await mockGuestService.setBanStatus(guestProfileId, { banned: true, reason }, staffId, staffName);
     }
@@ -191,6 +193,63 @@ export const mockGuestsService = {
       reportedByStaffId: staffId,
       reportedByStaffName: staffName,
     });
+  },
+
+  /** RV-08: Split-bill — assign specific order items to sub-totals for sequential settlement. */
+  async splitBill(
+    sessionId: string,
+    splits: { label: string; orderItemIds: string[] }[],
+  ): Promise<SplitBillAssignment | null> {
+    await delay(400);
+    const session = mockGuestSessions.find((s) => s.id === sessionId);
+    if (!session || session.status !== "approved") throw new Error("Session not active.");
+    const result: SplitBillAssignment = { sessionId, splits: [] };
+    for (const s of splits) {
+      const subTotal = mockOrders
+        .filter((o) => o.sessionId === sessionId && o.status !== "cancelled")
+        .reduce((sum, o) =>
+          sum + o.items
+            .filter((oi) => s.orderItemIds.includes(oi.id))
+            .reduce((s2, oi) => s2 + oi.unitPrice * oi.quantity, 0), 0);
+      result.splits.push({ label: s.label, orderItemIds: s.orderItemIds, subTotalCents: subTotal, settled: false });
+    }
+    return result;
+  },
+
+  /** RV-21: Bar tab — non-table session created by bartender, profile-linked. */
+  async createBarTab(input: {
+    guestName: string;
+    guestProfileId?: string;
+    staffId: string;
+    staffName: string;
+  }): Promise<BarTab> {
+    await delay(300);
+    const tab: BarTab = {
+      id: uid("bt"),
+      venueId: "venue-1",
+      guestName: input.guestName,
+      guestProfileId: input.guestProfileId,
+      status: "open",
+      openedByStaffId: input.staffId,
+      openedByStaffName: input.staffName,
+      openedAt: new Date().toISOString(),
+    };
+    barTabs.push(tab);
+    return clone(tab);
+  },
+
+  async closeBarTab(barTabId: string): Promise<BarTab> {
+    await delay(200);
+    const tab = barTabs.find((b) => b.id === barTabId);
+    if (!tab) throw new Error("Bar tab not found.");
+    tab.status = "closed";
+    tab.closedAt = new Date().toISOString();
+    return clone(tab);
+  },
+
+  async listBarTabs(): Promise<BarTab[]> {
+    await delay();
+    return clone(barTabs);
   },
 
   /**

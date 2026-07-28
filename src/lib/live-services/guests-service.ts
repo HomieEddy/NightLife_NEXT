@@ -1,6 +1,6 @@
 "use client";
 
-import type { GuestSession, HelpRequest, HelpRequestType, SettlementMethod } from "@/lib/types";
+import type { BarTab, GuestSession, HelpRequest, HelpRequestType, SettlementMethod, SplitBillAssignment } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await liveFetch(path, {
@@ -118,6 +118,22 @@ export const liveGuestsService = {
   },
 
   async ejectGuest(): Promise<void> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async splitBill(): Promise<SplitBillAssignment | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async createBarTab(): Promise<BarTab> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async closeBarTab(): Promise<BarTab> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async listBarTabs(): Promise<BarTab[]> {
     throw new Error("Not yet supported in the live build");
   },
 };
