@@ -16,8 +16,6 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const liveAutomationService = {
-  // TODO(backend): implement /api/automations route handlers.
-
   async listRules(): Promise<AutomationRule[]> {
     return api<AutomationRule[]>("/api/automations/rules");
   },
@@ -25,18 +23,18 @@ export const liveAutomationService = {
     return api<AutomationRule>(`/api/automations/rules/${ruleId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled }),
+      body: JSON.stringify({ ruleId, enabled }),
     });
   },
   async updateConfig(ruleId: string, config: Record<string, string | number | boolean>): Promise<AutomationRule> {
     return api<AutomationRule>(`/api/automations/rules/${ruleId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ config }),
+      body: JSON.stringify({ ruleId, config }),
     });
   },
   async triggerRule(): Promise<AutomationExecution> {
-    throw new Error("triggerRule is demo-only; use /api/jobs/* cron handlers in live mode.");
+    throw new Error("triggerRule is demo-only; automations run via /api/jobs/* cron handlers in live mode.");
   },
   async listExecutions(limit = 50): Promise<AutomationExecution[]> {
     return api<AutomationExecution[]>(`/api/automations/executions?limit=${limit}`);

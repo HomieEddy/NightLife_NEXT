@@ -38,56 +38,55 @@ export const liveAnalyticsService = {
     return api<HistoricalAnalytics>(`/api/analytics?from=${fromISO}&to=${toISO}`);
   },
 
-  // ---------- Phase 4: Analytics Depth — live stubs that hit real API endpoints ----------
-  // TODO(backend): implement route handlers for each of these on the live track.
+  // ---------- Phase 4: Analytics Depth — live API endpoints ----------
 
   async getNightComparison(): Promise<NightComparison> {
-    return api<NightComparison>("/api/analytics/comparison");
+    return api<NightComparison>("/api/analytics?type=comparison");
   },
   async getNightForecast(): Promise<NightForecast> {
-    return api<NightForecast>("/api/analytics/forecast");
+    return api<NightForecast>("/api/analytics?type=forecast");
   },
   async getPerHourAnalytics(_fromISO: string, _toISO: string): Promise<PerHourAnalytics> {
-    return api<PerHourAnalytics>(`/api/analytics/per-hour?from=${_fromISO}&to=${_toISO}`);
+    return api<PerHourAnalytics>("/api/analytics?type=per-hour");
   },
   async getDoorToTableFunnel(_fromISO: string, _toISO: string): Promise<DoorToTableFunnel> {
-    return api<DoorToTableFunnel>(`/api/analytics/door-to-table?from=${_fromISO}&to=${_toISO}`);
+    return api<DoorToTableFunnel>("/api/analytics?type=door-to-table");
   },
   async getTableTurnAnalytics(_fromISO: string, _toISO: string): Promise<TableTurnAnalytics> {
-    return api<TableTurnAnalytics>(`/api/analytics/table-turn?from=${_fromISO}&to=${_toISO}`);
+    return api<TableTurnAnalytics>("/api/analytics?type=table-turn");
   },
   async getOrderSlaAnalytics(_fromISO: string, _toISO: string): Promise<OrderSlaAnalytics> {
-    return api<OrderSlaAnalytics>(`/api/analytics/order-sla?from=${_fromISO}&to=${_toISO}`);
+    return api<OrderSlaAnalytics>("/api/analytics?type=order-sla");
   },
   async getCompVoidRatioAnalytics(_fromISO: string, _toISO: string): Promise<CompVoidRatioAnalytics> {
-    return api<CompVoidRatioAnalytics>(`/api/analytics/comp-void?from=${_fromISO}&to=${_toISO}`);
+    return api<CompVoidRatioAnalytics>("/api/analytics?type=comp-void");
   },
   async exportReportCsv(
     reportName: string, metrics: ReportMetric[], fromISO: string, toISO: string, recipient?: string,
   ): Promise<ReportExport> {
-    return api<ReportExport>("/api/analytics/export-csv", {
+    return api<ReportExport>("/api/analytics?type=export-csv", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reportName, metrics, from: fromISO, to: toISO, recipient }),
     });
   },
   async getPromoterPerformanceReport(_fromISO: string, _toISO: string): Promise<PromoterPerformanceReport[]> {
-    return api<PromoterPerformanceReport[]>(`/api/analytics/promoter-performance?from=${_fromISO}&to=${_toISO}`);
+    return api<PromoterPerformanceReport[]>("/api/analytics?type=promoter-performance");
   },
   async getIncidentPatternReport(_fromISO: string, _toISO: string): Promise<IncidentPatternReport> {
-    return api<IncidentPatternReport>(`/api/analytics/incident-pattern?from=${_fromISO}&to=${_toISO}`);
+    return api<IncidentPatternReport>("/api/analytics?type=incident-pattern");
   },
   async getGuestRetentionMetrics(_fromISO: string, _toISO: string): Promise<GuestRetentionMetrics> {
-    return api<GuestRetentionMetrics>(`/api/analytics/guest-retention?from=${_fromISO}&to=${_toISO}`);
+    return api<GuestRetentionMetrics>("/api/analytics?type=guest-retention");
   },
   async getBottleServiceAnalytics(_fromISO: string, _toISO: string): Promise<BottleServiceAnalytics> {
-    return api<BottleServiceAnalytics>(`/api/analytics/bottle-service?from=${_fromISO}&to=${_toISO}`);
+    return api<BottleServiceAnalytics>("/api/analytics?type=bottle-service");
   },
   async getCapacityUtilizationAnalytics(_fromISO: string, _toISO: string): Promise<CapacityUtilizationAnalytics> {
-    return api<CapacityUtilizationAnalytics>(`/api/analytics/capacity?from=${_fromISO}&to=${_toISO}`);
+    return api<CapacityUtilizationAnalytics>("/api/analytics?type=capacity");
   },
   async getNightSummary(businessDate: string): Promise<NightSummary> {
-    return api<NightSummary>(`/api/analytics/night-summary?date=${businessDate}`);
+    return api<NightSummary>(`/api/analytics?type=night-summary&date=${businessDate}`);
   },
 };
 import { liveFetch } from "./live-fetch";
