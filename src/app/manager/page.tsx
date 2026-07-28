@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InfoTip } from "@/components/shared/info-tip";
 import { MetricCard } from "@/components/shared/metric-card";
-import { MockChart } from "@/components/shared/mock-chart";
+import { RevenueChart } from "@/components/shared/revenue-chart";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
@@ -256,7 +256,7 @@ function TonightTab({
             {summary === null ? (
               <Skeleton className="h-48 w-full" />
             ) : (
-              <MockChart data={summary.revenueByHour} />
+              <RevenueChart data={summary.revenueByHour} />
             )}
           </CardContent>
         </Card>

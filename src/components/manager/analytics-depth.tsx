@@ -44,20 +44,7 @@ function Stat({ label, info, children }: { label: string; info?: string; childre
   );
 }
 
-function BarRow({
-  left, right, ratio,
-}: { left: React.ReactNode; right: React.ReactNode; ratio: number }) {
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2 text-sm">
-        {left}{right}
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-gradient-to-r from-primary/60 to-primary" style={{ width: `${ratio * 100}%` }} />
-      </div>
-    </div>
-  );
-}
+import { HorizontalBar } from "@/components/shared/horizontal-bar";
 
 const isoDaysAgo = (days: number) => {
   const d = new Date();
@@ -229,7 +216,7 @@ export function FunnelTab() {
             { step: "Orders placed", value: data.ordersPlaced, rate: rates.orderRate },
             { step: "Orders delivered", value: data.ordersDelivered, rate: rates.deliveryRate },
           ].map((s) => (
-            <BarRow
+            <HorizontalBar
               key={s.step}
               left={<span>{s.step}</span>}
               right={<span className="text-xs text-muted-foreground">{s.value} ({formatPct(s.rate)})</span>}
@@ -315,7 +302,7 @@ export function SlaTab() {
           <CardHeader><CardTitle className="text-base">Distribution</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {data.distribution.map((d) => (
-              <BarRow key={d.label} left={<span>{d.label}</span>} right={<span className="tabular-nums">{d.count}</span>} ratio={d.count / maxDist} />
+              <HorizontalBar key={d.label} left={<span>{d.label}</span>} right={<span className="tabular-nums">{d.count}</span>} ratio={d.count / maxDist} />
             ))}
           </CardContent>
         </Card>

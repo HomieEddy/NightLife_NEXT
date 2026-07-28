@@ -5,20 +5,20 @@ import { FeatureGate } from "@/components/shared/feature-gate";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Boxes, CalendarCheck, CalendarRange, CircleDollarSign,
+  ArrowRight, Boxes, CalendarCheck, CircleDollarSign,
   Clock, HandHelping, PartyPopper, Receipt, Tag, Timer, Trophy, Users,
   Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { CalendarDateRangePicker } from "@/components/shared/calendar-date-range-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EntityChip } from "@/components/shared/entity-chip";
 import { InfoTip } from "@/components/shared/info-tip";
 import { MetricCard } from "@/components/shared/metric-card";
-import { MockChart } from "@/components/shared/mock-chart";
+import { RevenueChart } from "@/components/shared/revenue-chart";
+import { HorizontalBar } from "@/components/shared/horizontal-bar";
 import { PageHeader } from "@/components/shared/page-header";
 import { RoleBadge } from "@/components/shared/role-badge";
 import {
@@ -110,32 +110,6 @@ function Stat({ label, info, children }: { label: string; info?: string; childre
         {info && <InfoTip text={info} />}
       </p>
       <p className="text-lg font-semibold tabular-nums">{children}</p>
-    </div>
-  );
-}
-
-/** Labeled horizontal bar — `ratio` is 0..1 of the widest row. */
-function BarRow({
-  left,
-  right,
-  ratio,
-}: {
-  left: React.ReactNode;
-  right: React.ReactNode;
-  ratio: number;
-}) {
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2 text-sm">
-        {left}
-        {right}
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-primary/60 to-primary"
-          style={{ width: `${ratio * 100}%` }}
-        />
-      </div>
     </div>
   );
 }
@@ -235,42 +209,18 @@ function AnalyticsPageContent() {
             </button>
           ))}
         </div>
-        <div className="flex items-end gap-2">
-          <div className="space-y-1">
-            <Label htmlFor="range-from" className="text-xs text-muted-foreground">
-              From
-            </Label>
-            <Input
-              id="range-from"
-              type="date"
-              value={from}
-              max={to}
-              onChange={(e) => {
-                setPreset("custom");
-                setFrom(e.target.value);
-              }}
-              className="h-9 w-38"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="range-to" className="text-xs text-muted-foreground">
-              To
-            </Label>
-            <Input
-              id="range-to"
-              type="date"
-              value={to}
-              min={from}
-              max={isoDaysAgo(0)}
-              onChange={(e) => {
-                setPreset("custom");
-                setTo(e.target.value);
-              }}
-              className="h-9 w-38"
-            />
-          </div>
-          <CalendarRange className="mb-2 size-4 text-muted-foreground" />
-        </div>
+        <CalendarDateRangePicker
+          from={from ? new Date(from + "T00:00:00") : undefined}
+          to={to ? new Date(to + "T00:00:00") : undefined}
+          onFromChange={(d) => {
+            setPreset("custom");
+            setFrom(d ? d.toISOString().slice(0, 10) : isoDaysAgo(6));
+          }}
+          onToChange={(d) => {
+            setPreset("custom");
+            setTo(d ? d.toISOString().slice(0, 10) : isoDaysAgo(0));
+          }}
+        />
         {/* AI-08: Export CSV */}
         <Button
           variant="outline"
@@ -377,7 +327,7 @@ function AnalyticsPageContent() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <MockChart data={chartSeries} height={220} />
+                <RevenueChart data={chartSeries} height={220} />
               </CardContent>
             </Card>
 
@@ -388,7 +338,7 @@ function AnalyticsPageContent() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {data.revenueByZone.map((zone) => (
-                    <BarRow
+                    <HorizontalBar
                       key={zone.zoneId}
                       left={<EntityChip type="zone-tables" id={zone.zoneId} label={zone.zoneName} />}
                       right={<span className="font-medium tabular-nums">{formatMoney(zone.revenue)}</span>}
@@ -572,7 +522,7 @@ function AnalyticsPageContent() {
                   .slice()
                   .sort((a, b) => b.ordersDelivered - a.ordersDelivered)
                   .map((perf) => (
-                    <BarRow
+                    <HorizontalBar
                       key={perf.staffId}
                       left={
                         <span className="flex min-w-0 items-center gap-2">
@@ -806,7 +756,7 @@ function AnalyticsPageContent() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {data.sessions.settlementMix.map((s) => (
-                        <BarRow
+                        <HorizontalBar
                           key={s.method}
                           left={<span className="capitalize">{s.method}</span>}
                           right={
@@ -865,7 +815,7 @@ function AnalyticsPageContent() {
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {data.reservations.sourceSplit.map((s) => (
-                        <BarRow
+                        <HorizontalBar
                           key={s.source}
                           left={<span className="capitalize">{s.source}</span>}
                           right={
@@ -886,7 +836,7 @@ function AnalyticsPageContent() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {data.reservations.channelSplit.map((c) => (
-                      <BarRow
+                      <HorizontalBar
                         key={c.channel}
                         left={<span className="capitalize">{c.channel}</span>}
                         right={
@@ -1148,7 +1098,7 @@ function AnalyticsPageContent() {
                       const sorted = [...data.promoters!.promoters].sort((a, b) => b.attributedRevenue - a.attributedRevenue);
                       const maxRev = sorted[0]?.attributedRevenue ?? 1;
                       return sorted.map((p) => (
-                        <BarRow
+                        <HorizontalBar
                           key={p.promoterId}
                           left={
                             <span className="flex min-w-0 items-center gap-2">
