@@ -55,13 +55,16 @@ function seeded(dateKey: string): number {
 }
 
 /** Apply a seeded ±10% variance to numeric fields in depth mock objects.
- *  Makes different date ranges produce slightly different mock data. */
+ *  Makes different date ranges produce slightly different mock data.
+ *  Preserves small integer counts; varies monetary/rate fields at 2dp. */
 function varyDepth<T>(data: T, seedKey: string): T {
   const s = seeded(seedKey);
   const factor = 0.9 + s * 0.2; // 0.9 .. 1.1
-  return JSON.parse(JSON.stringify(data), (_k, v) =>
-    typeof v === "number" ? Math.round(v * factor * 100) / 100 : v,
-  ) as T;
+  return JSON.parse(JSON.stringify(data), (_k, v) => {
+    if (typeof v !== "number") return v;
+    const varied = v * factor;
+    return v === Math.round(v) && v <= 1000 ? Math.max(0, Math.round(varied)) : Math.round(varied * 100) / 100;
+  }) as T;
 }
 
 /** Nightclub weekly rhythm: dead early week, peaks Friday/Saturday. */

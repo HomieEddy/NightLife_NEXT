@@ -469,8 +469,8 @@ export function IncidentPatternTab() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard label="Total incidents" value={String(data.totalIncidents)} icon={Shield} />
         <MetricCard label="Hotspot zones" value={String(data.hotspots.length)} icon={AlertTriangle} info="Zone + hour combos with the most incidents." />
-        <MetricCard label="High severity" value={String(data.byZone.reduce((s, z) => s + z.high, 0))} icon={AlertTriangle} featured />
-        <MetricCard label="Medium severity" value={String(data.byZone.reduce((s, z) => s + z.medium, 0))} icon={AlertTriangle} />
+        <MetricCard label="High severity" value={String(Math.round(data.byZone.reduce((s, z) => s + z.high, 0)))} icon={AlertTriangle} featured />
+        <MetricCard label="Medium severity" value={String(Math.round(data.byZone.reduce((s, z) => s + z.medium, 0)))} icon={AlertTriangle} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
