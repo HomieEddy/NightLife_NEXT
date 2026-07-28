@@ -137,6 +137,78 @@ export function computeGuestSpendByCategory(
   }
   return byCat;
 }
+
+/** OE-02: Estimates drink preparation time based on queue position. */
+export function estimateDrinkEta(
+  queuePosition: number,
+  avgPrepMinutes: number,
+  startedAt?: string,
+): number {
+  const elapsed = startedAt ? (Date.now() - new Date(startedAt).getTime()) / 60000 : 0;
+  return Math.max(0, Math.round(queuePosition * avgPrepMinutes - elapsed));
+}
+
+/** OE-28: Computes staff performance metrics from orders. */
+export function computeStaffPerformanceMetrics(
+  staffId: string,
+  businessDate: string,
+  orders: { staffId: string; status: string; total: number; placedAt: string; deliveredAt?: string; hasComp: boolean; compCents: number }[],
+): { ordersFulfilled: number; revenueCents: number; avgMinutesToDeliver: number; compCount: number; compCents: number } {
+  const delivered = orders.filter((o) => o.staffId === staffId && o.status === "delivered");
+  const comps = delivered.filter((o) => o.hasComp);
+  const deliveryTimes = delivered
+    .filter((o) => o.deliveredAt)
+    .map((o) => (new Date(o.deliveredAt!).getTime() - new Date(o.placedAt).getTime()) / 60000);
+  return {
+    ordersFulfilled: delivered.length,
+    revenueCents: delivered.reduce((s, o) => s + o.total, 0),
+    avgMinutesToDeliver: deliveryTimes.length ? Math.round(deliveryTimes.reduce((s, t) => s + t, 0) / deliveryTimes.length) : 0,
+    compCount: comps.length,
+    compCents: comps.reduce((s, o) => s + o.compCents, 0),
+  };
+}
+
+/** CRM-05: Analyzes guest visit cadence from admission dates. */
+export function analyzeVisitCadence(
+  visitDates: string[],
+): { avgDaysBetweenVisits: number; last30Days: number; last90Days: number; isDormant: boolean; streak: number } {
+  const sorted = visitDates.map((d) => new Date(d)).sort((a, b) => a.getTime() - b.getTime());
+  const now = Date.now();
+  const last30 = sorted.filter((d) => (now - d.getTime()) / 86400000 <= 30).length;
+  const last90 = sorted.filter((d) => (now - d.getTime()) / 86400000 <= 90).length;
+  let gaps = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    gaps += (sorted[i].getTime() - sorted[i - 1].getTime()) / 86400000;
+  }
+  const avg = sorted.length > 1 ? Math.round(gaps / (sorted.length - 1)) : 0;
+  // Streak: count consecutive weeks going backwards from most recent visit
+  let streak = 0;
+  if (sorted.length > 0) {
+    const latest = sorted[sorted.length - 1];
+    let cursor = latest;
+    for (let i = sorted.length - 1; i >= 0; i--) {
+      const diff = (cursor.getTime() - sorted[i].getTime()) / 86400000;
+      if (diff <= 7) { streak++; cursor = sorted[i]; }
+      else break;
+    }
+  }
+  return { avgDaysBetweenVisits: avg, last30Days: last30, last90Days: last90, isDormant: last90 === 0, streak };
+}
+
+/** RV-04: Computes the applicable cover price for this admission time. */
+export function getApplicableCoverPrice(
+  rules: { daysOfWeek: number[]; startTime: string; endTime: string; coverCents: number }[],
+  admissionTime: Date,
+  eventId?: string,
+): number {
+  const day = admissionTime.getDay();
+  const time = `${admissionTime.getHours().toString().padStart(2, "0")}:${admissionTime.getMinutes().toString().padStart(2, "0")}`;
+  for (const rule of rules) {
+    if (!rule.daysOfWeek.includes(day)) continue;
+    if (time >= rule.startTime && time < rule.endTime) return rule.coverCents;
+  }
+  return 0;
+}
 export function computeOrderPriority(
   zoneName: string,
   minimumSpendCents: number | undefined,
