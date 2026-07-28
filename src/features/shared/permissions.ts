@@ -28,6 +28,8 @@ export type StaffAction =
   | "door:admit-banned-override"  // admit a banned profile anyway (always audited)
   | "door:id-check"               // record an ID check at the door
   | "waitlist:manage"             // add/notify/remove walk-in waitlist entries
+  | "lastcall:start"             // start last-call sequence (stop new orders, broadcast)
+  | "broadcast:send"             // send a broadcast message to all staff channels
   | "incident:create"             // file an incident report
   | "incident:read-all"           // view the venue-wide incident log
   | "guest:read-profile"          // view a guest profile (security sees flags only)
@@ -205,6 +207,18 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     label: "Manage waitlist",
     description: "Add, notify and remove walk-in waitlist entries.",
     category: "door",
+  },
+  "lastcall:start": {
+    label: "Start last call",
+    description: "Stop new orders and broadcast last call to all channels.",
+    category: "orders",
+    sensitive: true,
+  },
+  "broadcast:send": {
+    label: "Send broadcast",
+    description: "Send a message to floor, bar and security channels.",
+    category: "orders",
+    sensitive: true,
   },
   "incident:create": {
     label: "Report incidents",
@@ -387,6 +401,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   manager: [
     "order:accept", "order:claim", "order:release", "order:transition", "order:gift",
     "session:approve", "session:deny", "help:respond",
+    "lastcall:start", "broadcast:send",
     "tab:void", "tab:comp", "tab:discount", "tab:transfer", "tab:merge", "tab:override-minimum",
     "cashout:close", "audit:read",
     "door:count", "door:admit", "door:admit-banned-override", "door:id-check", "waitlist:manage",
