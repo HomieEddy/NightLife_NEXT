@@ -80,7 +80,8 @@ async function liveHandler(request: NextRequest, method: string) {
   }
   if (type === "night-summary") {
     const { getNightSummary } = await import("@/server/analytics-core-phase4");
-    return NextResponse.json(await getNightSummary(db, venueId, nightConfig));
+    const businessDate = url.searchParams.get("date") ?? undefined;
+    return NextResponse.json(await getNightSummary(db, venueId, nightConfig, businessDate));
   }
 
   // POST: CSV export

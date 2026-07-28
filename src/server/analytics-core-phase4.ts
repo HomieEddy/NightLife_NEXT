@@ -1017,10 +1017,13 @@ export async function getNightSummary(
   db: ScopedDb,
   venueId: string,
   nightConfig: NightConfig,
+  businessDate?: string,
 ): Promise<NightSummary> {
   const rawPrisma = getRawPrisma();
   const tonight = await getSummaryForVenue(db, venueId, nightConfig);
-  const boundary = nightContaining(new Date(), nightConfig);
+  const boundary = businessDate
+    ? nightForDate(businessDate, nightConfig)
+    : nightContaining(new Date(), nightConfig);
   const label = boundary.label;
 
   const [staffOnDuty, highIncidents, soldOut, noShows, avgRevResult] = await Promise.all([

@@ -43,17 +43,19 @@ async function livePATCH(request: NextRequest) {
     return NextResponse.json({ error: "Missing ruleId in request body" }, { status: 400 });
   }
 
-  if (typeof body.enabled === "boolean") {
-    const rule = await setRuleEnabled(db, body.ruleId, body.enabled);
-    return NextResponse.json(rule);
+  const hasEnabled = typeof body.enabled === "boolean";
+  const hasConfig = body.config && typeof body.config === "object";
+
+  if (!hasEnabled && !hasConfig) {
+    return NextResponse.json({ error: "Provide enabled (boolean) or config (object) to update" }, { status: 400 });
   }
 
-  if (body.config && typeof body.config === "object") {
-    const rule = await updateRuleConfig(db, body.ruleId, body.config);
-    return NextResponse.json(rule);
+  let rule = await setRuleEnabled(db, body.ruleId, body.enabled ?? false);
+  if (hasConfig) {
+    rule = await updateRuleConfig(db, body.ruleId, body.config);
   }
 
-  return NextResponse.json({ error: "Provide enabled (boolean) or config (object) to update" }, { status: 400 });
+  return NextResponse.json(rule);
 }
 
 export const GET = isDemoMode() ? demoHandler : liveGET;

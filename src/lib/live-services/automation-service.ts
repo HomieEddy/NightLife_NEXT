@@ -20,14 +20,14 @@ export const liveAutomationService = {
     return api<AutomationRule[]>("/api/automations/rules");
   },
   async setEnabled(ruleId: string, enabled: boolean): Promise<AutomationRule> {
-    return api<AutomationRule>(`/api/automations/rules/${ruleId}`, {
+    return api<AutomationRule>("/api/automations/rules", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ruleId, enabled }),
     });
   },
   async updateConfig(ruleId: string, config: Record<string, string | number | boolean>): Promise<AutomationRule> {
-    return api<AutomationRule>(`/api/automations/rules/${ruleId}`, {
+    return api<AutomationRule>("/api/automations/rules", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ruleId, config }),
