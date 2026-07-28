@@ -86,12 +86,18 @@ it was always there.
 The repo has exactly one architectural idea. Respect it:
 
 ```
-src/lib/types.ts            ← the contract. One interface per domain concept.
-src/lib/mock-data/*.ts      ← seed data (plain literals, realistic, French-touched)
-src/lib/mock-services/*.ts  ← the future backend boundary. ALL reads/writes go here.
-src/app/**/page.tsx         ← client pages that only talk to mock services
-src/components/shared/*.tsx ← cross-role primitives (cards, badges, chips, dialogs)
-src/components/manager/*.tsx← role-specific composites when a page gets fat
+src/features/{domain}/        ← Feature folders aligned with DDD bounded contexts
+  services.ts                 ← selector: picks mock vs live (was src/lib/services/)
+  mock-service.ts             ← in-memory demo implementation
+  mock-data.ts                ← seed data (plain literals, French-touched)
+  live-service.ts             ← live (DB-backed) implementation
+  core.ts                     ← business logic, invariants, state machines
+  schemas.ts                  ← Zod validation at the boundary
+  types.ts                    ← domain-specific types
+src/lib/types.ts              ← the central type contract (re-exports feature types)
+src/app/**/page.tsx           ← client pages that only talk to feature services
+src/components/shared/*.tsx   ← cross-role primitives (cards, badges, chips, dialogs)
+src/components/manager/*.tsx ← role-specific composites when a page gets fat
 ```
 
 Rules that follow from it:
