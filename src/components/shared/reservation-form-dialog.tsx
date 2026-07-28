@@ -28,6 +28,7 @@ export type ReservationDraft = {
   holdUntil?: string;
   minimumSpendCents?: number;
   expectedDurationMinutes?: number;
+  timeSlot?: "early" | "late" | "any";
 };
 
 export const CELEBRATION_OPTIONS = [
@@ -317,8 +318,18 @@ export function ReservationFormDialog({
                 value={draft.expectedDurationMinutes ?? ""}
                 onChange={(e) => setDraft({ ...draft, expectedDurationMinutes: Number(e.target.value) || undefined })} />
             </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="res-slot">Time slot</Label>
+              <select id="res-slot" className={selectCls}
+                value={draft.timeSlot ?? "any"}
+                onChange={(e) => setDraft({ ...draft, timeSlot: e.target.value as ReservationDraft["timeSlot"] || undefined })}>
+                <option value="any">Any time</option>
+                <option value="early">Early (7–11 PM)</option>
+                <option value="late">Late (11 PM–3 AM)</option>
+              </select>
+            </div>
           </div>
-        </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel

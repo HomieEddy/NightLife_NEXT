@@ -1725,3 +1725,52 @@ export interface DrinkEta {
   queuePosition: number;
   startedAt?: string;
 }
+
+/** RV-04: Cover price schedule — time/event/category-based pricing rules at the door. */
+export interface CoverPriceRule {
+  id: string;
+  venueId: string;
+  label: string;
+  /** Which days of the week (0=Sun, 6=Sat). */
+  daysOfWeek: number[];
+  /** Start time for this rate (HH:MM). */
+  startTime: string;
+  /** End time for this rate (HH:MM). */
+  endTime: string;
+  /** Cover price in cents for walk-ins during this window. */
+  coverCents: number;
+  /** If set, only applies to this event. */
+  eventId?: string;
+  active: boolean;
+}
+
+/** OE-21: "Guest of" grouping — +1s attributed to a named main guest on a guest list. */
+export interface GuestOfGroup {
+  id: string;
+  eventId: string;
+  mainGuestName: string;
+  mainGuestProfileId?: string;
+  plusOnes: { name: string; profileId?: string }[];
+  promoterId?: string;
+}
+
+/** OE-28: Staff performance metrics per shift. */
+export interface StaffShiftMetrics {
+  staffId: string;
+  businessDate: string;
+  ordersFulfilled: number;
+  revenueCents: number;
+  avgMinutesToDeliver: number;
+  compCount: number;
+  compCents: number;
+}
+
+/** CRM-05: Visit cadence analysis result for a guest. */
+export interface VisitCadenceAnalysis {
+  profileId: string;
+  avgDaysBetweenVisits: number;
+  last30Days: number;
+  last90Days: number;
+  isDormant: boolean; // no visits in 90 days
+  streak: number; // consecutive weeks with a visit
+}
