@@ -5,13 +5,15 @@
 import type {
   AdjustmentReason,
   CartLine,
+  GuestSession,
   MenuItem,
   Order,
   OrderStatus,
   TabAdjustment,
   TabAdjustmentKind,
 } from "@/lib/types";
-import { mockOrders } from "@/lib/mock-data/orders";
+import { mockOrders, mockGuestSessions } from "@/lib/mock-data/orders";
+import { mockMenuItems } from "@/lib/mock-data/menu";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { mockAdjustmentReasons } from "@/lib/mock-data/tab";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
@@ -494,5 +496,47 @@ export const mockOrdersService = {
       metadata: { sessionId: original.sessionId },
     });
     return clone(original);
+  },
+
+  /** OE-08: Reopen a recently closed session within the configured window. */
+  async reopenSession(sessionId: string): Promise<GuestSession | null> {
+    await delay(300);
+    const session = mockGuestSessions.find((s) => s.id === sessionId);
+    if (!session || session.status !== "closed") throw new Error("Session is not closed.");
+    const age = (Date.now() - new Date(session.settledExternallyAt ?? session.createdAt).getTime()) / 60000;
+    if (age > 30) throw new Error("Reopen window expired (>30 min since close).");
+    session.status = "approved";
+    session.settledExternallyAt = undefined;
+    session.settlementMethod = undefined;
+    return clone(session);
+  },
+
+  /** OE-06: Count delivered alcoholic orders for this session's round tracking. */
+  async getSessionRoundCount(sessionId: string): Promise<number> {
+    await delay(100);
+    return orders.filter((o) => o.sessionId === sessionId && o.status === "delivered")
+      .reduce((sum, o) => {
+        const isAlcoholic = o.items.some((item) => mockMenuItems.find((i) => i.id === item.menuItemId)?.isAlcoholic);
+        return sum + (isAlcoholic ? 1 : 0);
+      }, 0);
+  },
+
+  /** OE-07: Detect if two sessions are active on the same table (dual phone). */
+  async detectDualSession(tableId: string): Promise<GuestSession[]> {
+    await delay(100);
+    return clone(mockGuestSessions.filter((s) => s.tableId === tableId && s.status === "approved"));
+  },
+
+  /** RV-06: Pre-order inventory availability check — returns items that would go out of stock. */
+  async checkInventoryAvailability(cartLines: { menuItemId: string; quantity: number }[]): Promise<{ menuItemId: string; name: string; available: number; requested: number }[]> {
+    await delay(100);
+    const warnings: { menuItemId: string; name: string; available: number; requested: number }[] = [];
+    for (const line of cartLines) {
+      const item = mockMenuItems.find((i) => i.id === line.menuItemId);
+      if (item && item.inventory < line.quantity) {
+        warnings.push({ menuItemId: item.id, name: item.name, available: item.inventory, requested: line.quantity });
+      }
+    }
+    return warnings;
   },
 };

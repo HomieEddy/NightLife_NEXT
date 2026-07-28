@@ -217,6 +217,23 @@ export const mockReservationService = {
     return this.updateReservation(id, { status: "no-show" });
   },
 
+  /** RV-02: Check whether booking this party would exceed the venue's legal capacity at the given date/time. */
+  async checkCapacityForBooking(
+    date: string,
+    partySize: number,
+  ): Promise<{ allowed: boolean; currentBooked: number; legalCapacity: number }> {
+    await delay(200);
+    const venue = await mockVenueService.getVenue();
+    const booked = reservations
+      .filter((r) => r.startsAt.slice(0, 10) === date && (r.status === "confirmed" || r.status === "seated"))
+      .reduce((s, r) => s + r.partySize, 0);
+    return {
+      allowed: (booked + partySize) <= venue.legalCapacity,
+      currentBooked: booked,
+      legalCapacity: venue.legalCapacity,
+    };
+  },
+
   // ── Public embed surface ─────────────────────────────────────
 
   async getPublicAvailability(

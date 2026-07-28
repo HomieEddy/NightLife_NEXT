@@ -48,7 +48,7 @@ export default function ManagerGuestsPage() {
   // Create / Edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GuestProfile | null>(null);
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", email: "", dobYear: "", vipTier: "none" as GuestVipTier, tags: [] as GuestTag[], notes: "", marketingEmail: false, marketingSms: false });
+  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", email: "", dobYear: "", vipTier: "none" as GuestVipTier, tags: [] as GuestTag[], notes: "", marketingEmail: false, marketingSms: false, photoUrl: "", preferredDrink: "", dietary: "", allergies: "", celebrationDate: "", watchlistReason: "" });
 
   const refresh = useCallback(async () => { setProfiles(await guestService.listProfiles()); }, []);
   useEffect(() => { refresh(); }, [refresh]);
@@ -79,15 +79,28 @@ export default function ManagerGuestsPage() {
 
   const mergeCandidates = (profiles ?? []).filter((p) => p.id !== selected?.id);
 
+  const defaultForm = { firstName: "", lastName: "", phone: "", email: "", dobYear: "", vipTier: "none" as GuestVipTier, tags: [] as GuestTag[], notes: "", marketingEmail: false, marketingSms: false, photoUrl: "", preferredDrink: "", dietary: "", allergies: "", celebrationDate: "", watchlistReason: "" };
+
   function openCreate() {
     setEditing(null);
-    setForm({ firstName: "", lastName: "", phone: "", email: "", dobYear: "", vipTier: "none", tags: [], notes: "", marketingEmail: false, marketingSms: false });
+    setForm(defaultForm);
     setDialogOpen(true);
   }
 
   function openEdit(profile: GuestProfile) {
     setEditing(profile);
-    setForm({ firstName: profile.firstName, lastName: profile.lastName ?? "", phone: profile.phone ?? "", email: profile.email ?? "", dobYear: profile.dobYear ? String(profile.dobYear) : "", vipTier: profile.vipTier, tags: profile.tags, notes: profile.notes ?? "", marketingEmail: profile.marketingConsent.email, marketingSms: profile.marketingConsent.sms });
+    setForm({
+      ...defaultForm,
+      firstName: profile.firstName, lastName: profile.lastName ?? "", phone: profile.phone ?? "", email: profile.email ?? "",
+      dobYear: profile.dobYear ? String(profile.dobYear) : "", vipTier: profile.vipTier, tags: profile.tags, notes: profile.notes ?? "",
+      marketingEmail: profile.marketingConsent.email, marketingSms: profile.marketingConsent.sms,
+      photoUrl: profile.photoUrl ?? "",
+      preferredDrink: profile.preferences?.preferredDrink ?? "",
+      dietary: profile.preferences?.dietary ?? "",
+      allergies: profile.preferences?.allergies ?? "",
+      celebrationDate: profile.preferences?.celebrationDate ?? "",
+      watchlistReason: profile.watchlist?.reason ?? "",
+    });
     setDialogOpen(true);
   }
 
@@ -95,14 +108,19 @@ export default function ManagerGuestsPage() {
     if (!form.firstName.trim()) { toast.error("First name is required"); return; }
     setBusy(true);
     try {
+  const prefs = form.preferredDrink || form.dietary || form.allergies || form.celebrationDate ? { preferredDrink: form.preferredDrink || undefined, dietary: form.dietary || undefined, allergies: form.allergies || undefined, celebrationDate: form.celebrationDate || undefined } : undefined;
       if (editing) {
         await guestService.updateProfile(editing.id, {
           firstName: form.firstName.trim(), lastName: form.lastName.trim() || undefined, phone: form.phone.trim() || undefined, email: form.email.trim() || undefined, dobYear: form.dobYear ? parseInt(form.dobYear) : undefined, tags: form.tags, vipTier: form.vipTier, notes: form.notes.trim() || undefined,
+          photoUrl: form.photoUrl.trim() || undefined,
+          preferences: prefs,
         }, "manager", "Manager");
         toast.success(`Updated ${form.firstName}`);
       } else {
         await guestService.createProfile({
           firstName: form.firstName.trim(), lastName: form.lastName.trim() || undefined, phone: form.phone.trim() || undefined, email: form.email.trim() || undefined, dobYear: form.dobYear ? parseInt(form.dobYear) : undefined, tags: form.tags, vipTier: form.vipTier, notes: form.notes.trim() || undefined, marketingConsent: { email: form.marketingEmail, sms: form.marketingSms }, source: "manager",
+          photoUrl: form.photoUrl.trim() || undefined,
+          preferences: prefs,
         });
         toast.success(`Created profile for ${form.firstName}`);
       }
@@ -196,11 +214,12 @@ export default function ManagerGuestsPage() {
             {paginate(visible, page).map((profile) => (
               <div key={profile.id} className={`flex items-center justify-between gap-2 px-4 py-3 transition-colors ${selected?.id === profile.id ? "bg-accent/60" : "hover:bg-accent/30"}`}>
                 <button type="button" onClick={() => { setSelected(profile); setBanReason(""); setMergeTargetId(""); }} className="flex-1 text-left min-w-0">
-                  <p className="flex items-center gap-2 font-medium">{profile.displayName}
+                   <p className="flex items-center gap-2 font-medium">{profile.displayName}
                     {profile.status === "banned" && <Badge variant="outline" className="border-red-500/40 text-red-600 dark:text-red-400 text-[10px]">Banned</Badge>}
+                    {profile.watchlist && <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px]">Watchlist</Badge>}
                     {profile.vipTier !== "none" && <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px] capitalize">{profile.vipTier}</Badge>}
                   </p>
-                  <p className="text-xs text-muted-foreground">{profile.visitCount} visits · {formatMoney(profile.lifetimeNetCents / 100)} lifetime{profile.lastVisitAt && ` · ${formatDate(profile.lastVisitAt)}`}</p>
+                  <p className="text-xs text-muted-foreground">{profile.visitCount} visits · {formatMoney(profile.lifetimeNetCents / 100)} lifetime{profile.lastVisitAt && ` · ${formatDate(profile.lastVisitAt)}`}{profile.valueScore != null ? ` · Score ${profile.valueScore}` : ""}</p>
                 </button>
                 <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => openEdit(profile)} aria-label="Edit"><Pencil className="size-3.5" /></Button>
               </div>
@@ -272,6 +291,16 @@ export default function ManagerGuestsPage() {
               <div className="mt-1 flex flex-wrap gap-1">{TAG_OPTIONS.map((tag) => <Badge key={tag} variant={form.tags.includes(tag) ? "default" : "outline"} className="cursor-pointer text-[10px]" onClick={() => toggleTag(tag)}>{tag}</Badge>)}</div>
             </div>
             <div><Label htmlFor="g-notes">Notes</Label><Textarea id="g-notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} rows={2} /></div>
+            <div><Label htmlFor="g-photo">Photo URL</Label><Input id="g-photo" value={form.photoUrl} onChange={(e) => setForm((p) => ({ ...p, photoUrl: e.target.value }))} placeholder="https://..." /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label htmlFor="g-drink">Pref. drink</Label><Input id="g-drink" value={form.preferredDrink} onChange={(e) => setForm((p) => ({ ...p, preferredDrink: e.target.value }))} /></div>
+              <div><Label htmlFor="g-dietary">Dietary</Label><Input id="g-dietary" value={form.dietary} onChange={(e) => setForm((p) => ({ ...p, dietary: e.target.value }))} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label htmlFor="g-allergies">Allergies</Label><Input id="g-allergies" value={form.allergies} onChange={(e) => setForm((p) => ({ ...p, allergies: e.target.value }))} /></div>
+              <div><Label htmlFor="g-celebration">Celebration date</Label><Input id="g-celebration" type="date" value={form.celebrationDate} onChange={(e) => setForm((p) => ({ ...p, celebrationDate: e.target.value }))} /></div>
+            </div>
+            <div><Label htmlFor="g-watchlist">Watchlist reason</Label><Input id="g-watchlist" value={form.watchlistReason} onChange={(e) => setForm((p) => ({ ...p, watchlistReason: e.target.value }))} placeholder="Leave blank to remove" /></div>
             {!editing && (
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.marketingEmail} onChange={(e) => setForm((p) => ({ ...p, marketingEmail: e.target.checked }))} /> Email consent</label>

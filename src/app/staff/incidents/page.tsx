@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, ListChecks, ShieldOff } from "lucide-react";
+import { AlertTriangle, ListChecks, Plus, ShieldOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +54,15 @@ export default function StaffIncidentsPage() {
   const [policeInvolved, setPoliceInvolved] = useState(false);
   const [reportable, setReportable] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // OE-29/30: escalation + witness + CCTV
+  const [escalationLevel, setEscalationLevel] = useState<0 | 1 | 2 | 3>(0);
+  const [witnesses, setWitnesses] = useState<{ name: string; contact: string; statement: string }[]>([]);
+  const [wName, setWName] = useState("");
+  const [wContact, setWContact] = useState("");
+  const [wStatement, setWStatement] = useState("");
+  const [cctvCamera, setCctvCamera] = useState("");
+  // OE-31: medical checklist
+  const [ambulanceCalled, setAmbulanceCalled] = useState(false);
   const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
@@ -82,6 +91,10 @@ export default function StaffIncidentsPage() {
     setActionsTaken("");
     setPoliceInvolved(false);
     setReportable(false);
+    setEscalationLevel(0);
+    setWitnesses([]);
+    setCctvCamera("");
+    setAmbulanceCalled(false);
   }
 
   async function submitReport() {
@@ -101,6 +114,10 @@ export default function StaffIncidentsPage() {
         reportable,
         reportedByStaffId: me.id,
         reportedByStaffName: me.name,
+        escalationLevel: escalationLevel > 0 ? escalationLevel : undefined,
+        witnesses: witnesses.length > 0 ? witnesses : undefined,
+        cctvReference: cctvCamera ? [{ camera: cctvCamera, timestamp: new Date().toISOString() }] : undefined,
+        medicalChecklist: ambulanceCalled ? { ambulanceCalled: true, reportFiled: true } : undefined,
       });
       toast.success("Incident filed");
       resetForm();
@@ -201,6 +218,44 @@ export default function StaffIncidentsPage() {
                 <p className="text-xs text-muted-foreground">Requires filing with a regulatory body</p>
               </div>
               <Switch checked={reportable} onCheckedChange={setReportable} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Escalation level</Label>
+              <Select value={String(escalationLevel)} onValueChange={(v) => setEscalationLevel(Number(v) as 0 | 1 | 2 | 3)}>
+                <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">None</SelectItem>
+                  <SelectItem value="1">Level 1 — Security lead</SelectItem>
+                  <SelectItem value="2">Level 2 — Manager</SelectItem>
+                  <SelectItem value="3">Level 3 — Police / external</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Witnesses</Label>
+              {witnesses.map((w, i) => (
+                <div key={i} className="flex items-start gap-2 rounded border px-2 py-1.5 text-xs">
+                  <span className="font-medium shrink-0">{w.name}{w.contact ? ` · ${w.contact}` : ""}</span>
+                  <span className="text-muted-foreground flex-1 min-w-0">{w.statement}</span>
+                  <button onClick={() => setWitnesses((prev) => prev.filter((_, j) => j !== i))} className="shrink-0"><X className="size-3" /></button>
+                </div>
+              ))}
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="Name" value={wName} onChange={(e) => setWName(e.target.value)} className="h-9 text-sm" />
+                <Input placeholder="Contact" value={wContact} onChange={(e) => setWContact(e.target.value)} className="h-9 text-sm" />
+              </div>
+              <Input placeholder="Statement" value={wStatement} onChange={(e) => setWStatement(e.target.value)} className="h-9 text-sm" />
+              <Button variant="outline" size="sm" onClick={() => { if (wName.trim()) { setWitnesses([...witnesses, { name: wName.trim(), contact: wContact.trim(), statement: wStatement.trim() }]); setWName(""); setWContact(""); setWStatement(""); } }}>
+                <Plus className="size-3.5 mr-1" /> Add witness
+              </Button>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cctv">CCTV camera reference</Label>
+              <Input id="cctv" value={cctvCamera} onChange={(e) => setCctvCamera(e.target.value)} placeholder="Camera 3, main entrance" className="h-9" />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
+              <p className="text-sm font-medium">Ambulance called</p>
+              <Switch checked={ambulanceCalled} onCheckedChange={setAmbulanceCalled} />
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" className="h-12 flex-1" onClick={() => { setReporting(false); resetForm(); }}>

@@ -21,9 +21,22 @@ export type ReservationDraft = {
   note: string;
   promoterId?: string;
   eventId?: string;
-  /** Resolved via dedupe search below — links the booking to a persistent guest identity. */
   guestProfileId?: string;
+  celebration?: "birthday" | "anniversary" | "other";
+  depositCents?: number;
+  cancellationDeadlineTime?: string;
+  holdUntil?: string;
+  minimumSpendCents?: number;
+  expectedDurationMinutes?: number;
+  timeSlot?: "early" | "late" | "any";
 };
+
+export const CELEBRATION_OPTIONS = [
+  { value: "" as const, label: "None" },
+  { value: "birthday" as const, label: "Birthday" },
+  { value: "anniversary" as const, label: "Anniversary" },
+  { value: "other" as const, label: "Other" },
+];
 
 export function toLocalInput(iso: string): string {
   const d = new Date(iso);
@@ -262,7 +275,61 @@ export function ReservationFormDialog({
               placeholder="Birthday, VIP client, etc."
             />
           </div>
-        </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="res-celebration">Celebration</Label>
+              <select id="res-celebration" className={selectCls}
+                value={draft.celebration ?? ""}
+                onChange={(e) => setDraft({ ...draft, celebration: e.target.value as ReservationDraft["celebration"] || undefined })}>
+                {CELEBRATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="res-deposit">Deposit ($)</Label>
+              <Input id="res-deposit" type="number" min={0} step={50} placeholder="0"
+                value={draft.depositCents ? draft.depositCents / 100 : ""}
+                onChange={(e) => setDraft({ ...draft, depositCents: Math.round(Number(e.target.value) * 100) || undefined })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="res-cancel-deadline">Cancel by</Label>
+              <Input id="res-cancel-deadline" type="datetime-local"
+                value={draft.cancellationDeadlineTime ?? ""}
+                onChange={(e) => setDraft({ ...draft, cancellationDeadlineTime: e.target.value || undefined })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="res-hold-until">Hold until</Label>
+              <Input id="res-hold-until" type="datetime-local"
+                value={draft.holdUntil ?? ""}
+                onChange={(e) => setDraft({ ...draft, holdUntil: e.target.value || undefined })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="res-min-spend">Min spend ($)</Label>
+              <Input id="res-min-spend" type="number" min={0} step={50} placeholder="Table default"
+                value={draft.minimumSpendCents ? draft.minimumSpendCents / 100 : ""}
+                onChange={(e) => setDraft({ ...draft, minimumSpendCents: Math.round(Number(e.target.value) * 100) || undefined })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="res-duration">Duration (min)</Label>
+              <Input id="res-duration" type="number" min={30} step={30} max={480} placeholder="—"
+                value={draft.expectedDurationMinutes ?? ""}
+                onChange={(e) => setDraft({ ...draft, expectedDurationMinutes: Number(e.target.value) || undefined })} />
+            </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="res-slot">Time slot</Label>
+              <select id="res-slot" className={selectCls}
+                value={draft.timeSlot ?? "any"}
+                onChange={(e) => setDraft({ ...draft, timeSlot: e.target.value as ReservationDraft["timeSlot"] || undefined })}>
+                <option value="any">Any time</option>
+                <option value="early">Early (7–11 PM)</option>
+                <option value="late">Late (11 PM–3 AM)</option>
+              </select>
+            </div>
+          </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel

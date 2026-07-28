@@ -4,7 +4,7 @@
  * are appended IncidentNote rows. Writes an AuditEntry in the same logical
  * operation that creates the incident.
  */
-import type { Incident, IncidentNote } from "@/lib/types";
+import type { Incident, IncidentActionItem, IncidentNote } from "@/lib/types";
 import { mockIncidentNotes, mockIncidents } from "@/lib/mock-data/incidents";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { businessDateFor } from "@/lib/door";
@@ -14,6 +14,7 @@ import { mockVenueService } from "./venue-service";
 
 let incidents: Incident[] = clone(mockIncidents);
 let notes: IncidentNote[] = clone(mockIncidentNotes);
+let actionItems: IncidentActionItem[] = [];
 
 export const mockIncidentService = {
   async listIncidents(filter?: {
@@ -58,6 +59,10 @@ export const mockIncidentService = {
     regulatoryAuthority?: string;
     reportedByStaffId: string;
     reportedByStaffName: string;
+    escalationLevel?: Incident["escalationLevel"];
+    witnesses?: Incident["witnesses"];
+    cctvReference?: Incident["cctvReference"];
+    medicalChecklist?: Incident["medicalChecklist"];
   }): Promise<Incident> {
     await delay(500);
     const venue = await mockVenueService.getVenueSnapshot();
@@ -82,6 +87,10 @@ export const mockIncidentService = {
       reportable: input.reportable ?? false,
       regulatoryDeadline: input.regulatoryDeadline,
       regulatoryAuthority: input.regulatoryAuthority,
+      escalationLevel: input.escalationLevel,
+      witnesses: input.witnesses,
+      cctvReference: input.cctvReference,
+      medicalChecklist: input.medicalChecklist,
     };
     incidents = [incident, ...incidents];
     await mockAuditService.record({
@@ -155,5 +164,24 @@ export const mockIncidentService = {
       summary: `Reported incident to ${incident.regulatoryAuthority ?? "regulatory authority"}`,
     });
     return clone(incident);
+  },
+
+  /** OE-32: Post-incident action items — created during review as assignable tasks. */
+  async listActionItems(incidentId?: string): Promise<IncidentActionItem[]> {
+    await delay();
+    const all = clone(actionItems);
+    return incidentId ? all.filter((a) => a.incidentId === incidentId) : all;
+  },
+
+  async createActionItem(input: { incidentId: string; description: string; assignedToStaffId?: string }): Promise<IncidentActionItem> {
+    await delay(200);
+    const item: IncidentActionItem = { id: uid("ai"), ...input, status: "pending", createdAt: new Date().toISOString() };
+    actionItems.push(item);
+    return clone(item);
+  },
+
+  async completeActionItem(itemId: string): Promise<void> {
+    const item = actionItems.find((a) => a.id === itemId);
+    if (item) { item.status = "completed"; item.completedAt = new Date().toISOString(); }
   },
 };

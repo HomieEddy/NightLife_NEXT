@@ -5,7 +5,7 @@
  * reservation, a guestlist entry, a door ID check, or a host tagging a
  * regular. QR sessions stay anonymous unless a GuestLink attaches one.
  */
-import type { GuestLink, GuestProfile, GuestTag, GuestVipTier } from "@/lib/types";
+import type { GuestLink, GuestProfile, GuestReferral, GuestTag, GuestVipTier } from "@/lib/types";
 import { mockGuestLinks, mockGuestProfiles } from "@/lib/mock-data/guests";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { dedupeCandidates, type DedupeCandidate } from "@/lib/door";
@@ -14,6 +14,7 @@ import { mockAuditService } from "./audit-service";
 
 let profiles: GuestProfile[] = clone(mockGuestProfiles);
 let links: GuestLink[] = clone(mockGuestLinks);
+let referrals: GuestReferral[] = [];
 
 function displayNameFor(firstName: string, lastName?: string): string {
   return `${firstName}${lastName ? ` ${lastName}` : ""}`.trim();
@@ -62,6 +63,8 @@ export const mockGuestService = {
     notes?: string;
     marketingConsent?: { email: boolean; sms: boolean };
     source: string;
+    photoUrl?: string;
+    preferences?: GuestProfile["preferences"];
   }): Promise<GuestProfile> {
     await delay(400);
     const now = new Date().toISOString();
@@ -87,6 +90,8 @@ export const mockGuestService = {
       createdAt: now,
       visitCount: 0,
       lifetimeNetCents: 0,
+      photoUrl: input.photoUrl,
+      preferences: input.preferences,
     };
     profiles = [profile, ...profiles];
     return clone(profile);
@@ -94,7 +99,7 @@ export const mockGuestService = {
 
   async updateProfile(
     id: string,
-    patch: Partial<Pick<GuestProfile, "firstName" | "lastName" | "phone" | "email" | "dobYear" | "tags" | "vipTier" | "notes">>,
+    patch: Partial<Pick<GuestProfile, "firstName" | "lastName" | "phone" | "email" | "dobYear" | "tags" | "vipTier" | "notes" | "photoUrl" | "preferences">>,
     staffId: string,
     staffName: string,
   ): Promise<GuestProfile | null> {
@@ -210,5 +215,36 @@ export const mockGuestService = {
     profile.visitCount += 1;
     profile.lifetimeNetCents += netCents;
     profile.lastVisitAt = new Date().toISOString();
+  },
+
+  /** CRM-06: Guest referral tracking. */
+  async listReferrals(profileId?: string): Promise<GuestReferral[]> {
+    await delay();
+    return clone(profileId ? referrals.filter((r) => r.referrerProfileId === profileId) : referrals);
+  },
+
+  async createReferral(input: { referrerProfileId: string; referredProfileId: string; source: string }): Promise<GuestReferral> {
+    await delay(200);
+    const r: GuestReferral = { id: uid("ref"), ...input, status: "pending", createdAt: new Date().toISOString() };
+    referrals.push(r);
+    return clone(r);
+  },
+
+  /** CRM-07: GDPR / data deletion — removes profile data and unlinks from sessions. */
+  async deleteProfileData(profileId: string, staffId: string, staffName: string): Promise<void> {
+    await delay(400);
+    const idx = profiles.findIndex((p) => p.id === profileId);
+    if (idx === -1) throw new Error("Profile not found.");
+    const name = profiles[idx].displayName;
+    profiles.splice(idx, 1);
+    links = links.filter((l) => l.guestProfileId !== profileId);
+    await mockAuditService.record({
+      actorStaffId: staffId,
+      actorName: staffName,
+      action: "guest:delete-profile",
+      targetType: "guest-profile",
+      targetId: profileId,
+      summary: `Deleted profile and personal data for ${name}`,
+    });
   },
 };

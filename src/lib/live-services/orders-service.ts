@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdjustmentReason, MenuItem, Order, OrderStatus, TabAdjustment, TabAdjustmentKind } from "@/lib/types";
+import type { AdjustmentReason, GuestSession, MenuItem, Order, OrderStatus, TabAdjustment, TabAdjustmentKind } from "@/lib/types";
 import type { CartLine } from "@/lib/types";
 import { toCents } from "@/server/money";
 
@@ -184,6 +184,22 @@ export const liveOrdersService = {
       method: "PATCH",
       body: JSON.stringify({ toSessionId }),
     });
+  },
+
+  async reopenSession(sessionId: string): Promise<GuestSession | null> {
+    return api(`/api/sessions/${encodeURIComponent(sessionId)}/reopen`, { method: "POST" });
+  },
+
+  async getSessionRoundCount(_sessionId: string): Promise<number> {
+    return api("/api/sessions/round-count");
+  },
+
+  async detectDualSession(_tableId: string): Promise<GuestSession[]> {
+    return api("/api/sessions/dual");
+  },
+
+  async checkInventoryAvailability(_cartLines: { menuItemId: string; quantity: number }[]): Promise<{ menuItemId: string; name: string; available: number; requested: number }[]> {
+    return api("/api/inventory/availability", { method: "POST" });
   },
 };
 import { liveFetch } from "./live-fetch";

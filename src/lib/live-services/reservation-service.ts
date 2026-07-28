@@ -135,5 +135,9 @@ export const liveReservationService = {
       body: JSON.stringify({ pin }),
     });
   },
+
+  async checkCapacityForBooking(_date: string, _partySize: number): Promise<{ allowed: boolean; currentBooked: number; legalCapacity: number }> {
+    return api("/api/reservations/capacity-check", { method: "POST" });
+  },
 };
 import { liveFetch } from "./live-fetch";

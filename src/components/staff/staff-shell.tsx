@@ -47,7 +47,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              {me && <RoleBadge role={me.role} />}
+              {me && <RoleBadge role={me.role} clickable />}
               <AuthBanner />
               <ThemeToggle />
             </div>
