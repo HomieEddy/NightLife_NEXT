@@ -13,7 +13,7 @@ import {
   getTableTurnAnalytics,
   getOrderSlaAnalytics,
   getCompVoidRatioAnalytics,
-} from "@/features/analytics/analytics-phase4";
+} from "@/features/analytics/analytics-depth";
 import { nightForDate } from "@/features/shared/night";
 
 const UTC_NIGHT = { timezone: "UTC", nightStartHour: 18, nightEndHour: 10 };

@@ -38,7 +38,7 @@ import {
   mockBottleServiceAnalytics,
   mockCapacityUtilizationAnalytics,
   mockNightSummary,
-} from "@/features/analytics/phase4-mock-data";
+} from "@/features/analytics/analytics-depth-mock-data";
 import { aggregateWeekly } from "@/lib/analytics";
 import { renderCsv } from "@/features/analytics/report-csv";
 import { mockOrdersService } from "@/features/ordering/mock-service";

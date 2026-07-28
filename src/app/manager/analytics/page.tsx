@@ -34,7 +34,7 @@ import {
   ComparisonTab, ForecastTab, PerHourTab, FunnelTab, TableTurnTab,
   SlaTab, CompVoidTab, PromoterPerformanceTab, IncidentPatternTab,
   GuestRetentionTab, BottleServiceTab, CapacityUtilizationTab, NightSummaryTab,
-} from "@/components/manager/analytics-phase4";
+} from "@/components/manager/analytics-depth";
 
 const isoDaysAgo = (days: number) => {
   const d = new Date();
