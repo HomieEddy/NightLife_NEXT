@@ -4,7 +4,7 @@
  * stocktakes are immutable after committed.
  */
 import type { PurchaseOrder, Stocktake, Supplier, SupplierItem, StockMovement, EightySixEntry, ProfitTarget, EventCost, EventRunSheetEntry, InventoryChecklist, InventoryChecklistEntry, SupplierPerformanceMetrics } from "@/lib/types";
-import { mockSuppliers, mockSupplierItems, mockPurchaseOrders, mockStocktakes, mockEightySixEntries, mockProfitTargets, mockEventCosts } from "@/lib/mock-data/costs";
+import { mockSuppliers, mockSupplierItems, mockPurchaseOrders, mockStocktakes, mockEightySixEntries, mockProfitTargets, mockEventCosts } from "@/features/ordering/costs-mock-data";
 import { mockMenuItems, mockStockMovements } from "@/features/menu/mock-data";
 import { clone, delay, uid } from "@/features/shared/delay";
 

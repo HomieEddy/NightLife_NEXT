@@ -3,7 +3,7 @@
  * Live mode persists this as an insert-only shift_cashouts table.
  */
 import type { GuestSession, Order, SettlementMethod, ShiftCashout, TabAdjustment } from "@/lib/types";
-import { mockCashouts } from "@/lib/mock-data/tab";
+import { mockCashouts } from "@/features/sessions/tab-mock-data";
 import { mockVenue } from "@/features/venue/mock-data";
 import { computeCashoutExpected, computeCashoutVariance, emptyMethodTotals } from "@/lib/tab";
 import { clone, delay, uid } from "@/features/shared/delay";

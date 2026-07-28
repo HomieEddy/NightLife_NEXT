@@ -4,7 +4,7 @@
  * once per business date, then frozen (closed). Closure writes an audit entry.
  */
 import type { TipDistribution, TipPoolRule } from "@/lib/types";
-import { mockTipDistributions, mockTipPoolRules } from "@/lib/mock-data/workforce";
+import { mockTipDistributions, mockTipPoolRules } from "@/features/workforce/workforce-mock-data";
 import { clone, delay } from "@/features/shared/delay";
 
 const distributions: TipDistribution[] = clone(mockTipDistributions);

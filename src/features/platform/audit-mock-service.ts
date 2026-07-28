@@ -5,7 +5,7 @@
  * Live mode persists this as an insert-only audit_entries table.
  */
 import type { AuditEntry } from "@/lib/types";
-import { mockAuditEntries } from "@/lib/mock-data/tab";
+import { mockAuditEntries } from "@/features/sessions/tab-mock-data";
 import { mockVenue } from "@/features/venue/mock-data";
 import { clone, delay, uid } from "@/features/shared/delay";
 

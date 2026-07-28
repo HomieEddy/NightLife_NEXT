@@ -3,7 +3,7 @@
  * Commission statements are append-only; approving one writes an audit entry.
  */
 import type { CommissionRule, CommissionStatement } from "@/lib/types";
-import { mockCommissionRules, mockCommissionStatements } from "@/lib/mock-data/workforce";
+import { mockCommissionRules, mockCommissionStatements } from "@/features/workforce/workforce-mock-data";
 import { clone, delay } from "@/features/shared/delay";
 
 const rules: CommissionRule[] = clone(mockCommissionRules);

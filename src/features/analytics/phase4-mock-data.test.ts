@@ -13,7 +13,7 @@ import {
   mockBottleServiceAnalytics,
   mockCapacityUtilizationAnalytics,
   mockNightSummary,
-} from "@/lib/mock-data/phase4-analytics";
+} from "@/features/analytics/phase4-mock-data";
 
 describe("Phase 4 analytics mock data — shape validation", () => {
   it("AI-01: night comparison has valid deltas", () => {

@@ -4,8 +4,8 @@
  * supersede, never mutate. The manual isOnShift toggle is retired in live builds.
  */
 import type { Shift, TimeEntry, TimeOffRequest, ShiftSwapRequest } from "@/lib/types";
-import { mockTimeEntries, mockTimeOffRequests, mockShiftSwapRequests } from "@/lib/mock-data/workforce";
-import { mockShifts } from "@/lib/mock-data/workforce";
+import { mockTimeEntries, mockTimeOffRequests, mockShiftSwapRequests } from "@/features/workforce/workforce-mock-data";
+import { mockShifts } from "@/features/workforce/workforce-mock-data";
 import { clone, delay, uid } from "@/features/shared/delay";
 
 const entries: TimeEntry[] = clone(mockTimeEntries);

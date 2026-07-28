@@ -15,7 +15,7 @@ import type {
 import { mockOrders, mockGuestSessions } from "@/features/ordering/mock-data";
 import { mockMenuItems } from "@/features/menu/mock-data";
 import { mockVenue } from "@/features/venue/mock-data";
-import { mockAdjustmentReasons } from "@/lib/mock-data/tab";
+import { mockAdjustmentReasons } from "@/features/sessions/tab-mock-data";
 import { computeFeeLines, computeServiceFee } from "@/features/ordering/fees";
 import { cartHappyHourDiscount } from "@/lib/happy-hour";
 import { orderLineSubtotal } from "@/lib/order-line";
