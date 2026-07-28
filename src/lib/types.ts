@@ -1801,3 +1801,341 @@ export interface EventMenuOverride {
   packageIds: string[];
   priceOverrides: Record<string, number>; // menuItemId → cents
 }
+
+// ---------- Phase 4: Analytics Depth (AI-01 through AI-14) ----------
+
+/** AI-01: Night-over-night comparison — tonight vs a reference night (e.g. last Saturday, avg Saturday). */
+export interface NightComparison {
+  /** Label for the comparison (e.g. "vs last Saturday", "vs avg Saturday"). */
+  referenceLabel: string;
+  /** Tonight's metric values (live or historical). */
+  current: { revenue: number; orders: number; avgOrderValue: number; covers: number };
+  /** Reference night's metric values. */
+  reference: { revenue: number; orders: number; avgOrderValue: number; covers: number };
+  /** Percentage deltas (can be negative). */
+  deltas: { revenuePct: number; ordersPct: number; avgOrderValuePct: number; coversPct: number };
+}
+
+/** AI-02: Forecast / projection — current pace extrapolated to end-of-night. */
+export interface NightForecast {
+  /** The current (partial) night metrics, computed so far. */
+  current: { revenue: number; orders: number; covers: number };
+  /** How many hours into the night (e.g. 3.5 out of 8). */
+  hoursElapsed: number;
+  hoursTotal: number;
+  /** Projected end-of-night numbers. */
+  projected: { revenue: number; orders: number; covers: number };
+  /** The pace multiplier (totalHours / elapsedHours), capped at a plausible ceiling. */
+  paceMultiplier: number;
+  /** 0 = on pace, >0 = ahead, <0 = behind. */
+  variancePct: number;
+  /** Event boosting revenue (if any active event contributes uplift). */
+  eventBoost?: { eventName: string; estimatedUpliftCents: number };
+}
+
+/** AI-03: Per-hour breakdown — revenue, orders, admissions by operational hour. */
+export interface PerHourBucket {
+  hour: string; // e.g. "22:00"
+  revenue: number;
+  orders: number;
+  admissions: number;
+  exits: number;
+  occupancy: number;
+  peakFlag?: boolean;
+}
+
+export interface PerHourAnalytics {
+  buckets: PerHourBucket[];
+  peakHour: string;
+  peakRevenue: number;
+  peakOccupancy: number;
+  legalCapacity: number;
+}
+
+/** AI-04: Door-to-table conversion funnel — how admissions flow through to revenue. */
+export interface DoorToTableFunnel {
+  admissions: number;
+  sessionsCreated: number;
+  menusOpened: number;
+  ordersPlaced: number;
+  ordersDelivered: number;
+  /** Step conversion rates (each step / admissions). */
+  rates: { sessionRate: number; menuOpenRate: number; orderRate: number; deliveryRate: number };
+  /** Where the biggest drop-off happens. */
+  biggestDropStep: string;
+  biggestDropPct: number;
+}
+
+/** AI-05: Table-turn analytics — occupancy duration and seatings per night. */
+export interface TableTurnEntry {
+  tableId: string;
+  tableCode: string;
+  zoneId: string;
+  zoneName: string;
+  seatings: number;
+  avgOccupancyMinutes: number;
+  totalOccupancyMinutes: number;
+  /** Revenue per seating — the table's contribution per occupied slot. */
+  revenuePerSeating: number;
+  /** Percentage of the night this table was occupied. */
+  occupancyRate: number;
+}
+
+export interface TableTurnAnalytics {
+  turns: TableTurnEntry[];
+  avgTurnsPerTable: number;
+  avgOccupancyMinutes: number;
+  totalSeatings: number;
+  fastestTurn: { tableCode: string; minutes: number };
+  slowestTurn: { tableCode: string; minutes: number };
+}
+
+/** AI-06: Order SLA / time-to-serve analytics. */
+export interface OrderSlaBucket {
+  label: string; // e.g. "0-5 min", "5-10 min", "10-15 min", "15+ min"
+  minMinutes: number;
+  maxMinutes: number | null;
+  count: number;
+}
+
+export interface OrderSlaAnalytics {
+  avgAcceptMinutes: number;
+  avgPrepMinutes: number;
+  avgTotalMinutes: number;
+  p50Minutes: number;
+  p95Minutes: number;
+  p99Minutes: number;
+  /** Distribution buckets for total time-to-serve. */
+  distribution: OrderSlaBucket[];
+  byZone: { zoneId: string; zoneName: string; avgMinutes: number; count: number }[];
+  byStaff: { staffId: string; staffName: string; role: StaffRole; avgMinutes: number; count: number }[];
+  slaBreachCount: number;
+  slaBreachRate: number;
+  autoEscalationCount: number;
+}
+
+/** AI-07: Comp/void ratio monitoring — per-staff with threshold alerting. */
+export interface CompVoidRatioEntry {
+  staffId: string;
+  staffName: string;
+  role: StaffRole;
+  compCount: number;
+  voidCount: number;
+  compCents: number;
+  voidCents: number;
+  compRate: number; // compCents / grossCents
+  voidRate: number; // voidCents / grossCents
+  /** Whether this staff member exceeds the configured threshold. */
+  flagged: boolean;
+}
+
+export interface CompVoidRatioAnalytics {
+  entries: CompVoidRatioEntry[];
+  /** Configurable threshold above which a staff member is flagged. */
+  compRateThreshold: number;
+  voidRateThreshold: number;
+  flaggedCount: number;
+}
+
+/** AI-08: Report CSV export & email delivery. (CSV rendering exists in report-csv.ts — this type
+ *  represents the export job and delivery status.) */
+export interface ReportExport {
+  id: string;
+  reportName: string;
+  metrics: ReportMetric[];
+  rangeFrom: string;
+  rangeTo: string;
+  format: "csv";
+  /** Status of the export job. */
+  status: "pending" | "generated" | "emailed" | "failed";
+  /** CSV content (in-memory for demo; in real life, a signed S3 URL). */
+  csvContent?: string;
+  /** When email sent (ISO). */
+  emailedAt?: string;
+  recipient?: string;
+  createdAt: string;
+}
+
+/** AI-09: Promoter performance report — fill rate, check-in rate, spend, commission. */
+export interface PromoterPerformanceReport {
+  promoterId: string;
+  promoterName: string;
+  /** Reservations created in the range. */
+  reservationsCreated: number;
+  /** Reservations confirmed (approved by venue). */
+  reservationsConfirmed: number;
+  /** Guests who actually checked in. */
+  checkIns: number;
+  /** Show-up rate (check-ins / confirmed). */
+  showUpRate: number;
+  /** Fill rate (confirmed / created). */
+  fillRate: number;
+  /** Attributed revenue from seated reservations. */
+  attributedRevenue: number;
+  /** Commission earned (if commission rate is set). */
+  commissionCents: number;
+  /** Average spend per checked-in guest. */
+  avgSpendPerGuest: number;
+  /** Guest list count for promoter-hosted events. */
+  guestListCount: number;
+  /** Guest list conversion (seated ÷ guest list invites). */
+  guestListConversion: number;
+}
+
+/** AI-10: Security incident pattern report — by zone, time, night, staff presence. */
+export interface IncidentPatternEntry {
+  zoneId?: string;
+  zoneName?: string;
+  hour?: string;
+  dayOfWeek?: number; // 0=Sun
+  severity: "low" | "medium" | "high";
+  count: number;
+}
+
+export interface IncidentPatternReport {
+  byZone: { zoneId: string; zoneName: string; low: number; medium: number; high: number; total: number }[];
+  byHour: { hour: string; count: number; severity: "low" | "medium" | "high" }[];
+  byDayOfWeek: { day: number; dayName: string; count: number }[];
+  /** Hotspots — the zone+hour combinations with the most incidents. */
+  hotspots: { zoneName: string; hour: string; count: number }[];
+  totalIncidents: number;
+}
+
+/** AI-11: Guest retention report — repeat rate, churn, new vs returning. */
+export interface GuestRetentionMetrics {
+  newGuests: number;
+  returningGuests: number;
+  totalGuests: number;
+  /** Repeat rate: returning / total. */
+  repeatRate: number;
+  /** Churn rate: guests who visited last period but not this one. */
+  churnRate: number;
+  /** Average visits per guest in the range. */
+  avgVisitsPerGuest: number;
+  /** Guests with 3+ visits (power users). */
+  powerUsers: number;
+  /** VIP retention — percentage of VIPs who returned this period. */
+  vipRetentionRate: number;
+  /** Average days between visits for returning guests. */
+  avgDaysBetweenVisits: number;
+}
+
+/** AI-12: Bottle service utilization — by brand, zone, time; presentation frequency. */
+export interface BottleServiceEntry {
+  menuItemId: string;
+  itemName: string;
+  categoryId: string;
+  categoryName: string;
+  presentations: number; // count of sparkler/presentation events
+  bottlesSold: number;
+  revenue: number;
+  /** Average revenue per bottle presentation. */
+  avgRevenuePerPresentation: number;
+  /** Zone breakdown. */
+  zoneBreakdown: { zoneId: string; zoneName: string; bottles: number; revenue: number }[];
+  /** Percentage of total bottle revenue this item represents. */
+  shareOfBottleRevenue: number;
+}
+
+export interface BottleServiceAnalytics {
+  entries: BottleServiceEntry[];
+  totalBottleRevenue: number;
+  totalPresentations: number;
+  totalBottlesSold: number;
+  avgBottleRevenue: number;
+  /** Peak hour for bottle presentations. */
+  peakHour: string;
+}
+
+/** AI-13: Capacity utilization — peak occupancy, entry/exit rates, avg stay. */
+export interface CapacityUtilizationBucket {
+  hour: string;
+  occupancy: number; // headcount
+  utilizationPct: number; // occupancy / legalCapacity
+  entries: number;
+  exits: number;
+}
+
+export interface CapacityUtilizationAnalytics {
+  buckets: CapacityUtilizationBucket[];
+  legalCapacity: number;
+  peakOccupancy: number;
+  peakHour: string;
+  peakUtilizationPct: number;
+  avgOccupancy: number;
+  avgStayMinutes: number;
+  totalEntries: number;
+  totalExits: number;
+  /** Whether legal capacity was ever exceeded. */
+  exceededLegalCapacity: boolean;
+}
+
+/** AI-14: Night summary auto-generation — one-page executive summary at venue close. */
+export interface NightSummary {
+  businessDate: string;
+  generatedAt: string;
+  /** Revenue snapshot. */
+  revenue: { total: number; deltaVsAvgPct: number; deltaVsLastWeekPct: number };
+  orders: { total: number; avgValue: number; topItem: string };
+  covers: { total: number; seated: number; noShowCount: number };
+  staff: { onDuty: number; topPerformer: string; topPerformerRevenue: number };
+  incidents: { total: number; highSeverity: number };
+  inventory: { topSoldItem: string; soldOutItems: string[] };
+  /** Single-paragraph executive summary — the "what happened tonight" narrative. */
+  executiveSummary: string;
+  /** Action items flagged for the next manager on duty. */
+  actionItems: string[];
+  /** Whether this summary has been emailed. */
+  emailed: boolean;
+}
+
+// ---------- Phase 4: Automations (AM-01 through AM-13) ----------
+
+/** Each automation the venue can enable/configure. */
+export type AutomationCode =
+  | "auto-release-reservations"    // AM-01
+  | "auto-generate-po"             // AM-02
+  | "auto-escalate-orders"         // AM-03
+  | "auto-detect-duplicates"       // AM-04
+  | "auto-vip-tier-upgrade"        // AM-05
+  | "auto-event-pricing"           // AM-06
+  | "auto-close-event"             // AM-07
+  | "auto-remove-86"               // AM-08
+  | "auto-pour-cost"               // AM-09
+  | "auto-flag-variance"           // AM-10
+  | "auto-notify-vip-arrival"      // AM-11
+  | "auto-flag-dormant-vip"        // AM-12
+  | "auto-suggest-table";          // AM-13
+
+export interface AutomationRule {
+  id: string;
+  code: AutomationCode;
+  label: string;
+  description: string;
+  /** Whether the automation is enabled for this venue. */
+  enabled: boolean;
+  /** Category for grouping in the UI. */
+  category: "reservations" | "orders" | "inventory" | "vip" | "events" | "reports";
+  /** Configurable threshold values per-automation (JSON-typed for demo flexibility). */
+  config: Record<string, string | number | boolean>;
+  /** When this rule was last triggered (ISO). */
+  lastTriggeredAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A record of an automation having run — the execution log. */
+export interface AutomationExecution {
+  id: string;
+  ruleId: string;
+  code: AutomationCode;
+  triggeredAt: string;
+  /** What happened — a human-readable summary. */
+  result: string;
+  /** Whether the action was applied (some are advisory/suggestive). */
+  actionApplied: boolean;
+  /** Relevant entity IDs affected (e.g. order IDs, guest IDs). */
+  affectedEntityIds: string[];
+  /** Duration in milliseconds the automation took to run. */
+  durationMs: number;
+}

@@ -1452,3 +1452,45 @@ model NotificationLog {
   @@index([venueId, template])
   @@map("notification_logs")
 }
+
+/// Phase 4: Automation rule — one row per automation a venue can enable/configure.
+model AutomationRule {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  code       String   // AutomationCode enum value
+  label      String
+  description String
+  enabled    Boolean  @default(false)
+  category   String   // "reservations" | "orders" | "inventory" | "vip" | "events" | "reports"
+  config     Json     @default("{}")
+  lastTriggeredAt DateTime? @map("last_triggered_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  executions AutomationExecution[]
+
+  @@unique([venueId, code])
+  @@index([venueId, category])
+  @@index([venueId, enabled])
+  @@map("automation_rules")
+}
+
+/// Phase 4: Automation execution log — append-only record of each automation run.
+model AutomationExecution {
+  id                String   @id @default(cuid())
+  venueId           String   @map("venue_id")
+  ruleId            String   @map("rule_id")
+  code              String   // AutomationCode enum value (denormalized for queries)
+  triggeredAt       DateTime @map("triggered_at") @db.Timestamptz
+  result            String   // Human-readable summary
+  actionApplied     Boolean  @default(false) @map("action_applied")
+  affectedEntityIds String[] @map("affected_entity_ids")
+  durationMs        Int      @default(0) @map("duration_ms")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id])
+
+  @@index([venueId, triggeredAt(sort: Desc)])
+  @@index([ruleId])
+  @@map("automation_executions")
+}
