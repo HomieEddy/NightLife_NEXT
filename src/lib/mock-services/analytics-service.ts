@@ -7,11 +7,42 @@ import type {
   RevenuePoint,
   HistoricalAnalytics,
   TabAdjustmentKind,
+  NightComparison,
+  NightForecast,
+  PerHourAnalytics,
+  DoorToTableFunnel,
+  TableTurnAnalytics,
+  OrderSlaAnalytics,
+  CompVoidRatioAnalytics,
+  PromoterPerformanceReport,
+  IncidentPatternReport,
+  GuestRetentionMetrics,
+  BottleServiceAnalytics,
+  CapacityUtilizationAnalytics,
+  NightSummary,
+  ReportExport,
+  ReportMetric,
 } from "@/lib/types";
 import { mockAnalytics } from "@/lib/mock-data/analytics";
+import {
+  mockNightComparison,
+  mockNightForecast,
+  mockPerHourAnalytics,
+  mockDoorToTableFunnel,
+  mockTableTurnAnalytics,
+  mockOrderSlaAnalytics,
+  mockCompVoidRatioAnalytics,
+  mockPromoterPerformanceReport,
+  mockIncidentPatternReport,
+  mockGuestRetentionMetrics,
+  mockBottleServiceAnalytics,
+  mockCapacityUtilizationAnalytics,
+  mockNightSummary,
+} from "@/lib/mock-data/phase4-analytics";
 import { aggregateWeekly } from "@/lib/analytics";
+import { renderCsv } from "@/lib/report-csv";
 import { mockOrdersService } from "./orders-service";
-import { clone, delay } from "./delay";
+import { clone, delay, uid } from "./delay";
 
 export { aggregateWeekly };
 
@@ -229,6 +260,129 @@ export const mockAnalyticsService = {
       // would query the range directly instead of projecting a single night forward.
       adjustments: await computeAdjustmentAnalytics(),
     };
+  },
+
+  // ---------- Phase 4: Analytics Depth (AI-01 through AI-14) ----------
+
+  /** AI-01: Night-over-night comparison — tonight vs a reference night. */
+  async getNightComparison(): Promise<NightComparison> {
+    // TODO(backend): query tonight's live revenue/orders/covers vs reference date aggregates.
+    await delay(400);
+    return clone(mockNightComparison);
+  },
+
+  /** AI-02: Night forecast / projection — current pace extrapolated. */
+  async getNightForecast(): Promise<NightForecast> {
+    // TODO(backend): compute from tonight's partial aggregates × historical pace multiplier.
+    await delay(350);
+    return clone(mockNightForecast);
+  },
+
+  /** AI-03: Per-hour breakdown — revenue, orders, admissions by hour. */
+  async getPerHourAnalytics(_fromISO: string, _toISO: string): Promise<PerHourAnalytics> {
+    // TODO(backend): GROUP BY HOUR(date_trunc) over the range, join with door admissions.
+    await delay(500);
+    return clone(mockPerHourAnalytics);
+  },
+
+  /** AI-04: Door-to-table conversion funnel — admissions through to delivered orders. */
+  async getDoorToTableFunnel(_fromISO: string, _toISO: string): Promise<DoorToTableFunnel> {
+    // TODO(backend): compute from admissions, sessions, orders over the range.
+    await delay(450);
+    return clone(mockDoorToTableFunnel);
+  },
+
+  /** AI-05: Table-turn analytics — avg occupancy, seatings per table per night. */
+  async getTableTurnAnalytics(_fromISO: string, _toISO: string): Promise<TableTurnAnalytics> {
+    // TODO(backend): compute from session events (open/close) keyed by tableId over the range.
+    await delay(500);
+    return clone(mockTableTurnAnalytics);
+  },
+
+  /** AI-06: Order SLA / time-to-serve analytics — distribution, by zone, by staff. */
+  async getOrderSlaAnalytics(_fromISO: string, _toISO: string): Promise<OrderSlaAnalytics> {
+    // TODO(backend): percentile functions (p50/p95/p99) over order delivery timestamps.
+    await delay(500);
+    return clone(mockOrderSlaAnalytics);
+  },
+
+  /** AI-07: Comp/void ratio monitoring — per-staff with threshold alerting. */
+  async getCompVoidRatioAnalytics(_fromISO: string, _toISO: string): Promise<CompVoidRatioAnalytics> {
+    // TODO(backend): join tab_adjustments with staff_profiles, group by staffId, compare to configurable thresholds.
+    await delay(450);
+    return clone(mockCompVoidRatioAnalytics);
+  },
+
+  /** AI-08: Report CSV export — generate and optionally email a report. */
+  async exportReportCsv(
+    reportName: string,
+    metrics: ReportMetric[],
+    fromISO: string,
+    toISO: string,
+    recipient?: string,
+  ): Promise<ReportExport> {
+    // TODO(backend): generate CSV, save to S3, queue email via plan-25 dispatch layer.
+    await delay(800);
+    const data = await this.getHistorical(fromISO, toISO);
+    const csv = renderCsv(reportName, metrics, data);
+    const emailed = !!recipient;
+    return {
+      id: uid("rpt"),
+      reportName,
+      metrics,
+      rangeFrom: fromISO,
+      rangeTo: toISO,
+      format: "csv",
+      status: emailed ? "emailed" : "generated",
+      csvContent: csv,
+      emailedAt: emailed ? new Date().toISOString() : undefined,
+      recipient,
+      createdAt: new Date().toISOString(),
+    };
+  },
+
+  /** AI-09: Promoter performance report — fill rate, check-in rate, spend, commission. */
+  async getPromoterPerformanceReport(_fromISO: string, _toISO: string): Promise<PromoterPerformanceReport[]> {
+    // TODO(backend): join promoters with reservations, sessions, orders over range; compute commission from commission rules.
+    await delay(500);
+    return clone(mockPromoterPerformanceReport);
+  },
+
+  /** AI-10: Security incident pattern report — by zone, time, night, staff presence. */
+  async getIncidentPatternReport(_fromISO: string, _toISO: string): Promise<IncidentPatternReport> {
+    // TODO(backend): GROUP BY zone, EXTRACT(hour), EXTRACT(dow) from incidents over range.
+    await delay(450);
+    return clone(mockIncidentPatternReport);
+  },
+
+  /** AI-11: Guest retention report — repeat rate, churn, new vs returning. */
+  async getGuestRetentionMetrics(_fromISO: string, _toISO: string): Promise<GuestRetentionMetrics> {
+    // TODO(backend): compute returning vs new guest profile IDs from sessions over range vs prior period.
+    await delay(500);
+    return clone(mockGuestRetentionMetrics);
+  },
+
+  /** AI-12: Bottle service utilization — by brand, zone, time; presentation frequency. */
+  async getBottleServiceAnalytics(_fromISO: string, _toISO: string): Promise<BottleServiceAnalytics> {
+    // TODO(backend): filter orders to bottle/presentation items, GROUP BY menuItemId, zoneId.
+    await delay(500);
+    return clone(mockBottleServiceAnalytics);
+  },
+
+  /** AI-13: Capacity utilization — peak occupancy, entry/exit rates, avg stay. */
+  async getCapacityUtilizationAnalytics(_fromISO: string, _toISO: string): Promise<CapacityUtilizationAnalytics> {
+    // TODO(backend): query door events (entry/exit) bucketed by hour over the range.
+    await delay(450);
+    return clone(mockCapacityUtilizationAnalytics);
+  },
+
+  /** AI-14: Night summary auto-generation — one-page executive summary at venue close. */
+  async getNightSummary(businessDate: string): Promise<NightSummary> {
+    // TODO(backend): compute from tonight's aggregates, staff performance, incidents, inventory; generate executive summary via template.
+    await delay(600);
+    const summary = clone(mockNightSummary);
+    summary.businessDate = businessDate;
+    return summary;
   },
 };
 
