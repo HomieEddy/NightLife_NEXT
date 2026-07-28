@@ -92,7 +92,6 @@ async function liveHandler(request: NextRequest, method: string) {
     }
     const result = await exportReportCsv(
       db,
-      (f, t) => getHistoricalForVenue(db, f, t),
       body.reportName ?? "Analytics Export",
       body.metrics,
       body.from,
