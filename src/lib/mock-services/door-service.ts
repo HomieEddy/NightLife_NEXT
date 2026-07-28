@@ -84,6 +84,7 @@ export const mockDoorService = {
     idCheck?: { checked: boolean; dobVerified: boolean; yearOfBirth?: number };
     staffId: string;
     staffName: string;
+    wristbandColor?: string;
   }): Promise<Admission> {
     await delay(400);
 
@@ -137,6 +138,7 @@ export const mockDoorService = {
       admittedByStaffId: input.staffId,
       admittedByStaffName: input.staffName,
       admittedAt: now,
+      wristband: input.wristbandColor ? { number: `WB-${Date.now().toString(36).slice(-4).toUpperCase()}`, color: input.wristbandColor, assignedAt: now } : undefined,
     };
     admissions = [admission, ...admissions];
     await mockDoorService.adjustOccupancy(input.partySize, `${input.source} admit`, input.staffId);
