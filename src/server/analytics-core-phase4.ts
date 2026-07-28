@@ -53,9 +53,9 @@ export async function getNightComparison(
 
   const rows = await rawPrisma.$queryRawUnsafe<Array<{
     night_date: string; revenue_cents: bigint; order_count: number;
-    avg_order_cents: number; covers: number;
+    avg_order_cents: number;
   }>>(
-    `SELECT night_date, revenue_cents, order_count, avg_order_cents, covers
+    `SELECT night_date, revenue_cents, order_count, avg_order_cents
      FROM nightly_rollups
      WHERE venue_id = $1 AND night_date IN ($2, $3)`,
     venueId, tonightLabel, lastLabel,
@@ -66,14 +66,14 @@ export async function getNightComparison(
 
   // Fallback to live summary if no rollup exists yet
   const cur = tonight
-    ? { revenue: Number(tonight.revenue_cents) / 100, orders: tonight.order_count, avgOrderValue: Number(tonight.avg_order_cents) / 100, covers: tonight.covers }
+    ? { revenue: Number(tonight.revenue_cents) / 100, orders: tonight.order_count, avgOrderValue: Number(tonight.avg_order_cents) / 100, covers: 0 }
     : await (async () => {
         const s = await getSummaryForVenue(_db, venueId, nightConfig);
         return { revenue: s.revenueTonight, orders: s.ordersTonight, avgOrderValue: s.avgOrderValue, covers: s.reservations?.totalCovers ?? 0 };
       })();
 
   const ref = reference
-    ? { revenue: Number(reference.revenue_cents) / 100, orders: reference.order_count, avgOrderValue: Number(reference.avg_order_cents) / 100, covers: reference.covers }
+    ? { revenue: Number(reference.revenue_cents) / 100, orders: reference.order_count, avgOrderValue: Number(reference.avg_order_cents) / 100, covers: 0 }
     : { revenue: 0, orders: 0, avgOrderValue: 0, covers: 0 };
 
   const delta = (c: number, r: number) => r > 0 ? Math.round(((c - r) / r) * 1000) / 10 : 0;
@@ -437,6 +437,19 @@ export async function getOrderSlaAnalytics(
   const criticalMin = (venueCfg?.slaThresholds as { orderCriticalMinutes?: number } | null)?.orderCriticalMinutes ?? 12;
   const breachCount = minutes.filter((m) => m >= criticalMin).length;
 
+  // Auto-escalation count from job_runs for this venue in the night window
+  const escResult = await rawPrisma.$queryRawUnsafe<Array<{ count: bigint }>>(
+    `SELECT COUNT(*)::bigint AS count
+     FROM job_runs
+     WHERE tenant_id = $1
+       AND job_name ILIKE '%auto-escalate%'
+       AND status = 'completed'
+       AND started_at >= $2::timestamptz
+       AND started_at < $3::timestamptz`,
+    venueId, boundary.start.toISOString(), boundary.end.toISOString(),
+  );
+  const autoEscalationCount = Number(escResult[0]?.count ?? BigInt(0));
+
   return {
     avgAcceptMinutes: Math.round(avg * 0.2 * 10) / 10,
     avgPrepMinutes: Math.round(avg * 0.8 * 10) / 10,
@@ -449,7 +462,7 @@ export async function getOrderSlaAnalytics(
     byStaff,
     slaBreachCount: breachCount,
     slaBreachRate: n > 0 ? breachCount / n : 0,
-    autoEscalationCount: 0, // TODO(backend): track auto-escalation events from job_runs
+    autoEscalationCount,
   };
 }
 
@@ -586,23 +599,49 @@ export async function getPromoterPerformanceReport(
        AND p.venue_id = $2
      GROUP BY p.user_id, u.name
      ORDER BY revenue_cents DESC`,
-    venueId, venueId, from,
+     venueId, venueId, from,
   );
 
-  return rows.map((r) => ({
-    promoterId: r.promoter_id,
-    promoterName: r.name,
-    reservationsCreated: Number(r.created),
-    reservationsConfirmed: Number(r.confirmed),
-    checkIns: Number(r.seated),
-    showUpRate: Number(r.confirmed) > 0 ? Number(r.seated) / Number(r.confirmed) : 0,
-    fillRate: Number(r.created) > 0 ? Number(r.confirmed) / Number(r.created) : 0,
-    attributedRevenue: Number(r.revenue_cents) / 100,
-    commissionCents: 0, // TODO(backend): compute from CommissionRule
-    avgSpendPerGuest: Number(r.seated) > 0 ? (Number(r.revenue_cents) / 100) / Number(r.seated) : 0,
-    guestListCount: Number(r.guest_list_count),
-    guestListConversion: r.guest_list_conversion,
-  }));
+  // Query CommissionRule for each promoter to compute earned commission
+  const promoterIds = rows.map((r) => r.promoter_id);
+  let commissionRules: Array<{ staffId: string; ratePct: number | null; flatCents: number | null }> = [];
+  if (promoterIds.length > 0) {
+    commissionRules = await rawPrisma.$queryRawUnsafe<
+      Array<{ staffId: string; ratePct: number | null; flatCents: number | null }>
+    >(
+      `SELECT staff_id AS "staffId", rate_pct AS "ratePct", flat_cents AS "flatCents"
+       FROM commission_rules
+       WHERE venue_id = $1 AND staff_id = ANY($2::text[])`,
+      venueId, promoterIds,
+    );
+  }
+  const ruleByStaff = new Map(commissionRules.map((cr) => [cr.staffId, cr]));
+
+  return rows.map((r) => {
+    const rule = ruleByStaff.get(r.promoter_id);
+    let commission = 0;
+    if (rule) {
+      if (rule.ratePct != null) {
+        commission = Math.round((Number(r.revenue_cents) * rule.ratePct) / 100);
+      } else if (rule.flatCents != null) {
+        commission = rule.flatCents;
+      }
+    }
+    return {
+      promoterId: r.promoter_id,
+      promoterName: r.name,
+      reservationsCreated: Number(r.created),
+      reservationsConfirmed: Number(r.confirmed),
+      checkIns: Number(r.seated),
+      showUpRate: Number(r.confirmed) > 0 ? Number(r.seated) / Number(r.confirmed) : 0,
+      fillRate: Number(r.created) > 0 ? Number(r.confirmed) / Number(r.created) : 0,
+      attributedRevenue: Number(r.revenue_cents) / 100,
+      commissionCents: commission,
+      avgSpendPerGuest: Number(r.seated) > 0 ? (Number(r.revenue_cents) / 100) / Number(r.seated) : 0,
+      guestListCount: Number(r.guest_list_count),
+      guestListConversion: r.guest_list_conversion,
+    };
+  });
 }
 
 // ── AI-10: Security incident pattern report ─────────────────────────
