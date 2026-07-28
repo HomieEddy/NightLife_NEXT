@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BarChart3,
+  Bot,
   Boxes,
   Building2,
   CalendarDays,
@@ -92,6 +93,7 @@ export const MANAGER_NAV_GROUPS: NavGroup[] = [
     label: "Insights",
     items: [
       { href: "/manager/analytics", label: "Analytics", icon: BarChart3, feature: "analytics" },
+      { href: "/manager/automations", label: "Automations", icon: Bot },
       { href: "/manager/reports", label: "Reports", icon: FileText, feature: "reports" },
       { href: "/manager/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents" },
       { href: "/manager/cashout", label: "Cash-out", icon: Wallet },

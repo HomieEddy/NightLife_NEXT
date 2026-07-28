@@ -7,6 +7,8 @@ import Link from "next/link";
 import {
   ArrowRight, Boxes, CalendarCheck, CalendarRange, CircleDollarSign,
   Clock, HandHelping, Megaphone, PartyPopper, Receipt, Tag, Timer, Trophy, Users,
+  BarChart3, DoorOpen, Download, FileText, Gauge, Shield, Table,
+  TrendingUp, UserCheck, Wine, AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +27,14 @@ import {
 } from "@/lib/services/analytics-service";
 import { formatMoney, formatPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { REPORT_METRICS, type ReportMetric } from "@/lib/types";
+import { toast } from "sonner";
+import { downloadCsv } from "@/lib/download-csv";
+import {
+  ComparisonTab, ForecastTab, PerHourTab, FunnelTab, TableTurnTab,
+  SlaTab, CompVoidTab, PromoterPerformanceTab, IncidentPatternTab,
+  GuestRetentionTab, BottleServiceTab, CapacityUtilizationTab, NightSummaryTab,
+} from "@/components/manager/analytics-phase4";
 
 const isoDaysAgo = (days: number) => {
   const d = new Date();
@@ -90,6 +100,7 @@ function AnalyticsPageContent() {
   const [from, setFrom] = useState(isoDaysAgo(6));
   const [to, setTo] = useState(isoDaysAgo(0));
   const [data, setData] = useState<HistoricalAnalytics | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async (fromISO: string, toISO: string) => {
     setData(null);
@@ -201,6 +212,36 @@ function AnalyticsPageContent() {
           </div>
           <CalendarRange className="mb-2 size-4 text-muted-foreground" />
         </div>
+        {/* AI-08: Export CSV */}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={exporting || !data}
+          onClick={async () => {
+            if (!data) return;
+            setExporting(true);
+            try {
+              const allMetrics: ReportMetric[] = REPORT_METRICS.map((m) => m.id);
+              const result = await analyticsService.exportReportCsv(
+                `Analytics ${from} - ${to}`,
+                allMetrics,
+                from,
+                to,
+              );
+              if (result.csvContent) {
+                downloadCsv(result.csvContent, `analytics-${from}-to-${to}.csv`);
+                toast.success("CSV downloaded");
+              }
+            } catch {
+              toast.error("Export failed");
+            } finally {
+              setExporting(false);
+            }
+          }}
+        >
+          <Download className="size-3.5" />
+          {exporting ? "Exporting..." : "Export CSV"}
+        </Button>
       </div>
 
       {data === null ? (
@@ -241,6 +282,46 @@ function AnalyticsPageContent() {
             </TabsTrigger>
             <TabsTrigger value="promoters">
               <Megaphone className="size-3.5" /> Promoters
+            </TabsTrigger>
+            {/* ---------- Phase 4: Automation & Intelligence ---------- */}
+            <TabsTrigger value="comparison">
+              <BarChart3 className="size-3.5" /> Comparison
+            </TabsTrigger>
+            <TabsTrigger value="forecast">
+              <TrendingUp className="size-3.5" /> Forecast
+            </TabsTrigger>
+            <TabsTrigger value="per-hour">
+              <Clock className="size-3.5" /> Per Hour
+            </TabsTrigger>
+            <TabsTrigger value="funnel">
+              <DoorOpen className="size-3.5" /> Funnel
+            </TabsTrigger>
+            <TabsTrigger value="table-turn">
+              <Table className="size-3.5" /> Table Turn
+            </TabsTrigger>
+            <TabsTrigger value="sla">
+              <Timer className="size-3.5" /> SLA
+            </TabsTrigger>
+            <TabsTrigger value="comp-void">
+              <AlertTriangle className="size-3.5" /> Comp/Void
+            </TabsTrigger>
+            <TabsTrigger value="promoter-perf">
+              <Megaphone className="size-3.5" /> Promo Perf
+            </TabsTrigger>
+            <TabsTrigger value="incidents">
+              <Shield className="size-3.5" /> Incidents
+            </TabsTrigger>
+            <TabsTrigger value="retention">
+              <UserCheck className="size-3.5" /> Retention
+            </TabsTrigger>
+            <TabsTrigger value="bottles">
+              <Wine className="size-3.5" /> Bottles
+            </TabsTrigger>
+            <TabsTrigger value="capacity">
+              <Gauge className="size-3.5" /> Capacity
+            </TabsTrigger>
+            <TabsTrigger value="summary">
+              <FileText className="size-3.5" /> Summary
             </TabsTrigger>
           </TabsList>
 
@@ -1087,6 +1168,22 @@ function AnalyticsPageContent() {
               <p className="text-sm text-muted-foreground">No promoter data available for this range.</p>
             )}
           </TabsContent>
+
+          {/* ---------- Phase 4: Analytics Depth (AI-01 through AI-14) ---------- */}
+
+          <TabsContent value="comparison"><ComparisonTab /></TabsContent>
+          <TabsContent value="forecast"><ForecastTab /></TabsContent>
+          <TabsContent value="per-hour"><PerHourTab /></TabsContent>
+          <TabsContent value="funnel"><FunnelTab /></TabsContent>
+          <TabsContent value="table-turn"><TableTurnTab /></TabsContent>
+          <TabsContent value="sla"><SlaTab /></TabsContent>
+          <TabsContent value="comp-void"><CompVoidTab /></TabsContent>
+          <TabsContent value="promoter-perf"><PromoterPerformanceTab /></TabsContent>
+          <TabsContent value="incidents"><IncidentPatternTab /></TabsContent>
+          <TabsContent value="retention"><GuestRetentionTab /></TabsContent>
+          <TabsContent value="bottles"><BottleServiceTab /></TabsContent>
+          <TabsContent value="capacity"><CapacityUtilizationTab /></TabsContent>
+          <TabsContent value="summary"><NightSummaryTab /></TabsContent>
         </Tabs>
       )}
     </div>
