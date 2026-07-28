@@ -17,7 +17,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Pagination, paginate } from "@/components/shared/pagination";
 import { useAuth } from "@/context/auth-context";
 import { incidentService } from "@/lib/services/incident-service";
-import { formatDate, formatTime } from "@/lib/format";
+import { formatDate, formatTime } from "@/features/shared/format";
 import type { Incident, IncidentNote, IncidentSeverity, IncidentType } from "@/lib/types";
 
 const TYPE_LABELS: Record<IncidentType, string> = {

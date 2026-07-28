@@ -2,7 +2,7 @@
 
 import type { AdjustmentReason, GuestSession, MenuItem, Order, OrderStatus, TabAdjustment, TabAdjustmentKind } from "@/lib/types";
 import type { CartLine } from "@/lib/types";
-import { toCents } from "@/server/money";
+import { toCents } from "@/features/shared/money";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await liveFetch(path, {

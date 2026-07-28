@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Guest join is disabled in demo mode" }, { status: 404 });
 }
 
 async function livePOST(request: NextRequest) {
-  const { getPlatformDb, getDb } = await import("@/server/db");
-  const { verifyTableToken } = await import("@/server/table-token");
+  const { getPlatformDb, getDb } = await import("@/features/shared/db");
+  const { verifyTableToken } = await import("@/features/shared/table-token");
   const { createSession } = await import("@/server/session-core");
   const { zCreateSession } = await import("@/server/schemas/sessions");
 

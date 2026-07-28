@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Session routes are disabled in demo mode" }, { status: 404 });
@@ -7,7 +7,7 @@ function demoHandler() {
 
 async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
   const { getSession } = await import("@/server/session-core");
 
   const auth = await requireApiArea("staff");
@@ -22,7 +22,7 @@ async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
   const { setSessionStatus } = await import("@/server/session-core");
   const { zSetSessionStatus } = await import("@/server/schemas/sessions");
 

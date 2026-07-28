@@ -1,4 +1,4 @@
-import { assertLiveMode } from "@/lib/app-mode";
+import { assertLiveMode } from "@/features/shared/app-mode";
 
 function rejectLiveResource(): never {
   assertLiveMode();

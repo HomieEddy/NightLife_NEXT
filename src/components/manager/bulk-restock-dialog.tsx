@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { menuService } from "@/lib/services/menu-service";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { MenuItem } from "@/lib/types";
 
 /** One delivery, many bottles: set quantities per item and apply in one action. */

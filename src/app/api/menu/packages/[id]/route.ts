@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Menu routes are disabled in demo mode" }, { status: 404 });
@@ -7,7 +7,7 @@ function demoHandler() {
 
 async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
   const { getPackage } = await import("@/server/menu-core");
 
   const auth = await requireApiArea("staff");
@@ -23,7 +23,7 @@ async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
   const { updatePackage } = await import("@/server/menu-core");
   const { zPackagePatch } = await import("@/server/schemas/menu");
 
@@ -43,7 +43,7 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
 
 async function liveDELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
   const { deletePackage } = await import("@/server/menu-core");
 
   const auth = await requireApiArea("manager");

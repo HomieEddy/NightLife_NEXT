@@ -1,4 +1,4 @@
-import type { StaffRole } from "./types";
+import type { StaffRole } from "@/lib/types";
 
 // ---------- Action definitions ----------
 

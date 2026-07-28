@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 export default function manifest(): MetadataRoute.Manifest {
   const demo = isDemoMode();

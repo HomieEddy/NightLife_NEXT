@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { getDb, type SessionContext } from "./db";
-import { createTestDb, type TestDb } from "./test-pglite";
+import { getDb, type SessionContext } from "../features/shared/db";
+import { createTestDb, type TestDb } from "../features/shared/test-pglite";
 import {
   createSession,
   getSession,
@@ -15,8 +15,8 @@ import {
 } from "./session-core";
 import { submitOrder } from "./order-core";
 import { createCategory, createItem } from "./menu-core";
-import { expectTenantIsolation } from "./test-helpers";
-import { toCents } from "./money";
+import { expectTenantIsolation } from "../features/shared/test-helpers";
+import { toCents } from "../features/shared/money";
 
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string, opts: { autoApprove?: boolean } = {}) {
   const org = await rawClient.organization.create({ data: { id: `org-${slug}`, name, slug } });

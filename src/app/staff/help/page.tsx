@@ -11,9 +11,9 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { guestsService } from "@/lib/services/guests-service";
 import { staffService } from "@/lib/services/staff-service";
-import { getHelpScope } from "@/lib/role-capabilities";
-import { timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { getHelpScope } from "@/features/shared/role-capabilities";
+import { timeAgo } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { HelpRequest, HelpRequestType, StaffMember } from "@/lib/types";
 

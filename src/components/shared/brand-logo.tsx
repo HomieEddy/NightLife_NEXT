@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import nMark from "../../../public/brand/n-mark.png";
 
 export function BrandLogo({

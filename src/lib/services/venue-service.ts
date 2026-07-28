@@ -1,6 +1,6 @@
 import { mockVenueService } from "@/lib/mock-services/venue-service";
 import { liveVenueService } from "@/lib/live-services/venue-service";
-import { demoOnlyService, isDemoMode, liveOnlyService } from "@/lib/app-mode";
+import { demoOnlyService, isDemoMode, liveOnlyService } from "@/features/shared/app-mode";
 
 export type VenueService = typeof mockVenueService;
 

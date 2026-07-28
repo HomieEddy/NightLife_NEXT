@@ -3,9 +3,9 @@
 import type { ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatMoney, timeAgo } from "@/lib/format";
+import { formatMoney, timeAgo } from "@/features/shared/format";
 import { orderLineSubtotal } from "@/lib/order-line";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { Order } from "@/lib/types";
 import { Gift, MapPin, Tag } from "lucide-react";
 

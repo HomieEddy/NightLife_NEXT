@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
-import { logger } from "@/lib/logger";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { logger } from "@/features/shared/logger";
 
 function demoHandler() {
   return NextResponse.json({ error: "Reservation routes are disabled in demo mode" }, { status: 404 });
@@ -8,7 +8,7 @@ function demoHandler() {
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb, getRawPrisma } = await import("@/server/db");
+  const { getDb, getRawPrisma } = await import("@/features/shared/db");
   const { setReservationStatus } = await import("@/server/reservation-core");
   const { zReservationStatus } = await import("@/server/schemas/reservations");
 

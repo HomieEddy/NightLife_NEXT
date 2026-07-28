@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
-import { logger } from "@/lib/logger";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { logger } from "@/features/shared/logger";
 
 function demoHandler() {
   return NextResponse.json({ error: "Cron jobs are disabled in demo mode" }, { status: 404 });
@@ -13,9 +13,9 @@ async function livePOST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { getRawPrisma, getDb } = await import("@/server/db");
+  const { getRawPrisma, getDb } = await import("@/features/shared/db");
   const { computeRollup, upsertRollup } = await import("@/server/analytics-core");
-  const { nightContaining } = await import("@/server/night");
+  const { nightContaining } = await import("@/features/shared/night");
 
   const prisma = getRawPrisma();
   const tenants = await prisma.tenant.findMany({ select: { id: true } });

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
-import { logger } from "@/lib/logger";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { logger } from "@/features/shared/logger";
 
 function demoHandler() {
   return NextResponse.json({ error: "Cron jobs are disabled in demo mode" }, { status: 404 });
@@ -13,7 +13,7 @@ async function livePOST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { getRawPrisma } = await import("@/server/db");
+  const { getRawPrisma } = await import("@/features/shared/db");
   const { dispatch } = await import("@/server/notifications/dispatch");
   const { normalizePhone } = await import("@/lib/phone");
   await import("@/server/notifications/templates");

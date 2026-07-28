@@ -18,7 +18,7 @@ import { purchasingService } from "@/lib/services/purchasing-service";
 import { menuService } from "@/lib/services/menu-service";
 import { staffService } from "@/lib/services/staff-service";
 import { suggestPurchaseOrder } from "@/lib/costs";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import type { PurchaseOrder, Stocktake, Supplier, SupplierItem, MenuItem } from "@/lib/types";
 
 const STATUS_BADGE: Record<string, "default" | "secondary" | "outline"> = { draft: "outline", submitted: "secondary", "partially-received": "secondary", received: "default", cancelled: "outline" };

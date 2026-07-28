@@ -4,7 +4,7 @@
  * Phase 4 (AM-01 through AM-13). Each venue gets a set of default rules seeded
  * on first read. Executions are append-only; trigger logic lives in cron jobs.
  */
-import type { getDb } from "./db";
+import type { getDb } from "../features/shared/db";
 import type { PrismaClient } from "@prisma/client";
 import type { AutomationRule as AutomationRuleType, AutomationExecution } from "@/lib/types";
 import { defaultAutomationRules } from "./automation-defaults";

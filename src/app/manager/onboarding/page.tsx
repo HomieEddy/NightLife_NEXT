@@ -20,8 +20,8 @@ import { menuService } from "@/lib/services/menu-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { setManagerOnboarded } from "@/lib/onboarding";
-import { ZONE_SWATCH } from "@/lib/zone-colors";
-import { cn } from "@/lib/utils";
+import { ZONE_SWATCH } from "@/features/shared/zone-colors";
+import { cn } from "@/features/shared/utils";
 import type { MenuCategory, ServiceFee, StaffMember, Venue, VenueTable, Zone } from "@/lib/types";
 
 const STEPS = [

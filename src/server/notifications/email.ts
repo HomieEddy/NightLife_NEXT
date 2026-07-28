@@ -5,7 +5,7 @@
  */
 import { Resend } from "resend";
 import type { render } from "@react-email/components";
-import { logger } from "@/lib/logger";
+import { logger } from "@/features/shared/logger";
 
 const EMAIL_DRIVER = process.env.EMAIL_DRIVER === "resend" ? "resend" : "log";
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "NightLife <noreply@nightlife.app>";

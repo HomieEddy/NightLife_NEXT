@@ -33,8 +33,8 @@ import {
   reportService, REPORT_METRICS, type ReportMetric, type SavedReport,
 } from "@/lib/services/report-service";
 import { renderCsv } from "@/lib/report-csv";
-import { formatMoney, formatPct, timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney, formatPct, timeAgo } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 
 const RANGE_OPTIONS = [
   { days: 7, label: "Last 7 days" },

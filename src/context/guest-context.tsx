@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import type { CartLine, OrderItemModifier, MenuItem, Venue } from "@/lib/types";
-import { uid } from "@/lib/id";
+import { uid } from "@/features/shared/id";
 import { orderLineSubtotal } from "@/lib/order-line";
 
 export interface GuestTableInfo {

@@ -15,9 +15,9 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 import { RequireAuth } from "@/components/shared/require-auth";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { ADMIN_DEMO_PASSWORD, isAdminUnlocked, setAdminUnlocked } from "@/lib/admin-gate";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 const NAV = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },

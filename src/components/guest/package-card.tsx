@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import type { PackageQuote } from "@/lib/services/menu-service";
 import type { BottlePackage, MenuItem } from "@/lib/types";
 

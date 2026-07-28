@@ -23,7 +23,7 @@ import { venueService } from "@/lib/services/venue-service";
 import { SearchInput } from "@/components/shared/search-input";
 import { Pagination, paginate } from "@/components/shared/pagination";
 import { useHighlight } from "@/lib/use-highlight";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { TableStatus, VenueTable, Zone } from "@/lib/types";
 
 const STATUSES: TableStatus[] = ["open", "occupied", "reserved", "closed"];

@@ -3,7 +3,7 @@
  * staging/prod set twilio. Missing TWILIO_* vars under twilio fails at boot.
  */
 import { Twilio } from "twilio";
-import { logger } from "@/lib/logger";
+import { logger } from "@/features/shared/logger";
 
 const SMS_DRIVER = process.env.SMS_DRIVER === "twilio" ? "twilio" : "log";
 

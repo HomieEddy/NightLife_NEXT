@@ -1,4 +1,4 @@
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import type { NextRequest } from "next/server";
 
 function demoHandler() {

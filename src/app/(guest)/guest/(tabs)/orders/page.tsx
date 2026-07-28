@@ -18,14 +18,14 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useGuest } from "@/context/guest-context";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { analyticsService } from "@/lib/services/analytics-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { ordersService, ORDER_FLOW } from "@/lib/services/orders-service";
-import { estimateEtaMinutes, formatEta } from "@/lib/eta";
-import { formatMoney, timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { estimateEtaMinutes, formatEta } from "@/features/shared/eta";
+import { formatMoney, timeAgo } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { Order } from "@/lib/types";
 import { DemoClosureApprovalControl, DemoOrderProgressControl } from "@/components/shared/demo-controls";
 

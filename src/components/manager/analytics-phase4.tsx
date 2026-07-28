@@ -30,7 +30,7 @@ import type {
   CapacityUtilizationAnalytics,
   NightSummary,
 } from "@/lib/types";
-import { formatMoney, formatPct } from "@/lib/format";
+import { formatMoney, formatPct } from "@/features/shared/format";
 
 function Stat({ label, info, children }: { label: string; info?: string; children: React.ReactNode }) {
   return (

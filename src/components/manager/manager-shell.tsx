@@ -23,8 +23,8 @@ import { ShortcutHelp } from "@/components/shared/shortcut-help";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { GROUP_JUMPS } from "@/lib/shortcuts";
 import { PulseTab } from "@/components/manager/pulse-tab";
-import { cn } from "@/lib/utils";
-import { isDemoMode } from "@/lib/app-mode";
+import { cn } from "@/features/shared/utils";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { venueService } from "@/lib/services/venue-service";
 import { useAttention } from "@/lib/attention-provider";
 import { useFocusOnNavigate } from "@/lib/use-focus-on-navigate";
@@ -37,7 +37,7 @@ import {
   isGroupCollapsed,
   setGroupCollapsed,
   type NavGroup,
-} from "@/lib/navigation";
+} from "@/features/shared/navigation";
 
 export function ManagerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

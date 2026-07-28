@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { automationService } from "@/lib/services/automation-service";
 import type { AutomationRule, AutomationCode, AutomationExecution } from "@/lib/types";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   reservations: <CalendarCheck className="size-4" />,

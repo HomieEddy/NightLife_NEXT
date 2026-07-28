@@ -12,10 +12,10 @@ import { permissionService } from "@/lib/services/permission-service";
 import {
   ACTION_META,
   DEFAULT_ROLE_PERMISSIONS,
-} from "@/lib/permissions";
+} from "@/features/shared/permissions";
 import { ASSIGNABLE_ROLES } from "@/lib/types";
-import { cn } from "@/lib/utils";
-import type { ActionCategory, RolePermissions, StaffAction } from "@/lib/permissions";
+import { cn } from "@/features/shared/utils";
+import type { ActionCategory, RolePermissions, StaffAction } from "@/features/shared/permissions";
 import type { StaffRole } from "@/lib/types";
 
 const CATEGORY_LABELS: Record<ActionCategory, string> = {

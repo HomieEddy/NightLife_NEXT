@@ -24,7 +24,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { promotionsService } from "@/lib/services/promotions-service";
 import { menuService } from "@/lib/services/menu-service";
 import { SearchInput } from "@/components/shared/search-input";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { MenuCategory, Promotion, PromotionStatus, PromotionType } from "@/lib/types";
 
 const selectCls =

@@ -3,8 +3,8 @@
  * confirm → table "reserved"; seat → "occupied"; cancel/complete → release.
  * The table-flip happens in the same transaction as the status write.
  */
-import type { getDb } from "./db";
-import { getRawPrisma } from "@/server/db";
+import type { getDb } from "../features/shared/db";
+import { getRawPrisma } from "@/features/shared/db";
 import type { Reservation, ReservationStatus } from "@/lib/types";
 import type { z } from "zod";
 import type { zReservationInput, zReservationPatch, zListReservations } from "./schemas/reservations";

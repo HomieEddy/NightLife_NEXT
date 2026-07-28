@@ -19,9 +19,9 @@ import { Pagination, paginate } from "@/components/shared/pagination";
 import { incidentService } from "@/lib/services/incident-service";
 import { permissionService } from "@/lib/services/permission-service";
 import { staffService } from "@/lib/services/staff-service";
-import { canDo } from "@/lib/permissions";
-import type { RolePermissions } from "@/lib/permissions";
-import { timeAgo } from "@/lib/format";
+import { canDo } from "@/features/shared/permissions";
+import type { RolePermissions } from "@/features/shared/permissions";
+import { timeAgo } from "@/features/shared/format";
 import type { Incident, IncidentSeverity, IncidentType, StaffMember } from "@/lib/types";
 
 const TYPE_LABELS: Record<IncidentType, string> = {

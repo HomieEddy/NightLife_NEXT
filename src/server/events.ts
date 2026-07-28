@@ -3,7 +3,7 @@
  * on a venue-scoped channel. SSE stream endpoints subscribe to NOTIFY.
  */
 import type { Prisma } from "@prisma/client";
-import { getRawPrisma } from "@/server/db";
+import { getRawPrisma } from "@/features/shared/db";
 
 export type DomainEventType =
   | "OrderPlaced"

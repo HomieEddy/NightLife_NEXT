@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { createTestDb, type TestDb } from "./test-pglite";
+import { createTestDb, type TestDb } from "../features/shared/test-pglite";
 
 describe("auth integration", () => {
   let testDb: TestDb;

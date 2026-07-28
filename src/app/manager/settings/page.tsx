@@ -16,7 +16,7 @@ import { venueService } from "@/lib/services/venue-service";
 import { ordersService } from "@/lib/services/orders-service";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
 import { setManagerOnboarded } from "@/lib/onboarding";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { AdjustmentReason, ServiceFee, TabAdjustmentKind, Venue } from "@/lib/types";
 
 export default function ManagerSettingsPage() {

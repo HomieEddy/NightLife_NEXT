@@ -1,6 +1,6 @@
 import { mockEventsService } from "@/lib/mock-services/events-service";
 import { liveEventsService } from "@/lib/live-services/events-service";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 export type EventsService = typeof mockEventsService;
 

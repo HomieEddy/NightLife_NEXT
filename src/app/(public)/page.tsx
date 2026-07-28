@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { ClubLights } from "@/components/fx/club-lights";
 import { Reveal } from "@/components/fx/reveal";
 import { NightTimeline } from "@/components/landing/night-timeline";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import { gsap, useGSAP } from "@/lib/gsap";
-import { isDemoMode } from "@/lib/app-mode";
-import { DEMO_APP_URL } from "@/lib/app-origins";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { DEMO_APP_URL } from "@/features/shared/app-origins";
 
 /** Real modules shipped in the manager app — not marketing bullets. */
 const MODULES = [

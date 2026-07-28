@@ -2,8 +2,8 @@
  * Floor coordination: broadcasts, last call, show lock, chat.
  * All writes publish domain events for SSE delivery.
  */
-import type { getDb } from "./db";
-import { getRawPrisma } from "@/server/db";
+import type { getDb } from "../features/shared/db";
+import { getRawPrisma } from "@/features/shared/db";
 import { publish } from "./events";
 import type { ActiveShow, Broadcast, ChatMessage } from "@/lib/types";
 import type { StaffRole } from "@/lib/types";

@@ -25,11 +25,11 @@ import { RoleBadge } from "@/components/shared/role-badge";
 import {
   aggregateWeekly, analyticsService, type HistoricalAnalytics,
 } from "@/lib/services/analytics-service";
-import { formatMoney, formatPct } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney, formatPct } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import { REPORT_METRICS, type ReportMetric } from "@/lib/types";
 import { toast } from "sonner";
-import { downloadCsv } from "@/lib/download-csv";
+import { downloadCsv } from "@/features/shared/download-csv";
 import {
   ComparisonTab, ForecastTab, PerHourTab, FunnelTab, TableTurnTab,
   SlaTab, CompVoidTab, PromoterPerformanceTab, IncidentPatternTab,

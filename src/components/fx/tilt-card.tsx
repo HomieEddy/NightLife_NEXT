@@ -2,7 +2,7 @@
 
 import { useRef, type ReactNode } from "react";
 import { gsap, useGSAP } from "@/lib/gsap";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 /** Subtle 3D tilt following the cursor, with a moving glow hotspot. */
 export function TiltCard({

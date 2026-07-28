@@ -1,4 +1,4 @@
-import type { StaffRole, FeatureKey, ChatMessage } from "./types";
+import type { StaffRole, FeatureKey, ChatMessage } from "@/lib/types";
 import {
   Home,
   Receipt,

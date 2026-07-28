@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Report routes are disabled in demo mode" }, { status: 404 });
@@ -9,7 +9,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 async function livePATCH(request: NextRequest, context: RouteContext) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
   const { updateReport } = await import("@/server/report-core");
 
   const auth = await requireApiArea("manager");
@@ -25,7 +25,7 @@ async function livePATCH(request: NextRequest, context: RouteContext) {
 
 async function liveDELETE(_request: NextRequest, context: RouteContext) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
   const { deleteReport } = await import("@/server/report-core");
 
   const auth = await requireApiArea("manager");

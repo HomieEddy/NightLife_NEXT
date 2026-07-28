@@ -18,9 +18,9 @@ import { ordersService } from "@/lib/services/orders-service";
 import { promotionsService } from "@/lib/services/promotions-service";
 import { computeFeeLines, feeLabel } from "@/lib/fees";
 import { cartHappyHourDiscount } from "@/lib/happy-hour";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import { useLastCall } from "@/lib/use-last-call";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import { orderLineSubtotal } from "@/lib/order-line";
 import type { HappyHourRule, Promotion } from "@/lib/types";
 

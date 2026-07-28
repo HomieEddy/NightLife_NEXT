@@ -10,8 +10,8 @@ import {
   mockStockMovements,
   mockHappyHourRules,
 } from "../src/lib/mock-data/menu";
-import { toCents } from "../src/server/money";
-import { getDb, getRawPrisma } from "../src/server/db";
+import { toCents } from "../src/features/shared/money";
+import { getDb, getRawPrisma } from "../src/features/shared/db";
 import { ensureMapPositions } from "../src/server/venue-core";
 
 const DEMO_PASSWORD = "demo1234";

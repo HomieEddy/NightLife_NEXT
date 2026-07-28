@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { BottleIcon } from "@/components/shared/bottle-icon";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import { useGuest } from "@/context/guest-context";
 import { orderLineSubtotal } from "@/lib/order-line";
 import type { MenuItem, ModifierGroup, OrderItemModifier } from "@/lib/types";

@@ -3,7 +3,7 @@
  * No stored status column — active/scheduled/expired is computed from
  * startsAt/endsAt relative to now.
  */
-import type { getDb } from "./db";
+import type { getDb } from "../features/shared/db";
 import type { Promotion, PromotionStatus, PromotionType } from "@/lib/types";
 import type { z } from "zod";
 import type { zPromotionInput, zPromotionPatch } from "./schemas/promotions";

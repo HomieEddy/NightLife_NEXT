@@ -2,7 +2,7 @@
  * Report engine: CRUD for saved reports, run recording, CSV rendering,
  * and scheduled-report due selection.
  */
-import type { getDb } from "./db";
+import type { getDb } from "../features/shared/db";
 import type { ReportMetric, SavedReport, ReportSchedule } from "@/lib/types";
 
 type ScopedDb = ReturnType<typeof getDb>;

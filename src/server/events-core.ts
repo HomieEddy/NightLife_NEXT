@@ -2,7 +2,7 @@
  * Events + guestlist lifecycle: CRUD for venue events, add/remove/check-in guests.
  * Event status is editorial (draft/published/live/ended) — stored, not derived.
  */
-import type { getDb } from "./db";
+import type { getDb } from "../features/shared/db";
 import type { VenueEvent, EventGuest, EventStatus } from "@/lib/types";
 import type { z } from "zod";
 import type { zEventInput, zEventPatch, zEventGuestInput } from "./schemas/events";

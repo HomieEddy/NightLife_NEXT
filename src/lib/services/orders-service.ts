@@ -1,9 +1,9 @@
 import {
   mockOrdersService,
 } from "@/lib/mock-services/orders-service";
-import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
+import { nextStatus, ORDER_FLOW } from "@/features/shared/order-status";
 import { liveOrdersService } from "@/lib/live-services/orders-service";
-import { demoOnlyService, isDemoMode, liveOnlyService } from "@/lib/app-mode";
+import { demoOnlyService, isDemoMode, liveOnlyService } from "@/features/shared/app-mode";
 
 export type OrdersService = typeof mockOrdersService;
 

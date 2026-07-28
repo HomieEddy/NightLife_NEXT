@@ -15,8 +15,8 @@ import { guestsService } from "@/lib/services/guests-service";
 import { venueService } from "@/lib/services/venue-service";
 import { getAutoGratuityRate } from "@/lib/fees";
 import { computeSessionBalance, shortfallRatio } from "@/lib/tab";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import { toast } from "sonner";
 import type { GuestSession, MenuItem, Order, TabAdjustment, VenueTable, Venue } from "@/lib/types";
 

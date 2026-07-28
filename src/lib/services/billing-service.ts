@@ -1,6 +1,6 @@
 import { mockBillingService } from "@/lib/mock-services/billing-service";
 import { liveBillingService } from "@/lib/live-services/billing-service";
-import { demoOnlyService, isDemoMode, liveOnlyService } from "@/lib/app-mode";
+import { demoOnlyService, isDemoMode, liveOnlyService } from "@/features/shared/app-mode";
 export type { Invoice, Subscription, PlanInfo } from "@/lib/mock-services/billing-service";
 
 export type BillingService = typeof mockBillingService;

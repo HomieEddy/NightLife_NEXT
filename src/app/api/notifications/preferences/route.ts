@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json(
@@ -10,7 +10,7 @@ function demoHandler() {
 
 async function liveGET() {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -40,7 +40,7 @@ async function liveGET() {
 
 async function livePUT(request: NextRequest) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
   const { zPreferencesPut } = await import("@/server/schemas/notifications");
 
   const auth = await requireApiArea("staff");

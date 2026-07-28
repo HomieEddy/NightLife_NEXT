@@ -12,7 +12,7 @@ import {
   EventActionGold,
 } from "@/components/shared/event-card";
 import { eventsService } from "@/lib/services/events-service";
-import { publicReservationHref } from "@/lib/entity-links";
+import { publicReservationHref } from "@/features/shared/entity-links";
 import type { VenueEvent } from "@/lib/types";
 
 function monthKey(d: Date): string {

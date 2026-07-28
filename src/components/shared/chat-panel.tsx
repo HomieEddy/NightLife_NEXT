@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { staffService } from "@/lib/services/staff-service";
-import { formatTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatTime } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { ChatMessage } from "@/lib/types";
 
 const CHANNELS: { id: ChatMessage["channel"]; label: string }[] = [

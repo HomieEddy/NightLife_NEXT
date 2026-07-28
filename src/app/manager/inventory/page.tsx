@@ -56,8 +56,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Pagination, paginate } from "@/components/shared/pagination";
 import { menuService } from "@/lib/services/menu-service";
 import { purchasingService } from "@/lib/services/purchasing-service";
-import { formatMoney, timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney, timeAgo } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { BottleIconKey, MenuCategory, MenuItem, StockMovement } from "@/lib/types";
 
 const ICON_OPTIONS: { key: BottleIconKey; label: string }[] = [

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Billing routes are disabled in demo mode" }, { status: 404 });
@@ -7,7 +7,7 @@ function demoHandler() {
 
 async function liveGET() {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getPlatformDb } = await import("@/server/db");
+  const { getPlatformDb } = await import("@/features/shared/db");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -31,7 +31,7 @@ async function liveGET() {
 
 async function livePATCH(request: NextRequest) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getPlatformDb } = await import("@/server/db");
+  const { getPlatformDb } = await import("@/features/shared/db");
   const { createCheckoutSession } = await import("@/server/platform/stripe");
 
   const auth = await requireApiArea("manager");

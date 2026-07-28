@@ -5,7 +5,7 @@
  */
 import type { PrismaClient } from "@prisma/client";
 import webpush from "web-push";
-import { logger } from "@/lib/logger";
+import { logger } from "@/features/shared/logger";
 
 export const PUSH_DRIVER = process.env.PUSH_DRIVER === "webpush" ? "webpush" : "log";
 

@@ -16,12 +16,12 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { venueService } from "@/lib/services/venue-service";
-import { zoneStaffHref, zoneTablesHref } from "@/lib/entity-links";
+import { zoneStaffHref, zoneTablesHref } from "@/features/shared/entity-links";
 import { useHighlight } from "@/lib/use-highlight";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { Zone, VenueTable } from "@/lib/types";
 
-import { ZONE_COLORS, ZONE_SWATCH as SWATCH } from "@/lib/zone-colors";
+import { ZONE_COLORS, ZONE_SWATCH as SWATCH } from "@/features/shared/zone-colors";
 
 type ZoneDraft = { name: string; description: string; color: string };
 const EMPTY_DRAFT: ZoneDraft = { name: "", description: "", color: "violet" };

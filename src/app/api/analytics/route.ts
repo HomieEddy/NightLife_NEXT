@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Analytics routes are disabled in demo mode" }, { status: 404 });
@@ -7,7 +7,7 @@ function demoHandler() {
 
 async function liveHandler(request: NextRequest, method: string) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb, getRawPrisma } = await import("@/server/db");
+  const { getDb, getRawPrisma } = await import("@/features/shared/db");
   const { getSummaryForVenue, getHistoricalForVenue } = await import("@/server/analytics-core");
 
   const auth = await requireApiArea("manager");

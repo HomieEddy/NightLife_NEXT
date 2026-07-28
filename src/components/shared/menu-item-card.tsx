@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { BottleIcon } from "@/components/shared/bottle-icon";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { MenuItem } from "@/lib/types";
 
 const TAG_LABELS: Record<MenuItem["tags"][number], string> = {

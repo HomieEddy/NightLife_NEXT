@@ -1,4 +1,4 @@
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { requireArea } from "@/server/auth-helpers";
 import { ManagerShell } from "@/components/manager/manager-shell";
 import { AttentionProvider } from "@/lib/attention-provider";

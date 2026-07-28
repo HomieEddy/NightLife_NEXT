@@ -1,6 +1,6 @@
 import { mockPurchasingService } from "@/lib/mock-services/purchasing-service";
 import { livePurchasingService } from "@/lib/live-services/purchasing-service";
-import { demoOnlyService, isDemoMode, liveOnlyService } from "@/lib/app-mode";
+import { demoOnlyService, isDemoMode, liveOnlyService } from "@/features/shared/app-mode";
 
 export type PurchasingService = typeof mockPurchasingService;
 

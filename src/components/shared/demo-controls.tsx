@@ -1,4 +1,4 @@
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { HostApprovalControl } from "@/components/demo/host-approval-control";
 import { ClosureApprovalControl, OrderProgressControl } from "@/components/demo/order-fast-forwards";
 

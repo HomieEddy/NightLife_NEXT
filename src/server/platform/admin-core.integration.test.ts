@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { createTestDb, type TestDb } from "@/server/test-pglite";
+import { createTestDb, type TestDb } from "@/features/shared/test-pglite";
 import {
   checkEntitlement, checkTableLimit, checkStaffLimit,
   listPlanConfigs, updatePlanConfig, logAdminAction, listAdminActions,

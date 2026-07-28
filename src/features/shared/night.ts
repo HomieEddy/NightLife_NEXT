@@ -4,7 +4,7 @@
  * last-call analytics. One definition, no reimplementation.
  */
 
-import { formatISODate, addDaysTo, parseISODate } from "@/lib/dates";
+import { formatISODate, addDaysTo, parseISODate } from "@/features/shared/dates";
 
 export interface NightConfig {
   timezone: string;

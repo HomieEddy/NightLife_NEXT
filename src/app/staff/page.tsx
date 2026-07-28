@@ -20,7 +20,7 @@ import { reservationService } from "@/lib/services/reservation-service";
 import { showQueueService } from "@/lib/services/show-queue-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
-import { formatMoney, timeAgo } from "@/lib/format";
+import { formatMoney, timeAgo } from "@/features/shared/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { ActiveShow, ChatMessage, Order, Reservation, SoldOutEvent, StaffMember, StaffShift, Zone } from "@/lib/types";
 

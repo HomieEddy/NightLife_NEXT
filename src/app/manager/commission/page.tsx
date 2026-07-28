@@ -14,10 +14,10 @@ import { PageHeader } from "@/components/shared/page-header";
 import { commissionService } from "@/lib/services/commission-service";
 import { staffService } from "@/lib/services/staff-service";
 import { buildCommissionStatement } from "@/lib/workforce";
-import { formatMoney } from "@/lib/format";
-import { canDo } from "@/lib/permissions";
+import { formatMoney } from "@/features/shared/format";
+import { canDo } from "@/features/shared/permissions";
 import { permissionService } from "@/lib/services/permission-service";
-import type { RolePermissions } from "@/lib/permissions";
+import type { RolePermissions } from "@/features/shared/permissions";
 import type { CommissionRule, CommissionStatement, StaffMember } from "@/lib/types";
 
 const BASIS_LABELS: Record<string, string> = {

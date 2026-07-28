@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Platform routes are disabled in demo mode" }, { status: 404 });
@@ -7,7 +7,7 @@ function demoHandler() {
 
 async function liveGET(request: NextRequest) {
   const { requireApiPlatformAdmin } = await import("@/server/auth-helpers");
-  const { getPlatformDb } = await import("@/server/db");
+  const { getPlatformDb } = await import("@/features/shared/db");
   const { listAdminActions } = await import("@/server/platform/admin-core");
 
   const auth = await requireApiPlatformAdmin();

@@ -1,5 +1,5 @@
-import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/permissions";
-import type { RolePermissions } from "@/lib/permissions";
+import { DEFAULT_ROLE_PERMISSIONS } from "@/features/shared/permissions";
+import type { RolePermissions } from "@/features/shared/permissions";
 
 /**
  * Live permission service — reads per-venue role overrides from the database.

@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   ACTION_META,
   DEFAULT_ROLE_PERMISSIONS,
-} from "@/lib/permissions";
+} from "@/features/shared/permissions";
 import type { StaffRole } from "@/lib/types";
-import type { StaffAction } from "@/lib/permissions";
+import type { StaffAction } from "@/features/shared/permissions";
 
 const ROLE_STYLES: Record<StaffRole, string> = {
   manager: "bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30",

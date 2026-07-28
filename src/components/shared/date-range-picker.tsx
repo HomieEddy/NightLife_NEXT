@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 export interface DateRangeValue {
   from: string; // yyyy-mm-dd or ""

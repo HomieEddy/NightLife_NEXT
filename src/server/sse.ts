@@ -3,7 +3,7 @@
  * filters by audience, and streams matching events to the client.
  */
 import { channelFor, AUDIENCE_FILTER, type DomainEventType } from "./events";
-import { getLiveEnv } from "@/lib/env";
+import { getLiveEnv } from "@/features/shared/env";
 import pg from "pg";
 
 type Scope = "manager" | "staff" | "guest";

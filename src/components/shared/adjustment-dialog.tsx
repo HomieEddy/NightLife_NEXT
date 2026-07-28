@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ordersService } from "@/lib/services/orders-service";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import { orderItemAmountCents, orderItemPartialAmountCents, orderTotalCents } from "@/lib/tab";
 import type { AdjustmentReason, Order, TabAdjustmentKind } from "@/lib/types";
 

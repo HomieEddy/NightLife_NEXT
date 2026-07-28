@@ -16,13 +16,13 @@ import { CountUp } from "@/components/fx/count-up";
 import { useGuest } from "@/context/guest-context";
 import { ordersService } from "@/lib/services/orders-service";
 import { guestsService } from "@/lib/services/guests-service";
-import { formatDate, formatMoney, formatTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatDate, formatMoney, formatTime } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import { orderLineSubtotal } from "@/lib/order-line";
 import { evenShares, summarizeReceipt } from "@/lib/receipt";
 import { computeSessionBalance } from "@/lib/tab";
 import type { Order, TabAdjustment, Venue } from "@/lib/types";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function OrderLines({ order }: { order: Order }) {
   return (

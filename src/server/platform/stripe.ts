@@ -4,7 +4,7 @@
  */
 import Stripe from "stripe";
 import type { PrismaClient } from "@prisma/client";
-import { getLiveEnv } from "@/lib/env";
+import { getLiveEnv } from "@/features/shared/env";
 
 let _stripe: Stripe | null = null;
 

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { isNavActive } from "@/lib/navigation";
+import { cn } from "@/features/shared/utils";
+import { isNavActive } from "@/features/shared/navigation";
 
 export interface BottomNavItem {
   href: string;

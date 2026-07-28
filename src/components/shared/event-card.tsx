@@ -2,8 +2,8 @@
 
 import type { ReactNode } from "react";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatTime } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { VenueEvent } from "@/lib/types";
 
 function eventDate(iso: string) {

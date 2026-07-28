@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Not available" }, { status: 404 });
@@ -7,7 +7,7 @@ function demoHandler() {
 
 async function livePOST(request: NextRequest) {
   const { constructWebhookEvent, handleWebhookEvent } = await import("@/server/platform/stripe");
-  const { getPlatformDb } = await import("@/server/db");
+  const { getPlatformDb } = await import("@/features/shared/db");
 
   const signature = request.headers.get("stripe-signature");
   if (!signature) return NextResponse.json({ error: "Missing signature" }, { status: 400 });

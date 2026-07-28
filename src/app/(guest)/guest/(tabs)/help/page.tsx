@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { useGuest } from "@/context/guest-context";
 import { guestsService } from "@/lib/services/guests-service";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { HelpRequestType } from "@/lib/types";
 
 const HELP_OPTIONS: {

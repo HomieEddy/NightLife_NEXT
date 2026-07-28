@@ -33,13 +33,13 @@ import { eventsService } from "@/lib/services/events-service";
 import { reservationService } from "@/lib/services/reservation-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
-import { isDemoMode } from "@/lib/app-mode";
-import { publicReservationHref } from "@/lib/entity-links";
-import { formatTime } from "@/lib/format";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { publicReservationHref } from "@/features/shared/entity-links";
+import { formatTime } from "@/features/shared/format";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { SearchInput } from "@/components/shared/search-input";
 import { Pagination, paginate } from "@/components/shared/pagination";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { Reservation, ReservationStatus, StaffMember, Venue, VenueEvent, VenueTable, Zone } from "@/lib/types";
 
 const CHANNEL_LABEL: Record<string, string> = {

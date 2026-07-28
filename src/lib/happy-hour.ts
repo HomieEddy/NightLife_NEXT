@@ -3,7 +3,7 @@
  * (src/server/pricing.ts) and the demo order/cart path. Pure — no I/O.
  */
 
-import { dayOfWeek } from "@/lib/dates";
+import { dayOfWeek } from "@/features/shared/dates";
 
 export interface HappyHourWindow {
   isActive: boolean;

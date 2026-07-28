@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
-import { formatMoney } from "@/lib/format";
+import { cn } from "@/features/shared/utils";
+import { formatMoney } from "@/features/shared/format";
 import type { RevenuePoint } from "@/lib/types";
 
 /**

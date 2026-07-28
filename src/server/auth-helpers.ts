@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { SessionContext } from "./db";
+import type { SessionContext } from "../features/shared/db";
 
 /**
  * Better Auth's organization plugin only knows owner/admin/member — it has no

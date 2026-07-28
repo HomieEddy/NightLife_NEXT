@@ -29,8 +29,8 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { adminService } from "@/lib/services/admin-service";
-import { adminTenantHref } from "@/lib/entity-links";
-import { formatDate, formatMoney } from "@/lib/format";
+import { adminTenantHref } from "@/features/shared/entity-links";
+import { formatDate, formatMoney } from "@/features/shared/format";
 import type { Tenant, TenantPlan, TenantStatus } from "@/lib/types";
 
 const PLANS: TenantPlan[] = ["starter", "pro", "enterprise"];

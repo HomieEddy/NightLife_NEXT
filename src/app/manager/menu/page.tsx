@@ -25,8 +25,8 @@ import { Pagination, paginate } from "@/components/shared/pagination";
 import { PackageEditor, type PackageDraft } from "@/components/manager/package-editor";
 import { ModifierPresetEditor } from "@/components/manager/modifier-preset-editor";
 import { menuService, type PackageQuote } from "@/lib/services/menu-service";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { BottlePackage, MenuCategory, MenuItem } from "@/lib/types";
 
 type PackageWithQuote = BottlePackage & { quote: PackageQuote };

@@ -26,8 +26,8 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { adminService } from "@/lib/services/admin-service";
-import { formatMoney, timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney, timeAgo } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { Lead, LeadSource, LeadStatus } from "@/lib/types";
 
 const PIPELINE: LeadStatus[] = ["new", "contacted", "demo", "negotiating", "won", "lost"];

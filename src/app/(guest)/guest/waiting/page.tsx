@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { DemoQrScanAction, deniedSessionPath } from "@/components/shared/demo-links";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { guestsService } from "@/lib/services/guests-service";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { DemoHostApprovalControl } from "@/components/shared/demo-controls";

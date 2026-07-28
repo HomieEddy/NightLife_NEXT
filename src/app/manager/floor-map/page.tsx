@@ -20,11 +20,11 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { ordersService } from "@/lib/services/orders-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { venueService } from "@/lib/services/venue-service";
-import { ZONE_SWATCH } from "@/lib/zone-colors";
-import { formatMoney } from "@/lib/format";
+import { ZONE_SWATCH } from "@/features/shared/zone-colors";
+import { formatMoney } from "@/features/shared/format";
 import { FloorMapCanvas } from "@/components/shared/floor-map-canvas";
 import { SessionOverview } from "@/components/shared/session-overview";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { GuestSession, Order, TableStatus, Venue, VenueTable, Zone } from "@/lib/types";
 
 const STATUS_NODE: Record<TableStatus, string> = {

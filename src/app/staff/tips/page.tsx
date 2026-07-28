@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { tipsService } from "@/lib/services/tips-service";
 import { staffService } from "@/lib/services/staff-service";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import type { StaffMember, TipDistribution } from "@/lib/types";
 
 export default function StaffTipsPage() {

@@ -1,7 +1,7 @@
 "use server";
 
 import { requireApiArea, sessionToDbContext } from "@/server/auth-helpers";
-import { getDb } from "@/server/db";
+import { getDb } from "@/features/shared/db";
 import { setTablePosition as coreSetTablePosition, setTableStatus as coreSetTableStatus } from "@/server/venue-core";
 import { zTablePosition, zTableStatus } from "@/server/schemas/venue";
 import type { VenueTable } from "@/lib/types";

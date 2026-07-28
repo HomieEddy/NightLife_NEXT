@@ -29,7 +29,7 @@ import { venueService } from "@/lib/services/venue-service";
 import { waitlistService } from "@/lib/services/waitlist-service";
 import { computeAttentionItems } from "@/lib/pulse";
 import { useLiveEvents } from "@/lib/use-live-events";
-import { formatMoney, formatPct } from "@/lib/format";
+import { formatMoney, formatPct } from "@/features/shared/format";
 import type { AnalyticsSummary, AttentionItem, Order } from "@/lib/types";
 
 export default function ManagerDashboardPage() {

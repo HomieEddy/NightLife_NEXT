@@ -21,7 +21,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { menuService } from "@/lib/services/menu-service";
 import { SearchInput } from "@/components/shared/search-input";
 import { useHighlight } from "@/lib/use-highlight";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { HappyHourRule, MenuCategory } from "@/lib/types";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

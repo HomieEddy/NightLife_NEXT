@@ -3,7 +3,7 @@ import {
 } from "@/lib/mock-services/analytics-service";
 import { aggregateWeekly } from "@/lib/analytics";
 import { liveAnalyticsService } from "@/lib/live-services/analytics-service";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 export type { HistoricalAnalytics } from "@/lib/types";
 
 export type AnalyticsService = typeof mockAnalyticsService;

@@ -6,14 +6,14 @@ import { Search } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { EntityChip } from "@/components/shared/entity-chip";
-import { MANAGER_NAV_GROUPS, type NavItem } from "@/lib/navigation";
+import { MANAGER_NAV_GROUPS, type NavItem } from "@/features/shared/navigation";
 import { ordersService } from "@/lib/services/orders-service";
 import { venueService } from "@/lib/services/venue-service";
 import { staffService } from "@/lib/services/staff-service";
 import { menuService } from "@/lib/services/menu-service";
 import { reservationService } from "@/lib/services/reservation-service";
 import { guestService } from "@/lib/services/guest-service";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { EntityChipType } from "@/components/shared/entity-chip";
 
 interface EntityResult {

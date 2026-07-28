@@ -1,6 +1,6 @@
 import { mockIncidentService } from "@/lib/mock-services/incident-service";
 import { liveIncidentService } from "@/lib/live-services/incident-service";
-import { demoOnlyService, isDemoMode, liveOnlyService } from "@/lib/app-mode";
+import { demoOnlyService, isDemoMode, liveOnlyService } from "@/features/shared/app-mode";
 
 export type IncidentService = typeof mockIncidentService;
 

@@ -14,8 +14,8 @@ import { Pagination, paginate } from "@/components/shared/pagination";
 import { auditService } from "@/lib/services/audit-service";
 import { staffService } from "@/lib/services/staff-service";
 import { permissionService } from "@/lib/services/permission-service";
-import { canDo } from "@/lib/permissions";
-import { formatDate, formatTime } from "@/lib/format";
+import { canDo } from "@/features/shared/permissions";
+import { formatDate, formatTime } from "@/features/shared/format";
 import type { AuditEntry, StaffMember } from "@/lib/types";
 
 export default function AuditTrailPage() {

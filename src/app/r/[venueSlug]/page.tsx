@@ -22,9 +22,9 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FloorMapCanvas } from "@/components/shared/floor-map-canvas";
 import { reservationService } from "@/lib/services/reservation-service";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import { ZONE_SWATCH } from "@/lib/zone-colors";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
+import { ZONE_SWATCH } from "@/features/shared/zone-colors";
 import type { PublicAvailability, PublicTableAvailability } from "@/lib/services/reservation-service";
 import type { VenueTable, Zone } from "@/lib/types";
 

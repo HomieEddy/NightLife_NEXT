@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { waitlistService } from "@/lib/services/waitlist-service";
 import type { WaitlistEntryWithPosition } from "@/lib/services/waitlist-service";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 const QUOTE_PRESETS = [15, 30, 45];
 

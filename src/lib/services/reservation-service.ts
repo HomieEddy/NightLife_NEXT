@@ -1,6 +1,6 @@
 import { mockReservationService } from "@/lib/mock-services/reservation-service";
 import { liveReservationService } from "@/lib/live-services/reservation-service";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 export type ReservationService = typeof mockReservationService;
 export type { PublicAvailability, PublicTableAvailability } from "@/lib/mock-services/reservation-service";

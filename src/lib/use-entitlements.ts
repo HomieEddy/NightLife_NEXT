@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { FeatureKey, PlanConfig, TenantPlan } from "@/lib/types";
 import { hasFeature, planLimits } from "@/lib/plan-catalog";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { billingService } from "@/lib/services/billing-service";
 
 export interface Entitlements {

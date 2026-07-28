@@ -1,7 +1,7 @@
 import { mockShowQueueService } from "@/lib/mock-services/show-queue-service";
 import { orderNeedsShow, showLabelFor } from "@/lib/order-presentation";
 import { liveShowQueueService } from "@/lib/live-services/show-queue-service";
-import { demoOnlyService, isDemoMode, liveOnlyService } from "@/lib/app-mode";
+import { demoOnlyService, isDemoMode, liveOnlyService } from "@/features/shared/app-mode";
 
 export type ShowQueueService = typeof mockShowQueueService;
 

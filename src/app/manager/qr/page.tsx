@@ -17,7 +17,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { venueService } from "@/lib/services/venue-service";
 import { SearchInput } from "@/components/shared/search-input";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { TableStatus, VenueTable, Zone } from "@/lib/types";
 
 /** Real, scannable QR rendered as inline SVG. */

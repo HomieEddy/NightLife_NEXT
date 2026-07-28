@@ -1,4 +1,4 @@
-import { assertDemoMode } from "@/lib/app-mode";
+import { assertDemoMode } from "@/features/shared/app-mode";
 
 const mockService = new Proxy({}, {
   get() {

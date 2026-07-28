@@ -1,6 +1,6 @@
 import { mockTipsService } from "@/lib/mock-services/tips-service";
 import { liveTipsService } from "@/lib/live-services/tips-service";
-import { demoOnlyService, isDemoMode, liveOnlyService } from "@/lib/app-mode";
+import { demoOnlyService, isDemoMode, liveOnlyService } from "@/features/shared/app-mode";
 
 export type TipsService = typeof mockTipsService;
 

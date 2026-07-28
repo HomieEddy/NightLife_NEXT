@@ -1,5 +1,5 @@
 import { mockCertificationService } from "@/lib/mock-services/certification-service";
-import { demoOnlyService, isDemoMode } from "@/lib/app-mode";
+import { demoOnlyService, isDemoMode } from "@/features/shared/app-mode";
 
 export type CertificationService = typeof mockCertificationService;
 

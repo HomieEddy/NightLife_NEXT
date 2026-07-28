@@ -27,8 +27,8 @@ import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { SearchInput } from "@/components/shared/search-input";
 import { DateRangePicker, getDefaultDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
-import { isDemoMode } from "@/lib/app-mode";
-import { cn } from "@/lib/utils";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { cn } from "@/features/shared/utils";
 import { Pagination, paginate } from "@/components/shared/pagination";
 import type { StaffAccountStatus, StaffMember, StaffRole, Zone } from "@/lib/types";
 

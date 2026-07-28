@@ -19,7 +19,7 @@ import { mockAdjustmentReasons } from "@/lib/mock-data/tab";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
 import { cartHappyHourDiscount } from "@/lib/happy-hour";
 import { orderLineSubtotal } from "@/lib/order-line";
-import { nextStatus, ORDER_FLOW } from "@/lib/order-status";
+import { nextStatus, ORDER_FLOW } from "@/features/shared/order-status";
 import {
   isAdjustmentAmountValid,
   orderItemAmountCents,

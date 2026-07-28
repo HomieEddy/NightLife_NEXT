@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { gsap } from "@/lib/gsap";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 
 /**
  * A money amount that tweens between values when it changes (e.g. cart total

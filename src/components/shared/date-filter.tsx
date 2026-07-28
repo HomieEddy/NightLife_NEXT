@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 export type DateRange = "today" | "week" | "all";
 

@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getRawPrisma } from "@/server/db";
+import { getRawPrisma } from "@/features/shared/db";
 
 export async function getGuestSession(request: NextRequest) {
   const sessionId = request.cookies.get("nln-guest-session")?.value;

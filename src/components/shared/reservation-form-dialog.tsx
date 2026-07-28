@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { guestService } from "@/lib/services/guest-service";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import type { GuestProfile, StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
 
 export type ReservationDraft = {

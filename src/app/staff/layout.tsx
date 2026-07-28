@@ -1,4 +1,4 @@
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { requireArea } from "@/server/auth-helpers";
 import { StaffShell } from "@/components/staff/staff-shell";
 

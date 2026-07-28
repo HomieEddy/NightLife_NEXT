@@ -12,7 +12,7 @@ import {
 import type { AuthUser, SignInInput } from "@/lib/types";
 import { authService } from "@/lib/services/auth-service";
 import { orgRoleToAppRole } from "@/lib/live-services/auth-service";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { authClient } from "@/lib/auth-client";
 
 interface AuthContextValue {

@@ -18,8 +18,8 @@ import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/lib/services/menu-service";
 import { ordersService } from "@/lib/services/orders-service";
 import { venueService } from "@/lib/services/venue-service";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { MenuItem, VenueTable } from "@/lib/types";
 
 const MAX_GIFT_PRICE = 60;

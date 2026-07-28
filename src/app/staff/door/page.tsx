@@ -26,11 +26,11 @@ import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { waitlistService } from "@/lib/services/waitlist-service";
 import type { WaitlistEntryWithPosition } from "@/lib/services/waitlist-service";
-import { canDo } from "@/lib/permissions";
-import type { RolePermissions } from "@/lib/permissions";
+import { canDo } from "@/features/shared/permissions";
+import type { RolePermissions } from "@/features/shared/permissions";
 import { isBanned, occupancyRatio } from "@/lib/door";
-import { formatMoney, timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney, timeAgo } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type {
   Admission, AdmissionType, CoatCheckTicket, GuestProfile, Reservation, StaffMember, Venue,
 } from "@/lib/types";

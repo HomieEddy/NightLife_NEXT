@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Table routes are disabled in demo mode" }, { status: 404 });
@@ -7,7 +7,7 @@ function demoHandler() {
 
 async function liveGET(request: NextRequest) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
   const { listTables } = await import("@/server/venue-core");
 
   const auth = await requireApiArea("staff");
@@ -21,7 +21,7 @@ async function liveGET(request: NextRequest) {
 
 async function livePOST(request: NextRequest) {
   const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { getDb } = await import("@/features/shared/db");
   const { createTable } = await import("@/server/venue-core");
   const { zTableInput } = await import("@/server/schemas/venue");
 
@@ -33,7 +33,7 @@ async function livePOST(request: NextRequest) {
 
   const { venueId } = sessionToDbContext(auth.session);
 
-  const { getPlatformDb } = await import("@/server/db");
+  const { getPlatformDb } = await import("@/features/shared/db");
   const { checkTableLimit } = await import("@/server/platform/admin-core");
   const limitCheck = await checkTableLimit(getPlatformDb(), venueId);
   if (!limitCheck.allowed) {

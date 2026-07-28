@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
-import { ADMIN_NAV, isNavActive } from "@/lib/navigation";
-import { cn } from "@/lib/utils";
+import { ADMIN_NAV, isNavActive } from "@/features/shared/navigation";
+import { cn } from "@/features/shared/utils";
 import { ShieldCheck } from "lucide-react";
 
 export default function AdminShellClient({ children }: { children: React.ReactNode }) {

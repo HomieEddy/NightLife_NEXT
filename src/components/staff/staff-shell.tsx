@@ -11,7 +11,7 @@ import { BroadcastBanner } from "@/components/staff/broadcast-banner";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
 import { useEntitlements } from "@/lib/use-entitlements";
-import { getStaffNav } from "@/lib/role-capabilities";
+import { getStaffNav } from "@/features/shared/role-capabilities";
 import type { StaffMember } from "@/lib/types";
 
 /**

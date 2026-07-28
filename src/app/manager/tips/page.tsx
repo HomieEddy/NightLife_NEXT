@@ -19,10 +19,10 @@ import { tipsService } from "@/lib/services/tips-service";
 import { timeService } from "@/lib/services/time-service";
 import { staffService } from "@/lib/services/staff-service";
 import { computeTipDistribution } from "@/lib/workforce";
-import { formatMoney } from "@/lib/format";
-import { canDo } from "@/lib/permissions";
+import { formatMoney } from "@/features/shared/format";
+import { canDo } from "@/features/shared/permissions";
 import { permissionService } from "@/lib/services/permission-service";
-import type { RolePermissions } from "@/lib/permissions";
+import type { RolePermissions } from "@/features/shared/permissions";
 import type { StaffMember, StaffRole, TipDistribution, TipPoolRule, TipPoolBasis, TimeEntry } from "@/lib/types";
 
 const STAFF_ROLES: StaffRole[] = ["bartender", "runner", "host", "security", "promoter"];

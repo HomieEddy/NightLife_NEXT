@@ -2,11 +2,11 @@
  * Shared venue/zone/table/shift logic used by both route handlers and
  * server actions — keeps the two entry points from drifting.
  */
-import type { getDb } from "./db";
+import type { getDb } from "../features/shared/db";
 import type { Venue, VenueTable, Zone, TableStatus as VenueTableStatus } from "@/lib/types";
 import type { zTableInput, zTablePatch, zVenuePatch, zZoneInput, zZonePatch } from "./schemas/venue";
 import type { z } from "zod";
-import { buildTableUrl } from "./table-token";
+import { buildTableUrl } from "../features/shared/table-token";
 
 type ScopedDb = ReturnType<typeof getDb>;
 

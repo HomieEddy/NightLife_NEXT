@@ -1,4 +1,4 @@
-import type { getDb } from "./db";
+import type { getDb } from "../features/shared/db";
 import type { StaffShift } from "@/lib/types";
 import type { z } from "zod";
 import type { zShiftInput } from "./schemas/shifts";

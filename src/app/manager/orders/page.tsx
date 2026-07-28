@@ -21,11 +21,11 @@ import { staffService } from "@/lib/services/staff-service";
 import { guestsService } from "@/lib/services/guests-service";
 import { venueService } from "@/lib/services/venue-service";
 import { permissionService } from "@/lib/services/permission-service";
-import { canDo } from "@/lib/permissions";
-import { formatMoney } from "@/lib/format";
+import { canDo } from "@/features/shared/permissions";
+import { formatMoney } from "@/features/shared/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { SessionOverview } from "@/components/shared/session-overview";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import { Wallet } from "lucide-react";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { DateRangePicker, getDefaultDateRange, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
@@ -53,7 +53,7 @@ export default function ManagerOrdersPage() {
   const [view, setView] = useState<"orders" | "sessions">("orders");
   const [sessions, setSessions] = useState<GuestSession[] | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
-  const [permissions, setPermissions] = useState<import("@/lib/permissions").RolePermissions | null>(null);
+  const [permissions, setPermissions] = useState<import("@/features/shared/permissions").RolePermissions | null>(null);
   const [compThresholdCents, setCompThresholdCents] = useState(0);
   const [minimumSpendWarningRatio, setMinimumSpendWarningRatio] = useState(0.25);
 

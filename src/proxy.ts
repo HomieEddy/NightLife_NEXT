@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
-import { getAppMode } from "@/lib/app-mode";
+import { getAppMode } from "@/features/shared/app-mode";
 
 export function proxy(request: NextRequest) {
   if (getAppMode() === "demo") {

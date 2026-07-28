@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { DemoOpenTableAction } from "@/components/shared/demo-links";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { guestsService } from "@/lib/services/guests-service";
 import { reservationService } from "@/lib/services/reservation-service";
 import { venueService } from "@/lib/services/venue-service";

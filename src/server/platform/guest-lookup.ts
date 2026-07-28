@@ -5,8 +5,8 @@
  * In live mode, QR URLs carry a signed token (plan 06) verified by the
  * join route; lookup verifies the same token before returning table details.
  */
-import { getPlatformDb } from "@/server/db";
-import { verifyTableToken } from "@/server/table-token";
+import { getPlatformDb } from "@/features/shared/db";
+import { verifyTableToken } from "@/features/shared/table-token";
 import type { Venue, VenueTable, Zone } from "@/lib/types";
 
 export async function findTableByQrSlug(

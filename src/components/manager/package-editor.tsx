@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import { ModifierPresetEditor } from "@/components/manager/modifier-preset-editor";
 import type { BottlePackage, MenuItem, ModifierGroup, PackageComponent } from "@/lib/types";
 

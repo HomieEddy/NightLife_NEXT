@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { _resetEnvCache } from "@/lib/env";
+import { _resetEnvCache } from "@/features/shared/env";
 
 export interface TestDb {
   url: string;

@@ -21,10 +21,10 @@ import { eventsService } from "@/lib/services/events-service";
 import { reservationService } from "@/lib/services/reservation-service";
 import { staffService } from "@/lib/services/staff-service";
 import { venueService } from "@/lib/services/venue-service";
-import { formatTime } from "@/lib/format";
-import { canDo } from "@/lib/permissions";
+import { formatTime } from "@/features/shared/format";
+import { canDo } from "@/features/shared/permissions";
 import { permissionService } from "@/lib/services/permission-service";
-import type { RolePermissions } from "@/lib/permissions";
+import type { RolePermissions } from "@/features/shared/permissions";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { Reservation, StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
 

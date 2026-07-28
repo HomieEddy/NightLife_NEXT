@@ -17,9 +17,9 @@ import { venueService } from "@/lib/services/venue-service";
 import { staffService } from "@/lib/services/staff-service";
 import { cashoutService } from "@/lib/services/cashout-service";
 import { permissionService } from "@/lib/services/permission-service";
-import { canDo } from "@/lib/permissions";
+import { canDo } from "@/features/shared/permissions";
 import { businessDateFor, computeCashoutVariance, emptyMethodTotals } from "@/lib/tab";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import type { SettlementMethod, ShiftCashout, StaffMember } from "@/lib/types";
 
 const METHODS: { id: SettlementMethod; label: string }[] = [

@@ -14,7 +14,7 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { adminService } from "@/lib/services/admin-service";
-import { formatMoney, timeAgo } from "@/lib/format";
+import { formatMoney, timeAgo } from "@/features/shared/format";
 import type { Lead, TelemetryLink, Tenant } from "@/lib/types";
 
 export default function AdminOverviewPage() {

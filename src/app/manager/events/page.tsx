@@ -25,10 +25,10 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { eventsService } from "@/lib/services/events-service";
 import { venueService } from "@/lib/services/venue-service";
-import { publicEventsHref, publicReservationHref } from "@/lib/entity-links";
+import { publicEventsHref, publicReservationHref } from "@/features/shared/entity-links";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { SearchInput } from "@/components/shared/search-input";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { EventGuest, EventStatus, Venue, VenueEvent, Zone } from "@/lib/types";
 
 const selectCls =

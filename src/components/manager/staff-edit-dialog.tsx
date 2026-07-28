@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { staffService } from "@/lib/services/staff-service";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import { ASSIGNABLE_ROLES, type StaffMember, type StaffRole, type Zone } from "@/lib/types";
 
 interface Draft {

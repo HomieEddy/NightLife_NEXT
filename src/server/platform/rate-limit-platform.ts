@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { checkRateLimit } from "@/server/rate-limit";
+import { checkRateLimit } from "@/features/shared/rate-limit";
 
 const PLATFORM_LIMITS = { maxTokens: 30, refillRate: 30, windowMs: 60_000 };
 

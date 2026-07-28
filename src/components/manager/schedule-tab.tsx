@@ -20,7 +20,7 @@ import { RoleBadge } from "@/components/shared/role-badge";
 import { staffService } from "@/lib/services/staff-service";
 import { timeService } from "@/lib/services/time-service";
 import { generateWeekFromTemplates } from "@/lib/workforce";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { DateRangeValue } from "@/components/shared/date-range-picker";
 import type { StaffMember, StaffShift, Shift, Zone } from "@/lib/types";
 

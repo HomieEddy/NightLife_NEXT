@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import { cn } from "@/lib/utils";
-import { ZONE_SWATCH } from "@/lib/zone-colors";
+import { cn } from "@/features/shared/utils";
+import { ZONE_SWATCH } from "@/features/shared/zone-colors";
 import type { TableStatus, VenueTable, Zone } from "@/lib/types";
 
 const STATUS_NODE: Record<TableStatus, string> = {

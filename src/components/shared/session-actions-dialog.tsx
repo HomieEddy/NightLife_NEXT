@@ -16,7 +16,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { guestsService } from "@/lib/services/guests-service";
 import { ordersService } from "@/lib/services/orders-service";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import { splitSessionByItems } from "@/lib/tab";
 import { countDeliveredAlcoholicDrinks } from "@/lib/door";
 import type { GuestSession, MenuItem, Order, VenueTable } from "@/lib/types";

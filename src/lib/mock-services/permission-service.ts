@@ -1,6 +1,6 @@
 import { delay, clone } from "./delay";
-import { DEFAULT_ROLE_PERMISSIONS } from "@/lib/permissions";
-import type { RolePermissions } from "@/lib/permissions";
+import { DEFAULT_ROLE_PERMISSIONS } from "@/features/shared/permissions";
+import type { RolePermissions } from "@/features/shared/permissions";
 
 // Per-venue in-memory overrides — resets on page reload (permanent demo sandbox behaviour).
 const venueOverrides = new Map<string, RolePermissions>();

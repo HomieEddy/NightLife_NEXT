@@ -1,8 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTestDb, type TestDb } from "./test-pglite";
+import { createTestDb, type TestDb } from "../features/shared/test-pglite";
 import { getCurrentStaff, listStaff, removeStaff, toggleShift, updateStaff } from "./staff-core";
-import { expectTenantIsolation } from "./test-helpers";
+import { expectTenantIsolation } from "../features/shared/test-helpers";
 
 async function makeVenue(prisma: PrismaClient, id: string) {
   await prisma.organization.create({ data: { id, name: id, slug: id } });
