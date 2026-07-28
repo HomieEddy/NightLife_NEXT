@@ -37,7 +37,7 @@ export function PackageCard({ pkg, featured = false }: { pkg: PackageWithQuote; 
 
   return (
     <Card
-      className={`py-4 ${featured && !soldOut ? "focal-halo" : "border-primary/40"} ${soldOut ? "opacity-50" : ""}`}
+      className={`py-4 ${featured && !soldOut ? "focal-halo animate-glow-pulse" : "border-primary/40"} ${soldOut ? "opacity-50" : ""}`}
     >
       <CardContent className="space-y-3 px-4">
         <div className="flex items-start gap-3">

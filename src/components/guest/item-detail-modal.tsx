@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Minus, Plus, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
+import { gsap } from "@/lib/gsap";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +33,7 @@ export function ItemDetailModal({
   const [quantity, setQuantity] = useState(1);
   const [selected, setSelected] = useState<Record<string, Record<string, number>>>({});
   const [note, setNote] = useState("");
+  const addBtnRef = useRef<HTMLButtonElement>(null);
 
   // Reset per item via key on DialogContent below.
   const modifiers: OrderItemModifier[] = useMemo(() => {
@@ -83,6 +85,31 @@ export function ItemDetailModal({
     if (!item) return;
     addToCart(item, quantity, modifiers, note.trim() || undefined);
     toast.success(`${quantity}× ${item.name} added to cart`);
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && addBtnRef.current) {
+      const btnRect = addBtnRef.current.getBoundingClientRect();
+      const pill = document.getElementById("cart-pill");
+      if (pill) {
+        const pillRect = pill.getBoundingClientRect();
+        const clone = document.createElement("span");
+        clone.textContent = `+${formatMoney(lineTotal)}`;
+        clone.className = "text-sm font-semibold text-primary tabular-nums";
+        clone.style.position = "fixed";
+        clone.style.left = `${btnRect.left}px`;
+        clone.style.top = `${btnRect.top}px`;
+        clone.style.zIndex = "9999";
+        clone.style.pointerEvents = "none";
+        document.body.appendChild(clone);
+        gsap.to(clone, {
+          x: pillRect.left + pillRect.width / 2 - btnRect.left,
+          y: pillRect.top + pillRect.height / 2 - btnRect.top,
+          scale: 0.4,
+          opacity: 0,
+          duration: 0.4,
+          ease: "power2.in",
+          onComplete: () => clone.remove(),
+        });
+      }
+    }
     handleClose();
   }
 
@@ -120,9 +147,9 @@ export function ItemDetailModal({
                     const active = selectedQuantity > 0;
                     return (
                       <div
-                        key={option.id}
+                        key={`${option.id}-${active}`}
                         className={cn(
-                          "flex w-full items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors",
+                          "flex w-full items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors animate-pop-in",
                           active
                             ? "border-primary bg-primary/10 text-foreground"
                             : "hover:bg-accent/50",
@@ -189,7 +216,7 @@ export function ItemDetailModal({
                 >
                   <Minus className="size-4" />
                 </Button>
-                <span className="w-8 text-center font-semibold tabular-nums">{quantity}</span>
+                <span key={quantity} className="w-8 text-center font-semibold tabular-nums animate-pop-in">{quantity}</span>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -201,6 +228,7 @@ export function ItemDetailModal({
                 </Button>
               </div>
               <Button
+                ref={addBtnRef}
                 className="h-11 flex-1"
                 onClick={handleAdd}
                 disabled={missingRequired}

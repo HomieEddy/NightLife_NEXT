@@ -9,11 +9,13 @@ export function CountUp({
   format = (v: number) => String(Math.round(v)),
   duration = 1.6,
   className,
+  startOnMount = false,
 }: {
   value: number;
   format?: (v: number) => string;
   duration?: number;
   className?: string;
+  startOnMount?: boolean;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
 
@@ -21,15 +23,18 @@ export function CountUp({
     () => {
       if (!ref.current) return;
       const state = { v: 0 };
-      gsap.to(state, {
+      const tween = {
         v: value,
         duration,
         ease: "power2.out",
-        scrollTrigger: { trigger: ref.current, start: "top 92%", once: true },
+        scrollTrigger: startOnMount
+          ? undefined
+          : { trigger: ref.current, start: "top 92%", once: true },
         onUpdate: () => {
           if (ref.current) ref.current.textContent = format(state.v);
         },
-      });
+      };
+      gsap.to(state, tween);
     },
     { dependencies: [value], scope: ref },
   );

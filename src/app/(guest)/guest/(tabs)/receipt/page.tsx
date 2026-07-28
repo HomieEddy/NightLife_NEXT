@@ -89,7 +89,7 @@ function Totals({ subtotal, feeBreakdown, tip, total, promotionCode, promotionCe
       </div>
       <div className="flex justify-between pt-1 text-base font-semibold">
         <span>Total</span>
-        <CountUp value={total} format={formatMoney} duration={1.2} className="tabular-nums" />
+        <CountUp value={total} format={formatMoney} duration={1.2} startOnMount className="tabular-nums" />
       </div>
     </div>
   );
@@ -360,7 +360,7 @@ function NightReceipt() {
       </div>
 
       {/* Paper receipt */}
-      <div className="mx-auto w-full max-w-sm rounded-lg bg-zinc-50 text-zinc-900 shadow-xl">
+      <div className="mx-auto w-full max-w-sm rounded-lg bg-zinc-50 text-zinc-900 shadow-xl animate-fade-up" style={{ animationDelay: "450ms" }}>
         <div className="space-y-2 p-5 font-mono text-xs leading-relaxed">
           <div className="text-center">
             <p className="text-sm font-bold tracking-[0.2em]">{venue?.name.toUpperCase()}</p>
@@ -502,10 +502,12 @@ function NightReceipt() {
         </div>
       </div>
 
-      <SplitBill total={total} />
+      <div className="animate-fade-up" style={{ animationDelay: "650ms" }}>
+        <SplitBill total={total} />
+      </div>
 
       {/* Dummy email-the-receipt action */}
-      <div className="space-y-2">
+      <div className="space-y-2 animate-fade-up" style={{ animationDelay: "850ms" }}>
         <Input
           type="email"
           placeholder="guest@email.com"
@@ -517,7 +519,9 @@ function NightReceipt() {
         </Button>
       </div>
 
-      <DemoNewSessionAction />
+      <div className="animate-fade-up" style={{ animationDelay: "850ms" }}>
+        <DemoNewSessionAction />
+      </div>
     </div>
   );
 }

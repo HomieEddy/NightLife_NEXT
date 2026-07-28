@@ -49,15 +49,20 @@ function OrderTracker({ order }: { order: Order }) {
             <div className="flex w-full items-center">
               <div
                 className={cn(
-                  "h-0.5 flex-1",
-                  i === 0 ? "bg-transparent" : done ? "bg-primary" : "bg-border",
+                  "h-0.5",
+                  i === 0
+                    ? "bg-transparent"
+                    : done
+                      ? "order-connector w-full bg-primary"
+                      : "order-connector w-0 bg-border",
                 )}
               />
               <div
+                key={`${step}-${order.status}`}
                 className={cn(
                   "flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px]",
                   done
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? "border-primary bg-primary text-primary-foreground animate-pop-in"
                     : "border-border bg-card text-muted-foreground",
                   i === currentIndex && "animate-pulse glow-primary",
                 )}
@@ -66,12 +71,12 @@ function OrderTracker({ order }: { order: Order }) {
               </div>
               <div
                 className={cn(
-                  "h-0.5 flex-1",
+                  "h-0.5",
                   i === ORDER_FLOW.length - 1
                     ? "bg-transparent"
                     : i < currentIndex
-                      ? "bg-primary"
-                      : "bg-border",
+                      ? "order-connector w-full bg-primary"
+                      : "order-connector w-0 bg-border",
                 )}
               />
             </div>
@@ -230,7 +235,7 @@ export default function GuestOrdersPage() {
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <StatusBadge status={order.status} pulse={order.status === "pending"} />
+                  <div key={`${order.id}-${order.status}`}><StatusBadge status={order.status} pulse={order.status === "pending"} /></div>
                   <span className="text-sm font-semibold tabular-nums">
                     {formatMoney(order.total)}
                   </span>

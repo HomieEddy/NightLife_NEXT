@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Minus, Pencil, Plus, ShoppingBag, Tag, Trash2, X } from "lucide-react";
+import { CheckCircle2, Loader2, Minus, Pencil, Plus, ShoppingBag, Tag, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
   const [customTip, setCustomTip] = useState(false);
   const [customTipPct, setCustomTipPct] = useState(15);
   const [submitting, setSubmitting] = useState(false);
+  const [placing, setPlacing] = useState(false);
   const [promoInput, setPromoInput] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<Promotion | null>(null);
@@ -137,7 +138,8 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
       clearCart();
       toast.success(`Order ${order.code} sent to the team!`);
       onSubmitted?.();
-      router.push("/guest/orders");
+      setPlacing(true);
+      setTimeout(() => router.push("/guest/orders"), 900);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not submit your order. Please try again.",
@@ -146,6 +148,16 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
       setSubmitting(false);
     }
   }
+
+  if (placing) return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+      <div className="flex flex-col items-center gap-4 animate-pop-in">
+        <CheckCircle2 className="h-16 w-16 text-primary" />
+        <p className="text-xl font-semibold">Order sent!</p>
+        <p className="text-muted-foreground">Taking you to your orders...</p>
+      </div>
+    </div>
+  );
 
   if (cart.length === 0) {
     return (
@@ -193,7 +205,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
                     >
                       <Minus className="size-3.5" />
                     </Button>
-                    <span className="w-6 text-center text-sm font-medium tabular-nums">
+                    <span key={line.quantity} className="w-6 text-center text-sm font-medium tabular-nums animate-pop-in">
                       {line.quantity}
                     </span>
                     <Button
@@ -297,7 +309,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
       <div className="space-y-2">
         <p className="text-sm font-medium">Promo code</p>
         {appliedPromo ? (
-          <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+          <div key={appliedPromo.code} className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
             <Tag className="size-4 text-primary" />
             <span className="flex-1 text-sm font-medium">{appliedPromo.code}</span>
             <span className="text-sm text-primary tabular-nums">-{formatMoney(promoDiscount)}</span>

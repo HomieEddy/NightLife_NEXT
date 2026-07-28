@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Martini, QrCode, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -26,6 +26,21 @@ export default function GuestMenuPage() {
   const [query, setQuery] = useState("");
   const [openItem, setOpenItem] = useState<MenuItem | null>(null);
   const [page, setPage] = useState(1);
+  const [transitioning, setTransitioning] = useState(false);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const handleCategoryChange = (catId: string) => {
+    setActiveCategory(catId);
+    setTransitioning(true);
+    setTimeout(() => setTransitioning(false), 50);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setQuery(value);
+    clearTimeout(fadeTimer.current);
+    setTransitioning(true);
+    fadeTimer.current = setTimeout(() => setTransitioning(false), 50);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +103,7 @@ export default function GuestMenuPage() {
         <Input
           placeholder="Search drinks, bottles, bites…"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="h-11 pl-9"
         />
       </div>
@@ -98,7 +113,7 @@ export default function GuestMenuPage() {
           <button
             key={cat.id}
             type="button"
-            onClick={() => setActiveCategory(cat.id)}
+            onClick={() => handleCategoryChange(cat.id)}
             className={cn(
               "shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
               activeCategory === cat.id
@@ -121,7 +136,7 @@ export default function GuestMenuPage() {
             description="Try a different search or category."
           />
         ) : (
-          <div key={`search-${query}`} className="space-y-3 stagger-children">
+          <div key={`search-${query}`} className={cn("space-y-3 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
             {visiblePackages.map((pkg, i) => (
               <PackageCard key={pkg.id} pkg={pkg} featured={i === 0} />
             ))}
@@ -139,7 +154,7 @@ export default function GuestMenuPage() {
             description="Browse the bottle list instead."
           />
         ) : (
-          <div key="packages" className="space-y-3 stagger-children">
+          <div key="packages" className={cn("space-y-3 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
             {packages.map((pkg, i) => (
               <PackageCard key={pkg.id} pkg={pkg} featured={i === 0} />
             ))}
@@ -152,7 +167,7 @@ export default function GuestMenuPage() {
           description="Try a different search or category."
         />
       ) : (
-        <div key={`${activeCategory}-${query}`} className="space-y-2.5 stagger-children">
+        <div key={`${activeCategory}-${query}`} className={cn("space-y-2.5 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
           {paginate(visible, page).map((item) => (
             <MenuItemCard key={item.id} item={item} onClick={() => setOpenItem(item)} />
           ))}

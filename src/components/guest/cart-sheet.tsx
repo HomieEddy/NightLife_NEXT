@@ -42,6 +42,7 @@ export function CartSheet() {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button
+          id="cart-pill"
           ref={pillRef}
           type="button"
           className="foil foil-shimmer glow-gold !fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.5rem)] z-40 mx-auto flex w-[calc(100%-2rem)] max-w-md items-center justify-between rounded-full px-5 py-3.5 font-semibold transition-transform active:scale-[0.98] animate-pop-in will-change-transform"
