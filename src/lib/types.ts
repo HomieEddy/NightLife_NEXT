@@ -1774,3 +1774,30 @@ export interface VisitCadenceAnalysis {
   isDormant: boolean; // no visits in 90 days
   streak: number; // consecutive weeks with a visit
 }
+
+/** RV-08: Split-bill — per-item assignment to sub-totals for sequential settlement. */
+export interface SplitBillAssignment {
+  sessionId: string;
+  splits: { label: string; orderItemIds: string[]; subTotalCents: number; settled: boolean }[];
+}
+
+/** RV-21: Bar tab — non-table session created by bartender, profile-linked. */
+export interface BarTab {
+  id: string;
+  venueId: string;
+  guestProfileId?: string;
+  guestName: string;
+  status: "open" | "closed";
+  openedByStaffId: string;
+  openedByStaffName: string;
+  openedAt: string;
+  closedAt?: string;
+}
+
+/** OE-20: Event-specific menu — scoped items/packages to an event window. */
+export interface EventMenuOverride {
+  eventId: string;
+  menuItemIds: string[];
+  packageIds: string[];
+  priceOverrides: Record<string, number>; // menuItemId → cents
+}
