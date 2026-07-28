@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Clock, LifeBuoy, Martini, Receipt, ShoppingBag } from "lucide-react";
 import { CartSheet } from "@/components/guest/cart-sheet";
 import { MobileBottomNav } from "@/components/shared/mobile-bottom-nav";
@@ -10,6 +11,8 @@ import { useLastCall } from "@/lib/use-last-call";
 export default function GuestTabsLayout({ children }: { children: React.ReactNode }) {
   const { table, venue, cartCount } = useGuest();
   const lastCallActive = useLastCall();
+  const pathname = usePathname();
+  const isCartPage = pathname === "/guest/cart";
 
   return (
     <>
@@ -35,7 +38,7 @@ export default function GuestTabsLayout({ children }: { children: React.ReactNod
         </header>
       </div>
       <main className="flex-1 pb-24">{children}</main>
-      <CartSheet />
+      {!isCartPage && <CartSheet />}
       <MobileBottomNav
         className="mx-auto max-w-lg"
         items={[
