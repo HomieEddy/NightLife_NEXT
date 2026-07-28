@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  Clock,
   Loader2,
   Receipt,
   ReceiptText,
@@ -24,7 +25,7 @@ import { analyticsService } from "@/features/analytics/analytics-service";
 import { guestsService } from "@/features/guests/services";
 import { ordersService, ORDER_FLOW } from "@/features/ordering/services";
 import { estimateEtaMinutes, formatEta } from "@/features/shared/eta";
-import { formatMoney, timeAgo } from "@/features/shared/format";
+import { formatMoney } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import type { Order } from "@/lib/types";
 import { DemoClosureApprovalControl, DemoOrderProgressControl } from "@/components/shared/demo-controls";
@@ -224,8 +225,7 @@ export default function GuestOrdersPage() {
                 <div>
                   <p className="font-mono text-sm font-semibold">{order.code}</p>
                   <p className="text-xs text-muted-foreground">
-                    {order.items.reduce((n, i) => n + i.quantity, 0)} items ·{" "}
-                    {timeAgo(order.placedAt)}
+                    {order.items.reduce((n, i) => n + i.quantity, 0)} items
                   </p>
                   {order.promotionCode && (
                     <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-primary">
@@ -248,9 +248,12 @@ export default function GuestOrdersPage() {
                 const isImminent = etaMinutes !== null && etaMinutes <= 5;
                 return eta ? (
                   <p className={cn(
-                    "text-xs font-medium",
+                    "flex items-center gap-1 text-xs font-medium",
                     isImminent ? "text-primary animate-glow-pulse" : "text-primary",
-                  )}>{eta}</p>
+                  )}>
+                    <Clock className="size-3" />
+                    {eta}
+                  </p>
                 ) : null;
               })()}
 
