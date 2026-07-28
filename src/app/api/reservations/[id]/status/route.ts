@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/lib/app-mode";
+import { logger } from "@/lib/logger";
 
 function demoHandler() {
   return NextResponse.json({ error: "Reservation routes are disabled in demo mode" }, { status: 404 });
@@ -53,7 +54,7 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
         idempotencyKey: `confirm:${id}`,
       });
     } catch (err) {
-      console.error("[reservation-confirm] Notification failed:", err);
+      logger.error("[reservation-confirm] Notification failed:", { error: String(err) });
     }
   }
 

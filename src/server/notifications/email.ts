@@ -5,6 +5,7 @@
  */
 import { Resend } from "resend";
 import type { render } from "@react-email/components";
+import { logger } from "@/lib/logger";
 
 const EMAIL_DRIVER = process.env.EMAIL_DRIVER === "resend" ? "resend" : "log";
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "NightLife <noreply@nightlife.app>";
@@ -24,7 +25,7 @@ interface EmailSendInput {
 
 export async function sendEmail(input: EmailSendInput): Promise<{ ok: boolean; providerId?: string; error?: string }> {
   if (EMAIL_DRIVER === "log") {
-    console.log(`[email:log] To: ${input.to} | Subject: ${input.subject}`);
+    logger.info(`[email:log] To: ${input.to} | Subject: ${input.subject}`);
     return { ok: true, providerId: "log" };
   }
   try {

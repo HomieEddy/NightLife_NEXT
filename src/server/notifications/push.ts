@@ -5,6 +5,7 @@
  */
 import type { PrismaClient } from "@prisma/client";
 import webpush from "web-push";
+import { logger } from "@/lib/logger";
 
 export const PUSH_DRIVER = process.env.PUSH_DRIVER === "webpush" ? "webpush" : "log";
 
@@ -25,7 +26,7 @@ interface PushSendInput {
 
 export async function sendPush(input: PushSendInput): Promise<{ ok: boolean; error?: string }> {
   if (PUSH_DRIVER === "log") {
-    console.log(`[push:log] To: ${input.subscription.endpoint} | Title: ${input.payload.title}`);
+    logger.info(`[push:log] To: ${input.subscription.endpoint} | Title: ${input.payload.title}`);
     return { ok: true };
   }
 

@@ -4,6 +4,8 @@
  * last-call analytics. One definition, no reimplementation.
  */
 
+import { formatISODate, addDaysTo, parseISODate } from "@/lib/dates";
+
 export interface NightConfig {
   timezone: string;
   nightStartHour: number;
@@ -49,7 +51,7 @@ export function nightContaining(instant: Date, config: NightConfig): NightBounda
     labelDate.setDate(labelDate.getDate() - 1);
   }
 
-  const labelStr = formatDate(labelDate);
+  const labelStr = formatISODate(labelDate);
   const start = localToUtc(labelStr, nightStartHour, 0, timezone);
   const end = localToUtc(nextDay(labelStr), nightEndHour, 0, timezone);
 
@@ -70,17 +72,8 @@ export function nightForDate(labelDate: string, config: NightConfig): NightBound
 
 // ── helpers ──────────────────────────────────────────────────────────
 
-function formatDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 function nextDay(dateStr: string): string {
-  const d = new Date(`${dateStr}T12:00:00`);
-  d.setDate(d.getDate() + 1);
-  return formatDate(d);
+  return formatISODate(addDaysTo(parseISODate(dateStr), 1));
 }
 
 /**

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/lib/app-mode";
+import { logger } from "@/lib/logger";
 
 function demoHandler() {
   return NextResponse.json({ error: "Cron jobs are disabled in demo mode" }, { status: 404 });
@@ -75,7 +76,7 @@ async function livePOST(request: NextRequest) {
       const run = await prisma.jobRun.findFirst({ where: { tenantId: tenant.id, jobName: jobKey, status: "running" } });
       if (run) await prisma.jobRun.update({ where: { id: run.id }, data: { status: "completed", endedAt: new Date() } });
     } catch (err) {
-      console.error(`[reservation-reminders] Tenant ${tenant.id}:`, err);
+      logger.error(`[reservation-reminders] Tenant ${tenant.id}:`, { error: String(err) });
     }
   }
 

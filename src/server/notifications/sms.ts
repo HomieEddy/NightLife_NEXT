@@ -3,6 +3,7 @@
  * staging/prod set twilio. Missing TWILIO_* vars under twilio fails at boot.
  */
 import { Twilio } from "twilio";
+import { logger } from "@/lib/logger";
 
 const SMS_DRIVER = process.env.SMS_DRIVER === "twilio" ? "twilio" : "log";
 
@@ -31,7 +32,7 @@ export async function sendSms(input: SmsSendInput, venueId: string): Promise<{ o
   if (!canSendSms(venueId)) return { ok: false, error: "Daily SMS cap reached" };
 
   if (SMS_DRIVER === "log") {
-    console.log(`[sms:log] To: ${input.to} | ${input.body.slice(0, 80)}`);
+    logger.info(`[sms:log] To: ${input.to} | ${input.body.slice(0, 80)}`);
     dailyCounts.set(venueId, (dailyCounts.get(venueId) ?? 0) + 1);
     return { ok: true, providerId: "log" };
   }
