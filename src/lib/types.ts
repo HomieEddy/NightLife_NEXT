@@ -1622,3 +1622,106 @@ export interface EventPnL {
   totalCosts: number;
   contribution: number; // revenue - product - labour - event costs
 }
+
+// ---------- Remaining Phase 3 operational feature types ----------
+
+/** OE-01: Order SLA escalation path — triggers when an order exceeds its deadline. */
+export type OrderSlaEscalation = "none" | "warned" | "manager-alerted" | "auto-unclaimed";
+
+/** OE-05: Service checklist item on a bottle order — ice, glasses, mixers, garnish. */
+export interface OrderServiceChecklist {
+  ice: boolean;
+  glasses: boolean;
+  mixers: boolean;
+  garnish: boolean;
+}
+
+/** OE-08: Session reopen window — configurable minutes after close during which a session can be reopened. */
+export interface SessionReopenWindow {
+  reopenMinutes: number; // how long after close the session can be reopened
+  maxReopens: number; // max number of reopens per session
+}
+
+/** OE-19: Event run sheet — timeline of key moments for a night's event. */
+export interface EventRunSheetEntry {
+  time: string; // e.g. "22:00"
+  label: string; // e.g. "Doors open"
+  description?: string;
+}
+
+/** OE-27: Pre-shift briefing — manager-written notes for staff starting a shift. */
+export interface ShiftBriefing {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  message: string;
+  sentByStaffId: string;
+  sentByStaffName: string;
+  sentAt: string;
+}
+
+/** OE-32: Post-incident action item — assignable task from an incident review. */
+export interface IncidentActionItem {
+  id: string;
+  incidentId: string;
+  description: string;
+  assignedToStaffId?: string;
+  status: "pending" | "in-progress" | "completed";
+  createdAt: string;
+  completedAt?: string;
+}
+
+/** OE-33: Supplier performance metrics — on-time rate, fill rate, quality per supplier. */
+export interface SupplierPerformanceMetrics {
+  supplierId: string;
+  onTimeRate: number; // 0–100%
+  fillRate: number; // 0–100%
+  qualityRating?: number; // 1–5
+  lastEvaluatedAt: string;
+}
+
+/** OE-35: Pre/post-service inventory checklist entry. */
+export interface InventoryChecklistEntry {
+  id: string;
+  menuItemId: string;
+  itemName: string;
+  expectedCount: number;
+  actualCount?: number;
+  checked: boolean;
+  checkedByStaffId?: string;
+  checkedAt?: string;
+}
+
+/** OE-35: Inventory checklist session (pre-service or post-service). */
+export interface InventoryChecklist {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  type: "pre-service" | "post-service";
+  status: "open" | "completed";
+  lines: InventoryChecklistEntry[];
+  startedAt: string;
+  completedAt?: string;
+}
+
+/** CRM-06: Guest referral tracking — attribution chain for referral bonus basis. */
+export interface GuestReferral {
+  id: string;
+  referrerProfileId: string;
+  referredProfileId: string;
+  source: string; // "guest", "promoter", "staff"
+  status: "pending" | "converted" | "expired";
+  createdAt: string;
+  convertedAt?: string;
+}
+
+/** RV-01: Time-slotted reservation configuration. */
+export type ReservationTimeSlot = "early" | "late" | "any";
+
+/** OE-02: Drink preparation ETA — queue position × average prep time. */
+export interface DrinkEta {
+  orderId: string;
+  estimatedMinutes: number;
+  queuePosition: number;
+  startedAt?: string;
+}

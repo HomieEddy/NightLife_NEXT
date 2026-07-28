@@ -3,7 +3,7 @@
  * and cost data (plan 19). Purchase orders are mutable until submitted;
  * stocktakes are immutable after committed.
  */
-import type { PurchaseOrder, Stocktake, Supplier, SupplierItem, StockMovement, EightySixEntry, ProfitTarget, EventCost } from "@/lib/types";
+import type { PurchaseOrder, Stocktake, Supplier, SupplierItem, StockMovement, EightySixEntry, ProfitTarget, EventCost, EventRunSheetEntry, InventoryChecklist, InventoryChecklistEntry, SupplierPerformanceMetrics } from "@/lib/types";
 import { mockSuppliers, mockSupplierItems, mockPurchaseOrders, mockStocktakes, mockEightySixEntries, mockProfitTargets, mockEventCosts } from "@/lib/mock-data/costs";
 import { mockMenuItems, mockStockMovements } from "@/lib/mock-data/menu";
 import { clone, delay, uid } from "./delay";
@@ -13,6 +13,9 @@ const supplierItems: SupplierItem[] = clone(mockSupplierItems);
 const purchaseOrders: PurchaseOrder[] = clone(mockPurchaseOrders);
 const stocktakes: Stocktake[] = clone(mockStocktakes);
 const eightySixEntries: EightySixEntry[] = clone(mockEightySixEntries);
+const runSheets: Record<string, EventRunSheetEntry[]> = {};
+const supplierMetrics: Record<string, SupplierPerformanceMetrics> = {};
+const checklists: InventoryChecklist[] = [];
 
 export const mockPurchasingService = {
   // Suppliers
@@ -198,5 +201,36 @@ export const mockPurchasingService = {
   async saveEventCost(ec: EventCost): Promise<EventCost> {
     await delay(200);
     return clone(ec);
+  },
+
+  /** OE-19: Event run sheet — timeline entries for a night's event. */
+  async listEventRunSheet(eventId: string): Promise<EventRunSheetEntry[]> {
+    await delay();
+    return clone(runSheets[eventId] ?? []);
+  },
+
+  async saveEventRunSheet(eventId: string, entries: EventRunSheetEntry[]): Promise<void> {
+    await delay(200);
+    runSheets[eventId] = clone(entries);
+  },
+
+  /** OE-33: Supplier performance metrics. */
+  async getSupplierPerformance(supplierId: string): Promise<SupplierPerformanceMetrics | null> {
+    await delay();
+    return clone(supplierMetrics[supplierId] ?? null);
+  },
+
+  /** OE-35: Inventory checklists — pre-service or post-service. */
+  async listChecklists(type?: InventoryChecklist["type"]): Promise<InventoryChecklist[]> {
+    await delay();
+    return clone(type ? checklists.filter((c) => c.type === type) : checklists);
+  },
+
+  async saveChecklist(cl: InventoryChecklist): Promise<InventoryChecklist> {
+    await delay(200);
+    const idx = checklists.findIndex((c) => c.id === cl.id);
+    if (idx >= 0) checklists[idx] = clone(cl);
+    else checklists.push(clone(cl));
+    return clone(cl);
   },
 };
