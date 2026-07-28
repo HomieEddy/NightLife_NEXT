@@ -6,9 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, Boxes, CalendarCheck, CalendarRange, CircleDollarSign,
-  Clock, HandHelping, Megaphone, PartyPopper, Receipt, Tag, Timer, Trophy, Users,
-  BarChart3, DoorOpen, Download, FileText, Gauge, Shield, Table,
-  TrendingUp, UserCheck, Wine, AlertTriangle,
+  Clock, HandHelping, PartyPopper, Receipt, Tag, Timer, Trophy, Users,
+  Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +46,60 @@ const PRESETS = [
   { id: "30", label: "Last 30 days", days: 30 },
   { id: "90", label: "Last 90 days", days: 90 },
 ] as const;
+
+const CATEGORY_KEY = "nlx-analytics-category";
+const ANALYTICS_CATEGORIES = [
+  {
+    id: "revenue",
+    label: "Revenue",
+    tabs: ["sales", "happy-hours", "promos", "bottles"],
+  },
+  {
+    id: "operations",
+    label: "Operations",
+    tabs: ["capacity", "table-turn", "funnel", "sla", "inventory", "reservations"],
+  },
+  {
+    id: "people",
+    label: "People",
+    tabs: ["staff", "promoters", "guests"],
+  },
+  {
+    id: "intelligence",
+    label: "Intelligence",
+    tabs: ["trends", "incidents", "summary"],
+  },
+] as const;
+type CategoryId = (typeof ANALYTICS_CATEGORIES)[number]["id"];
+
+const TAB_LABELS: Record<string, string> = {
+  sales: "Sales",
+  "happy-hours": "Happy Hours",
+  promos: "Promos",
+  bottles: "Bottles",
+  capacity: "Capacity",
+  "table-turn": "Table Turn",
+  funnel: "Funnel",
+  sla: "SLA",
+  inventory: "Inventory",
+  reservations: "Reservations",
+  staff: "Staff",
+  promoters: "Promoters",
+  guests: "Guests",
+  trends: "Trends",
+  incidents: "Incidents",
+  summary: "Summary",
+};
+
+function readSavedCategory(): CategoryId {
+  try {
+    const saved = localStorage.getItem(CATEGORY_KEY);
+    if (saved && ANALYTICS_CATEGORIES.some((c) => c.id === saved)) {
+      return saved as CategoryId;
+    }
+  } catch {}
+  return "revenue";
+}
 
 /** One cell in a stat grid: muted label over a big tabular number. */
 function Stat({ label, info, children }: { label: string; info?: string; children: React.ReactNode }) {
@@ -101,6 +154,11 @@ function AnalyticsPageContent() {
   const [to, setTo] = useState(isoDaysAgo(0));
   const [data, setData] = useState<HistoricalAnalytics | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [category, setCategory] = useState<CategoryId>(readSavedCategory);
+  const [tab, setTab] = useState<string>(
+    ANALYTICS_CATEGORIES.find((c) => c.id === readSavedCategory())?.tabs[0] ?? "sales",
+  );
+  const [showCompDetails, setShowCompDetails] = useState(false);
 
   const load = useCallback(async (fromISO: string, toISO: string) => {
     setData(null);
@@ -255,75 +313,40 @@ function AnalyticsPageContent() {
           <Skeleton className="h-72 rounded-xl" />
         </div>
       ) : (
-        <Tabs defaultValue="sales">
-          <TabsList className="!h-auto w-full flex-wrap gap-1 sm:!h-8 sm:w-fit sm:flex-nowrap sm:gap-0">
-            <TabsTrigger value="sales">
-              <CircleDollarSign className="size-3.5" /> Sales
-            </TabsTrigger>
-            <TabsTrigger value="staff">
-              <Users className="size-3.5" /> Staff
-            </TabsTrigger>
-            <TabsTrigger value="inventory">
-              <Boxes className="size-3.5" /> Inventory
-            </TabsTrigger>
-            <TabsTrigger value="sessions">
-              <Users className="size-3.5" /> Sessions
-            </TabsTrigger>
-            <TabsTrigger value="reservations">
-              <CalendarCheck className="size-3.5" /> Reservations
-            </TabsTrigger>
-            <TabsTrigger value="happy-hours">
-              <Clock className="size-3.5" /> Happy Hours
-            </TabsTrigger>
-            <TabsTrigger value="events">
-              <PartyPopper className="size-3.5" /> Events
-            </TabsTrigger>
-            <TabsTrigger value="promotions">
-              <Tag className="size-3.5" /> Promotions
-            </TabsTrigger>
-            <TabsTrigger value="promoters">
-              <Megaphone className="size-3.5" /> Promoters
-            </TabsTrigger>
-            {/* ---------- Phase 4: Automation & Intelligence ---------- */}
-            <TabsTrigger value="comparison">
-              <BarChart3 className="size-3.5" /> Comparison
-            </TabsTrigger>
-            <TabsTrigger value="forecast">
-              <TrendingUp className="size-3.5" /> Forecast
-            </TabsTrigger>
-            <TabsTrigger value="per-hour">
-              <Clock className="size-3.5" /> Per Hour
-            </TabsTrigger>
-            <TabsTrigger value="funnel">
-              <DoorOpen className="size-3.5" /> Funnel
-            </TabsTrigger>
-            <TabsTrigger value="table-turn">
-              <Table className="size-3.5" /> Table Turn
-            </TabsTrigger>
-            <TabsTrigger value="sla">
-              <Timer className="size-3.5" /> SLA
-            </TabsTrigger>
-            <TabsTrigger value="comp-void">
-              <AlertTriangle className="size-3.5" /> Comp/Void
-            </TabsTrigger>
-            <TabsTrigger value="promoter-perf">
-              <Megaphone className="size-3.5" /> Promo Perf
-            </TabsTrigger>
-            <TabsTrigger value="incidents">
-              <Shield className="size-3.5" /> Incidents
-            </TabsTrigger>
-            <TabsTrigger value="retention">
-              <UserCheck className="size-3.5" /> Retention
-            </TabsTrigger>
-            <TabsTrigger value="bottles">
-              <Wine className="size-3.5" /> Bottles
-            </TabsTrigger>
-            <TabsTrigger value="capacity">
-              <Gauge className="size-3.5" /> Capacity
-            </TabsTrigger>
-            <TabsTrigger value="summary">
-              <FileText className="size-3.5" /> Summary
-            </TabsTrigger>
+        <Tabs value={tab} onValueChange={setTab}>
+          {/* ---------- Category pills ---------- */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {ANALYTICS_CATEGORIES.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  if (category !== c.id) {
+                    setCategory(c.id);
+                    localStorage.setItem(CATEGORY_KEY, c.id);
+                    setTab(c.tabs[0]);
+                  }
+                }}
+                className={cn(
+                  "rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all duration-200",
+                  category === c.id
+                    ? "border-primary bg-primary/15 text-primary scale-105"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
+                )}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          <TabsList className="!h-auto w-full flex-wrap gap-1 sm:!h-8 sm:w-fit sm:flex-nowrap sm:gap-0 transition-opacity duration-150" key={category}>
+            {ANALYTICS_CATEGORIES
+              .find((c) => c.id === category)
+              ?.tabs.map((t) => (
+                <TabsTrigger key={t} value={t} className="text-xs sm:text-sm">
+                  {TAB_LABELS[t]}
+                </TabsTrigger>
+              ))}
           </TabsList>
 
           {/* ---------- Sales ---------- */}
@@ -465,6 +488,21 @@ function AnalyticsPageContent() {
                   )}
                 </CardContent>
               </Card>
+            )}
+            {/* Per-staff comp/void monitoring (was Comp/Void tab) */}
+            {data.adjustments && (
+              <>
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCompDetails(!showCompDetails)}
+                  >
+                    {showCompDetails ? "Hide" : "Show"} per-staff comp/void details
+                  </Button>
+                </div>
+                {showCompDetails && <CompVoidTab />}
+              </>
             )}
           </TabsContent>
 
@@ -732,8 +770,8 @@ function AnalyticsPageContent() {
             </div>
           </TabsContent>
 
-          {/* ---------- Sessions ---------- */}
-          <TabsContent value="sessions" className="space-y-6 pt-4">
+          {/* ---------- Guests (Sessions + Retention) ---------- */}
+          <TabsContent value="guests" className="space-y-6 pt-4">
             {data.sessions ? (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -786,6 +824,13 @@ function AnalyticsPageContent() {
             ) : (
               <p className="text-sm text-muted-foreground">No session data available for this range.</p>
             )}
+            {/* Guest retention metrics (was Retention tab) */}
+            <div className="border-t pt-4 mt-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Guest lifecycle &mdash; repeat rate, churn &amp; engagement
+              </p>
+            </div>
+            <GuestRetentionTab />
           </TabsContent>
 
           {/* ---------- Reservations ---------- */}
@@ -939,15 +984,15 @@ function AnalyticsPageContent() {
             )}
           </TabsContent>
 
-          {/* ---------- Events ---------- */}
-          <TabsContent value="events" className="space-y-6 pt-4">
-            {data.events && data.events.events.length > 0 ? (
+          {/* ---------- Promos (Events + Promotions) ---------- */}
+          <TabsContent value="promos" className="space-y-6 pt-4">
+            {/* Events */}
+            {data.events && data.events.events.length > 0 && (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   <MetricCard label="Events" value={String(data.events.totalEvents)} icon={PartyPopper} info="Total scheduled events that occurred in this range." />
                   <MetricCard label="Avg utilization" value={formatPct(data.events.avgCapacityUtilization)} icon={Users} info="Average check-ins divided by event capacity across all events." />
                 </div>
-
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">Per event breakdown</CardTitle>
@@ -985,7 +1030,6 @@ function AnalyticsPageContent() {
                     </div>
                   </CardContent>
                 </Card>
-
                 <div className="flex justify-end">
                   <Button variant="ghost" size="sm" asChild>
                     <Link href="/manager/events">
@@ -994,56 +1038,56 @@ function AnalyticsPageContent() {
                   </Button>
                 </div>
               </>
-            ) : (
+            )}
+            {!(data.events && data.events.events.length > 0) && (
               <p className="text-sm text-muted-foreground">No event data available for this range.</p>
             )}
-          </TabsContent>
 
-          {/* ---------- Promotions ---------- */}
-          <TabsContent value="promotions" className="space-y-6 pt-4">
+            {/* Promotions */}
             {data.promotions && data.promotions.promotions.length > 0 ? (
               <>
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="Redemptions" value={String(data.promotions.totalRedemptions)} icon={Tag} info="Total promo code redemptions in the range." />
-                  <MetricCard label="Discount cost" value={formatMoney(data.promotions.totalDiscountCost)} icon={CircleDollarSign} info="Total value of discounts applied via promo codes." />
-                </div>
-
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Per promotion breakdown</CardTitle>
+                    <CardTitle className="text-base">Promotions</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b text-left text-muted-foreground">
-                            <th className="pb-2 pr-4 font-medium">Code</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Redemptions</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Discount cost</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Attributed rev</th>
-                            <th className="pb-2 pr-4 text-right font-medium">AOV with</th>
-                            <th className="pb-2 text-right font-medium">AOV without</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.promotions.promotions.map((p) => (
-                            <tr key={p.promotionId} className="border-b last:border-0">
-                              <td className="py-2 pr-4">
-                                <EntityChip type="promotion" id={p.promotionId} label={p.code} />
-                              </td>
-                              <td className="py-2 pr-4 text-right tabular-nums">{p.redemptions}</td>
-                              <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(p.discountCost)}</td>
-                              <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(p.attributedRevenue)}</td>
-                              <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(p.aovWithPromo)}</td>
-                              <td className="py-2 text-right tabular-nums">{formatMoney(p.aovWithoutPromo)}</td>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                      <MetricCard label="Redemptions" value={String(data.promotions.totalRedemptions)} icon={Tag} info="Total promo code redemptions in the range." />
+                      <MetricCard label="Discount cost" value={formatMoney(data.promotions.totalDiscountCost)} icon={CircleDollarSign} info="Total value of discounts applied via promo codes." />
+                    </div>
+                    <div className="border-t pt-4">
+                      <p className="text-sm font-medium mb-3">Per promotion breakdown</p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left text-muted-foreground">
+                              <th className="pb-2 pr-4 font-medium">Code</th>
+                              <th className="pb-2 pr-4 text-right font-medium">Redemptions</th>
+                              <th className="pb-2 pr-4 text-right font-medium">Discount cost</th>
+                              <th className="pb-2 pr-4 text-right font-medium">Attributed rev</th>
+                              <th className="pb-2 pr-4 text-right font-medium">AOV with</th>
+                              <th className="pb-2 text-right font-medium">AOV without</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {data.promotions.promotions.map((p) => (
+                              <tr key={p.promotionId} className="border-b last:border-0">
+                                <td className="py-2 pr-4">
+                                  <EntityChip type="promotion" id={p.promotionId} label={p.code} />
+                                </td>
+                                <td className="py-2 pr-4 text-right tabular-nums">{p.redemptions}</td>
+                                <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(p.discountCost)}</td>
+                                <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(p.attributedRevenue)}</td>
+                                <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(p.aovWithPromo)}</td>
+                                <td className="py-2 text-right tabular-nums">{formatMoney(p.aovWithoutPromo)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
-
                 <div className="flex justify-end">
                   <Button variant="ghost" size="sm" asChild>
                     <Link href="/manager/promotions">
@@ -1168,22 +1212,24 @@ function AnalyticsPageContent() {
             ) : (
               <p className="text-sm text-muted-foreground">No promoter data available for this range.</p>
             )}
+            {/* Detailed promoter performance (was Promo Perf tab) */}
+            <div className="border-t pt-4 mt-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Detailed performance &mdash; commission &amp; guest list
+              </p>
+            </div>
+            <PromoterPerformanceTab />
           </TabsContent>
 
-          {/* ---------- Phase 4: Analytics Depth (AI-01 through AI-14) ---------- */}
+          {/* ---------- Phase 4: Analytics Depth (merged) ---------- */}
 
-          <TabsContent value="comparison"><ComparisonTab /></TabsContent>
-          <TabsContent value="forecast"><ForecastTab /></TabsContent>
-          <TabsContent value="per-hour"><PerHourTab /></TabsContent>
+          <TabsContent value="trends"><ComparisonTab /><ForecastTab /></TabsContent>
+          <TabsContent value="capacity"><CapacityUtilizationTab /><PerHourTab /></TabsContent>
           <TabsContent value="funnel"><FunnelTab /></TabsContent>
           <TabsContent value="table-turn"><TableTurnTab /></TabsContent>
           <TabsContent value="sla"><SlaTab /></TabsContent>
-          <TabsContent value="comp-void"><CompVoidTab /></TabsContent>
-          <TabsContent value="promoter-perf"><PromoterPerformanceTab /></TabsContent>
           <TabsContent value="incidents"><IncidentPatternTab /></TabsContent>
-          <TabsContent value="retention"><GuestRetentionTab /></TabsContent>
           <TabsContent value="bottles"><BottleServiceTab /></TabsContent>
-          <TabsContent value="capacity"><CapacityUtilizationTab /></TabsContent>
           <TabsContent value="summary"><NightSummaryTab /></TabsContent>
         </Tabs>
       )}
