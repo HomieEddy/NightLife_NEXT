@@ -400,6 +400,7 @@ export default function ManagerOrdersPage() {
                 canTransfer: canDo(permissions, me.role, "tab:transfer"),
                 canMerge: canDo(permissions, me.role, "tab:merge"),
                 canRefuseService: canDo(permissions, me.role, "service:refuse"),
+                canEjectGuest: canDo(permissions, me.role, "service:refuse"),
                 onChange: refreshAfterTabAction,
               } : undefined}
             />
