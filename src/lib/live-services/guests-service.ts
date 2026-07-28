@@ -116,5 +116,9 @@ export const liveGuestsService = {
   async refuseService(): Promise<GuestSession | null> {
     throw new Error("Not yet supported in the live build");
   },
+
+  async ejectGuest(): Promise<void> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "./live-fetch";
