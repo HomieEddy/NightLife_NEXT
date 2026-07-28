@@ -243,9 +243,14 @@ export default function GuestOrdersPage() {
               </div>
 
               {(() => {
-                const eta = formatEta(estimateEtaMinutes(order, avgFulfillmentMinutes));
+                const etaMinutes = estimateEtaMinutes(order, avgFulfillmentMinutes);
+                const eta = formatEta(etaMinutes);
+                const isImminent = etaMinutes !== null && etaMinutes <= 5;
                 return eta ? (
-                  <p className="text-xs font-medium text-primary">{eta}</p>
+                  <p className={cn(
+                    "text-xs font-medium",
+                    isImminent ? "text-primary animate-glow-pulse" : "text-primary",
+                  )}>{eta}</p>
                 ) : null;
               })()}
 
@@ -271,7 +276,9 @@ export default function GuestOrdersPage() {
               <Wallet className="size-6 text-primary" />
             </div>
             <div>
-              <p className="font-semibold">All orders delivered</p>
+              <p className="font-semibold">
+                {delivered.length} {delivered.length === 1 ? "order" : "orders"} delivered
+              </p>
               <p className="text-sm text-muted-foreground">
                 Ready to head out? Ask your host to close the tab and get your night&apos;s
                 receipt.
