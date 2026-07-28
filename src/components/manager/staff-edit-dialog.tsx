@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { staffService } from "@/lib/services/staff-service";
+import { staffService } from "@/features/workforce/staff-service";
 import { cn } from "@/features/shared/utils";
 import { ASSIGNABLE_ROLES, type StaffMember, type StaffRole, type Zone } from "@/lib/types";
 

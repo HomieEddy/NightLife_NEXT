@@ -6,7 +6,7 @@ function demoHandler() {
 }
 
 async function liveGET() {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getPlatformDb } = await import("@/features/shared/db");
   const { getLiveEnv } = await import("@/features/shared/env");
 

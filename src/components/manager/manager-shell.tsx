@@ -25,7 +25,7 @@ import { GROUP_JUMPS } from "@/lib/shortcuts";
 import { PulseTab } from "@/components/manager/pulse-tab";
 import { cn } from "@/features/shared/utils";
 import { isDemoMode } from "@/features/shared/app-mode";
-import { venueService } from "@/lib/services/venue-service";
+import { venueService } from "@/features/venue/services";
 import { useAttention } from "@/lib/attention-provider";
 import { useFocusOnNavigate } from "@/lib/use-focus-on-navigate";
 import { useEntitlements } from "@/lib/use-entitlements";

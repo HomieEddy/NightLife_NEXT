@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EventCard, EventActionGold } from "@/components/shared/event-card";
-import { eventsService } from "@/lib/services/events-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { staffService } from "@/lib/services/staff-service";
+import { eventsService } from "@/features/hospitality/events-service";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { staffService } from "@/features/workforce/staff-service";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { VenueEvent, StaffMember } from "@/lib/types";
 

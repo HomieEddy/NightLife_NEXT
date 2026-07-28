@@ -6,10 +6,10 @@ function demoHandler() {
 }
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getRawPrisma } = await import("@/features/shared/db");
-  const { updateStaff } = await import("@/server/staff-core");
-  const { zStaffPatch } = await import("@/server/schemas/staff");
+  const { updateStaff } = await import("@/features/workforce/staff-core");
+  const { zStaffPatch } = await import("@/features/workforce/staff-schemas");
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const parsed = zStaffPatch.safeParse(await request.json());
@@ -21,9 +21,9 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
 }
 
 async function liveDELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getRawPrisma } = await import("@/features/shared/db");
-  const { removeStaff } = await import("@/server/staff-core");
+  const { removeStaff } = await import("@/features/workforce/staff-core");
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const { id } = await params;

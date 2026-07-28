@@ -28,11 +28,11 @@ import { PageHeader } from "@/components/shared/page-header";
 import { RoleBadge } from "@/components/shared/role-badge";
 import {
   aggregateWeekly, analyticsService, type HistoricalAnalytics,
-} from "@/lib/services/analytics-service";
+} from "@/features/analytics/analytics-service";
 import {
   reportService, REPORT_METRICS, type ReportMetric, type SavedReport,
-} from "@/lib/services/report-service";
-import { renderCsv } from "@/lib/report-csv";
+} from "@/features/analytics/report-service";
+import { renderCsv } from "@/features/analytics/report-csv";
 import { formatMoney, formatPct, timeAgo } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 

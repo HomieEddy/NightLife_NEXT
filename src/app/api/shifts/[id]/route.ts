@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveDELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { removeShift } = await import("@/server/shift-core");
+  const { removeShift } = await import("@/features/workforce/shift-core");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

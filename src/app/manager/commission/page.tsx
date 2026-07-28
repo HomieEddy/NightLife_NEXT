@@ -11,12 +11,12 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { commissionService } from "@/lib/services/commission-service";
-import { staffService } from "@/lib/services/staff-service";
+import { commissionService } from "@/features/workforce/commission-service";
+import { staffService } from "@/features/workforce/staff-service";
 import { buildCommissionStatement } from "@/lib/workforce";
 import { formatMoney } from "@/features/shared/format";
 import { canDo } from "@/features/shared/permissions";
-import { permissionService } from "@/lib/services/permission-service";
+import { permissionService } from "@/features/platform/permission-service";
 import type { RolePermissions } from "@/features/shared/permissions";
 import type { CommissionRule, CommissionStatement, StaffMember } from "@/lib/types";
 

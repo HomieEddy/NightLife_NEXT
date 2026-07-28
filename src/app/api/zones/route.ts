@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET() {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { listZones } = await import("@/server/venue-core");
+  const { listZones } = await import("@/features/venue/core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -19,10 +19,10 @@ async function liveGET() {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { createZone } = await import("@/server/venue-core");
-  const { zZoneInput } = await import("@/server/schemas/venue");
+  const { createZone } = await import("@/features/venue/core");
+  const { zZoneInput } = await import("@/features/venue/schemas");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

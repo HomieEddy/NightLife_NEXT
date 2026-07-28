@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { FeatureKey, PlanConfig, TenantPlan } from "@/lib/types";
 import { hasFeature, planLimits } from "@/lib/plan-catalog";
 import { isDemoMode } from "@/features/shared/app-mode";
-import { billingService } from "@/lib/services/billing-service";
+import { billingService } from "@/features/platform/billing-service";
 
 export interface Entitlements {
   /** Null while loading (gates stay open — gating is UX, not security). */

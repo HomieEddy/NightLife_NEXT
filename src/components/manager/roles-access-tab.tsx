@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
-import { permissionService } from "@/lib/services/permission-service";
+import { permissionService } from "@/features/platform/permission-service";
 import {
   ACTION_META,
   DEFAULT_ROLE_PERMISSIONS,

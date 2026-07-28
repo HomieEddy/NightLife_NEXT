@@ -9,7 +9,7 @@ import {
   updatePromotion,
   deletePromotion,
   validateCode,
-} from "./promotions-core";
+} from "@/features/hospitality/promotions-core";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {

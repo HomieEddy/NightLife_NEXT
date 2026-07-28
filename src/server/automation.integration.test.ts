@@ -9,8 +9,8 @@ import {
   updateRuleConfig,
   recordExecution,
   listExecutions,
-} from "./automation-core";
-import { defaultAutomationRules } from "./automation-defaults";
+} from "@/features/automation/core";
+import { defaultAutomationRules } from "@/features/automation/defaults";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {

@@ -12,8 +12,8 @@ import {
   releaseOrder,
   sendGift,
   nextStatus,
-} from "./order-core";
-import { createCategory, createItem, createPackage, checkLedger, getItem } from "./menu-core";
+} from "@/features/ordering/core";
+import { createCategory, createItem, createPackage, checkLedger, getItem } from "@/features/menu/core";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 import { toCents } from "../features/shared/money";
 

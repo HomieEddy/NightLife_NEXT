@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { listTables } = await import("@/server/venue-core");
+  const { listTables } = await import("@/features/venue/core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -20,10 +20,10 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { createTable } = await import("@/server/venue-core");
-  const { zTableInput } = await import("@/server/schemas/venue");
+  const { createTable } = await import("@/features/venue/core");
+  const { zTableInput } = await import("@/features/venue/schemas");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -34,7 +34,7 @@ async function livePOST(request: NextRequest) {
   const { venueId } = sessionToDbContext(auth.session);
 
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { checkTableLimit } = await import("@/server/platform/admin-core");
+  const { checkTableLimit } = await import("@/features/platform/admin-core");
   const limitCheck = await checkTableLimit(getPlatformDb(), venueId);
   if (!limitCheck.allowed) {
     return NextResponse.json(

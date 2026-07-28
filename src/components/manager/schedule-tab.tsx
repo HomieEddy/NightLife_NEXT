@@ -17,8 +17,8 @@ import {
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { RoleBadge } from "@/components/shared/role-badge";
-import { staffService } from "@/lib/services/staff-service";
-import { timeService } from "@/lib/services/time-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { timeService } from "@/features/workforce/time-service";
 import { generateWeekFromTemplates } from "@/lib/workforce";
 import { cn } from "@/features/shared/utils";
 import type { DateRangeValue } from "@/components/shared/date-range-picker";

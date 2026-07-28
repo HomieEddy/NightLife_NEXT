@@ -12,9 +12,9 @@ import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
-import { staffService } from "@/lib/services/staff-service";
-import { timeService } from "@/lib/services/time-service";
-import { venueService } from "@/lib/services/venue-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { timeService } from "@/features/workforce/time-service";
+import { venueService } from "@/features/venue/services";
 import type { Shift, StaffMember, Zone, TimeOffRequest, ShiftSwapRequest } from "@/lib/types";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

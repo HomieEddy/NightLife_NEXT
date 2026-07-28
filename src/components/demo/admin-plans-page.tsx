@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
-import { adminService } from "@/lib/services/admin-service";
+import { adminService } from "@/features/platform/admin-service";
 import { FEATURE_CATALOG } from "@/lib/plan-catalog";
 import { formatMoney } from "@/features/shared/format";
 import type { FeatureKey, PlanConfig, TenantPlan } from "@/lib/types";

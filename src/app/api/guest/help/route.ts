@@ -14,8 +14,8 @@ async function livePOST(request: NextRequest) {
   if (!sessionId) return NextResponse.json({ error: "No guest session" }, { status: 401 });
 
   const { getPlatformDb, getDb } = await import("@/features/shared/db");
-  const { createHelpRequest } = await import("@/server/session-core");
-  const { zCreateHelpRequest } = await import("@/server/schemas/sessions");
+  const { createHelpRequest } = await import("@/features/sessions/core");
+  const { zCreateHelpRequest } = await import("@/features/sessions/schemas");
 
   const platformDb = getPlatformDb();
   const row = await platformDb.guestSession.findUnique({ where: { id: sessionId } });

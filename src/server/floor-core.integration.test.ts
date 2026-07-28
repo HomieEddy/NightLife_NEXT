@@ -13,7 +13,7 @@ import {
   finishShow,
   listMessages,
   sendMessage,
-} from "./floor-core";
+} from "@/features/realtime/floor-core";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {

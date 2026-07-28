@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { getReservation } = await import("@/server/reservation-core");
+  const { getReservation } = await import("@/features/hospitality/reservation-core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -22,10 +22,10 @@ async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id
 }
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { updateReservation } = await import("@/server/reservation-core");
-  const { zReservationPatch } = await import("@/server/schemas/reservations");
+  const { updateReservation } = await import("@/features/hospitality/reservation-core");
+  const { zReservationPatch } = await import("@/features/hospitality/reservation-schemas");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

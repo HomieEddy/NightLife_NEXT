@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { RoleBadge } from "@/components/shared/role-badge";
-import { staffService } from "@/lib/services/staff-service";
+import { staffService } from "@/features/workforce/staff-service";
 import { formatTime } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import type { ChatMessage } from "@/lib/types";

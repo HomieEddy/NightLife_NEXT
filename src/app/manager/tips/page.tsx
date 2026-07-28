@@ -15,13 +15,13 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination, paginate } from "@/components/shared/pagination";
-import { tipsService } from "@/lib/services/tips-service";
-import { timeService } from "@/lib/services/time-service";
-import { staffService } from "@/lib/services/staff-service";
+import { tipsService } from "@/features/workforce/tips-service";
+import { timeService } from "@/features/workforce/time-service";
+import { staffService } from "@/features/workforce/staff-service";
 import { computeTipDistribution } from "@/lib/workforce";
 import { formatMoney } from "@/features/shared/format";
 import { canDo } from "@/features/shared/permissions";
-import { permissionService } from "@/lib/services/permission-service";
+import { permissionService } from "@/features/platform/permission-service";
 import type { RolePermissions } from "@/features/shared/permissions";
 import type { StaffMember, StaffRole, TipDistribution, TipPoolRule, TipPoolBasis, TimeEntry } from "@/lib/types";
 

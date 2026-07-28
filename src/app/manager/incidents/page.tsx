@@ -16,7 +16,7 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination, paginate } from "@/components/shared/pagination";
 import { useAuth } from "@/context/auth-context";
-import { incidentService } from "@/lib/services/incident-service";
+import { incidentService } from "@/features/safety/services";
 import { formatDate, formatTime } from "@/features/shared/format";
 import type { Incident, IncidentNote, IncidentSeverity, IncidentType } from "@/lib/types";
 

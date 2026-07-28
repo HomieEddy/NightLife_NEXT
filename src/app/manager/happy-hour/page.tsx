@@ -18,7 +18,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { EntityChip } from "@/components/shared/entity-chip";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { menuService } from "@/lib/services/menu-service";
+import { menuService } from "@/features/menu/services";
 import { SearchInput } from "@/components/shared/search-input";
 import { useHighlight } from "@/lib/use-highlight";
 import { cn } from "@/features/shared/utils";

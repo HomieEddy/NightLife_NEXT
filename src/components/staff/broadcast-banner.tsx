@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Megaphone, X } from "lucide-react";
-import { pulseService } from "@/lib/services/pulse-service";
+import { pulseService } from "@/features/realtime/pulse-service";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { Broadcast } from "@/lib/types";
 

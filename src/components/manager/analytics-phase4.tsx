@@ -14,7 +14,7 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { RoleBadge } from "@/components/shared/role-badge";
 import {
   analyticsService,
-} from "@/lib/services/analytics-service";
+} from "@/features/analytics/analytics-service";
 import type {
   NightComparison,
   NightForecast,

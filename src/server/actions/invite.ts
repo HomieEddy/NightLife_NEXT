@@ -28,7 +28,7 @@ interface InvitationApi {
 }
 
 async function getAuth() {
-  const { auth } = await import("@/server/auth");
+  const { auth } = await import("@/features/platform/auth");
   return auth;
 }
 

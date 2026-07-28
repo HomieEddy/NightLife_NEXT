@@ -9,10 +9,10 @@ async function livePATCH(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb, getRawPrisma } = await import("@/features/shared/db");
-  const { advanceOrder } = await import("@/server/order-core");
-  const { getCurrentStaff } = await import("@/server/staff-core");
+  const { advanceOrder } = await import("@/features/ordering/core");
+  const { getCurrentStaff } = await import("@/features/workforce/staff-core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { useGuest } from "@/context/guest-context";
-import { guestsService } from "@/lib/services/guests-service";
+import { guestsService } from "@/features/guests/services";
 import { cn } from "@/features/shared/utils";
 import type { HelpRequestType } from "@/lib/types";
 

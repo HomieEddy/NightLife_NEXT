@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET(_request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb, getRawPrisma } = await import("@/features/shared/db");
-  const { listRules, ensureRules } = await import("@/server/automation-core");
+  const { listRules, ensureRules } = await import("@/features/automation/core");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -28,9 +28,9 @@ async function liveGET(_request: NextRequest) {
 }
 
 async function livePATCH(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { setRuleEnabled, updateRuleConfig } = await import("@/server/automation-core");
+  const { setRuleEnabled, updateRuleConfig } = await import("@/features/automation/core");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

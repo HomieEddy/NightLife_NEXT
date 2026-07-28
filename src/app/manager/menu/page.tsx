@@ -24,7 +24,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Pagination, paginate } from "@/components/shared/pagination";
 import { PackageEditor, type PackageDraft } from "@/components/manager/package-editor";
 import { ModifierPresetEditor } from "@/components/manager/modifier-preset-editor";
-import { menuService, type PackageQuote } from "@/lib/services/menu-service";
+import { menuService, type PackageQuote } from "@/features/menu/services";
 import { formatMoney } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import type { BottlePackage, MenuCategory, MenuItem } from "@/lib/types";

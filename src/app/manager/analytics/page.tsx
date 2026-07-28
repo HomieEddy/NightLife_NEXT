@@ -24,7 +24,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { RoleBadge } from "@/components/shared/role-badge";
 import {
   aggregateWeekly, analyticsService, type HistoricalAnalytics,
-} from "@/lib/services/analytics-service";
+} from "@/features/analytics/analytics-service";
 import { formatMoney, formatPct } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import { REPORT_METRICS, type ReportMetric } from "@/lib/types";

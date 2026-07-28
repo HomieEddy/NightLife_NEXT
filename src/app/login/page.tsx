@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useAuth } from "@/context/auth-context";
-import { authService } from "@/lib/services/auth-service";
+import { authService } from "@/features/platform/auth-service";
 import { isDemoMode } from "@/features/shared/app-mode";
 import type { AuthUser, StaffRole } from "@/lib/types";
 

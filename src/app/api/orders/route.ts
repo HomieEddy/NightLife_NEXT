@@ -6,10 +6,10 @@ function demoHandler() {
 }
 
 async function liveGET(request: NextRequest) {
-  const { getGuestAccess } = await import("@/server/guest-auth");
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { getGuestAccess } = await import("@/features/guests/guest-auth");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { listOrders } = await import("@/server/order-core");
+  const { listOrders } = await import("@/features/ordering/core");
 
   const guest = await getGuestAccess(request);
   const auth = guest ? null : await requireApiArea("staff");
@@ -35,11 +35,11 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { getGuestAccess } = await import("@/server/guest-auth");
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { getGuestAccess } = await import("@/features/guests/guest-auth");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { submitOrder } = await import("@/server/order-core");
-  const { zSubmitOrder } = await import("@/server/schemas/orders");
+  const { submitOrder } = await import("@/features/ordering/core");
+  const { zSubmitOrder } = await import("@/features/ordering/schemas");
 
   const guest = await getGuestAccess(request);
   const auth = guest ? null : await requireApiArea("staff");

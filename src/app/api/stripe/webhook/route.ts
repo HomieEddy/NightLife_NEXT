@@ -6,7 +6,7 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest) {
-  const { constructWebhookEvent, handleWebhookEvent } = await import("@/server/platform/stripe");
+  const { constructWebhookEvent, handleWebhookEvent } = await import("@/features/platform/stripe");
   const { getPlatformDb } = await import("@/features/shared/db");
 
   const signature = request.headers.get("stripe-signature");

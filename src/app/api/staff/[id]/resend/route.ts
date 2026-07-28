@@ -7,10 +7,10 @@ function demoHandler() {
 }
 
 async function livePOST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { auth: betterAuth } = await import("@/server/auth");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { auth: betterAuth } = await import("@/features/platform/auth");
   const { getRawPrisma } = await import("@/features/shared/db");
-  const { staffRoleToOrgRole } = await import("@/server/staff-core");
+  const { staffRoleToOrgRole } = await import("@/features/workforce/staff-core");
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const venueId = sessionToDbContext(auth.session).venueId;

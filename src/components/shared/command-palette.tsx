@@ -7,12 +7,12 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { EntityChip } from "@/components/shared/entity-chip";
 import { MANAGER_NAV_GROUPS, type NavItem } from "@/features/shared/navigation";
-import { ordersService } from "@/lib/services/orders-service";
-import { venueService } from "@/lib/services/venue-service";
-import { staffService } from "@/lib/services/staff-service";
-import { menuService } from "@/lib/services/menu-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { guestService } from "@/lib/services/guest-service";
+import { ordersService } from "@/features/ordering/services";
+import { venueService } from "@/features/venue/services";
+import { staffService } from "@/features/workforce/staff-service";
+import { menuService } from "@/features/menu/services";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { guestService } from "@/features/sessions/services";
 import { cn } from "@/features/shared/utils";
 import type { EntityChipType } from "@/components/shared/entity-chip";
 

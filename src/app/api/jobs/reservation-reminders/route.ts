@@ -14,7 +14,7 @@ async function livePOST(request: NextRequest) {
   }
 
   const { getRawPrisma } = await import("@/features/shared/db");
-  const { dispatch } = await import("@/server/notifications/dispatch");
+  const { dispatch } = await import("@/features/notifications/dispatch");
   const { normalizePhone } = await import("@/lib/phone");
   await import("@/server/notifications/templates");
 

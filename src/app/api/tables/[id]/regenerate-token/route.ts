@@ -6,7 +6,7 @@ function demoHandler() {
 }
 
 async function livePOST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
 
   const auth = await requireApiArea("manager");

@@ -16,9 +16,9 @@ import { DemoOpenTableAction } from "@/components/shared/demo-links";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
 import { isDemoMode } from "@/features/shared/app-mode";
-import { guestsService } from "@/lib/services/guests-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { venueService } from "@/lib/services/venue-service";
+import { guestsService } from "@/features/guests/services";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { venueService } from "@/features/venue/services";
 import type { Reservation, Venue, VenueTable, Zone } from "@/lib/types";
 
 /**

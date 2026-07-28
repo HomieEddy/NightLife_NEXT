@@ -15,7 +15,7 @@ import { DemoManagerGuestFlowAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { venueService } from "@/lib/services/venue-service";
+import { venueService } from "@/features/venue/services";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/features/shared/utils";
 import type { TableStatus, VenueTable, Zone } from "@/lib/types";

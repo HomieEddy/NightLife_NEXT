@@ -4,8 +4,8 @@ import { createTestDb, type TestDb } from "@/features/shared/test-pglite";
 import {
   checkEntitlement, checkTableLimit, checkStaffLimit,
   listPlanConfigs, updatePlanConfig, logAdminAction, listAdminActions,
-} from "./admin-core";
-import type { AuthSession } from "@/server/auth-helpers";
+} from "@/features/platform/admin-core";
+import type { AuthSession } from "@/features/platform/auth-helpers";
 
 const ADMIN_SESSION: AuthSession = {
   user: { id: "admin-1", name: "Admin", email: "admin@test.com", isPlatformAdmin: true },

@@ -17,13 +17,13 @@ export async function GET(request: NextRequest) {
   // Guest streams authenticate via the guest session cookie (plan 06).
   // The sessionId param scopes which events pass through — the cookie
   // proves the caller owns that session.
-  const { getGuestSession } = await import("@/server/guest-auth");
+  const { getGuestSession } = await import("@/features/guests/guest-auth");
   const guestSession = await getGuestSession(request);
   if (!guestSession || guestSession.id !== sessionId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const { createEventStream } = await import("@/server/sse");
+  const { createEventStream } = await import("@/features/realtime/sse");
 
   const controller = new AbortController();
   const stream = createEventStream({

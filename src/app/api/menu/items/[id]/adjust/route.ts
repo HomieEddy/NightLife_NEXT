@@ -6,10 +6,10 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { adjustInventory } = await import("@/server/menu-core");
-  const { zAdjust } = await import("@/server/schemas/menu");
+  const { adjustInventory } = await import("@/features/menu/core");
+  const { zAdjust } = await import("@/features/menu/schemas");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

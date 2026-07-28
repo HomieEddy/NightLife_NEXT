@@ -2,17 +2,17 @@ import type { Prisma, StaffRole } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { mockVenue, mockZones, mockTables } from "../src/lib/mock-data/venue";
+import { mockVenue, mockZones, mockTables } from "../src/features/venue/mock-data";
 import {
   mockCategories,
   mockMenuItems,
   mockPackages,
   mockStockMovements,
   mockHappyHourRules,
-} from "../src/lib/mock-data/menu";
+} from "../src/features/menu/mock-data";
 import { toCents } from "../src/features/shared/money";
 import { getDb, getRawPrisma } from "../src/features/shared/db";
-import { ensureMapPositions } from "../src/server/venue-core";
+import { ensureMapPositions } from "../src/features/venue/core";
 
 const DEMO_PASSWORD = "demo1234";
 

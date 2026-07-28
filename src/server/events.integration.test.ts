@@ -10,7 +10,7 @@ import {
   listEventGuests,
   addEventGuest,
   removeEventGuest,
-} from "./events-core";
+} from "@/features/hospitality/events-core";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {

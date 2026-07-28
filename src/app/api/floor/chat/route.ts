@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { listMessages } = await import("@/server/floor-core");
+  const { listMessages } = await import("@/features/realtime/floor-core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -24,11 +24,11 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { sendMessage } = await import("@/server/floor-core");
+  const { sendMessage } = await import("@/features/realtime/floor-core");
   const { getRawPrisma } = await import("@/features/shared/db");
-  const { getCurrentStaff } = await import("@/server/staff-core");
+  const { getCurrentStaff } = await import("@/features/workforce/staff-core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

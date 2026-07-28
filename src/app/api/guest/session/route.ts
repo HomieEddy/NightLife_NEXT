@@ -14,7 +14,7 @@ async function liveGET(request: NextRequest) {
   if (!sessionId) return NextResponse.json({ error: "No guest session" }, { status: 401 });
 
   const { getPlatformDb, getDb } = await import("@/features/shared/db");
-  const { getSession } = await import("@/server/session-core");
+  const { getSession } = await import("@/features/sessions/core");
 
   const platformDb = getPlatformDb();
   const row = await platformDb.guestSession.findUnique({ where: { id: sessionId } });
@@ -30,7 +30,7 @@ async function livePOST(request: NextRequest) {
   if (!sessionId) return NextResponse.json({ error: "No guest session" }, { status: 401 });
 
   const { getPlatformDb, getDb } = await import("@/features/shared/db");
-  const { requestClosure } = await import("@/server/session-core");
+  const { requestClosure } = await import("@/features/sessions/core");
 
   const platformDb = getPlatformDb();
   const row = await platformDb.guestSession.findUnique({ where: { id: sessionId } });

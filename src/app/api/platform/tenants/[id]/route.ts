@@ -8,9 +8,9 @@ function demoHandler() {
 type Ctx = { params: Promise<{ id: string }> };
 
 async function liveGET(_request: NextRequest, ctx: Ctx) {
-  const { requireApiPlatformAdmin } = await import("@/server/auth-helpers");
+  const { requireApiPlatformAdmin } = await import("@/features/platform/auth-helpers");
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { getTenant } = await import("@/server/platform/admin-core");
+  const { getTenant } = await import("@/features/platform/admin-core");
 
   const auth = await requireApiPlatformAdmin();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -22,10 +22,10 @@ async function liveGET(_request: NextRequest, ctx: Ctx) {
 }
 
 async function livePATCH(request: NextRequest, ctx: Ctx) {
-  const { requireApiPlatformAdmin } = await import("@/server/auth-helpers");
+  const { requireApiPlatformAdmin } = await import("@/features/platform/auth-helpers");
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { updateTenant } = await import("@/server/platform/admin-core");
-  const { platformRateLimit } = await import("@/server/platform/rate-limit-platform");
+  const { updateTenant } = await import("@/features/platform/admin-core");
+  const { platformRateLimit } = await import("@/features/platform/rate-limit-platform");
 
   const auth = await requireApiPlatformAdmin();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -41,10 +41,10 @@ async function livePATCH(request: NextRequest, ctx: Ctx) {
 }
 
 async function liveDELETE(request: NextRequest, ctx: Ctx) {
-  const { requireApiPlatformAdmin } = await import("@/server/auth-helpers");
+  const { requireApiPlatformAdmin } = await import("@/features/platform/auth-helpers");
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { deleteTenant } = await import("@/server/platform/admin-core");
-  const { platformRateLimit } = await import("@/server/platform/rate-limit-platform");
+  const { deleteTenant } = await import("@/features/platform/admin-core");
+  const { platformRateLimit } = await import("@/features/platform/rate-limit-platform");
 
   const auth = await requireApiPlatformAdmin();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

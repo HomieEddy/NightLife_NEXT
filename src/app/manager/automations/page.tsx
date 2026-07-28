@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FeatureGate } from "@/components/shared/feature-gate";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
-import { automationService } from "@/lib/services/automation-service";
+import { automationService } from "@/features/automation/services";
 import type { AutomationRule, AutomationCode, AutomationExecution } from "@/lib/types";
 import { toast } from "sonner";
 import { cn } from "@/features/shared/utils";

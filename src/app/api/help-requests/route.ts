@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET() {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { listHelpRequests } = await import("@/server/session-core");
+  const { listHelpRequests } = await import("@/features/sessions/core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

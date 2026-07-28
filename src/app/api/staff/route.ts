@@ -7,20 +7,20 @@ function demoHandler() {
 }
 
 async function liveGET() {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getRawPrisma } = await import("@/features/shared/db");
-  const { listStaff } = await import("@/server/staff-core");
+  const { listStaff } = await import("@/features/workforce/staff-core");
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
   return NextResponse.json(await listStaff(getRawPrisma(), sessionToDbContext(auth.session).venueId));
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { auth: betterAuth } = await import("@/server/auth");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { auth: betterAuth } = await import("@/features/platform/auth");
   const { getRawPrisma } = await import("@/features/shared/db");
-  const { listStaff, staffRoleToOrgRole } = await import("@/server/staff-core");
-  const { zStaffInvite } = await import("@/server/schemas/staff");
+  const { listStaff, staffRoleToOrgRole } = await import("@/features/workforce/staff-core");
+  const { zStaffInvite } = await import("@/features/workforce/staff-schemas");
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const parsed = zStaffInvite.safeParse(await request.json());
@@ -28,7 +28,7 @@ async function livePOST(request: NextRequest) {
   const venueId = sessionToDbContext(auth.session).venueId;
 
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { checkStaffLimit } = await import("@/server/platform/admin-core");
+  const { checkStaffLimit } = await import("@/features/platform/admin-core");
   const limitCheck = await checkStaffLimit(getPlatformDb(), venueId);
   if (!limitCheck.allowed) {
     return NextResponse.json(

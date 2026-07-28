@@ -9,9 +9,9 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { zPushSubscribe } = await import("@/server/schemas/notifications");
+  const { zPushSubscribe } = await import("@/features/notifications/schemas");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -50,7 +50,7 @@ async function livePOST(request: NextRequest) {
 }
 
 async function liveDELETE(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
 
   const auth = await requireApiArea("staff");

@@ -6,7 +6,7 @@ function demoHandler() {
 }
 
 async function liveGET() {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getPlatformDb } = await import("@/features/shared/db");
 
   const auth = await requireApiArea("manager");
@@ -30,9 +30,9 @@ async function liveGET() {
 }
 
 async function livePATCH(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { createCheckoutSession } = await import("@/server/platform/stripe");
+  const { createCheckoutSession } = await import("@/features/platform/stripe");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -50,7 +50,7 @@ async function livePATCH(request: NextRequest) {
 
   if (tenant.stripeSubscriptionId) {
     // Existing subscriber — update via Stripe portal
-    const { createPortalSession } = await import("@/server/platform/stripe");
+    const { createPortalSession } = await import("@/features/platform/stripe");
     const url = await createPortalSession(db, tenant.id, request.headers.get("origin") ?? "/");
     return NextResponse.json({ portalUrl: url });
   }

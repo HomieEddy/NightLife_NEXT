@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET() {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getRawPrisma } = await import("@/features/shared/db");
-  const { getCurrentStaff } = await import("@/server/staff-core");
+  const { getCurrentStaff } = await import("@/features/workforce/staff-core");
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const member = await getCurrentStaff(getRawPrisma(), sessionToDbContext(auth.session).venueId, auth.session.user.id);

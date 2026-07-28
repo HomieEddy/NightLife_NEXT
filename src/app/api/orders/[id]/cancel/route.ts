@@ -9,9 +9,9 @@ async function livePATCH(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { cancelOrder } = await import("@/server/order-core");
+  const { cancelOrder } = await import("@/features/ordering/core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

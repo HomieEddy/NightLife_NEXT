@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDb, type TestDb } from "../features/shared/test-pglite";
-import { getCurrentStaff, listStaff, removeStaff, toggleShift, updateStaff } from "./staff-core";
+import { getCurrentStaff, listStaff, removeStaff, toggleShift, updateStaff } from "@/features/workforce/staff-core";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 
 async function makeVenue(prisma: PrismaClient, id: string) {

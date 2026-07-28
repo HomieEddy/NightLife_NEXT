@@ -7,7 +7,7 @@ function demoHandler() {
 
 /** Public — the guest QR landing doesn't have a session yet (see findTableByQrSlug). */
 async function liveGET(_request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
-  const { findTableByQrSlug } = await import("@/server/platform/guest-lookup");
+  const { findTableByQrSlug } = await import("@/features/platform/guest-lookup");
 
   const { slug } = await params;
   const result = await findTableByQrSlug(slug);

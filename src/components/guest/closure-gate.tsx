@@ -13,7 +13,7 @@ import { ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useGuest } from "@/context/guest-context";
-import { guestsService } from "@/lib/services/guests-service";
+import { guestsService } from "@/features/guests/services";
 import type { ReactNode } from "react";
 
 export function ClosureGate({ children }: { children: ReactNode }) {

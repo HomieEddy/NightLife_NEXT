@@ -6,10 +6,10 @@ function demoHandler() {
 }
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { updateZone } = await import("@/server/venue-core");
-  const { zZonePatch } = await import("@/server/schemas/venue");
+  const { updateZone } = await import("@/features/venue/core");
+  const { zZonePatch } = await import("@/features/venue/schemas");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -26,9 +26,9 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
 }
 
 async function liveDELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { deleteZone } = await import("@/server/venue-core");
+  const { deleteZone } = await import("@/features/venue/core");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

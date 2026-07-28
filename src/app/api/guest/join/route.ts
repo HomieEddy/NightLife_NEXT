@@ -8,8 +8,8 @@ function demoHandler() {
 async function livePOST(request: NextRequest) {
   const { getPlatformDb, getDb } = await import("@/features/shared/db");
   const { verifyTableToken } = await import("@/features/shared/table-token");
-  const { createSession } = await import("@/server/session-core");
-  const { zCreateSession } = await import("@/server/schemas/sessions");
+  const { createSession } = await import("@/features/sessions/core");
+  const { zCreateSession } = await import("@/features/sessions/schemas");
 
   const body = await request.json();
   const token = body.token as string | undefined;

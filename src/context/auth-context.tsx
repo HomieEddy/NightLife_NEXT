@@ -10,8 +10,8 @@ import {
   type ReactNode,
 } from "react";
 import type { AuthUser, SignInInput } from "@/lib/types";
-import { authService } from "@/lib/services/auth-service";
-import { orgRoleToAppRole } from "@/lib/live-services/auth-service";
+import { authService } from "@/features/platform/auth-service";
+import { orgRoleToAppRole } from "@/features/platform/auth-live-service";
 import { isDemoMode } from "@/features/shared/app-mode";
 import { authClient } from "@/lib/auth-client";
 

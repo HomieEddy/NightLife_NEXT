@@ -7,7 +7,7 @@ function demoHandler() {
 
 async function livePOST(request: NextRequest) {
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { createLead } = await import("@/server/platform/admin-core");
+  const { createLead } = await import("@/features/platform/admin-core");
   const { checkRateLimit } = await import("@/features/shared/rate-limit");
 
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()

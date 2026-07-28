@@ -14,7 +14,7 @@ import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { toCents } from "../src/features/shared/money";
 import { getDb, getRawPrisma } from "../src/features/shared/db";
-import { ensureMapPositions } from "../src/server/venue-core";
+import { ensureMapPositions } from "../src/features/venue/core";
 
 const DEMO_PASSWORD = "demo1234";
 

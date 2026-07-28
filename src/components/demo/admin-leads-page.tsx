@@ -25,7 +25,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { adminService } from "@/lib/services/admin-service";
+import { adminService } from "@/features/platform/admin-service";
 import { formatMoney, timeAgo } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import type { Lead, LeadSource, LeadStatus } from "@/lib/types";

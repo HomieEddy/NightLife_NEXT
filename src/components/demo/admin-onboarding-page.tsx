@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
-import { adminService } from "@/lib/services/admin-service";
+import { adminService } from "@/features/platform/admin-service";
 import { formatMoney } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import type { PlanConfig, TenantPlan } from "@/lib/types";

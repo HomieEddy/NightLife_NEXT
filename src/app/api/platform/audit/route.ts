@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET(request: NextRequest) {
-  const { requireApiPlatformAdmin } = await import("@/server/auth-helpers");
+  const { requireApiPlatformAdmin } = await import("@/features/platform/auth-helpers");
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { listAdminActions } = await import("@/server/platform/admin-core");
+  const { listAdminActions } = await import("@/features/platform/admin-core");
 
   const auth = await requireApiPlatformAdmin();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

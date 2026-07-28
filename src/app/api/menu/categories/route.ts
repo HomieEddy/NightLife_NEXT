@@ -6,10 +6,10 @@ function demoHandler() {
 }
 
 async function liveGET(request: NextRequest) {
-  const { getGuestAccess } = await import("@/server/guest-auth");
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { getGuestAccess } = await import("@/features/guests/guest-auth");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { listCategories } = await import("@/server/menu-core");
+  const { listCategories } = await import("@/features/menu/core");
 
   const guest = await getGuestAccess(request);
   const auth = guest ? null : await requireApiArea("staff");
@@ -22,10 +22,10 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { createCategory } = await import("@/server/menu-core");
-  const { zCategoryInput } = await import("@/server/schemas/menu");
+  const { createCategory } = await import("@/features/menu/core");
+  const { zCategoryInput } = await import("@/features/menu/schemas");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

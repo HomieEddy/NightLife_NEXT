@@ -15,8 +15,8 @@ import {
   deleteTable,
   setTableStatus,
   setTablePosition,
-} from "./venue-core";
-import { listShifts, addShift, removeShift } from "./shift-core";
+} from "@/features/venue/core";
+import { listShifts, addShift, removeShift } from "@/features/workforce/shift-core";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 import { verifyTableToken } from "../features/shared/table-token";
 

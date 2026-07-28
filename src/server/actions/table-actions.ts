@@ -1,9 +1,9 @@
 "use server";
 
-import { requireApiArea, sessionToDbContext } from "@/server/auth-helpers";
+import { requireApiArea, sessionToDbContext } from "@/features/platform/auth-helpers";
 import { getDb } from "@/features/shared/db";
-import { setTablePosition as coreSetTablePosition, setTableStatus as coreSetTableStatus } from "@/server/venue-core";
-import { zTablePosition, zTableStatus } from "@/server/schemas/venue";
+import { setTablePosition as coreSetTablePosition, setTableStatus as coreSetTableStatus } from "@/features/venue/core";
+import { zTablePosition, zTableStatus } from "@/features/venue/schemas";
 import type { VenueTable } from "@/lib/types";
 
 export async function setTableStatusAction(

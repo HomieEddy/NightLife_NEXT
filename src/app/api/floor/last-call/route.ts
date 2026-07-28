@@ -6,10 +6,10 @@ function demoHandler() {
 }
 
 async function liveGET(request: NextRequest) {
-  const { getGuestAccess } = await import("@/server/guest-auth");
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { getGuestAccess } = await import("@/features/guests/guest-auth");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { getLastCallState } = await import("@/server/floor-core");
+  const { getLastCallState } = await import("@/features/realtime/floor-core");
 
   const guest = await getGuestAccess(request);
   const auth = guest ? null : await requireApiArea("staff");
@@ -21,9 +21,9 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { startLastCall, endLastCall } = await import("@/server/floor-core");
+  const { startLastCall, endLastCall } = await import("@/features/realtime/floor-core");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

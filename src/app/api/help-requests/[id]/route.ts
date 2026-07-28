@@ -6,10 +6,10 @@ function demoHandler() {
 }
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { setHelpRequestStatus } = await import("@/server/session-core");
-  const { zSetHelpStatus } = await import("@/server/schemas/sessions");
+  const { setHelpRequestStatus } = await import("@/features/sessions/core");
+  const { zSetHelpStatus } = await import("@/features/sessions/schemas");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

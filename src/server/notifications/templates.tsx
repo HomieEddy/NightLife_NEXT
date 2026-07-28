@@ -3,7 +3,7 @@
  * This file is the single JSX import point — route handlers stay as .ts.
  */
 import { render } from "@react-email/components";
-import { registerTemplate } from "./dispatch";
+import { registerTemplate } from "@/features/notifications/dispatch";
 import { StaffInviteEmail } from "@/emails/staff-invite";
 import { ReservationConfirmationEmail } from "@/emails/reservation-confirmation";
 import { ReportRunEmail } from "@/emails/report-run";

@@ -14,10 +14,10 @@ import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { purchasingService } from "@/lib/services/purchasing-service";
-import { menuService } from "@/lib/services/menu-service";
-import { staffService } from "@/lib/services/staff-service";
-import { suggestPurchaseOrder } from "@/lib/costs";
+import { purchasingService } from "@/features/platform/purchasing-service";
+import { menuService } from "@/features/menu/services";
+import { staffService } from "@/features/workforce/staff-service";
+import { suggestPurchaseOrder } from "@/features/ordering/costs";
 import { formatMoney } from "@/features/shared/format";
 import type { PurchaseOrder, Stocktake, Supplier, SupplierItem, MenuItem } from "@/lib/types";
 

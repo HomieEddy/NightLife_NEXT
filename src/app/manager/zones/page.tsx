@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { venueService } from "@/lib/services/venue-service";
+import { venueService } from "@/features/venue/services";
 import { zoneStaffHref, zoneTablesHref } from "@/features/shared/entity-links";
 import { useHighlight } from "@/lib/use-highlight";
 import { cn } from "@/features/shared/utils";

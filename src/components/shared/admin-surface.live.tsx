@@ -1,4 +1,4 @@
-import { requirePlatformAdmin } from "@/server/auth-helpers";
+import { requirePlatformAdmin } from "@/features/platform/auth-helpers";
 import AdminShellClient from "@/components/shared/admin-shell-client";
 
 export async function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET() {
-  const { requireApiPlatformAdmin } = await import("@/server/auth-helpers");
+  const { requireApiPlatformAdmin } = await import("@/features/platform/auth-helpers");
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { listLeads } = await import("@/server/platform/admin-core");
+  const { listLeads } = await import("@/features/platform/admin-core");
 
   const auth = await requireApiPlatformAdmin();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -18,9 +18,9 @@ async function liveGET() {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiPlatformAdmin } = await import("@/server/auth-helpers");
+  const { requireApiPlatformAdmin } = await import("@/features/platform/auth-helpers");
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { createLead } = await import("@/server/platform/admin-core");
+  const { createLead } = await import("@/features/platform/admin-core");
 
   const auth = await requireApiPlatformAdmin();
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

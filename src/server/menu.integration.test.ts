@@ -29,7 +29,7 @@ import {
   toggleHappyHourRule,
   deleteHappyHourRule,
   checkLedger,
-} from "./menu-core";
+} from "@/features/menu/core";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 import { toCents } from "../features/shared/money";
 

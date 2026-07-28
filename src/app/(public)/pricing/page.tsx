@@ -35,7 +35,7 @@ function limitRows(plan: PlanConfig): string[] {
 async function getPlans(): Promise<PlanConfig[]> {
   if (isDemoMode()) return DEFAULT_PLAN_CONFIGS;
   const { getPlatformDb } = await import("@/features/shared/db");
-  const { listPlanConfigs } = await import("@/server/platform/admin-core");
+  const { listPlanConfigs } = await import("@/features/platform/admin-core");
   return listPlanConfigs(getPlatformDb());
 }
 

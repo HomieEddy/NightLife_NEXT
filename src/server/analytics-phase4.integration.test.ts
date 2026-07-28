@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest
 import { PrismaClient } from "@prisma/client";
 import { getDb, type SessionContext } from "../features/shared/db";
 import { createTestDb, type TestDb } from "../features/shared/test-pglite";
-import { createCategory, createItem } from "./menu-core";
-import { submitOrder } from "./order-core";
+import { createCategory, createItem } from "@/features/menu/core";
+import { submitOrder } from "@/features/ordering/core";
 import { toCents } from "../features/shared/money";
 import {
   getNightComparison,
@@ -13,7 +13,7 @@ import {
   getTableTurnAnalytics,
   getOrderSlaAnalytics,
   getCompVoidRatioAnalytics,
-} from "./analytics-core-phase4";
+} from "@/features/analytics/analytics-phase4";
 import { nightForDate } from "../features/shared/night";
 
 const UTC_NIGHT = { timezone: "UTC", nightStartHour: 18, nightEndHour: 10 };

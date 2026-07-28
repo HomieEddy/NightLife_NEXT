@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
-import { waitlistService } from "@/lib/services/waitlist-service";
-import type { WaitlistEntryWithPosition } from "@/lib/services/waitlist-service";
+import { waitlistService } from "@/features/door/waitlist-service";
+import type { WaitlistEntryWithPosition } from "@/features/door/waitlist-service";
 import { cn } from "@/features/shared/utils";
 
 const QUOTE_PRESETS = [15, 30, 45];

@@ -12,9 +12,9 @@ import {
   createHelpRequest,
   listHelpRequests,
   setHelpRequestStatus,
-} from "./session-core";
-import { submitOrder } from "./order-core";
-import { createCategory, createItem } from "./menu-core";
+} from "@/features/sessions/core";
+import { submitOrder } from "@/features/ordering/core";
+import { createCategory, createItem } from "@/features/menu/core";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 import { toCents } from "../features/shared/money";
 
@@ -257,7 +257,7 @@ describe("guest sessions & help requests integration (plan 06)", () => {
     if (!orderResult.ok) return;
 
     // Advance to delivered
-    const { advanceOrder } = await import("./order-core");
+    const { advanceOrder } = await import("@/features/ordering/core");
     await advanceOrder(db, orderResult.order.id); // → accepted
     await advanceOrder(db, orderResult.order.id); // → preparing
     await advanceOrder(db, orderResult.order.id); // → ready

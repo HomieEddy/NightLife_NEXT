@@ -6,8 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
-import { tipsService } from "@/lib/services/tips-service";
-import { staffService } from "@/lib/services/staff-service";
+import { tipsService } from "@/features/workforce/tips-service";
+import { staffService } from "@/features/workforce/staff-service";
 import { formatMoney } from "@/features/shared/format";
 import type { StaffMember, TipDistribution } from "@/lib/types";
 

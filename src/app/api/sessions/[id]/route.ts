@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { getSession } = await import("@/server/session-core");
+  const { getSession } = await import("@/features/sessions/core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -21,10 +21,10 @@ async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id
 }
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { setSessionStatus } = await import("@/server/session-core");
-  const { zSetSessionStatus } = await import("@/server/schemas/sessions");
+  const { setSessionStatus } = await import("@/features/sessions/core");
+  const { zSetSessionStatus } = await import("@/features/sessions/schemas");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

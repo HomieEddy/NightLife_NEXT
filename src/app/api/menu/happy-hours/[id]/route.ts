@@ -6,10 +6,10 @@ function demoHandler() {
 }
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { updateHappyHourRule } = await import("@/server/menu-core");
-  const { zHappyHourPatch } = await import("@/server/schemas/menu");
+  const { updateHappyHourRule } = await import("@/features/menu/core");
+  const { zHappyHourPatch } = await import("@/features/menu/schemas");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -26,9 +26,9 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
 }
 
 async function livePOST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { toggleHappyHourRule } = await import("@/server/menu-core");
+  const { toggleHappyHourRule } = await import("@/features/menu/core");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -42,9 +42,9 @@ async function livePOST(_request: NextRequest, { params }: { params: Promise<{ i
 }
 
 async function liveDELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { deleteHappyHourRule } = await import("@/server/menu-core");
+  const { deleteHappyHourRule } = await import("@/features/menu/core");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
 import { formatMoney } from "@/features/shared/format";
-import type { PackageQuote } from "@/lib/services/menu-service";
+import type { PackageQuote } from "@/features/menu/services";
 import type { BottlePackage, MenuItem } from "@/lib/types";
 
 export type PackageWithQuote = BottlePackage & { quote: PackageQuote };

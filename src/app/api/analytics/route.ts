@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveHandler(request: NextRequest, method: string) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb, getRawPrisma } = await import("@/features/shared/db");
-  const { getSummaryForVenue, getHistoricalForVenue } = await import("@/server/analytics-core");
+  const { getSummaryForVenue, getHistoricalForVenue } = await import("@/features/analytics/analytics-core");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -31,62 +31,62 @@ async function liveHandler(request: NextRequest, method: string) {
 
   // Phase 4 analytics depth routes
   if (type === "comparison") {
-    const { getNightComparison } = await import("@/server/analytics-core-phase4");
+    const { getNightComparison } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getNightComparison(db, venueId, nightConfig));
   }
   if (type === "forecast") {
-    const { getNightForecast } = await import("@/server/analytics-core-phase4");
+    const { getNightForecast } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getNightForecast(db, venueId, nightConfig));
   }
   if (type === "per-hour") {
-    const { getPerHourAnalytics } = await import("@/server/analytics-core-phase4");
+    const { getPerHourAnalytics } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getPerHourAnalytics(db, venueId, nightConfig));
   }
   if (type === "door-to-table") {
-    const { getDoorToTableFunnel } = await import("@/server/analytics-core-phase4");
+    const { getDoorToTableFunnel } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getDoorToTableFunnel(db, venueId, nightConfig));
   }
   if (type === "table-turn") {
-    const { getTableTurnAnalytics } = await import("@/server/analytics-core-phase4");
+    const { getTableTurnAnalytics } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getTableTurnAnalytics(db, venueId, nightConfig));
   }
   if (type === "order-sla") {
-    const { getOrderSlaAnalytics } = await import("@/server/analytics-core-phase4");
+    const { getOrderSlaAnalytics } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getOrderSlaAnalytics(db, venueId, nightConfig));
   }
   if (type === "comp-void") {
-    const { getCompVoidRatioAnalytics } = await import("@/server/analytics-core-phase4");
+    const { getCompVoidRatioAnalytics } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getCompVoidRatioAnalytics(db, venueId, nightConfig));
   }
   if (type === "promoter-performance") {
-    const { getPromoterPerformanceReport } = await import("@/server/analytics-core-phase4");
+    const { getPromoterPerformanceReport } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getPromoterPerformanceReport(db, venueId, nightConfig));
   }
   if (type === "incident-pattern") {
-    const { getIncidentPatternReport } = await import("@/server/analytics-core-phase4");
+    const { getIncidentPatternReport } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getIncidentPatternReport(db, venueId, nightConfig));
   }
   if (type === "guest-retention") {
-    const { getGuestRetentionMetrics } = await import("@/server/analytics-core-phase4");
+    const { getGuestRetentionMetrics } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getGuestRetentionMetrics(db, venueId, nightConfig));
   }
   if (type === "bottle-service") {
-    const { getBottleServiceAnalytics } = await import("@/server/analytics-core-phase4");
+    const { getBottleServiceAnalytics } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getBottleServiceAnalytics(db, venueId, nightConfig));
   }
   if (type === "capacity") {
-    const { getCapacityUtilizationAnalytics } = await import("@/server/analytics-core-phase4");
+    const { getCapacityUtilizationAnalytics } = await import("@/features/analytics/analytics-phase4");
     return NextResponse.json(await getCapacityUtilizationAnalytics(db, venueId, nightConfig));
   }
   if (type === "night-summary") {
-    const { getNightSummary } = await import("@/server/analytics-core-phase4");
+    const { getNightSummary } = await import("@/features/analytics/analytics-phase4");
     const businessDate = url.searchParams.get("date") ?? undefined;
     return NextResponse.json(await getNightSummary(db, venueId, nightConfig, businessDate));
   }
 
   // POST: CSV export
   if (method === "POST" && type === "export-csv") {
-    const { exportReportCsv } = await import("@/server/analytics-core-phase4");
+    const { exportReportCsv } = await import("@/features/analytics/analytics-phase4");
     const body = await request.json().catch(() => null);
     if (!body || !body.metrics || !body.from || !body.to) {
       return NextResponse.json({ error: "Missing metrics, from, or to in request body" }, { status: 400 });

@@ -14,7 +14,7 @@ async function livePOST(request: NextRequest) {
   }
 
   const { getRawPrisma, getDb } = await import("@/features/shared/db");
-  const { computeRollup, upsertRollup } = await import("@/server/analytics-core");
+  const { computeRollup, upsertRollup } = await import("@/features/analytics/analytics-core");
   const { nightContaining } = await import("@/features/shared/night");
 
   const prisma = getRawPrisma();

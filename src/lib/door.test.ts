@@ -12,7 +12,7 @@ import {
   isOfLegalAge,
   occupancyRatio,
   waitlistPosition,
-} from "./door";
+} from "@/lib/door";
 import type { GuestProfile, MenuItem, OccupancyEvent, Order, WaitlistEntry } from "@/lib/types";
 
 function profile(overrides: Partial<GuestProfile>): GuestProfile {

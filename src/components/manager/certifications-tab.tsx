@@ -12,8 +12,8 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { Pagination, paginate } from "@/components/shared/pagination";
-import { certificationService } from "@/lib/services/certification-service";
-import { staffService } from "@/lib/services/staff-service";
+import { certificationService } from "@/features/workforce/certification-service";
+import { staffService } from "@/features/workforce/staff-service";
 import { CERTIFICATION_TYPE_LABELS, type Certification, type CertificationType, type StaffMember } from "@/lib/types";
 
 type CertificationTypeEntry = [CertificationType, string];

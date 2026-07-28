@@ -10,7 +10,7 @@ import { DemoQrScanAction, deniedSessionPath } from "@/components/shared/demo-li
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
 import { isDemoMode } from "@/features/shared/app-mode";
-import { guestsService } from "@/lib/services/guests-service";
+import { guestsService } from "@/features/guests/services";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { DemoHostApprovalControl } from "@/components/shared/demo-controls";
 import { toast } from "sonner";

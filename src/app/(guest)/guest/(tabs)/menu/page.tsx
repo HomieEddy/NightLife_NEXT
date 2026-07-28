@@ -11,7 +11,7 @@ import { ClosureGate } from "@/components/guest/closure-gate";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
 import { PackageCard, type PackageWithQuote } from "@/components/guest/package-card";
 import { useGuest } from "@/context/guest-context";
-import { menuService } from "@/lib/services/menu-service";
+import { menuService } from "@/features/menu/services";
 import { cn } from "@/features/shared/utils";
 import { Pagination, paginate } from "@/components/shared/pagination";
 import type { MenuCategory, MenuItem } from "@/lib/types";

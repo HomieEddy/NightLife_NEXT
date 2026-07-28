@@ -16,7 +16,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination, paginate } from "@/components/shared/pagination";
-import { guestService } from "@/lib/services/guest-service";
+import { guestService } from "@/features/sessions/services";
 import { formatMoney, formatDate } from "@/features/shared/format";
 import type { GuestProfile, GuestTag, GuestVipTier } from "@/lib/types";
 

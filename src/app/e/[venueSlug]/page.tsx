@@ -11,7 +11,7 @@ import {
   EventCard,
   EventActionGold,
 } from "@/components/shared/event-card";
-import { eventsService } from "@/lib/services/events-service";
+import { eventsService } from "@/features/hospitality/events-service";
 import { publicReservationHref } from "@/features/shared/entity-links";
 import type { VenueEvent } from "@/lib/types";
 

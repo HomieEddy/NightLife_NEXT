@@ -8,8 +8,8 @@ import {
   getReservation,
   updateReservation,
   setReservationStatus,
-} from "./reservation-core";
-import { createZone, createTable, setTableStatus } from "./venue-core";
+} from "@/features/hospitality/reservation-core";
+import { createZone, createTable, setTableStatus } from "@/features/venue/core";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {

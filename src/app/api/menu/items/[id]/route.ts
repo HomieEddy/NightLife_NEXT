@@ -6,9 +6,9 @@ function demoHandler() {
 }
 
 async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { getItem } = await import("@/server/menu-core");
+  const { getItem } = await import("@/features/menu/core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -22,10 +22,10 @@ async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id
 }
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { updateItem } = await import("@/server/menu-core");
-  const { zItemPatch } = await import("@/server/schemas/menu");
+  const { updateItem } = await import("@/features/menu/core");
+  const { zItemPatch } = await import("@/features/menu/schemas");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -42,9 +42,9 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
 }
 
 async function liveDELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const { getDb } = await import("@/features/shared/db");
-  const { deleteItem } = await import("@/server/menu-core");
+  const { deleteItem } = await import("@/features/menu/core");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

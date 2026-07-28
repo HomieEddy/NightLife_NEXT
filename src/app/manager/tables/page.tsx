@@ -19,7 +19,7 @@ import { EntityChip } from "@/components/shared/entity-chip";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { TableCard } from "@/components/shared/table-card";
-import { venueService } from "@/lib/services/venue-service";
+import { venueService } from "@/features/venue/services";
 import { SearchInput } from "@/components/shared/search-input";
 import { Pagination, paginate } from "@/components/shared/pagination";
 import { useHighlight } from "@/lib/use-highlight";

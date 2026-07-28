@@ -2,15 +2,15 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest
 import { PrismaClient } from "@prisma/client";
 import { getDb, type SessionContext } from "../features/shared/db";
 import { createTestDb, type TestDb } from "../features/shared/test-pglite";
-import { createCategory, createItem } from "./menu-core";
-import { submitOrder } from "./order-core";
+import { createCategory, createItem } from "@/features/menu/core";
+import { submitOrder } from "@/features/ordering/core";
 import { toCents } from "../features/shared/money";
 import {
   getSummaryForVenue,
   computeRollup,
   upsertRollup,
   getHistoricalForVenue,
-} from "./analytics-core";
+} from "@/features/analytics/analytics-core";
 import {
   listReports,
   createReport,
@@ -18,7 +18,7 @@ import {
   deleteReport,
   recordRun,
   findDueReports,
-} from "./report-core";
+} from "@/features/analytics/report-core";
 import { nightContaining, nightForDate } from "../features/shared/night";
 import { expectTenantIsolation } from "../features/shared/test-helpers";
 

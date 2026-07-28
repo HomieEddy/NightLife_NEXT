@@ -17,13 +17,13 @@ import {
   toLocalInput,
   fromLocalInput,
 } from "@/components/shared/reservation-form-dialog";
-import { eventsService } from "@/lib/services/events-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { staffService } from "@/lib/services/staff-service";
-import { venueService } from "@/lib/services/venue-service";
+import { eventsService } from "@/features/hospitality/events-service";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { venueService } from "@/features/venue/services";
 import { formatTime } from "@/features/shared/format";
 import { canDo } from "@/features/shared/permissions";
-import { permissionService } from "@/lib/services/permission-service";
+import { permissionService } from "@/features/platform/permission-service";
 import type { RolePermissions } from "@/features/shared/permissions";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { Reservation, StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";

@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { menuService } from "@/lib/services/menu-service";
+import { menuService } from "@/features/menu/services";
 import { cn } from "@/features/shared/utils";
 import type { MenuItem } from "@/lib/types";
 
