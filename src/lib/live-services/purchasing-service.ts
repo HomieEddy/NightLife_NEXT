@@ -26,4 +26,9 @@ export const livePurchasingService: typeof mockPurchasingService = {
   saveProfitTarget: notYetSupported,
   listEventCosts: notYetSupported,
   saveEventCost: notYetSupported,
+  listEventRunSheet: notYetSupported,
+  saveEventRunSheet: notYetSupported,
+  getSupplierPerformance: notYetSupported,
+  listChecklists: notYetSupported,
+  saveChecklist: notYetSupported,
 };

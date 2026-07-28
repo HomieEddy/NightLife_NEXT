@@ -25,4 +25,6 @@ export const liveGuestService: typeof mockGuestService = {
   linkSessionToProfile: notYetSupported,
   listLinks: notYetSupported,
   recordVisit: notYetSupported,
+  listReferrals: notYetSupported,
+  createReferral: notYetSupported,
 };

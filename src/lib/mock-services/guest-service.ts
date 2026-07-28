@@ -5,7 +5,7 @@
  * reservation, a guestlist entry, a door ID check, or a host tagging a
  * regular. QR sessions stay anonymous unless a GuestLink attaches one.
  */
-import type { GuestLink, GuestProfile, GuestTag, GuestVipTier } from "@/lib/types";
+import type { GuestLink, GuestProfile, GuestReferral, GuestTag, GuestVipTier } from "@/lib/types";
 import { mockGuestLinks, mockGuestProfiles } from "@/lib/mock-data/guests";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { dedupeCandidates, type DedupeCandidate } from "@/lib/door";
@@ -14,6 +14,7 @@ import { mockAuditService } from "./audit-service";
 
 let profiles: GuestProfile[] = clone(mockGuestProfiles);
 let links: GuestLink[] = clone(mockGuestLinks);
+let referrals: GuestReferral[] = [];
 
 function displayNameFor(firstName: string, lastName?: string): string {
   return `${firstName}${lastName ? ` ${lastName}` : ""}`.trim();
@@ -214,5 +215,18 @@ export const mockGuestService = {
     profile.visitCount += 1;
     profile.lifetimeNetCents += netCents;
     profile.lastVisitAt = new Date().toISOString();
+  },
+
+  /** CRM-06: Guest referral tracking. */
+  async listReferrals(profileId?: string): Promise<GuestReferral[]> {
+    await delay();
+    return clone(profileId ? referrals.filter((r) => r.referrerProfileId === profileId) : referrals);
+  },
+
+  async createReferral(input: { referrerProfileId: string; referredProfileId: string; source: string }): Promise<GuestReferral> {
+    await delay(200);
+    const r: GuestReferral = { id: uid("ref"), ...input, status: "pending", createdAt: new Date().toISOString() };
+    referrals.push(r);
+    return clone(r);
   },
 };
