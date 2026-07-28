@@ -143,7 +143,7 @@ export default function StaffIncidentsPage() {
   }
 
   return (
-    <div className="space-y-5 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-display flex items-center gap-2 text-xl">
@@ -285,7 +285,7 @@ export default function StaffIncidentsPage() {
       ) : incidents.length === 0 ? (
         <EmptyState icon={ListChecks} title="No incidents" description="Filed reports will show up here." />
       ) : (
-        <div className="space-y-2">
+        <div className="stagger-children space-y-2">
           {paginate(incidents, page).map((incident) => (
             <Card key={incident.id}>
               <CardContent className="space-y-1.5 px-4 py-3">

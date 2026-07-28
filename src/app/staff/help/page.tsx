@@ -76,7 +76,7 @@ export default function StaffHelpPage() {
   const isSecurityRole = me?.role === "security";
 
   return (
-    <div className="space-y-5 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <h1 className="text-display text-xl">
         {isSecurityRole ? "Security requests" : "Help requests"}
       </h1>
@@ -94,7 +94,7 @@ export default function StaffHelpPage() {
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="stagger-children space-y-3">
           {open.map((request) => {
             const meta = TYPE_META[request.type];
             return (

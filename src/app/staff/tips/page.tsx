@@ -31,7 +31,7 @@ export default function StaffTipsPage() {
   const staffName = (id: string) => staff.find((s) => s.id === id)?.name ?? id;
 
   return (
-    <div className="space-y-5 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
           <DollarSign className="size-5 text-primary" /> My tips
@@ -44,7 +44,7 @@ export default function StaffTipsPage() {
       ) : distributions.length === 0 ? (
         <EmptyState icon={DollarSign} title="No closed distributions yet" description="Your tip share appears here once the manager closes the night's distribution." />
       ) : (
-        <div className="space-y-3">
+        <div className="stagger-children space-y-3">
           {distributions.map((d) => {
             const myLine = d.lines.find((l) => l.staffId === me?.id);
             return (

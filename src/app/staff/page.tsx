@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ClockCard } from "@/components/shared/clock-card";
+import { CountUp } from "@/components/fx/count-up";
 import { doorService } from "@/features/door/services";
 import { incidentService } from "@/features/safety/services";
 import { ordersService } from "@/features/ordering/services";
@@ -65,7 +66,7 @@ interface SecurityHomeProps {
 
 function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, occupancy, openIncidentCount }: SecurityHomeProps) {
   return (
-    <div className="space-y-4 p-4">
+    <div className="animate-fade-in space-y-4 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
           Good evening, {me.name.split(" ")[0]}
@@ -274,21 +275,21 @@ export default function StaffHomePage() {
   const tiles = counts
     ? isPromoter && promoStats
       ? [
-          { href: "/staff/reservations", label: "Requested", value: String(promoStats.requested), icon: CalendarCheck, urgent: false },
-          { href: "/staff/reservations", label: "Confirmed", value: String(promoStats.confirmed), icon: CalendarCheck, urgent: false },
-          { href: "/staff/reservations", label: "Seated", value: String(promoStats.seated), icon: Users, urgent: false },
-          { href: "/staff/orders", label: "Revenue", value: formatMoney(promoStats.attributedRevenue), icon: DollarSign, urgent: false },
+          { href: "/staff/reservations", label: "Requested", value: String(promoStats.requested), count: promoStats.requested, icon: CalendarCheck, urgent: false },
+          { href: "/staff/reservations", label: "Confirmed", value: String(promoStats.confirmed), count: promoStats.confirmed, icon: CalendarCheck, urgent: false },
+          { href: "/staff/reservations", label: "Seated", value: String(promoStats.seated), count: promoStats.seated, icon: Users, urgent: false },
+          { href: "/staff/orders", label: "Revenue", value: formatMoney(promoStats.attributedRevenue), count: promoStats.attributedRevenue, icon: DollarSign, urgent: false },
         ]
       : [
-          { href: "/staff/orders", label: "New orders", value: String(counts.pendingOrders), icon: Receipt, urgent: counts.pendingOrders > 0 },
-          { href: "/staff/orders", label: "In progress", value: String(counts.activeOrders), icon: Receipt, urgent: false },
-          ...(!isRunner ? [{ href: "/staff/approvals", label: "Approvals", value: String(counts.pendingApprovals), icon: UserCheck, urgent: counts.pendingApprovals > 0 }] : []),
-          { href: "/staff/help", label: "Help requests", value: String(counts.openHelp), icon: LifeBuoy, urgent: counts.openHelp > 0 },
+          { href: "/staff/orders", label: "New orders", value: String(counts.pendingOrders), count: counts.pendingOrders, icon: Receipt, urgent: counts.pendingOrders > 0 },
+          { href: "/staff/orders", label: "In progress", value: String(counts.activeOrders), count: counts.activeOrders, icon: Receipt, urgent: false },
+          ...(!isRunner ? [{ href: "/staff/approvals", label: "Approvals", value: String(counts.pendingApprovals), count: counts.pendingApprovals, icon: UserCheck, urgent: counts.pendingApprovals > 0 }] : []),
+          { href: "/staff/help", label: "Help requests", value: String(counts.openHelp), count: counts.openHelp, icon: LifeBuoy, urgent: counts.openHelp > 0 },
         ]
     : [];
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="animate-fade-in space-y-4 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
           Good evening{me ? `, ${me.name.split(" ")[0]}` : ""}
@@ -310,7 +311,7 @@ export default function StaffHomePage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="stagger-children grid grid-cols-2 gap-3">
           {tiles.map((tile, i) => (
             <Link key={`${tile.label}-${i}`} href={tile.href}>
               <Card
@@ -325,7 +326,7 @@ export default function StaffHomePage() {
                       <span className="size-2 animate-pulse rounded-full bg-amber-400" />
                     )}
                   </div>
-                  <p className="mt-3 text-3xl font-bold tabular-nums">{tile.value}</p>
+                  <p className="mt-3 text-3xl font-bold tabular-nums"><CountUp value={tile.count} /></p>
                   <p className="text-xs text-muted-foreground">{tile.label}</p>
                 </CardContent>
               </Card>

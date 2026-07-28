@@ -111,14 +111,14 @@ export default function StaffApprovalsPage() {
   }
 
   return (
-    <div className="space-y-5 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <h1 className="text-display text-xl">Guest approvals</h1>
 
       {sessions === null ? (
         <ListSkeleton rows={3} rowHeight="h-28" />
       ) : (
         <>
-          <section className="space-y-3">
+          <section className="stagger-children space-y-3">
             <h2 className="text-sm font-medium text-muted-foreground">
               Waiting ({pending.length})
             </h2>
@@ -182,7 +182,7 @@ export default function StaffApprovalsPage() {
           </section>
 
           {closures.length > 0 && (
-            <section className="space-y-3">
+            <section className="stagger-children space-y-3">
               <h2 className="text-sm font-medium text-muted-foreground">
                 Tab closures ({closures.length})
               </h2>
@@ -213,7 +213,7 @@ export default function StaffApprovalsPage() {
           )}
 
           {recent.length > 0 && (
-            <section className="space-y-3">
+            <section className="stagger-children space-y-3">
               <h2 className="text-sm font-medium text-muted-foreground">Recent decisions</h2>
               {recent.map((session) => (
                 <div

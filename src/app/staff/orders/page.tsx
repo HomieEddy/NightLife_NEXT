@@ -187,7 +187,7 @@ function StaffOrdersContent() {
   });
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="animate-fade-in space-y-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-display text-xl">Order feed</h1>
         <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh">
@@ -236,7 +236,7 @@ function StaffOrdersContent() {
           }
         />
       ) : (
-        <div className="space-y-3">
+        <div className="stagger-children space-y-3">
           {paginate(visible, page).map((order) => {
             const label = ADVANCE_LABEL[order.status];
             const canAccept = (me && permissions) ? canDo(permissions, me.role, "order:accept") : true;

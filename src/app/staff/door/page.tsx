@@ -363,7 +363,7 @@ export default function StaffDoorPage() {
   const capacityTone = ratio >= 1 ? "critical" : ratio >= (venue?.occupancyWarnRatio ?? 0.9) ? "warning" : "ok";
 
   return (
-    <div className="space-y-5 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
           <DoorOpen className="size-5 text-primary" /> Door
@@ -688,7 +688,7 @@ export default function StaffDoorPage() {
             {waitlist.filter((w) => w.status === "waiting" || w.status === "notified").length === 0 ? (
               <EmptyState icon={Users} title="No one waiting" description="Walk-ins you add show up here." />
             ) : (
-              <div className="space-y-2">
+              <div className="stagger-children space-y-2">
                 {waitlist
                   .filter((w) => w.status === "waiting" || w.status === "notified")
                   .map((entry) => {
@@ -777,7 +777,7 @@ export default function StaffDoorPage() {
             <Plus className="size-4" /> Check in a coat
           </Button>
           {coatCheck && coatCheck.filter((t) => !t.claimedAt).length > 0 && (
-            <div className="space-y-2">
+            <div className="stagger-children space-y-2">
               {coatCheck
                 .filter((t) => !t.claimedAt)
                 .map((ticket) => (

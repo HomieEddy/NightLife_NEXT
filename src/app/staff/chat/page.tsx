@@ -17,8 +17,10 @@ export default function StaffChatPage() {
   const pinned = me ? getPinnedChatChannel(me.role) ?? undefined : undefined;
 
   return (
-    <FeatureGate feature="chat">
-      <ChatPanel currentUserId={me?.id ?? ""} pinnedChannel={pinned} />
-    </FeatureGate>
+    <div className="animate-fade-in">
+      <FeatureGate feature="chat">
+        <ChatPanel currentUserId={me?.id ?? ""} pinnedChannel={pinned} />
+      </FeatureGate>
+    </div>
   );
 }

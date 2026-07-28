@@ -90,7 +90,7 @@ export default function StaffSchedulePage() {
   const publishedShifts = (shifts ?? []).filter((s) => s.status !== "cancelled");
 
   return (
-    <div className="space-y-5 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display flex items-center gap-2 text-xl">
@@ -114,7 +114,7 @@ export default function StaffSchedulePage() {
           description="Published shifts will appear here once the manager generates and publishes a schedule."
         />
       ) : (
-        <div className="space-y-3">
+        <div className="stagger-children space-y-3">
           {publishedShifts.map((shift) => (
             <Card key={shift.id} className="py-4">
               <CardContent className="space-y-2 px-4">
