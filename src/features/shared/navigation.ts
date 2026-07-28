@@ -148,7 +148,7 @@ export function setGroupCollapsed(label: string, collapsed: boolean): void {
  * components-disagree bug before detail routes expose it.
  */
 export function isNavActive(pathname: string, href: string): boolean {
-  if (href === "/manager") return pathname === "/manager";
+  if (href === "/manager" || href === "/staff") return pathname === href;
   const nextChar = pathname[href.length];
   return pathname.startsWith(href) && (nextChar === "/" || nextChar === undefined);
 }
