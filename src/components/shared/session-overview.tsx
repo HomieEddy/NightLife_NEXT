@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Users, Wallet } from "lucide-react";
+import { ChevronDown, ChevronRight, ShieldOff, TimerReset, Users, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,16 @@ import { OrderCard } from "@/components/shared/order-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { SessionActionsDialog } from "@/components/shared/session-actions-dialog";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ordersService } from "@/lib/services/orders-service";
+import { guestsService } from "@/lib/services/guests-service";
+import { venueService } from "@/lib/services/venue-service";
+import { getAutoGratuityRate } from "@/lib/fees";
 import { computeSessionBalance, shortfallRatio } from "@/lib/tab";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { GuestSession, MenuItem, Order, TabAdjustment, VenueTable } from "@/lib/types";
+import { toast } from "sonner";
+import type { GuestSession, MenuItem, Order, TabAdjustment, VenueTable, Venue } from "@/lib/types";
 
 /**
  * Groups orders under their guest session and totals each session
@@ -40,6 +45,7 @@ export function SessionOverview({
     canTransfer: boolean;
     canMerge: boolean;
     canRefuseService?: boolean;
+    canEjectGuest?: boolean;
     onChange: () => void;
   };
 }) {
@@ -92,16 +98,22 @@ function SessionCard({
     canTransfer: boolean;
     canMerge: boolean;
     canRefuseService?: boolean;
+    canEjectGuest?: boolean;
     onChange: () => void;
   };
 }) {
   const [open, setOpen] = useState(false);
   const [adjustments, setAdjustments] = useState<TabAdjustment[]>([]);
+  const [autoGratuityRate, setAutoGratuityRate] = useState<number | null>(null);
   const total = orders.reduce((s, o) => s + o.total, 0);
 
   useEffect(() => {
     ordersService.listAdjustments(session.id).then(setAdjustments);
-  }, [session.id, orders]);
+    venueService.getVenue().then((v) => {
+      const rate = getAutoGratuityRate(v, session.partySize, session.minimumSpendCents);
+      setAutoGratuityRate(rate);
+    });
+  }, [session.id, session.partySize, session.minimumSpendCents, orders]);
 
   const balance = computeSessionBalance(session.id, orders, adjustments, session.minimumSpendCents ?? 0);
   const hasMinimum = balance.minimumSpendCents > 0;
@@ -152,6 +164,11 @@ function SessionCard({
           </div>
         )}
 
+        {/* RV-03: Auto-gratuity rate display */}
+        {autoGratuityRate && session.status === "approved" && (
+          <p className="text-xs text-primary font-medium">Auto-gratuity: {autoGratuityRate}% · party of {session.partySize}</p>
+        )}
+
         {balance.adjustmentsCents > 0 && (
           <p className="text-xs text-muted-foreground">
             {balance.voidCents > 0 && `Void ${formatMoney(balance.voidCents / 100)} · `}
@@ -180,6 +197,46 @@ function SessionCard({
               </Button>
             }
           />
+        )}
+
+        {/* RV-17: Eject guest — integrated refuse + ban + incident in one action */}
+        {staffContext?.canEjectGuest && session.status === "approved" && (
+          <ConfirmDialog
+            trigger={<Button variant="outline" size="sm" className="text-red-600"><ShieldOff className="size-3.5 mr-1" /> Eject</Button>}
+            title={`Eject ${session.displayName}?`}
+            description="Refuses service, bans the guest, closes the tab, and files an ejection incident — all in one audited action."
+            confirmLabel="Eject guest"
+            destructive
+            onConfirm={async () => {
+              try {
+                await guestsService.ejectGuest(session.id, staffContext.staffId, staffContext.staffName, "Ejected by manager", session.guestProfileId);
+                toast.success(`${session.displayName} ejected`);
+                staffContext.onChange();
+              } catch { toast.error("Could not eject guest"); }
+            }}
+          />
+        )}
+
+        {/* OE-08: Reopen recently closed session */}
+        {session.status === "closed" && !session.settledExternallyAt && (
+          <ConfirmDialog
+            trigger={<Button variant="outline" size="sm"><TimerReset className="size-3.5 mr-1" /> Reopen</Button>}
+            title={`Reopen ${session.displayName}'s session?`}
+            description="Reopens within the allowed window. Orders can be added again."
+            confirmLabel="Reopen"
+            onConfirm={async () => {
+              try {
+                await ordersService.reopenSession(session.id);
+                toast.success("Session reopened");
+                if (staffContext) staffContext.onChange();
+              } catch { toast.error("Could not reopen"); }
+            }}
+          />
+        )}
+
+        {/* RV-20: Spending cap display */}
+        {session.spendingCapCents && session.status === "approved" && (
+          <p className="text-xs text-muted-foreground">Spending cap: {formatMoney(session.spendingCapCents / 100)}</p>
         )}
 
         {open &&
