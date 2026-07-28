@@ -42,22 +42,12 @@ function OrderTracker({ order }: { order: Order }) {
   const currentIndex = (ORDER_FLOW as readonly string[]).indexOf(order.status);
   if (order.status === "cancelled") return null;
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-end">
       {ORDER_FLOW.map((step, i) => {
         const done = i <= currentIndex;
         return (
-          <div key={step} className="flex flex-1 flex-col items-center gap-1">
-            <div className="flex w-full items-center">
-              <div
-                className={cn(
-                  "h-0.5",
-                  i === 0
-                    ? "bg-transparent"
-                    : done
-                      ? "order-connector w-full bg-primary"
-                      : "order-connector w-0 bg-border",
-                )}
-              />
+          <div key={step} className="flex items-end [&:not(:last-child)]:flex-1">
+            <div className="flex flex-1 flex-col items-center gap-1">
               <div
                 key={`${step}-${order.status}`}
                 className={cn(
@@ -70,25 +60,25 @@ function OrderTracker({ order }: { order: Order }) {
               >
                 {done && i < currentIndex ? <Check className="size-3" /> : i + 1}
               </div>
+              <span
+                className={cn(
+                  "text-[10px]",
+                  i === currentIndex ? "font-semibold text-primary" : "text-muted-foreground",
+                )}
+              >
+                {STEP_LABELS[step]}
+              </span>
+            </div>
+            {i < ORDER_FLOW.length - 1 && (
               <div
                 className={cn(
-                  "h-0.5",
-                  i === ORDER_FLOW.length - 1
-                    ? "bg-transparent"
-                    : i < currentIndex
-                      ? "order-connector w-full bg-primary"
-                      : "order-connector w-0 bg-border",
+                  "flex-1 self-center",
+                  i < currentIndex
+                    ? "order-connector h-0.5 w-full bg-primary"
+                    : "h-0.5 w-0 bg-border",
                 )}
               />
-            </div>
-            <span
-              className={cn(
-                "text-[10px]",
-                i === currentIndex ? "font-semibold text-primary" : "text-muted-foreground",
-              )}
-            >
-              {STEP_LABELS[step]}
-            </span>
+            )}
           </div>
         );
       })}
