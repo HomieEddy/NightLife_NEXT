@@ -22,7 +22,8 @@ import { permissionService } from "@/features/platform/permission-service";
 import type { RolePermissions } from "@/features/shared/permissions";
 import { cn } from "@/features/shared/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { Wallet } from "lucide-react";
 import type { ActiveShow, Order, OrderStatus, StaffMember, TabAdjustmentKind } from "@/lib/types";
 
@@ -56,7 +57,6 @@ function StaffOrdersContent() {
   const [activeShow, setActiveShow] = useState<ActiveShow | null>(null);
   const [promoterSessionIds, setPromoterSessionIds] = useState<Set<string> | null>(null);
   const [compThresholdCents, setCompThresholdCents] = useState(0);
-  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [orderList, currentStaff, show, perms, venue] = await Promise.all([
@@ -186,6 +186,10 @@ function StaffOrdersContent() {
     return !["delivered", "cancelled"].includes(o.status);
   });
 
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [filter, zoneScoped, tableFilter, reset]);
+
   return (
     <div className="animate-fade-in space-y-4 p-4">
       <div className="flex items-center justify-between">
@@ -233,7 +237,7 @@ function StaffOrdersContent() {
         />
       ) : (
         <div className="stagger-children space-y-3">
-          {paginate(visible, page).map((order) => {
+          {sliced.map((order) => {
             const label = ADVANCE_LABEL[order.status];
             const canAccept = (me && permissions) ? canDo(permissions, me.role, "order:accept") : true;
             const isPending = order.status === "pending";
@@ -375,7 +379,7 @@ function StaffOrdersContent() {
           })}
         </div>
       )}
-      <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+      <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
     </div>
   );
 }

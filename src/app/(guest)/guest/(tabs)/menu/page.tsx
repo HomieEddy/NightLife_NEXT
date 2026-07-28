@@ -13,7 +13,8 @@ import { PackageCard, type PackageWithQuote } from "@/components/guest/package-c
 import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/features/menu/services";
 import { cn } from "@/features/shared/utils";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
 export default function GuestMenuPage() {
@@ -25,30 +26,25 @@ export default function GuestMenuPage() {
   const [activeCategory, setActiveCategory] = useState<string>("packages");
   const [query, setQuery] = useState("");
   const [openItem, setOpenItem] = useState<MenuItem | null>(null);
-  const [page, setPage] = useState(1);
   const [transitioning, setTransitioning] = useState(false);
   const fadeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handleCategoryChange = (catId: string) => {
     setActiveCategory(catId);
-    setPage(1);
     setTransitioning(true);
     setTimeout(() => setTransitioning(false), 50);
+    const list = document.getElementById("menu-results");
+    list?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleSearchChange = (value: string) => {
     setQuery(value);
-    setPage(1);
     clearTimeout(fadeTimer.current);
     setTransitioning(true);
     fadeTimer.current = setTimeout(() => setTransitioning(false), 50);
-  };
-
-  const handlePageChange = useCallback((newPage: number) => {
-    setPage(newPage);
     const list = document.getElementById("menu-results");
     list?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +85,10 @@ export default function GuestMenuPage() {
       (p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
     );
   }, [packages, query]);
+
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, activeCategory, reset]);
 
   if (!table) {
     return (
@@ -156,10 +156,10 @@ export default function GuestMenuPage() {
             {visiblePackages.map((pkg, i) => (
               <PackageCard key={pkg.id} pkg={pkg} featured={i === 0} />
             ))}
-            {paginate(visible, page).map((item) => (
+            {sliced.map((item) => (
               <MenuItemCard key={item.id} item={item} onClick={() => setOpenItem(item)} />
             ))}
-            <Pagination totalItems={visible.length} currentPage={page} onPageChange={handlePageChange} className="mt-3" />
+            <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
           </div>
         )
       ) : activeCategory === "packages" ? (
@@ -184,10 +184,10 @@ export default function GuestMenuPage() {
         />
       ) : (
         <div id="menu-results" key={`${activeCategory}-${query}`} className={cn("space-y-2.5 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
-          {paginate(visible, page).map((item) => (
+          {sliced.map((item) => (
             <MenuItemCard key={item.id} item={item} onClick={() => setOpenItem(item)} />
           ))}
-          <Pagination totalItems={visible.length} currentPage={page} onPageChange={handlePageChange} className="mt-3" />
+          <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
         </div>
       )}
 

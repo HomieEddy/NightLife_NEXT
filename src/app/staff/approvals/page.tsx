@@ -20,7 +20,6 @@ import { permissionService } from "@/features/platform/permission-service";
 import type { RolePermissions } from "@/features/shared/permissions";
 import { timeAgo } from "@/features/shared/format";
 import { useLiveEvents } from "@/lib/use-live-events";
-import { Pagination, paginate } from "@/components/shared/pagination";
 import type { GuestSession, SettlementMethod, StaffMember } from "@/lib/types";
 
 export default function StaffApprovalsPage() {
@@ -30,7 +29,6 @@ export default function StaffApprovalsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [closing, setClosing] = useState<GuestSession | null>(null);
   const [settlementMethod, setSettlementMethod] = useState<SettlementMethod | "">("");
-  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [allSessions, currentStaff, perms] = await Promise.all([
@@ -91,10 +89,10 @@ export default function StaffApprovalsPage() {
     }
   }
 
-  const pagedSessions = paginate(sessions ?? [], page);
-  const pending = pagedSessions.filter((s) => s.status === "pending");
-  const closures = pagedSessions.filter((s) => s.status === "closure-requested");
-  const recent = pagedSessions
+  const allSessions = sessions ?? [];
+  const pending = allSessions.filter((s) => s.status === "pending");
+  const closures = allSessions.filter((s) => s.status === "closure-requested");
+  const recent = allSessions
     .filter((s) => !["pending", "closure-requested"].includes(s.status))
     .slice(0, 6);
 
@@ -233,7 +231,6 @@ export default function StaffApprovalsPage() {
           )}
         </>
       )}
-      <Pagination totalItems={(sessions ?? []).length} currentPage={page} onPageChange={setPage} className="mt-3" />
 
       <Dialog open={closing !== null} onOpenChange={(open) => !open && setClosing(null)}>
         <DialogContent>

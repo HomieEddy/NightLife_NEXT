@@ -14,7 +14,8 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { AdjustmentDialog } from "@/components/shared/adjustment-dialog";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { menuService } from "@/features/menu/services";
 import { ordersService } from "@/features/ordering/services";
 import { staffService } from "@/features/workforce/staff-service";
@@ -65,7 +66,6 @@ export default function ManagerOrdersPage() {
   const [staffFilter, setStaffFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
-  const [page, setPage] = useState(1);
   const [sessionDateRange, setSessionDateRange] = useState<DateRangeValue>(getDefaultDateRange);
 
   const refresh = useCallback(async () => {
@@ -153,6 +153,10 @@ export default function ManagerOrdersPage() {
       })
       .sort((a, b) => b.placedAt.localeCompare(a.placedAt));
   }, [orders, status, zoneFilter, tableFilter, staffFilter, categoryFilter, query, staff, itemCategory, dateRange]);
+
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, status, zoneFilter, tableFilter, staffFilter, categoryFilter, dateRange, reset]);
 
   const hasFilters =
     query !== "" ||
@@ -347,7 +351,7 @@ export default function ManagerOrdersPage() {
           ) : (
             <>
             <div className="grid gap-3 md:grid-cols-2">
-              {paginate(visible, page).map((order) => {
+              {sliced.map((order) => {
                 const availableKinds: TabAdjustmentKind[] = permissions && me
                   ? (["void", "comp", "discount"] as const).filter((k) => canDo(permissions, me.role, `tab:${k}` as const))
                   : [];
@@ -378,7 +382,7 @@ export default function ManagerOrdersPage() {
                 );
               })}
             </div>
-            <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+            <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
             </>
           )}
         </>
