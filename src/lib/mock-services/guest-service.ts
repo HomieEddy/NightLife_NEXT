@@ -229,4 +229,22 @@ export const mockGuestService = {
     referrals.push(r);
     return clone(r);
   },
+
+  /** CRM-07: GDPR / data deletion — removes profile data and unlinks from sessions. */
+  async deleteProfileData(profileId: string, staffId: string, staffName: string): Promise<void> {
+    await delay(400);
+    const idx = profiles.findIndex((p) => p.id === profileId);
+    if (idx === -1) throw new Error("Profile not found.");
+    const name = profiles[idx].displayName;
+    profiles.splice(idx, 1);
+    links = links.filter((l) => l.guestProfileId !== profileId);
+    await mockAuditService.record({
+      actorStaffId: staffId,
+      actorName: staffName,
+      action: "guest:delete-profile",
+      targetType: "guest-profile",
+      targetId: profileId,
+      summary: `Deleted profile and personal data for ${name}`,
+    });
+  },
 };

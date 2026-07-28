@@ -27,4 +27,5 @@ export const liveGuestService: typeof mockGuestService = {
   recordVisit: notYetSupported,
   listReferrals: notYetSupported,
   createReferral: notYetSupported,
+  deleteProfileData: notYetSupported,
 };
