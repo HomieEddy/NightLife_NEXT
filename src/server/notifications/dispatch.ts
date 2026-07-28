@@ -7,11 +7,16 @@
  * Plan 26: recipients with a phone and no email get SMS; with both get both
  * for PIN delivery (the PIN is the one message worth double-delivery);
  * email-only otherwise.
+ *
+ * Plan 28: dispatchPush queries all active push subscriptions for the venue,
+ * checks per-user per-event preferences, and sends via the push transport.
+ * Dead subscriptions (410 Gone) self-clean.
  */
 import type { PrismaClient } from "@prisma/client";
-import { type DispatchPayload } from "./types";
+import { type DispatchPayload, type PushDispatchPayload } from "./types";
 import { sendEmail } from "./email";
 import { sendSms } from "./sms";
+import { sendPush, expireSubscription } from "./push";
 import { reservationPinSms, reservationConfirmationSms, reservationReminderSms } from "./sms-templates";
 
 type RenderFn = (props: Record<string, unknown>) => ReturnType<typeof import("@react-email/components").render>;
@@ -109,6 +114,76 @@ export async function dispatch(
         }
       }
     }
+  }
+
+  return { sent, failed };
+}
+
+/**
+ * Push dispatch: queries active subscriptions for the venue, checks per-user
+ * per-event preferences, and sends push notifications. Dead subscriptions
+ * (410 Gone) are automatically marked expired.
+ */
+export async function dispatchPush(
+  prisma: PrismaClient,
+  payload: PushDispatchPayload,
+): Promise<{ sent: number; failed: number }> {
+  let sent = 0;
+  let failed = 0;
+
+  const subscriptions = await prisma.pushSubscription.findMany({
+    where: { venueId: payload.venueId, expired: false },
+  });
+
+  for (const sub of subscriptions) {
+    const pref = await prisma.notificationPreference.findFirst({
+      where: {
+        venueId: payload.venueId,
+        userId: sub.userId,
+        eventType: payload.eventType,
+        channel: "push",
+      },
+    });
+    if (pref && !pref.enabled) continue;
+
+    const ik = payload.idempotencyKey
+      ? `push:${payload.eventType}:${sub.endpoint}:${payload.idempotencyKey}`
+      : undefined;
+    if (ik && (await checkIdempotent(prisma, payload.eventType, sub.endpoint, ik))) continue;
+
+    const result = await sendPush({
+      subscription: {
+        endpoint: sub.endpoint,
+        keys: sub.keys as unknown as { p256dh: string; auth: string },
+      },
+      payload: {
+        title: payload.title,
+        body: payload.body,
+        url: payload.url,
+        tag: payload.tag,
+        requireInteraction: payload.requireInteraction,
+      },
+    });
+
+    if (result.ok) {
+      sent++;
+    } else {
+      failed++;
+      if (result.error === "GONE") {
+        await expireSubscription(prisma, sub.endpoint);
+      }
+    }
+
+    await logSend(prisma, {
+      venueId: payload.venueId,
+      channel: "push",
+      template: payload.eventType,
+      recipient: sub.endpoint,
+      ok: result.ok,
+      error: result.error,
+      ik,
+      data: { title: payload.title, body: payload.body, url: payload.url },
+    });
   }
 
   return { sent, failed };

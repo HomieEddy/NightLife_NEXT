@@ -1453,6 +1453,56 @@ model NotificationLog {
   @@map("notification_logs")
 }
 
+/// Phase 5: Web Push subscription — one per user per device (AD-20).
+/// Endpoint is unique; token rotation creates new row, marks old as expired.
+model PushSubscription {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  userId     String   @map("user_id")
+  endpoint   String   @unique
+  keys       Json     // { p256dh, auth }
+  userAgent  String?  @map("user_agent")
+  expired    Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([venueId, userId])
+  @@index([venueId, expired])
+  @@map("push_subscriptions")
+}
+
+/// Phase 5: Notification preference — one row per (user, eventType, channel).
+/// Per-user per-channel per-event booleans (AD-20, INV-N1).
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  userId    String   @map("user_id")
+  eventType String   @map("event_type") // "OrderPlaced", "HelpRequested", etc.
+  channel   String   // "push" | "email" | "sms"
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([venueId, userId, eventType, channel])
+  @@index([venueId, userId])
+  @@map("notification_preferences")
+}
+
+/// Quiet hours per user (AD-20, INV-N4).
+model UserQuietHours {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  userId    String   @map("user_id")
+  startTime String   @map("start_time") // "HH:mm" in user's timezone
+  endTime   String   @map("end_time")   // "HH:mm"
+  timezone  String   @default("America/Toronto")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([venueId, userId])
+  @@map("user_quiet_hours")
+}
+
 /// Phase 4: Automation rule — one row per automation a venue can enable/configure.
 model AutomationRule {
   id         String   @id @default(cuid())

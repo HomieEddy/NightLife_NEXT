@@ -27,3 +27,15 @@ export interface DispatchPayload {
   /** A stable idempotency key — same key twice only sends once (checked against NotificationLog). */
   idempotencyKey?: string;
 }
+
+/** Push-specific payload — resolves recipients from active subscriptions, not explicit addresses. */
+export interface PushDispatchPayload {
+  venueId: string;
+  eventType: string;
+  title: string;
+  body?: string;
+  url?: string;
+  tag?: string;
+  requireInteraction?: boolean;
+  idempotencyKey?: string;
+}
