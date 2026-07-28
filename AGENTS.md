@@ -75,11 +75,13 @@ it was always there.
 3. **Checkpoint cheaply and often.** Run `npx tsc --noEmit` after each
    workstream, not at the end of five. A type error caught early is a one-line
    fix; caught late it's archaeology.
-4. **Don't gold-plate a prototype.** YAGNI aggressively: no state libraries, no
-   form libraries, no chart libraries (there's a hand-rolled `MockChart`), no
-   drag-and-drop packages (the floor map is pointer events + absolute
-   positioning). The only dependency added in months was `qrcode`, because
-   fake QR codes can't be scanned. Earn every dependency.
+4. **Don't gold-plate a prototype.** YAGNI aggressively: no state libraries.
+   Dependencies earned their place — react-hook-form replaced hand-rolled
+   form state across 25 forms, Recharts replaced `MockChart`, dnd-kit
+   replaced raw pointer events on the floor map, TanStack Virtual replaced
+   page-based pagination, and react-day-picker replaced native date inputs
+   (plan 30). Each was swapped in only after the hand-rolled version proved
+   insufficient. Earn every dependency.
 
 ## 3. Architecture — the load-bearing walls
 
@@ -533,8 +535,8 @@ makes it obsolete.
   `?highlight=` scroll-and-ring pattern in `use-highlight.ts`).
 - Print styles: manager chrome is `print:hidden`; the QR sheet is
   `hidden print:block`. Test with the print dialog, not by guessing.
-- `MockChart` renders every label — aggregate to weekly buckets past ~21 data
-  points (`aggregateWeekly`).
+- Recharts renders every label by default — aggregate to weekly buckets past
+  ~21 data points (`aggregateWeekly`) to keep chart axes legible.
 - The dev server module graph re-instantiates service state on HMR of any file
   in the import chain. If a manual test spans an edit, re-run the test.
 - All graduated services (plans 03–10) persist across reload **in live mode

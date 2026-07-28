@@ -111,7 +111,8 @@ Request a demo: [night-life-next.vercel.app/lead](https://night-life-next.vercel
 <details>
 <summary>For developers</summary>
 
-Next.js App Router, TypeScript, Prisma/PostgreSQL, Tailwind. Start with
+Next.js App Router, TypeScript, Prisma/PostgreSQL, Tailwind, Recharts,
+react-hook-form, dnd-kit, TanStack Virtual, react-day-picker. Start with
 [`AGENTS.md`](AGENTS.md) for how to work on this repo,
 [`docs/HOSTING.md`](docs/HOSTING.md) for deployment topology, and
 [`docs/ROADMAP.md`](docs/ROADMAP.md) for feature status.

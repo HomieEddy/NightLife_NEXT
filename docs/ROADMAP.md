@@ -456,7 +456,6 @@ Key dependency rules:
 | Multi-venue owner accounts (cross-venue rollups, shared menus/staff, regional roles) | Explicitly deferred. Triggers on second venue sign-up from same owner. |
 | POS/KDS integrations, printer hardware | No customer demand yet. Earn them. |
 | Native iOS/Android apps | PWA (Phase 5) covers the need without two app stores. |
-| Real charting library (`mock-chart` TODO) | Works until a customer asks for something it can't draw. |
 | Marketing email/SMS campaigns | Plans 25–26 are transactional only. CASL consent infrastructure not built. |
 | Metrics timeseries stack (Prometheus/Grafana/Loki) | Sentry + health checks cover incidents. Timeseries earned by trend-analysis demand. |
 | Redis-backed rate limiting | Single VPS; in-memory limiter correct for topology. |

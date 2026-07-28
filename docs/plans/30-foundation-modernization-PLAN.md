@@ -1,6 +1,6 @@
 # PLAN 30 — Foundation Modernization
 
-**Status:** Planned · **Created:** 2026-07-28
+**Status:** In Progress · **Created:** 2026-07-28
 **Scope:** Architecture refactor + UI polish + UX optimization + animation parity
 **Phase:** Cross-cutting modernization (spans Phases 1–4 of the roadmap)
 
@@ -756,13 +756,13 @@ export type * from "@/features/ordering/types";
 |---------|--------|
 | CASL | Custom `DEFAULT_ROLE_PERMISSIONS` + 60+ `StaffAction` types cover all auth |
 | next-safe-action | 90+ route handlers with existing Zod+gating pattern work |
-| React Hook Form | Simple CRUD forms, 2-4 fields, controlled inputs suffice |
+| React Hook Form | **Done** — 25 forms converted 2026-07-28; controlled inputs didn't scale |
 | Framer Motion | GSAP installed/configured, 5 FX components ready, zero benefit from second lib |
-| TanStack Table/Virtual | No data-heavy tables exist in the UI |
-| dnd-kit | Floor map uses custom pointer events for 1 surface |
-| Recharts | `MockChart` works; swap when chart requirements outgrow it |
-| cmdk | Command palette already built; feature expansion belongs in plan 20 |
-| React Day Picker | `DateFilter` + `DateRangePicker` already shipped |
+| TanStack Table/Virtual | **Done** (Virtual only) — 15 pages + ChatPanel virtualization 2026-07-28 |
+| dnd-kit | **Done** — replaces raw pointer events on floor map 2026-07-28 |
+| Recharts | **Done** — `RevenueChart` replaced `MockChart` 2026-07-28 |
+| cmdk | Command palette already built; action commands added 2026-07-28 with zero deps |
+| React Day Picker | **Done** — `CalendarDatePicker` + `CalendarDateRangePicker` shipped 2026-07-28 |
 | ts-pattern | Codebase uses simple if/switch; no pattern-matching cases to improve |
 | Pino | Structured logger (Phase 1.2) covers needs without dependency |
 | Component file moves | Components stay role-organized in `src/components/` |

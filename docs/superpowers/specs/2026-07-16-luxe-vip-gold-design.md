@@ -127,7 +127,7 @@ Upgrade shared primitives once so every page inherits the identity
 (`src/components/shared/*`): cards (depth + focal-halo variant), badges/chips
 (foil + zone-data variants), buttons (foil-gradient primary), section headers
 (gold gradient-rule pattern), `BrandLogo`, `MetricCard` (poster hero numbers),
-empty states (serif-voice invitations), `MockChart` (gold/ember series styling).
+empty states (serif-voice invitations), `RevenueChart` (Recharts, gold/ember series styling).
 
 ## Scope & sequencing
 
