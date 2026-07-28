@@ -1,6 +1,6 @@
 # 28 — PWA & Web Push · PLAN
 
-**Status: not started.**
+**Status: demo-complete, live-graduated.**
 
 Goal: make the app installable as a PWA with full offline resilience (manifest,
 icons, app shell with cache-first SW, offline action queue, offline indicator,
