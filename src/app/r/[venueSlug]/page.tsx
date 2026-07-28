@@ -12,6 +12,8 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,7 @@ import { cn } from "@/features/shared/utils";
 import { ZONE_SWATCH } from "@/features/shared/zone-colors";
 import type { PublicAvailability, PublicTableAvailability } from "@/features/hospitality/reservation-service";
 import type { VenueTable, Zone } from "@/lib/types";
+import { z } from "zod";
 
 function tomorrow(): string {
   const d = new Date();
@@ -66,12 +69,11 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
   const [submitted, setSubmitted] = useState(false);
 
   // Form state
-  const [guestName, setGuestName] = useState("");
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(z.object({ guestName: z.string().min(1, "Name is required"), guestEmail: z.string().default(""), guestPhone: z.string().default(""), note: z.string().default("") })),
+    defaultValues: { guestName: "", guestEmail: "", guestPhone: "", note: "" },
+  });
   const [partySize, setPartySize] = useState(2);
-  const [guestEmail, setGuestEmail] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
-  const [note, setNote] = useState("");
-  const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -100,33 +102,27 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
     setSelectedTableId((prev) => (prev === table.id ? null : table.id));
   }
 
-  async function handleSubmit() {
+  const onSubmit = handleSubmit(async (data) => {
     if (!data || !selectedTable) return;
-    if (!guestName.trim()) return toast.error("Your name is required.");
-    if (!guestEmail.trim() && !guestPhone.trim()) return toast.error("Email or phone number is required.");
-
-    setSaving(true);
     try {
       await reservationService.createPublicReservation({
         venueSlug,
         tableId: selectedTable.id,
         zoneId: selectedTable.zoneId,
-        guestName: guestName.trim(),
+        guestName: data.guestName.trim(),
         partySize,
         date,
-        guestEmail: guestEmail.trim() || undefined,
-        guestPhone: guestPhone.trim() || undefined,
-        note: note.trim() || undefined,
+        guestEmail: data.guestEmail?.trim() || undefined,
+        guestPhone: data.guestPhone?.trim() || undefined,
+        note: data.note?.trim() || undefined,
         eventId: eventParam || undefined,
       });
       setSubmitted(true);
       toast.success("Reservation request sent!");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not submit reservation.");
-    } finally {
-      setSaving(false);
     }
-  }
+  });
 
   if (loading) {
     return (
@@ -167,16 +163,13 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
             . You&apos;ll receive a confirmation with your table PIN.
           </p>
         </div>
-        <Button
+          <Button
           variant="outline"
           onClick={() => {
             setSubmitted(false);
             setSelectedTableId(null);
-            setGuestName("");
+            reset({ guestName: "", guestEmail: "", guestPhone: "", note: "" });
             setPartySize(2);
-            setGuestEmail("");
-            setGuestPhone("");
-            setNote("");
             refresh();
           }}
         >
@@ -314,79 +307,43 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
               <Card className="py-4">
                 <CardContent className="space-y-4 px-4">
                   <p className="text-sm font-semibold">Request reservation</p>
+                  <form onSubmit={onSubmit} className="space-y-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="pub-name">Your name</Label>
-                    <Input
-                      id="pub-name"
-                      placeholder="e.g. Alex Tremblay"
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
-                    />
+                    <Input id="pub-name" placeholder="e.g. Alex Tremblay" {...register("guestName")} />
+                    {errors.guestName && <p className="text-xs text-red-600">{errors.guestName.message}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label>Party size</Label>
                     <div className="flex items-center justify-between rounded-lg border p-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => setPartySize((n) => Math.max(1, n - 1))}
-                        aria-label="Fewer people"
-                      >
+                      <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => setPartySize((n) => Math.max(1, n - 1))} aria-label="Fewer people">
                         <Minus className="size-4" />
                       </Button>
                       <span className="flex items-center gap-2 font-semibold tabular-nums">
                         <Users className="size-4 text-muted-foreground" /> {partySize}
                       </span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => setPartySize((n) => Math.min(selectedTable.seats, n + 1))}
-                        aria-label="More people"
-                      >
+                      <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => setPartySize((n) => Math.min(selectedTable.seats, n + 1))} aria-label="More people">
                         <Plus className="size-4" />
                       </Button>
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="pub-email">Email</Label>
-                    <Input
-                      id="pub-email"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={guestEmail}
-                      onChange={(e) => setGuestEmail(e.target.value)}
-                    />
+                    <Input id="pub-email" type="email" placeholder="you@example.com" {...register("guestEmail")} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="pub-phone">Phone (or email above)</Label>
-                    <Input
-                      id="pub-phone"
-                      type="tel"
-                      placeholder="+1 514 555 0100"
-                      value={guestPhone}
-                      onChange={(e) => setGuestPhone(e.target.value)}
-                    />
+                    <Input id="pub-phone" type="tel" placeholder="+1 514 555 0100" {...register("guestPhone")} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="pub-note">Note (optional)</Label>
-                    <Textarea
-                      id="pub-note"
-                      rows={2}
-                      placeholder="Birthday, special requests…"
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                    />
+                    <Textarea id="pub-note" rows={2} placeholder="Birthday, special requests…" {...register("note")} />
                   </div>
-                  <Button
-                    className="w-full"
-                    onClick={handleSubmit}
-                    disabled={saving || data.nightOpen}
-                  >
-                    {saving && <Loader2 className="size-4 animate-spin" />}
-                    {saving ? "Submitting…" : "Request reservation"}
+                  <Button type="submit" className="w-full" disabled={isSubmitting || data.nightOpen}>
+                    {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+                    {isSubmitting ? "Submitting…" : "Request reservation"}
                   </Button>
+                  </form>
                 </CardContent>
               </Card>
             </>

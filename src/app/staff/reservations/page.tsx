@@ -295,7 +295,6 @@ function StaffReservationsContent() {
         setDraft={setDraft}
         zones={zones}
         tablesForZone={tablesForZone}
-        saving={saving}
         onSave={save}
         editingId={editingId}
         events={events}

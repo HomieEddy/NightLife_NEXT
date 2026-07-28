@@ -4,6 +4,8 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, Pencil, Plus, Table2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -21,20 +23,25 @@ import { PageHeader } from "@/components/shared/page-header";
 import { TableCard } from "@/components/shared/table-card";
 import { venueService } from "@/features/venue/services";
 import { SearchInput } from "@/components/shared/search-input";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { useHighlight } from "@/lib/use-highlight";
 import { cn } from "@/features/shared/utils";
+import { z } from "zod";
 import type { TableStatus, VenueTable, Zone } from "@/lib/types";
 
 const STATUSES: TableStatus[] = ["open", "occupied", "reserved", "closed"];
 
-type TableDraft = {
-  code: string;
-  label: string;
-  zoneId: string;
-  seats: number;
-  minimumSpend: string; // raw input; empty = no minimum
-};
+const zTableForm = z.object({
+  code: z.string().min(1, "Code is required"),
+  label: z.string().min(1, "Label is required"),
+  zoneId: z.string().min(1, "Zone is required"),
+  seats: z.number().int().min(1),
+  minimumSpend: z.string(),
+});
+
+type FormValues = z.infer<typeof zTableForm>;
+const EMPTY_VALUES: FormValues = { code: "", label: "", zoneId: "", seats: 4, minimumSpend: "" };
 
 function TablesContent() {
   const searchParams = useSearchParams();
@@ -45,10 +52,13 @@ function TablesContent() {
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<TableDraft | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [page, setPage] = useState(1);
   const highlighted = useHighlight();
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
+    resolver: zodResolver(zTableForm),
+    defaultValues: EMPTY_VALUES,
+  });
+  const zoneId = watch("zoneId");
 
   const refresh = useCallback(async () => {
     setTables(await venueService.listTables());
@@ -67,19 +77,13 @@ function TablesContent() {
 
   function openCreate() {
     setEditingId(null);
-    setDraft({
-      code: "",
-      label: "",
-      zoneId: zoneFilter !== "all" ? zoneFilter : zones[0]?.id ?? "",
-      seats: 4,
-      minimumSpend: "",
-    });
+    reset({ ...EMPTY_VALUES, zoneId: zoneFilter !== "all" ? zoneFilter : zones[0]?.id ?? "" });
     setDialogOpen(true);
   }
 
   function openEdit(table: VenueTable) {
     setEditingId(table.id);
-    setDraft({
+    reset({
       code: table.code,
       label: table.label,
       zoneId: table.zoneId,
@@ -89,31 +93,22 @@ function TablesContent() {
     setDialogOpen(true);
   }
 
-  async function save() {
-    if (!draft) return;
-    if (!draft.code.trim() || !draft.label.trim() || !draft.zoneId) {
-      toast.error("Code, label and zone are required.");
-      return;
-    }
-    setSaving(true);
+  const onSave = handleSubmit(async (data) => {
     const input = {
-      code: draft.code.trim().toUpperCase(),
-      label: draft.label.trim(),
-      zoneId: draft.zoneId,
-      seats: Math.max(1, draft.seats),
-      minimumSpend: draft.minimumSpend === "" ? null : Math.max(0, Number(draft.minimumSpend)),
+      code: data.code.trim().toUpperCase(),
+      label: data.label.trim(),
+      zoneId: data.zoneId,
+      seats: Math.max(1, data.seats),
+      minimumSpend: data.minimumSpend === "" ? null : Math.max(0, Number(data.minimumSpend)),
     };
     if (editingId) {
       await venueService.updateTable(editingId, input);
-      toast.success(`${input.code} updated`);
     } else {
       await venueService.createTable({ ...input, status: "open" });
-      toast.success(`${input.code} created — QR available on the QR codes page`);
     }
-    setSaving(false);
     setDialogOpen(false);
     await refresh();
-  }
+  });
 
   async function remove(table: VenueTable) {
     await venueService.deleteTable(table.id);
@@ -132,6 +127,11 @@ function TablesContent() {
     return true;
   });
   const zoneName = (id: string) => zones.find((z) => z.id === id)?.name;
+
+  const { sliced, hasMore, loadMore, reset: resetSlice } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { resetSlice(); }, [query, zoneFilter, statusFilter, resetSlice]);
+
   const zoneChips = (zoneId: string) => {
     const name = zoneName(zoneId);
     if (!name) return undefined;
@@ -202,7 +202,7 @@ function TablesContent() {
         <EmptyState icon={Table2} title="No tables match" description="Try adjusting the filters." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {paginate(visible, page).map((table) => (
+          {sliced.map((table) => (
             <div key={table.id} id={`highlight-${table.id}`}>
             <TableCard
               table={table}
@@ -263,7 +263,7 @@ function TablesContent() {
         </div>
       )}
 
-      <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+      <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
 
       {/* ---------- Create / edit dialog ---------- */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -271,86 +271,58 @@ function TablesContent() {
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit table" : "New table"}</DialogTitle>
           </DialogHeader>
-          {draft && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="table-code">Code</Label>
-                  <Input
-                    id="table-code"
-                    placeholder="VIP-07"
-                    value={draft.code}
-                    onChange={(e) => setDraft({ ...draft, code: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="table-label">Label</Label>
-                  <Input
-                    id="table-label"
-                    placeholder="Booth 7"
-                    value={draft.label}
-                    onChange={(e) => setDraft({ ...draft, label: e.target.value })}
-                  />
-                </div>
+          <form onSubmit={onSave} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="table-code">Code</Label>
+                <Input id="table-code" placeholder="VIP-07" {...register("code")} />
+                {errors.code && <p className="text-xs text-destructive">{errors.code.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>Zone</Label>
-                <Select
-                  value={draft.zoneId}
-                  onValueChange={(zoneId) => setDraft({ ...draft, zoneId })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Pick a zone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {zones.map((zone) => (
-                      <SelectItem key={zone.id} value={zone.id}>
-                        {zone.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="table-label">Label</Label>
+                <Input id="table-label" placeholder="Booth 7" {...register("label")} />
+                {errors.label && <p className="text-xs text-destructive">{errors.label.message}</p>}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="table-seats">Seats</Label>
-                  <Input
-                    id="table-seats"
-                    type="number"
-                    min={1}
-                    value={draft.seats}
-                    onChange={(e) => setDraft({ ...draft, seats: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="table-min">Min. spend ($)</Label>
-                  <Input
-                    id="table-min"
-                    type="number"
-                    min={0}
-                    step={50}
-                    placeholder="None"
-                    value={draft.minimumSpend}
-                    onChange={(e) => setDraft({ ...draft, minimumSpend: e.target.value })}
-                  />
-                </div>
-              </div>
-              {!editingId && (
-                <p className="text-xs text-muted-foreground">
-                  A QR code is generated automatically from the table code.
-                </p>
-              )}
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={save} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : editingId ? "Save" : "Create table"}
-            </Button>
-          </DialogFooter>
+            <div className="space-y-1.5">
+              <Label>Zone</Label>
+              <Select value={zoneId} onValueChange={(v) => setValue("zoneId", v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pick a zone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {zones.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.zoneId && <p className="text-xs text-destructive">{errors.zoneId.message}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="table-seats">Seats</Label>
+                <Input id="table-seats" type="number" min={1} {...register("seats", { valueAsNumber: true })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="table-min">Min. spend ($)</Label>
+                <Input id="table-min" type="number" min={0} step={50} placeholder="None" {...register("minimumSpend")} />
+              </div>
+            </div>
+            {!editingId && (
+              <p className="text-xs text-muted-foreground">
+                A QR code is generated automatically from the table code.
+              </p>
+            )}
+            <DialogFooter>
+              <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+                {isSubmitting ? "Saving…" : editingId ? "Save" : "Create table"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

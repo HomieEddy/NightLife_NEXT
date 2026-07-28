@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { CalendarPlus, Loader2, X, Send } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,21 +22,24 @@ import { RoleBadge } from "@/components/shared/role-badge";
 import { staffService } from "@/features/workforce/staff-service";
 import { timeService } from "@/features/workforce/time-service";
 import { generateWeekFromTemplates } from "@/lib/workforce";
+import { zShiftInput } from "@/lib/form-schemas";
 import { cn } from "@/features/shared/utils";
 import type { DateRangeValue } from "@/components/shared/date-range-picker";
 import type { StaffMember, StaffShift, Shift, Zone } from "@/lib/types";
+import type { z } from "zod";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // Nightclub week: render Thursday→Sunday first, quiet days last.
 const DAY_ORDER = [4, 5, 6, 0, 1, 2, 3];
 
-interface ShiftDraft {
-  staffId: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  zoneId: string; // "none" = unassigned
-}
+type FormValues = z.infer<typeof zShiftInput>;
+const EMPTY_VALUES: FormValues = {
+  staffId: "",
+  dayOfWeek: [5],
+  startTime: "22:00",
+  endTime: "04:00",
+  zoneId: "none",
+};
 
 function getDaysInRange(range?: DateRangeValue): Set<number> | null {
   if (!range || (!range.from && !range.to)) return null;
@@ -56,14 +61,11 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
   const [publishedShifts, setPublishedShifts] = useState<Shift[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [draft, setDraft] = useState<ShiftDraft>({
-    staffId: "",
-    dayOfWeek: 5,
-    startTime: "22:00",
-    endTime: "04:00",
-    zoneId: "none",
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zShiftInput),
+    defaultValues: EMPTY_VALUES,
   });
-  const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
     setShifts(await staffService.listShifts());
@@ -80,9 +82,9 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
     id === null ? null : zones.find((z) => z.id === id)?.name ?? null;
 
   function openAdd(day?: number) {
-    setDraft({
+    reset({
       staffId: staff[0]?.id ?? "",
-      dayOfWeek: day ?? 5,
+      dayOfWeek: [day ?? 5],
       startTime: "22:00",
       endTime: "04:00",
       zoneId: "none",
@@ -90,24 +92,19 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
     setDialogOpen(true);
   }
 
-  async function save() {
-    if (!draft.staffId) {
-      toast.error("Pick a team member.");
-      return;
-    }
-    setSaving(true);
+  const onSave = handleSubmit(async (data) => {
+    const day = data.dayOfWeek[0];
     await staffService.addShift({
-      staffId: draft.staffId,
-      dayOfWeek: draft.dayOfWeek,
-      startTime: draft.startTime,
-      endTime: draft.endTime,
-      zoneId: draft.zoneId === "none" ? null : draft.zoneId,
+      staffId: data.staffId,
+      dayOfWeek: day,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      zoneId: data.zoneId === "none" ? null : data.zoneId,
     });
-    setSaving(false);
     setDialogOpen(false);
-    toast.success(`${staffName(draft.staffId)} scheduled for ${DAY_LABELS[draft.dayOfWeek]}`);
+    toast.success(`${staffName(data.staffId)} scheduled for ${DAY_LABELS[day]}`);
     await refresh();
-  }
+  });
 
   async function publishWeek() {
     setPublishing(true);
@@ -247,12 +244,12 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
           <DialogHeader>
             <DialogTitle>Add a shift</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={onSave} className="space-y-4">
             <div className="space-y-1.5">
               <Label>Team member</Label>
               <Select
-                value={draft.staffId}
-                onValueChange={(staffId) => setDraft({ ...draft, staffId })}
+                value={watch("staffId")}
+                onValueChange={(staffId) => setValue("staffId", staffId)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pick someone" />
@@ -265,6 +262,7 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
                   ))}
                 </SelectContent>
               </Select>
+              {errors.staffId && <p className="text-xs text-red-600">{errors.staffId.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label>Night</Label>
@@ -273,10 +271,10 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
                   <button
                     key={day}
                     type="button"
-                    onClick={() => setDraft({ ...draft, dayOfWeek: day })}
+                    onClick={() => setValue("dayOfWeek", [day])}
                     className={cn(
                       "rounded-md border px-2.5 py-1 text-xs transition-colors",
-                      draft.dayOfWeek === day
+                      watch("dayOfWeek")[0] === day
                         ? "border-primary bg-primary/15 text-primary"
                         : "text-muted-foreground hover:text-foreground",
                     )}
@@ -289,28 +287,18 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="shift-start">Start</Label>
-                <Input
-                  id="shift-start"
-                  type="time"
-                  value={draft.startTime}
-                  onChange={(e) => setDraft({ ...draft, startTime: e.target.value })}
-                />
+                <Input id="shift-start" type="time" {...register("startTime")} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="shift-end">End</Label>
-                <Input
-                  id="shift-end"
-                  type="time"
-                  value={draft.endTime}
-                  onChange={(e) => setDraft({ ...draft, endTime: e.target.value })}
-                />
+                <Input id="shift-end" type="time" {...register("endTime")} />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>Zone (optional)</Label>
               <Select
-                value={draft.zoneId}
-                onValueChange={(zoneId) => setDraft({ ...draft, zoneId })}
+                value={watch("zoneId")}
+                onValueChange={(zoneId) => setValue("zoneId", zoneId)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -325,16 +313,16 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
                 </SelectContent>
               </Select>
             </div>
-          </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
+            <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={save} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : "Add shift"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+              {isSubmitting ? "Saving…" : "Add shift"}
             </Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

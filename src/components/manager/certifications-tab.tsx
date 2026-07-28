@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, ShieldOff, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,31 +13,47 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { certificationService } from "@/features/workforce/certification-service";
 import { staffService } from "@/features/workforce/staff-service";
 import { CERTIFICATION_TYPE_LABELS, type Certification, type CertificationType, type StaffMember } from "@/lib/types";
+import { z } from "zod";
 
 type CertificationTypeEntry = [CertificationType, string];
+
+const zCertCreate = z.object({
+  staffId: z.string().min(1, "Staff member is required"),
+  certType: z.enum(["smart-serve", "first-aid", "security-licence", "food-handler", "other"] as const).default("smart-serve"),
+  issuedAt: z.string().min(1, "Issue date is required"),
+  expiresAt: z.string().min(1, "Expiry date is required"),
+  issuingBody: z.string().default(""),
+  refNumber: z.string().default(""),
+});
+
+type CreateValues = z.infer<typeof zCertCreate>;
+const EMPTY_CREATE: CreateValues = { staffId: "", certType: "smart-serve", issuedAt: new Date().toISOString().slice(0, 10), expiresAt: "", issuingBody: "", refNumber: "" };
 
 export function CertificationsTab() {
   const [certs, setCerts] = useState<Certification[] | null>(null);
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Certification | null>(null);
-  const [staffId, setStaffId] = useState("");
-  const [certType, setCertType] = useState<CertificationType>("smart-serve");
-  const [issuedAt, setIssuedAt] = useState(new Date().toISOString().slice(0, 10));
-  const [expiresAt, setExpiresAt] = useState("");
-  const [issuingBody, setIssuingBody] = useState("");
-  const [refNumber, setRefNumber] = useState("");
   const [busy, setBusy] = useState(false);
 
   // Filters
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [staffFilter, setStaffFilter] = useState("all");
-  const [page, setPage] = useState(1);
+
+  const { register: regCreate, handleSubmit: hsCreate, reset: resetCreate, setValue: svCreate, watch: watchCreate, formState: { errors: errsCreate, isSubmitting: subCreate } } = useForm({
+    resolver: zodResolver(zCertCreate),
+    defaultValues: EMPTY_CREATE,
+  });
+
+  const [editExpiresAt, setEditExpiresAt] = useState("");
+  const [editIssuingBody, setEditIssuingBody] = useState("");
+  const [editRefNumber, setEditRefNumber] = useState("");
 
   const refresh = useCallback(async () => {
     const [c, s] = await Promise.all([
@@ -58,40 +76,40 @@ export function CertificationsTab() {
     return result;
   }, [certs, typeFilter, statusFilter, staffFilter]);
 
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [typeFilter, statusFilter, staffFilter, reset]);
+
   function startEdit(cert: Certification) {
     setEditing(cert);
-    setExpiresAt(new Date(cert.expiresAt).toISOString().slice(0, 10));
-    setIssuingBody(cert.issuingBody ?? "");
-    setRefNumber(cert.referenceNumber ?? "");
+    setEditExpiresAt(new Date(cert.expiresAt).toISOString().slice(0, 10));
+    setEditIssuingBody(cert.issuingBody ?? "");
+    setEditRefNumber(cert.referenceNumber ?? "");
   }
 
   function cancelEdit() {
     setEditing(null);
-    setExpiresAt("");
-    setIssuingBody("");
-    setRefNumber("");
+    setEditExpiresAt("");
+    setEditIssuingBody("");
+    setEditRefNumber("");
   }
 
   function cancelCreate() {
     setShowCreate(false);
-    setStaffId("");
-    setExpiresAt("");
-    setIssuingBody("");
-    setRefNumber("");
+    resetCreate(EMPTY_CREATE);
   }
 
-  async function createCert() {
-    if (!staffId || !expiresAt) return;
+  const onCreateCert = hsCreate(async (data) => {
     setBusy(true);
     try {
       const me = await staffService.getCurrentStaff();
       await certificationService.createCertification({
-        staffId,
-        type: certType,
-        issuedAt: new Date(issuedAt + "T00:00:00").toISOString(),
-        expiresAt: new Date(expiresAt + "T00:00:00").toISOString(),
-        issuingBody: issuingBody.trim() || undefined,
-        referenceNumber: refNumber.trim() || undefined,
+        staffId: data.staffId,
+        type: data.certType as CertificationType,
+        issuedAt: new Date(data.issuedAt + "T00:00:00").toISOString(),
+        expiresAt: new Date(data.expiresAt + "T00:00:00").toISOString(),
+        issuingBody: data.issuingBody.trim() || undefined,
+        referenceNumber: data.refNumber.trim() || undefined,
         createdByStaffId: me.id,
         createdByStaffName: me.name,
       });
@@ -103,16 +121,16 @@ export function CertificationsTab() {
     } finally {
       setBusy(false);
     }
-  }
+  });
 
   async function saveEdit() {
-    if (!editing || !expiresAt) return;
+    if (!editing || !editExpiresAt) return;
     setBusy(true);
     try {
       await certificationService.updateCertification(editing.id, {
-        expiresAt: new Date(expiresAt + "T00:00:00").toISOString(),
-        issuingBody: issuingBody.trim() || undefined,
-        referenceNumber: refNumber.trim() || undefined,
+        expiresAt: new Date(editExpiresAt + "T00:00:00").toISOString(),
+        issuingBody: editIssuingBody.trim() || undefined,
+        referenceNumber: editRefNumber.trim() || undefined,
       });
       toast.success("Certification updated");
       cancelEdit();
@@ -152,7 +170,7 @@ export function CertificationsTab() {
       {/* Filters */}
       <Card>
         <CardContent className="grid gap-3 pt-4 sm:grid-cols-3">
-          <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(1); }}>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="w-full"><SelectValue placeholder="Type" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All types</SelectItem>
@@ -161,7 +179,7 @@ export function CertificationsTab() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
@@ -170,7 +188,7 @@ export function CertificationsTab() {
               <SelectItem value="revoked">Revoked</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={staffFilter} onValueChange={(v) => { setStaffFilter(v); setPage(1); }}>
+          <Select value={staffFilter} onValueChange={setStaffFilter}>
             <SelectTrigger className="w-full"><SelectValue placeholder="Staff" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All staff</SelectItem>
@@ -186,10 +204,11 @@ export function CertificationsTab() {
       {showCreate && (
         <Card className="border-primary/40">
           <CardContent className="space-y-3 px-4 pt-4">
+            <form onSubmit={onCreateCert}>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Staff member</Label>
-                <Select value={staffId} onValueChange={setStaffId}>
+                <Select value={watchCreate("staffId")} onValueChange={(v) => svCreate("staffId", v)}>
                   <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Select…" /></SelectTrigger>
                   <SelectContent>
                     {staffList.map((s) => (
@@ -197,10 +216,11 @@ export function CertificationsTab() {
                     ))}
                   </SelectContent>
                 </Select>
+                {errsCreate.staffId && <p className="text-xs text-red-600">{errsCreate.staffId.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label>Type</Label>
-                <Select value={certType} onValueChange={(v) => setCertType(v as CertificationType)}>
+                <Select value={watchCreate("certType")} onValueChange={(v) => svCreate("certType", v as CreateValues["certType"])}>
                   <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {(Object.entries(CERTIFICATION_TYPE_LABELS) as CertificationTypeEntry[]).map(([value, label]) => (
@@ -213,29 +233,31 @@ export function CertificationsTab() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="cert-issued">Issued</Label>
-                <Input id="cert-issued" type="date" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} className="h-9" />
+                <Input id="cert-issued" type="date" {...regCreate("issuedAt")} className="h-9" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="cert-expires">Expires</Label>
-                <Input id="cert-expires" type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="h-9" />
+                <Input id="cert-expires" type="date" {...regCreate("expiresAt")} className="h-9" />
+                {errsCreate.expiresAt && <p className="text-xs text-red-600">{errsCreate.expiresAt.message}</p>}
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="cert-body">Issuing body</Label>
-                <Input id="cert-body" value={issuingBody} onChange={(e) => setIssuingBody(e.target.value)} className="h-9" placeholder="e.g. Croix-Rouge" />
+                <Input id="cert-body" {...regCreate("issuingBody")} className="h-9" placeholder="e.g. Croix-Rouge" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="cert-ref">Reference #</Label>
-                <Input id="cert-ref" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} className="h-9" placeholder="Optional" />
+                <Input id="cert-ref" {...regCreate("refNumber")} className="h-9" placeholder="Optional" />
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" className="h-9 flex-1" onClick={cancelCreate}>Cancel</Button>
-              <Button className="h-9 flex-1" disabled={!staffId || !expiresAt || busy} onClick={createCert}>
+              <Button variant="ghost" type="button" className="h-9 flex-1" onClick={cancelCreate}>Cancel</Button>
+              <Button type="submit" className="h-9 flex-1" disabled={subCreate || busy}>
                 Save certification
               </Button>
             </div>
+            </form>
           </CardContent>
         </Card>
       )}
@@ -250,22 +272,22 @@ export function CertificationsTab() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="edit-expires">Expires</Label>
-                <Input id="edit-expires" type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="h-9" />
+                <Input id="edit-expires" type="date" value={editExpiresAt} onChange={(e) => setEditExpiresAt(e.target.value)} className="h-9" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="edit-body">Issuing body</Label>
-                <Input id="edit-body" value={issuingBody} onChange={(e) => setIssuingBody(e.target.value)} className="h-9" />
+                <Input id="edit-body" value={editIssuingBody} onChange={(e) => setEditIssuingBody(e.target.value)} className="h-9" />
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="edit-ref">Reference #</Label>
-                <Input id="edit-ref" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} className="h-9" />
+                <Input id="edit-ref" value={editRefNumber} onChange={(e) => setEditRefNumber(e.target.value)} className="h-9" />
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" className="h-9 flex-1" onClick={cancelEdit}>Cancel</Button>
-              <Button className="h-9 flex-1" disabled={!expiresAt || busy} onClick={saveEdit}>
+              <Button variant="ghost" type="button" className="h-9 flex-1" onClick={cancelEdit}>Cancel</Button>
+              <Button className="h-9 flex-1" disabled={!editExpiresAt || busy} onClick={saveEdit}>
                 Save changes
               </Button>
             </div>
@@ -280,7 +302,7 @@ export function CertificationsTab() {
       ) : (
         <>
         <div className="space-y-2">
-          {paginate(visible, page).map((cert) => (
+          {sliced.map((cert) => (
             <Card key={cert.id}>
               <CardContent className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
@@ -328,7 +350,7 @@ export function CertificationsTab() {
             </Card>
           ))}
         </div>
-        <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} />
+        <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
         </>
       )}
     </div>

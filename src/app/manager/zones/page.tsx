@@ -4,6 +4,8 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Loader2, Map, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -19,21 +21,27 @@ import { venueService } from "@/features/venue/services";
 import { zoneStaffHref, zoneTablesHref } from "@/features/shared/entity-links";
 import { useHighlight } from "@/lib/use-highlight";
 import { cn } from "@/features/shared/utils";
+import { zZoneInput } from "@/lib/form-schemas";
 import type { Zone, VenueTable } from "@/lib/types";
+import type { z } from "zod";
 
 import { ZONE_COLORS, ZONE_SWATCH as SWATCH } from "@/features/shared/zone-colors";
 
-type ZoneDraft = { name: string; description: string; color: string };
-const EMPTY_DRAFT: ZoneDraft = { name: "", description: "", color: "violet" };
+type FormValues = z.infer<typeof zZoneInput>;
+const EMPTY_VALUES: FormValues = { name: "", description: "", color: "violet" as const };
 
 function ZonesContent() {
   const [zones, setZones] = useState<Zone[] | null>(null);
   const [tables, setTables] = useState<VenueTable[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<ZoneDraft>(EMPTY_DRAFT);
-  const [saving, setSaving] = useState(false);
   const highlighted = useHighlight();
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
+    resolver: zodResolver(zZoneInput),
+    defaultValues: EMPTY_VALUES,
+  });
+  const draftColor = watch("color");
 
   const refresh = useCallback(async () => {
     const [zoneList, tableList] = await Promise.all([
@@ -50,34 +58,26 @@ function ZonesContent() {
 
   function openCreate() {
     setEditingId(null);
-    setDraft(EMPTY_DRAFT);
+    reset(EMPTY_VALUES);
     setDialogOpen(true);
   }
 
   function openEdit(zone: Zone) {
     setEditingId(zone.id);
-    setDraft({ name: zone.name, description: zone.description, color: zone.color });
+    reset({ name: zone.name, description: zone.description, color: zone.color as FormValues["color"] });
     setDialogOpen(true);
   }
 
-  async function save() {
-    if (!draft.name.trim()) {
-      toast.error("Zone name is required.");
-      return;
-    }
-    setSaving(true);
-    const input = { ...draft, name: draft.name.trim() };
+  const onSave = handleSubmit(async (data) => {
+    const input = { ...data, name: data.name.trim() };
     if (editingId) {
       await venueService.updateZone(editingId, input);
-      toast.success(`${input.name} updated`);
     } else {
       await venueService.createZone(input);
-      toast.success(`${input.name} created`);
     }
-    setSaving(false);
     setDialogOpen(false);
     await refresh();
-  }
+  });
 
   async function remove(zone: Zone) {
     const result = await venueService.deleteZone(zone.id);
@@ -188,7 +188,6 @@ function ZonesContent() {
         </div>
       )}
 
-      {/* ---------- Create / edit dialog ---------- */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -200,9 +199,9 @@ function ZonesContent() {
               <Input
                 id="zone-name"
                 placeholder="e.g. Rooftop"
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                {...register("name")}
               />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="zone-desc">Description</Label>
@@ -210,8 +209,7 @@ function ZonesContent() {
                 id="zone-desc"
                 rows={2}
                 placeholder="What kind of seating lives here?"
-                value={draft.description}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                {...register("description")}
               />
             </div>
             <div className="space-y-1.5">
@@ -222,11 +220,11 @@ function ZonesContent() {
                     key={color}
                     type="button"
                     aria-label={color}
-                    onClick={() => setDraft({ ...draft, color })}
+                    onClick={() => setValue("color", color as FormValues["color"])}
                     className={cn(
                       "size-8 rounded-full border-2 transition-transform",
                       SWATCH[color],
-                      draft.color === color
+                      draftColor === color
                         ? "border-foreground scale-110"
                         : "border-transparent opacity-60 hover:opacity-100",
                     )}
@@ -239,9 +237,9 @@ function ZonesContent() {
             <Button variant="ghost" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={save} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : editingId ? "Save" : "Create zone"}
+            <Button onClick={onSave} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+              {isSubmitting ? "Saving…" : editingId ? "Save" : "Create zone"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -19,6 +19,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +55,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { menuService } from "@/features/menu/services";
 import { purchasingService } from "@/features/platform/purchasing-service";
 import { formatMoney, timeAgo } from "@/features/shared/format";
@@ -83,14 +86,26 @@ const MOVEMENT_META: Record<
   return: { label: "Return", className: "text-orange-600 dark:text-orange-400" },
 };
 
-interface ItemDraft {
-  name: string;
-  description: string;
-  categoryId: string;
-  icon: BottleIconKey;
-  price: number;
-  inventory: number; // initial stock, create-only
-}
+import { z } from "zod";
+
+const zItemForm = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().default(""),
+  categoryId: z.string().min(1, "Category is required"),
+  icon: z.string().min(1, "Icon is required"),
+  price: z.number().positive("Price must be positive"),
+  initialStock: z.number().int().nonnegative().default(0),
+});
+
+const zAdjustForm = z.object({
+  count: z.string().min(1, "Count is required"),
+  note: z.string().default(""),
+});
+
+const zWasteForm = z.object({
+  quantity: z.string().min(1, "Quantity is required"),
+  reason: z.string().min(1, "Reason is required"),
+});
 
 export default function ManagerInventoryPage() {
   return (
@@ -109,18 +124,28 @@ function InventoryPageContent() {
 
   // Dialog state — stock changes must go through Purchasing (plan 19)
   const [adjusting, setAdjusting] = useState<MenuItem | null>(null);
-  const [adjustCount, setAdjustCount] = useState(0);
-  const [adjustNote, setAdjustNote] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [formItem, setFormItem] = useState<MenuItem | null>(null); // null = create
-  const [draft, setDraft] = useState<ItemDraft | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [page, setPage] = useState(1);
 
   // Waste dialog
   const [wasteItem, setWasteItem] = useState<MenuItem | null>(null);
-  const [wasteQty, setWasteQty] = useState(1);
-  const [wasteReason, setWasteReason] = useState("spill");
+
+  const itemForm = useForm({
+    resolver: zodResolver(zItemForm),
+    defaultValues: { name: "", description: "", categoryId: "", icon: "champagne", price: 0, initialStock: 0 },
+  });
+
+  const adjustForm = useForm({
+    resolver: zodResolver(zAdjustForm),
+    defaultValues: { count: "", note: "" },
+  });
+
+  const wasteForm = useForm({
+    resolver: zodResolver(zWasteForm),
+    defaultValues: { quantity: "", reason: "spill" },
+  });
+
+  const busy = itemForm.formState.isSubmitting || adjustForm.formState.isSubmitting || wasteForm.formState.isSubmitting;
 
   const refresh = useCallback(async () => {
     const [its, cats, moves] = await Promise.all([
@@ -149,6 +174,10 @@ function InventoryPageContent() {
     );
   }, [items, categoryFilter, query]);
 
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, categoryFilter, reset]);
+
   const totals = useMemo(() => {
     const all = items ?? [];
     return {
@@ -163,79 +192,64 @@ function InventoryPageContent() {
 
   // ---------- Actions ----------
 
-  async function handleAdjust() {
-    if (!adjusting || adjustCount < 0) return;
-    setBusy(true);
+  async function handleAdjust(data: { count: string; note: string }) {
+    if (!adjusting) return;
+    const count = parseInt(data.count) || 0;
     await menuService.adjustInventory(
       adjusting.id,
-      adjustCount,
-      adjustNote.trim() || undefined,
+      count,
+      data.note.trim() || undefined,
     );
-    setBusy(false);
-    toast.success(`${adjusting.name} set to ${adjustCount}`);
+    toast.success(`${adjusting.name} set to ${count}`);
     setAdjusting(null);
+    adjustForm.reset();
     await refresh();
   }
 
   function openCreate() {
     setFormItem(null);
-    setDraft({
-      name: "",
-      description: "",
-      categoryId: categories[0]?.id ?? "",
-      icon: "champagne",
-      price: 0,
-      inventory: 0,
-    });
+    itemForm.reset({ name: "", description: "", categoryId: categories[0]?.id ?? "", icon: "champagne", price: 0, initialStock: 0 });
     setFormOpen(true);
   }
 
   function openEdit(item: MenuItem) {
     setFormItem(item);
-    setDraft({
+    itemForm.reset({
       name: item.name,
       description: item.description,
       categoryId: item.categoryId,
       icon: item.icon,
       price: item.price,
-      inventory: item.inventory,
+      initialStock: 0,
     });
     setFormOpen(true);
   }
 
-  async function handleFormSave() {
-    if (!draft) return;
-    if (!draft.name.trim() || draft.price <= 0 || !draft.categoryId) {
-      toast.error("Name, category and a price are required.");
-      return;
-    }
-    setBusy(true);
+  async function handleFormSave(data: { name: string; description: string; categoryId: string; icon: string; price: number; initialStock: number }) {
     if (formItem) {
-      // Edits never touch inventory — that's what restock/adjust are for.
       await menuService.updateItem(formItem.id, {
-        name: draft.name.trim(),
-        description: draft.description,
-        categoryId: draft.categoryId,
-        icon: draft.icon,
-        price: draft.price,
+        name: data.name.trim(),
+        description: data.description,
+        categoryId: data.categoryId,
+        icon: data.icon as BottleIconKey,
+        price: data.price,
       });
-      toast.success(`${draft.name.trim()} updated`);
+      toast.success(`${data.name.trim()} updated`);
     } else {
       await menuService.createItem({
-        name: draft.name.trim(),
-        description: draft.description,
-        categoryId: draft.categoryId,
-        icon: draft.icon,
-        price: draft.price,
-        inventory: Math.max(0, draft.inventory),
+        name: data.name.trim(),
+        description: data.description,
+        categoryId: data.categoryId,
+        icon: data.icon as BottleIconKey,
+        price: data.price,
+        inventory: Math.max(0, data.initialStock),
         tags: [],
         isAvailable: true,
         isAlcoholic: true,
         allergens: [],
       });
-      toast.success(`${draft.name.trim()} added to inventory`);
+      toast.success(`${data.name.trim()} added to inventory`);
     }
-    setBusy(false);
     setFormOpen(false);
     await refresh();
   }
@@ -246,27 +260,25 @@ function InventoryPageContent() {
     await refresh();
   }
 
-  async function handleWaste() {
+  async function handleWaste(data: { quantity: string; reason: string }) {
     if (!wasteItem) return;
-    setBusy(true);
     try {
-      await purchasingService.recordWaste(wasteItem.id, wasteQty, wasteReason, "staff-amara");
-      toast.info(`${wasteQty} × ${wasteItem.name} recorded as waste (${wasteReason})`);
+      await purchasingService.recordWaste(wasteItem.id, parseInt(data.quantity) || 0, data.reason, "staff-amara");
+      toast.info(`${data.quantity} × ${wasteItem.name} recorded as waste (${data.reason})`);
     } catch { toast.error("Could not record waste"); }
     finally {
-      setBusy(false);
       setWasteItem(null);
+      wasteForm.reset();
       await refresh();
     }
   }
 
   async function handle86(item: MenuItem) {
-    setBusy(true);
     try {
       await purchasingService.eightySixItem(item.id, "Manual 86 from inventory", "staff-amara");
       toast.info(`${item.name} marked as sold out`);
     } catch { toast.error("Could not mark as 86"); }
-    finally { setBusy(false); await refresh(); }
+    finally { await refresh(); }
   }
 
   return (
@@ -334,7 +346,7 @@ function InventoryPageContent() {
           ) : (
             <>
             <div className="space-y-2">
-              {paginate(visible, page).map((item) => {
+              {sliced.map((item) => {
                 const soldOut = item.inventory === 0;
                 const low = !soldOut && item.inventory <= 5;
                 return (
@@ -378,8 +390,7 @@ function InventoryPageContent() {
                         <DropdownMenuItem
                           onClick={() => {
                             setAdjusting(item);
-                            setAdjustCount(item.inventory);
-                            setAdjustNote("");
+                            adjustForm.reset({ count: "", note: "" });
                           }}
                         >
                           <SlidersHorizontal className="size-4" /> Adjust count
@@ -387,8 +398,7 @@ function InventoryPageContent() {
                         <DropdownMenuItem
                           onClick={() => {
                             setWasteItem(item);
-                            setWasteQty(1);
-                            setWasteReason("spill");
+                            wasteForm.reset({ quantity: "", reason: "spill" });
                           }}
                         >
                           <Trash2 className="size-4" /> Record waste
@@ -419,7 +429,7 @@ function InventoryPageContent() {
                 );
               })}
             </div>
-            <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+            <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
             </>
           )}
 
@@ -477,7 +487,7 @@ function InventoryPageContent() {
       )}
 
       {/* ---------- Adjust count dialog ---------- */}
-      <Dialog open={adjusting !== null} onOpenChange={(open) => !open && setAdjusting(null)}>
+      <Dialog open={adjusting !== null} onOpenChange={(open) => { if (!open) { setAdjusting(null); adjustForm.reset(); }}}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Adjust {adjusting?.name}</DialogTitle>
@@ -486,16 +496,16 @@ function InventoryPageContent() {
               stock; the difference is logged as an adjustment.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={adjustForm.handleSubmit(handleAdjust)} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="adjust-count">Actual count</Label>
               <Input
                 id="adjust-count"
                 type="number"
                 min={0}
-                value={adjustCount}
-                onChange={(e) => setAdjustCount(Math.max(0, Number(e.target.value)))}
+                {...adjustForm.register("count")}
               />
+              {adjustForm.formState.errors.count && <p className="text-xs text-destructive">{adjustForm.formState.errors.count.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="adjust-note">Reason</Label>
@@ -503,20 +513,19 @@ function InventoryPageContent() {
                 id="adjust-note"
                 rows={2}
                 placeholder="e.g. Two bottles broken during setup"
-                value={adjustNote}
-                onChange={(e) => setAdjustNote(e.target.value)}
+                {...adjustForm.register("note")}
               />
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setAdjusting(null)} disabled={busy}>
-              Cancel
-            </Button>
-            <Button onClick={handleAdjust} disabled={busy}>
-              {busy && <Loader2 className="size-4 animate-spin" />}
-              {busy ? "Saving…" : "Save count"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setAdjusting(null)} disabled={busy}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {busy && <Loader2 className="size-4 animate-spin" />}
+                {busy ? "Saving…" : "Save count"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -531,107 +540,103 @@ function InventoryPageContent() {
               </DialogDescription>
             )}
           </DialogHeader>
-          {draft && (
-            <div className="space-y-4">
+          <form onSubmit={itemForm.handleSubmit(handleFormSave)} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="item-name">Name</Label>
+              <Input
+                id="item-name"
+                placeholder="e.g. Veuve Clicquot Brut"
+                {...itemForm.register("name")}
+              />
+              {itemForm.formState.errors.name && <p className="text-xs text-destructive">{itemForm.formState.errors.name.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="item-desc">Description</Label>
+              <Textarea
+                id="item-desc"
+                rows={2}
+                {...itemForm.register("description")}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="item-name">Name</Label>
-                <Input
-                  id="item-name"
-                  placeholder="e.g. Veuve Clicquot Brut"
-                  value={draft.name}
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                />
+                <Label>Category</Label>
+                <Select
+                  value={itemForm.watch("categoryId")}
+                  onValueChange={(value) => itemForm.setValue("categoryId", value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {itemForm.formState.errors.categoryId && <p className="text-xs text-destructive">{itemForm.formState.errors.categoryId.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="item-desc">Description</Label>
-                <Textarea
-                  id="item-desc"
-                  rows={2}
-                  value={draft.description}
-                  onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Category</Label>
-                  <Select
-                    value={draft.categoryId}
-                    onValueChange={(value) => setDraft({ ...draft, categoryId: value })}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Icon</Label>
-                  <Select
-                    value={draft.icon}
-                    onValueChange={(value) => setDraft({ ...draft, icon: value as BottleIconKey })}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ICON_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.key} value={opt.key}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="item-price">Price ($ CAD)</Label>
-                  <Input
-                    id="item-price"
-                    type="number"
-                    min={0}
-                    step={5}
-                    value={draft.price || ""}
-                    onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })}
-                  />
-                </div>
-                {!formItem && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="item-stock">Initial stock</Label>
-                    <Input
-                      id="item-stock"
-                      type="number"
-                      min={0}
-                      value={draft.inventory}
-                      onChange={(e) =>
-                        setDraft({ ...draft, inventory: Math.max(0, Number(e.target.value)) })
-                      }
-                    />
-                  </div>
-                )}
+                <Label>Icon</Label>
+                <Select
+                  value={itemForm.watch("icon")}
+                  onValueChange={(value) => itemForm.setValue("icon", value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ICON_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.key} value={opt.key}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {itemForm.formState.errors.icon && <p className="text-xs text-destructive">{itemForm.formState.errors.icon.message}</p>}
               </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setFormOpen(false)} disabled={busy}>
-              Cancel
-            </Button>
-            <Button onClick={handleFormSave} disabled={busy}>
-              {busy && <Loader2 className="size-4 animate-spin" />}
-              {busy ? "Saving…" : formItem ? "Save changes" : "Add bottle"}
-            </Button>
-          </DialogFooter>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="item-price">Price ($ CAD)</Label>
+                <Input
+                  id="item-price"
+                  type="number"
+                  min={0}
+                  step={5}
+                  {...itemForm.register("price", { valueAsNumber: true })}
+                />
+                {itemForm.formState.errors.price && <p className="text-xs text-destructive">{itemForm.formState.errors.price.message}</p>}
+              </div>
+              {!formItem && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="item-stock">Initial stock</Label>
+                  <Input
+                    id="item-stock"
+                    type="number"
+                    min={0}
+                    {...itemForm.register("initialStock", { valueAsNumber: true })}
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setFormOpen(false)} disabled={busy}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy}>
+                {busy && <Loader2 className="size-4 animate-spin" />}
+                {busy ? "Saving…" : formItem ? "Save changes" : "Add bottle"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
       {/* ---------- Waste dialog ---------- */}
-      <Dialog open={wasteItem !== null} onOpenChange={(open) => !open && setWasteItem(null)}>
+      <Dialog open={wasteItem !== null} onOpenChange={(open) => { if (!open) { setWasteItem(null); wasteForm.reset(); }}}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Record waste: {wasteItem?.name}</DialogTitle>
@@ -639,7 +644,7 @@ function InventoryPageContent() {
               Logs a waste event — shown in the movement log and reported separately from variance.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={wasteForm.handleSubmit(handleWaste)} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="waste-qty">Quantity wasted</Label>
               <Input
@@ -647,13 +652,13 @@ function InventoryPageContent() {
                 type="number"
                 min={1}
                 max={wasteItem?.inventory ?? 0}
-                value={wasteQty}
-                onChange={(e) => setWasteQty(Math.max(1, Number(e.target.value)))}
+                {...wasteForm.register("quantity")}
               />
+              {wasteForm.formState.errors.quantity && <p className="text-xs text-destructive">{wasteForm.formState.errors.quantity.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="waste-reason">Reason</Label>
-              <Select value={wasteReason} onValueChange={setWasteReason}>
+              <Select value={wasteForm.watch("reason")} onValueChange={(v) => wasteForm.setValue("reason", v)}>
                 <SelectTrigger id="waste-reason"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="spill">Spill</SelectItem>
@@ -663,15 +668,16 @@ function InventoryPageContent() {
                   <SelectItem value="training">Training</SelectItem>
                 </SelectContent>
               </Select>
+              {wasteForm.formState.errors.reason && <p className="text-xs text-destructive">{wasteForm.formState.errors.reason.message}</p>}
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setWasteItem(null)} disabled={busy}>Cancel</Button>
-            <Button onClick={handleWaste} disabled={busy}>
-              {busy && <Loader2 className="size-4 animate-spin" />}
-              {busy ? "Saving…" : "Record waste"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setWasteItem(null)} disabled={busy}>Cancel</Button>
+              <Button type="submit" disabled={busy}>
+                {busy && <Loader2 className="size-4 animate-spin" />}
+                {busy ? "Saving…" : "Record waste"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

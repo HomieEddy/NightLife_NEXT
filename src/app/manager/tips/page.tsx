@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Calculator, DollarSign, Lock, Pencil, Settings } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +16,8 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { tipsService } from "@/features/workforce/tips-service";
 import { timeService } from "@/features/workforce/time-service";
 import { staffService } from "@/features/workforce/staff-service";
@@ -22,11 +25,16 @@ import { computeTipDistribution } from "@/lib/workforce";
 import { formatMoney } from "@/features/shared/format";
 import { canDo } from "@/features/shared/permissions";
 import { permissionService } from "@/features/platform/permission-service";
+import { zTipPoolRuleInput } from "@/lib/form-schemas";
 import type { RolePermissions } from "@/features/shared/permissions";
-import type { StaffMember, StaffRole, TipDistribution, TipPoolRule, TipPoolBasis, TimeEntry } from "@/lib/types";
+import type { StaffMember, StaffRole, TipDistribution, TipPoolRule, TimeEntry } from "@/lib/types";
+import type { z } from "zod";
 
 const STAFF_ROLES: StaffRole[] = ["bartender", "runner", "host", "security", "promoter"];
 const BASIS_OPTIONS = [{ value: "hours-weighted", label: "Hours weighted" }, { value: "equal", label: "Equal" }, { value: "role-percentage", label: "Role percentage" }];
+
+type FormValues = z.infer<typeof zTipPoolRuleInput>;
+const EMPTY_VALUES: FormValues = { name: "", basis: "equal", includeRoles: ["bartender", "runner"], houseRetentionPct: 0 };
 
 export default function ManagerTipsPage() {
   const [rule, setRule] = useState<TipPoolRule | null>(null);
@@ -37,11 +45,14 @@ export default function ManagerTipsPage() {
   const [saving, setSaving] = useState(false);
   const [me, setMe] = useState<StaffMember | null>(null);
   const [permissions, setPermissions] = useState<RolePermissions | null>(null);
-  const [page, setPage] = useState(1);
 
-  // Rule edit dialog
   const [ruleOpen, setRuleOpen] = useState(false);
-  const [ruleForm, setRuleForm] = useState({ name: "", basis: "hours-weighted", includeRoles: [] as StaffRole[], houseRetentionPct: 0 });
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zTipPoolRuleInput),
+    defaultValues: EMPTY_VALUES,
+  });
+  const includeRoles = watch("includeRoles");
 
   // Distribution form
   const [poolCents, setPoolCents] = useState("");
@@ -58,24 +69,27 @@ export default function ManagerTipsPage() {
 
   const canClose = me && permissions ? canDo(permissions, me.role, "tips:close-distribution") : false;
 
+  const { sliced, hasMore, loadMore } = useInfiniteSlice(distributions, 10);
+
   function openRuleEdit() {
     if (rule) {
-      setRuleForm({ name: rule.name, basis: rule.basis, includeRoles: rule.includeRoles, houseRetentionPct: rule.houseRetentionPct });
+      reset({ name: rule.name, basis: rule.basis as FormValues["basis"], includeRoles: rule.includeRoles, houseRetentionPct: rule.houseRetentionPct });
     } else {
-      setRuleForm({ name: "", basis: "hours-weighted", includeRoles: ["bartender", "runner"], houseRetentionPct: 0 });
+      reset(EMPTY_VALUES);
     }
     setRuleOpen(true);
   }
 
-  async function saveRule() {
-    if (!ruleForm.name.trim()) { toast.error("Name is required"); return; }
-    if (ruleForm.includeRoles.length === 0) { toast.error("Select at least one role"); return; }
-    setSaving(true); try {
-      const r: TipPoolRule = { id: rule?.id ?? "tip-rule-1", venueId: "venue-1", name: ruleForm.name.trim(), basis: ruleForm.basis as TipPoolBasis, includeRoles: ruleForm.includeRoles, houseRetentionPct: ruleForm.houseRetentionPct, active: true };
-      await tipsService.saveRule(r); setRule(r); setRuleOpen(false);
+  const onSaveRule = handleSubmit(async (data) => {
+    const r: TipPoolRule = { id: rule?.id ?? "tip-rule-1", venueId: "venue-1", name: data.name.trim(), basis: data.basis as TipPoolRule["basis"], includeRoles: data.includeRoles as StaffRole[], houseRetentionPct: data.houseRetentionPct, active: true };
+    setSaving(true);
+    try {
+      await tipsService.saveRule(r);
+      setRule(r);
+      setRuleOpen(false);
       toast.success("Tip pool rule saved");
     } catch { toast.error("Could not save rule"); } finally { setSaving(false); }
-  }
+  });
 
   async function computeAndSave() {
     if (!rule) return; const pool = parseInt(poolCents); if (isNaN(pool) || pool <= 0) { toast.error("Enter a valid pool amount"); return; }
@@ -96,7 +110,11 @@ export default function ManagerTipsPage() {
   }
 
   function toggleRole(role: StaffRole) {
-    setRuleForm((prev) => ({ ...prev, includeRoles: prev.includeRoles.includes(role) ? prev.includeRoles.filter((r) => r !== role) : [...prev.includeRoles, role] }));
+    setValue("includeRoles",
+      includeRoles.includes(role)
+        ? includeRoles.filter((r) => r !== role)
+        : [...includeRoles, role],
+    );
   }
 
   if (!ready) return <ListSkeleton />;
@@ -139,7 +157,7 @@ export default function ManagerTipsPage() {
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-base">Distributions</CardTitle></CardHeader>
               <CardContent className="space-y-2">
-                {paginate(distributions, page).map((d) => {
+                {sliced.map((d) => {
                   const closed = !!d.closedByStaffId;
                   return (
                     <div key={d.id} className="rounded-md border px-3 py-2">
@@ -160,7 +178,7 @@ export default function ManagerTipsPage() {
               </CardContent>
             </Card>
           )}
-          <Pagination totalItems={distributions.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+          <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
         </>
       )}
 
@@ -168,19 +186,20 @@ export default function ManagerTipsPage() {
       <Dialog open={ruleOpen} onOpenChange={setRuleOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>{rule ? "Edit rule" : "Create rule"}</DialogTitle><DialogDescription>Configure how tips are split among staff.</DialogDescription></DialogHeader>
-          <div className="space-y-3">
-            <div><Label htmlFor="r-name">Name</Label><Input id="r-name" value={ruleForm.name} onChange={(e) => setRuleForm((p) => ({ ...p, name: e.target.value }))} placeholder="Hours-weighted pool" /></div>
-            <div><Label htmlFor="r-basis">Basis</Label><Select value={ruleForm.basis} onValueChange={(v) => setRuleForm((p) => ({ ...p, basis: v }))}><SelectTrigger id="r-basis"><SelectValue /></SelectTrigger><SelectContent>{BASIS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
+          <form onSubmit={onSaveRule} className="space-y-3">
+            <div><Label htmlFor="r-name">Name</Label><Input id="r-name" {...register("name")} placeholder="Hours-weighted pool" />{errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}</div>
+            <div><Label htmlFor="r-basis">Basis</Label><Select value={watch("basis")} onValueChange={(v) => setValue("basis", v as FormValues["basis"])}><SelectTrigger id="r-basis"><SelectValue /></SelectTrigger><SelectContent>{BASIS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div>
               <Label>Include roles</Label>
-              <div className="mt-1 flex flex-wrap gap-1">{STAFF_ROLES.map((role) => <Badge key={role} variant={ruleForm.includeRoles.includes(role) ? "default" : "outline"} className="cursor-pointer text-[10px] capitalize" onClick={() => toggleRole(role)}>{role}</Badge>)}</div>
+              <div className="mt-1 flex flex-wrap gap-1">{STAFF_ROLES.map((role) => <Badge key={role} variant={includeRoles.includes(role) ? "default" : "outline"} className="cursor-pointer text-[10px] capitalize" onClick={() => toggleRole(role)}>{role}</Badge>)}</div>
+              {errors.includeRoles && <p className="text-xs text-red-600">{errors.includeRoles.message}</p>}
             </div>
-            <div><Label htmlFor="r-house">House retention %</Label><Input id="r-house" type="number" min={0} max={100} value={ruleForm.houseRetentionPct} onChange={(e) => setRuleForm((p) => ({ ...p, houseRetentionPct: parseInt(e.target.value) || 0 }))} /><p className="text-[10px] text-muted-foreground mt-0.5">Tip retention is illegal in many jurisdictions. Consult local labour laws.</p></div>
-          </div>
+            <div><Label htmlFor="r-house">House retention %</Label><Input id="r-house" type="number" min={0} max={100} {...register("houseRetentionPct", { valueAsNumber: true })} /><p className="text-[10px] text-muted-foreground mt-0.5">Tip retention is illegal in many jurisdictions. Consult local labour laws.</p></div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRuleOpen(false)}>Cancel</Button>
-            <Button onClick={saveRule} disabled={!ruleForm.name.trim() || ruleForm.includeRoles.length === 0 || saving}>{rule ? "Save" : "Create"}</Button>
+            <Button variant="outline" type="button" onClick={() => setRuleOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting}>{rule ? "Save" : "Create"}</Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

@@ -4,6 +4,8 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, Loader2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,45 +13,38 @@ import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { authClient } from "@/lib/auth-client";
+import { z } from "zod";
+
+const zAcceptInvite = z.object({
+  name: z.string().min(1, "Name is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirm: z.string().min(1, "Please confirm your password"),
+}).refine((d) => d.password === d.confirm, { message: "Passwords don't match", path: ["confirm"] });
 
 function AcceptContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const invitationId = searchParams.get("id");
-  const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zAcceptInvite),
+    defaultValues: { name: "", password: "", confirm: "" },
+  });
+
+  const onSubmit = handleSubmit(async (data) => {
     if (!invitationId) {
       toast.error("Missing invitation ID.");
       return;
     }
-    if (!name.trim()) {
-      toast.error("Name is required.");
-      return;
-    }
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
-      return;
-    }
-    if (password !== confirm) {
-      toast.error("Passwords don't match.");
-      return;
-    }
-
-    setSubmitting(true);
     try {
       const invitation = await authClient.organization.getInvitation({ query: { id: invitationId } });
       if (invitation.error || !invitation.data) throw new Error("Invitation expired or already used.");
 
       const signup = await authClient.signUp.email({
         email: invitation.data.email,
-        name: name.trim(),
-        password,
+        name: data.name.trim(),
+        password: data.password,
       });
       if (signup.error) throw new Error(signup.error.message || "Could not create the account");
 
@@ -61,10 +56,8 @@ function AcceptContent() {
       setTimeout(() => router.push("/staff"), 1200);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not accept the invitation");
-    } finally {
-      setSubmitting(false);
     }
-  }
+  });
 
   if (!invitationId) {
     return (
@@ -114,47 +107,25 @@ function AcceptContent() {
                     Set up your account to accept the invitation.
                   </p>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-3">
+                <form onSubmit={onSubmit} className="space-y-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="invite-name">Full name</Label>
-                    <Input
-                      id="invite-name"
-                      placeholder="e.g. Marie Dupont"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
+                    <Input id="invite-name" placeholder="e.g. Marie Dupont" {...register("name")} />
+                    {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="invite-password">Password</Label>
-                    <Input
-                      id="invite-password"
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="At least 8 characters"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
+                    <Input id="invite-password" type="password" autoComplete="new-password" placeholder="At least 8 characters" {...register("password")} />
+                    {errors.password && <p className="text-xs text-red-600">{errors.password.message}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="invite-confirm">Confirm password</Label>
-                    <Input
-                      id="invite-confirm"
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="Same password again"
-                      value={confirm}
-                      onChange={(e) => setConfirm(e.target.value)}
-                    />
+                    <Input id="invite-confirm" type="password" autoComplete="new-password" placeholder="Same password again" {...register("confirm")} />
+                    {errors.confirm && <p className="text-xs text-red-600">{errors.confirm.message}</p>}
                   </div>
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={submitting}
-                  >
-                    {submitting && (
-                      <Loader2 className="size-4 animate-spin" />
-                    )}
-                    {submitting ? "Creating account…" : "Accept invitation"}
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+                    {isSubmitting ? "Creating account…" : "Accept invitation"}
                   </Button>
                 </form>
               </>

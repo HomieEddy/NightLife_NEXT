@@ -6,6 +6,9 @@ import {
   Search, Shield, ShieldOff, Shirt, Siren, UserPlus, Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -41,6 +44,15 @@ type SearchResult =
 
 const QUOTE_PRESETS = [15, 30, 45];
 
+const zAdmitForm = z.object({
+  partySize: z.number().int().min(1).default(2),
+  admissionType: z.enum(["cover", "comp", "guestlist", "reservation", "member"]).default("cover"),
+  idChecked: z.boolean().default(false),
+  dobVerified: z.boolean().default(false),
+  yearOfBirth: z.string().default(""),
+  overrideReason: z.string().default(""),
+});
+
 export default function StaffDoorPage() {
   const [me, setMe] = useState<StaffMember | null>(null);
   const [permissions, setPermissions] = useState<RolePermissions | null>(null);
@@ -55,12 +67,12 @@ export default function StaffDoorPage() {
   const [selected, setSelected] = useState<SearchResult | null>(null);
 
   // Admit form state
-  const [partySize, setPartySize] = useState(1);
-  const [admissionType, setAdmissionType] = useState<AdmissionType>("cover");
-  const [idChecked, setIdChecked] = useState(false);
-  const [dobVerified, setDobVerified] = useState(false);
-  const [yearOfBirth, setYearOfBirth] = useState("");
-  const [overrideReason, setOverrideReason] = useState("");
+  const admitForm = useForm({
+    resolver: zodResolver(zAdmitForm),
+    defaultValues: { partySize: 2, admissionType: "cover" as const, idChecked: false, dobVerified: false, yearOfBirth: "", overrideReason: "" },
+  });
+  const { register: admitReg, handleSubmit: admitHandle, reset: admitReset, setValue: admitSet, watch: admitWatch, formState: { isSubmitting: admitBusy } } = admitForm;
+
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -69,9 +81,12 @@ export default function StaffDoorPage() {
   const [admitError, setAdmitError] = useState<string | null>(null);
 
   // Waitlist join form
-  const [wlName, setWlName] = useState("");
-  const [wlParty, setWlParty] = useState(2);
-  const [wlQuote, setWlQuote] = useState(15);
+  const wlSchema = z.object({ name: z.string().min(1, "Name is required"), partySize: z.number().int().min(1).default(2), quotedMinutes: z.number().int().min(5).max(180).default(15) });
+  const wlForm = useForm({
+    resolver: zodResolver(wlSchema),
+    defaultValues: { name: "", partySize: 2, quotedMinutes: 15 },
+  });
+  const { register: wlReg, handleSubmit: wlHandle, reset: wlReset, setValue: wlSet, watch: wlWatch, formState: { isSubmitting: wlBusy } } = wlForm;
 
   const refresh = useCallback(async () => {
     const [currentStaff, perms, v, occ, adm, wl, evac] = await Promise.all([
@@ -90,7 +105,7 @@ export default function StaffDoorPage() {
     setAdmissions(adm);
     setWaitlist(wl);
     setEvacState(evac.state);
-    setIdChecked(v.doorRequiresIdCheck);
+    admitSet("idChecked", v.doorRequiresIdCheck);
     if (v.coatCheckEnabled) setCoatCheck(await doorService.listCoatCheckTickets());
   }, []);
 
@@ -141,14 +156,14 @@ export default function StaffDoorPage() {
 
   function selectResult(result: SearchResult) {
     setSelected(result);
-    setOverrideReason("");
+    admitSet("overrideReason", "");
     setAdmitError(null);
-    setYearOfBirth("");
+    admitSet("yearOfBirth", "");
     const size = result.kind === "reservation" ? result.reservation.partySize : 2;
-    setPartySize(size);
-    setAdmissionType(result.kind === "reservation" ? "reservation" : "cover");
-    setIdChecked(venue?.doorRequiresIdCheck ?? false);
-    setDobVerified(false);
+    admitSet("partySize", size);
+    admitSet("admissionType", result.kind === "reservation" ? "reservation" : "cover");
+    admitSet("idChecked", venue?.doorRequiresIdCheck ?? false);
+    admitSet("dobVerified", false);
   }
 
   const selectedProfile = selected?.kind === "profile" ? selected.profile : undefined;
@@ -170,7 +185,7 @@ export default function StaffDoorPage() {
     setOccupancy((prev) => (prev ? { ...prev, current: res.current } : prev));
   }
 
-  async function admit() {
+  const onAdmit = admitHandle(async (data) => {
     if (!me || !selected) return;
     setBusy(true);
     setAdmitError(null);
@@ -179,19 +194,19 @@ export default function StaffDoorPage() {
       const reservationId = selected.kind === "reservation" ? selected.reservation.id : undefined;
       await doorService.admit({
         guestProfileId,
-        partySize,
-        admissionType,
-        amountOwedCents: admissionType === "cover" ? partySize * 4000 : 0,
+        partySize: data.partySize ?? 1,
+        admissionType: data.admissionType ?? "cover",
+        amountOwedCents: (data.admissionType ?? "cover") === "cover" ? (data.partySize ?? 1) * 4000 : 0,
         source: reservationId ? "reservation" : "walk-in",
         reservationId,
-        idCheck: idChecked ? { checked: true, dobVerified, yearOfBirth: yearOfBirth ? Number(yearOfBirth) : undefined } : undefined,
+        idCheck: data.idChecked ? { checked: true, dobVerified: data.dobVerified, yearOfBirth: data.yearOfBirth ? Number(data.yearOfBirth) : undefined } : undefined,
         staffId: me.id,
         staffName: me.name,
       });
       if (reservationId) {
         await reservationService.setStatus(reservationId, "seated");
       }
-      toast.success(`Admitted ${selected.label} — party of ${partySize}`);
+      toast.success(`Admitted ${selected.label} — party of ${data.partySize}`);
       setSelected(null);
       setQuery("");
       setResults(null);
@@ -203,16 +218,16 @@ export default function StaffDoorPage() {
     } finally {
       setBusy(false);
     }
-  }
+  });
 
   async function overrideAndAdmit() {
-    if (!me || !selectedProfile || !overrideReason.trim()) return;
+    if (!me || !selectedProfile || !(admitWatch("overrideReason") ?? "").trim()) return;
     setBusy(true);
     try {
       await doorService.admitBannedOverride({
         guestProfileId: selectedProfile.id,
-        partySize,
-        reason: overrideReason.trim(),
+        partySize: admitWatch("partySize") ?? 1,
+        reason: (admitWatch("overrideReason") ?? "").trim(),
         staffId: me.id,
         staffName: me.name,
       });
@@ -266,12 +281,12 @@ export default function StaffDoorPage() {
     try {
       await doorService.admitCapacityOverride({
         guestProfileId: selectedProfile?.id,
-        partySize,
-        reason: overrideReason.trim(),
+        partySize: admitWatch("partySize") ?? 1,
+        reason: (admitWatch("overrideReason") ?? "").trim(),
         staffId: me.id,
         staffName: me.name,
       });
-      toast.success(`Capacity override — admitted ${selected.label}, party of ${partySize}`);
+      toast.success(`Capacity override — admitted ${selected.label}, party of ${admitWatch("partySize") ?? 1}`);
       setSelected(null);
       setQuery("");
       setResults(null);
@@ -313,22 +328,19 @@ export default function StaffDoorPage() {
     }
   }
 
-  async function joinWaitlist() {
-    if (!wlName.trim()) return;
+  const onJoinWaitlist = wlHandle(async (data) => {
     setBusy(true);
     try {
-      await waitlistService.join({ name: wlName.trim(), partySize: wlParty, quotedMinutes: wlQuote });
-      setWlName("");
-      setWlParty(2);
-      setWlQuote(15);
-      toast.success(`${wlName.trim()} added to the waitlist`);
+      await waitlistService.join({ name: data.name.trim(), partySize: data.partySize, quotedMinutes: data.quotedMinutes });
+      wlReset();
+      toast.success(`${data.name.trim()} added to the waitlist`);
       setWaitlist(await waitlistService.listEntries());
     } catch {
       toast.error("Could not add to the waitlist");
     } finally {
       setBusy(false);
     }
-  }
+  });
 
   async function waitlistAction(id: string, status: "notified" | "left" | "seated") {
     await waitlistService.setStatus(id, status);
@@ -503,8 +515,7 @@ export default function StaffDoorPage() {
                         <Label htmlFor="override-reason">Manager override reason</Label>
                         <Textarea
                           id="override-reason"
-                          value={overrideReason}
-                          onChange={(e) => setOverrideReason(e.target.value)}
+                          {...admitReg("overrideReason")}
                           placeholder="Why is this override justified?"
                           rows={2}
                         />
@@ -513,7 +524,7 @@ export default function StaffDoorPage() {
                             <Button
                               variant="destructive"
                               className="h-12 w-full"
-                              disabled={!overrideReason.trim() || busy}
+                              disabled={!(admitWatch("overrideReason") ?? "").trim() || busy}
                             >
                               Override ban and admit anyway
                             </Button>
@@ -557,7 +568,7 @@ export default function StaffDoorPage() {
                     <Button variant="ghost" className="w-full" onClick={() => setSelected(null)}>Cancel</Button>
                   </div>
                 ) : (
-                  <>
+                  <form onSubmit={onAdmit}>
                     <p className="font-medium">{selected.label}</p>
                     {selectedProfile?.vipTier && selectedProfile.vipTier !== "none" && (
                       <p className="text-xs text-amber-600 dark:text-amber-400">
@@ -570,19 +581,21 @@ export default function StaffDoorPage() {
                         <Label>Party size</Label>
                         <div className="flex items-center gap-2">
                           <Button
+                            type="button"
                             variant="outline"
                             size="icon"
                             className="size-11"
-                            onClick={() => setPartySize((p) => Math.max(1, p - 1))}
+                            onClick={() => admitSet("partySize", Math.max(1, admitWatch("partySize") ?? 1 - 1))}
                           >
                             <Minus className="size-4" />
                           </Button>
-                          <span className="w-8 text-center text-lg font-semibold tabular-nums">{partySize}</span>
+                          <span className="w-8 text-center text-lg font-semibold tabular-nums">{admitWatch("partySize") ?? 1}</span>
                           <Button
+                            type="button"
                             variant="outline"
                             size="icon"
                             className="size-11"
-                            onClick={() => setPartySize((p) => p + 1)}
+                            onClick={() => admitSet("partySize", admitWatch("partySize") ?? 1 + 1)}
                           >
                             <Plus className="size-4" />
                           </Button>
@@ -590,7 +603,7 @@ export default function StaffDoorPage() {
                       </div>
                       <div className="space-y-1.5">
                         <Label>Admission type</Label>
-                        <Select value={admissionType} onValueChange={(v) => setAdmissionType(v as AdmissionType)}>
+                        <Select value={admitWatch("admissionType")} onValueChange={(v) => admitSet("admissionType", v as AdmissionType)}>
                           <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="cover">Cover</SelectItem>
@@ -609,13 +622,13 @@ export default function StaffDoorPage() {
                           Records the check only — never a document number or scan
                         </p>
                       </div>
-                      <Switch checked={idChecked} onCheckedChange={setIdChecked} />
+                      <Switch checked={admitWatch("idChecked")} onCheckedChange={(v) => admitSet("idChecked", v)} />
                     </div>
-                    {idChecked && (
+                    {admitWatch("idChecked") && (
                       <>
                         <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
                           <p className="text-sm font-medium">Age verified 18+</p>
-                          <Switch checked={dobVerified} onCheckedChange={setDobVerified} />
+                          <Switch checked={admitWatch("dobVerified")} onCheckedChange={(v) => admitSet("dobVerified", v)} />
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="yob">Year of birth (optional — never stored as a full date)</Label>
@@ -624,8 +637,7 @@ export default function StaffDoorPage() {
                             type="number"
                             min={1900}
                             max={new Date().getFullYear()}
-                            value={yearOfBirth}
-                            onChange={(e) => setYearOfBirth(e.target.value)}
+                            {...admitReg("yearOfBirth")}
                             placeholder="e.g. 1996"
                             className="h-11"
                           />
@@ -638,8 +650,7 @@ export default function StaffDoorPage() {
                         <Label htmlFor="override-reason-cancel">Override reason</Label>
                         <Input
                           id="override-reason-cancel"
-                          value={overrideReason}
-                          onChange={(e) => setOverrideReason(e.target.value)}
+                          {...admitReg("overrideReason")}
                           placeholder="Why is this admission necessary?"
                           className="h-11"
                         />
@@ -648,7 +659,7 @@ export default function StaffDoorPage() {
                             <Button
                               variant="outline"
                               className="h-11 w-full border-amber-500/50"
-                              disabled={!overrideReason.trim() || busy}
+                              disabled={!(admitWatch("overrideReason") ?? "").trim() || busy}
                             >
                               Override capacity and admit
                             </Button>
@@ -661,14 +672,14 @@ export default function StaffDoorPage() {
                       </div>
                     )}
                     <div className="flex gap-2">
-                      <Button variant="ghost" className="h-12 flex-1" onClick={() => setSelected(null)}>
+                      <Button type="button" variant="ghost" className="h-12 flex-1" onClick={() => setSelected(null)}>
                         Cancel
                       </Button>
-                      <Button className="h-12 flex-1 text-base" disabled={busy} onClick={admit}>
+                      <Button type="submit" className="h-12 flex-1 text-base" disabled={busy}>
                         <Check className="size-4" /> Admit
                       </Button>
                     </div>
-                  </>
+                  </form>
                 )}
               </CardContent>
             </Card>
@@ -727,16 +738,18 @@ export default function StaffDoorPage() {
 
             {canManageWaitlist && (
               <Card>
+                <form onSubmit={onJoinWaitlist}>
                 <CardContent className="space-y-3 px-4 pt-4">
                   <p className="text-sm font-medium">Add a walk-in</p>
-                  <Input placeholder="Name" value={wlName} onChange={(e) => setWlName(e.target.value)} className="h-11" />
+                  <Input placeholder="Name" {...wlReg("name")} className="h-11" />
+                  {wlForm.formState.errors.name && <p className="text-xs text-destructive">{wlForm.formState.errors.name.message}</p>}
                   <div className="flex items-center gap-2">
                     <Label className="w-20 shrink-0 text-xs">Party</Label>
-                    <Button variant="outline" size="icon" className="size-9" onClick={() => setWlParty((p) => Math.max(1, p - 1))}>
+                    <Button type="button" variant="outline" size="icon" className="size-9" onClick={() => wlSet("partySize", Math.max(1, (wlWatch("partySize") ?? 2) - 1))}>
                       <Minus className="size-4" />
                     </Button>
-                    <span className="w-6 text-center tabular-nums">{wlParty}</span>
-                    <Button variant="outline" size="icon" className="size-9" onClick={() => setWlParty((p) => p + 1)}>
+                    <span className="w-6 text-center tabular-nums">{wlWatch("partySize") ?? 2}</span>
+                    <Button type="button" variant="outline" size="icon" className="size-9" onClick={() => wlSet("partySize", (wlWatch("partySize") ?? 2) + 1)}>
                       <Plus className="size-4" />
                     </Button>
                   </div>
@@ -748,19 +761,20 @@ export default function StaffDoorPage() {
                           key={m}
                           type="button"
                           size="sm"
-                          variant={wlQuote === m ? "default" : "outline"}
+                          variant={wlWatch("quotedMinutes") === m ? "default" : "outline"}
                           className="h-9"
-                          onClick={() => setWlQuote(m)}
+                          onClick={() => wlSet("quotedMinutes", m)}
                         >
                           <Clock className="size-3.5" /> {m}m
                         </Button>
                       ))}
                     </div>
                   </div>
-                  <Button className="h-11 w-full" disabled={!wlName.trim() || busy} onClick={joinWaitlist}>
+                  <Button type="submit" className="h-11 w-full" disabled={!wlWatch("name")?.trim() || busy || wlBusy}>
                     <UserPlus className="size-4" /> Add to waitlist
                   </Button>
                 </CardContent>
+                </form>
               </Card>
             )}
           </>

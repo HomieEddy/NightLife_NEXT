@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowUpDown, BookOpen, Package, Plus, Pencil, Search, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { ArrowUpDown, BookOpen, Package, Loader2, Plus, Pencil, Search, ShoppingCart, Trash2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -19,6 +23,7 @@ import { menuService } from "@/features/menu/services";
 import { staffService } from "@/features/workforce/staff-service";
 import { suggestPurchaseOrder } from "@/features/ordering/costs";
 import { formatMoney } from "@/features/shared/format";
+import { zSupplierInput, zSupplierCatalogueInput } from "@/lib/form-schemas";
 import type { PurchaseOrder, Stocktake, Supplier, SupplierItem, MenuItem } from "@/lib/types";
 
 const STATUS_BADGE: Record<string, "default" | "secondary" | "outline"> = { draft: "outline", submitted: "secondary", "partially-received": "secondary", received: "default", cancelled: "outline" };
@@ -32,7 +37,7 @@ export default function ManagerPurchasingPage() {
   const [ready, setReady] = useState(false);
   const [suggestions, setSuggestions] = useState<{ menuItemId: string; itemName: string; suggestedQty: number; unitCostCents: number | null }[]>([]);
   const [meId, setMeId] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [nonFormBusy, setNonFormBusy] = useState(false);
 
   // Filters
   const [supFilter, setSupFilter] = useState<string>("all");
@@ -44,7 +49,13 @@ export default function ManagerPurchasingPage() {
   // Supplier dialog
   const [supOpen, setSupOpen] = useState(false);
   const [supEditing, setSupEditing] = useState<Supplier | null>(null);
-  const [supForm, setSupForm] = useState({ name: "", contactName: "", email: "", phone: "", leadTimeDays: "2", minOrder: "" });
+
+  const supplierForm = useForm({
+    resolver: zodResolver(zSupplierInput),
+    defaultValues: { name: "", contactName: "", email: "", phone: "", leadTimeDays: 2, minOrder: 0 },
+  });
+
+  const supBusy = supplierForm.formState.isSubmitting;
 
   // PO create dialog
   const [poOpen, setPoOpen] = useState(false);
@@ -57,12 +68,25 @@ export default function ManagerPurchasingPage() {
   // Catalogue management dialog
   const [catOpen, setCatOpen] = useState(false);
   const [catSupplierId, setCatSupplierId] = useState("");
-  const [catForm, setCatForm] = useState({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false });
-
-  // Stocktake create dialog
-  const [stOpen, setStOpen] = useState(false);
-  const [stDate, setStDate] = useState(new Date().toISOString().slice(0, 10));
   const [catEditing, setCatEditing] = useState<SupplierItem | null>(null);
+
+  const catForm = useForm({
+    resolver: zodResolver(zSupplierCatalogueInput),
+    defaultValues: { menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false },
+  });
+
+  const catBusy = catForm.formState.isSubmitting;
+
+  const zStocktakeForm = z.object({
+    date: z.string().min(1, "Date is required"),
+  });
+
+  const stocktakeForm = useForm({
+    resolver: zodResolver(zStocktakeForm),
+    defaultValues: { date: new Date().toISOString().slice(0, 10) },
+  });
+
+  const [stOpen, setStOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const [sups, pos, its, sis, sts, me] = await Promise.all([
@@ -73,19 +97,19 @@ export default function ManagerPurchasingPage() {
   }, []);
   useEffect(() => { refresh(); }, [refresh]);
 
-  async function startStocktake() {
-    setBusy(true);
+  const onStartStocktake = stocktakeForm.handleSubmit(async (data) => {
+    setNonFormBusy(true);
     try {
       const st: Stocktake = {
-        id: `st-${stDate}`,
+        id: `st-${data.date}`,
         venueId: "venue-1",
-        businessDate: stDate,
+        businessDate: data.date,
         scope: "full",
         status: "open",
         startedAt: new Date().toISOString(),
         startedByStaffId: meId,
         lines: items.map((item) => ({
-          id: `stl-${stDate}-${item.id}`,
+          id: `stl-${data.date}-${item.id}`,
           menuItemId: item.id,
           expectedQty: item.inventory,
           countedQty: item.inventory,
@@ -95,21 +119,20 @@ export default function ManagerPurchasingPage() {
         totalVarianceCents: 0,
       };
       await purchasingService.saveStocktake(st);
-      toast.success(`Stocktake started for ${stDate}`);
-      setStOpen(false);
+      toast.success(`Stocktake started for ${data.date}`);
       await refresh();
     } catch { toast.error("Could not start stocktake"); }
-    finally { setBusy(false); }
-  }
+    finally { setNonFormBusy(false); }
+  });
 
   async function commitStocktake(st: Stocktake) {
-    setBusy(true);
+    setNonFormBusy(true);
     try {
       await purchasingService.commitStocktake(st.id);
       toast.success("Stocktake committed — adjustment movements written");
       await refresh();
     } catch { toast.error("Could not commit"); }
-    finally { setBusy(false); }
+    finally { setNonFormBusy(false); }
   }
 
   // Filtered data
@@ -123,16 +146,16 @@ export default function ManagerPurchasingPage() {
   const filteredStocktakes = stocktakes.filter((st) => stStatusFilter === "all" || st.status === stStatusFilter).sort((a, b) => b.businessDate.localeCompare(a.businessDate));
 
   // ── Supplier CRUD ──
-  function openSupCreate() { setSupEditing(null); setSupForm({ name: "", contactName: "", email: "", phone: "", leadTimeDays: "2", minOrder: "" }); setSupOpen(true); }
-  function openSupEdit(sup: Supplier) { setSupEditing(sup); setSupForm({ name: sup.name, contactName: sup.contactName ?? "", email: sup.email ?? "", phone: sup.phone ?? "", leadTimeDays: String(sup.leadTimeDays), minOrder: sup.minimumOrderCents ? String(sup.minimumOrderCents / 100) : "" }); setSupOpen(true); }
-  async function saveSupplier() {
-    if (!supForm.name.trim()) { toast.error("Name required"); return; }
-    setBusy(true); try {
-      const s: Supplier = { id: supEditing?.id ?? `sup-${Date.now()}`, venueId: "venue-1", name: supForm.name.trim(), contactName: supForm.contactName.trim() || undefined, email: supForm.email.trim() || undefined, phone: supForm.phone.trim() || undefined, leadTimeDays: parseInt(supForm.leadTimeDays) || 2, orderDays: [1, 2, 3, 4, 5], minimumOrderCents: supForm.minOrder ? Math.round(parseFloat(supForm.minOrder) * 100) : undefined, active: true };
+  function openSupCreate() { setSupEditing(null); supplierForm.reset({ name: "", contactName: "", email: "", phone: "", leadTimeDays: 2, minOrder: 0 }); setSupOpen(true); }
+  function openSupEdit(sup: Supplier) { setSupEditing(sup); supplierForm.reset({ name: sup.name, contactName: sup.contactName ?? "", email: sup.email ?? "", phone: sup.phone ?? "", leadTimeDays: sup.leadTimeDays, minOrder: sup.minimumOrderCents ? sup.minimumOrderCents / 100 : 0 }); setSupOpen(true); }
+
+  const onSaveSupplier = supplierForm.handleSubmit(async (data) => {
+    try {
+      const s: Supplier = { id: supEditing?.id ?? `sup-${Date.now()}`, venueId: "venue-1", name: data.name.trim(), contactName: data.contactName.trim() || undefined, email: data.email?.trim() || undefined, phone: data.phone.trim() || undefined, leadTimeDays: data.leadTimeDays || 2, orderDays: [1, 2, 3, 4, 5], minimumOrderCents: data.minOrder ? Math.round(data.minOrder * 100) : undefined, active: true };
       await purchasingService.saveSupplier(s); await refresh(); setSupOpen(false);
       toast.success(supEditing ? "Supplier updated" : "Supplier added");
-    } catch { toast.error("Could not save supplier"); } finally { setBusy(false); }
-  }
+    } catch { toast.error("Could not save supplier"); }
+  });
 
   // ── PO actions ──
   function openPO(supplierId: string) {
@@ -145,7 +168,7 @@ export default function ManagerPurchasingPage() {
   async function savePO() {
     const active = poLines.filter((l) => parseInt(l.qty) > 0);
     if (active.length === 0) { toast.error("Add at least one item with quantity"); return; }
-    setBusy(true); try {
+    setNonFormBusy(true); try {
       const ts = Date.now();
       const lines = active.map((l, i) => {
         const si = supplierItems.find((s) => s.menuItemId === l.menuItemId && s.supplierId === poSupplierId);
@@ -162,7 +185,7 @@ export default function ManagerPurchasingPage() {
       };
       await purchasingService.savePurchaseOrder(po); await refresh(); setPoOpen(false);
       toast.success(`PO created with ${active.length} items`);
-    } catch { toast.error("Could not create PO"); } finally { setBusy(false); }
+    } catch { toast.error("Could not create PO"); } finally { setNonFormBusy(false); }
   }
 
   async function submitPO(poId: string) {
@@ -178,11 +201,11 @@ export default function ManagerPurchasingPage() {
   }
 
   async function receivePO() {
-    if (!receivingPO) return; setBusy(true); try {
+    if (!receivingPO) return; setNonFormBusy(true); try {
       const lines = Object.entries(receiveQty).map(([lineId, qty]) => ({ lineId, qtyReceived: qty }));
       await purchasingService.receivePurchaseOrder(receivingPO.id, lines); await refresh(); setReceiveOpen(false);
       toast.success("PO received");
-    } catch (err) { toast.error(err instanceof Error ? err.message : "Could not receive"); } finally { setBusy(false); }
+    } catch (err) { toast.error(err instanceof Error ? err.message : "Could not receive"); } finally { setNonFormBusy(false); }
   }
 
   async function computeSuggestions(supplierId: string) {
@@ -192,41 +215,39 @@ export default function ManagerPurchasingPage() {
   }
 
   // ── Catalogue management ──
-  function openCatalogue(supplierId: string) { setCatSupplierId(supplierId); setCatEditing(null); setCatForm({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false }); setCatOpen(true); }
+  function openCatalogue(supplierId: string) { setCatSupplierId(supplierId); setCatEditing(null); catForm.reset({ menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false }); setCatOpen(true); }
 
   function editCatalogueItem(si: SupplierItem) {
     setCatEditing(si);
-    setCatForm({ menuItemId: si.menuItemId, unitCostCents: si.unitCostCents ? String(si.unitCostCents / 100) : "", caseSize: si.caseSize ? String(si.caseSize) : "", caseCostCents: si.caseCostCents ? String(si.caseCostCents / 100) : "", supplierSku: si.supplierSku ?? "", preferred: si.preferred });
+    catForm.reset({ menuItemId: si.menuItemId, unitCostCents: si.unitCostCents ?? 0, supplierSku: si.supplierSku ?? "", preferred: si.preferred });
     setCatOpen(true);
   }
 
   function addNewCatalogueItem() {
     setCatEditing(null);
-    setCatForm({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false });
+    catForm.reset({ menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false });
   }
 
-  async function saveCatalogueItem() {
-    if (!catForm.menuItemId) { toast.error("Select an item"); return; }
-    setBusy(true); try {
+  const onSaveCatalogueItem = catForm.handleSubmit(async (data) => {
+    try {
       const si: SupplierItem = {
-        id: catEditing?.id ?? `si-${catSupplierId}-${catForm.menuItemId}`,
+        id: catEditing?.id ?? `si-${catSupplierId}-${data.menuItemId}`,
         supplierId: catSupplierId,
-        menuItemId: catForm.menuItemId,
-        unitCostCents: catForm.unitCostCents ? Math.round(parseFloat(catForm.unitCostCents) * 100) : undefined,
-        caseSize: catForm.caseSize ? parseInt(catForm.caseSize) : undefined,
-        caseCostCents: catForm.caseCostCents ? Math.round(parseFloat(catForm.caseCostCents) * 100) : undefined,
-        supplierSku: catForm.supplierSku.trim() || undefined,
-        preferred: catForm.preferred,
+        menuItemId: data.menuItemId,
+        unitCostCents: data.unitCostCents || undefined,
+        caseSize: undefined,
+        caseCostCents: undefined,
+        supplierSku: data.supplierSku.trim() || undefined,
+        preferred: data.preferred,
       };
       await purchasingService.saveSupplierItem(si); await refresh();
-      // Return to list view
-      setCatEditing(null); setCatForm({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false });
+      setCatEditing(null); catForm.reset({ menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false });
       toast.success(catEditing ? "Catalogue item updated" : "Item added to catalogue");
-    } catch { toast.error("Could not save catalogue item"); } finally { setBusy(false); }
-  }
+    } catch { toast.error("Could not save catalogue item"); }
+  });
 
   async function removeFromCatalogue(siId: string) {
-    setBusy(true); try { await purchasingService.removeSupplierItem(siId); await refresh(); toast.success("Removed from catalogue"); } catch { toast.error("Could not remove"); } finally { setBusy(false); }
+    setNonFormBusy(true); try { await purchasingService.removeSupplierItem(siId); await refresh(); toast.success("Removed from catalogue"); } catch { toast.error("Could not remove"); } finally { setNonFormBusy(false); }
   }
 
   if (!ready) return <ListSkeleton />;
@@ -274,7 +295,7 @@ export default function ManagerPurchasingPage() {
               <div className="flex gap-1">
                 <Button size="sm" variant="outline" onClick={() => openCatalogue(sup.id)}><BookOpen className="size-4 mr-1" /> Catalogue</Button>
                 <Button size="sm" variant="outline" onClick={() => computeSuggestions(sup.id)}><ShoppingCart className="size-4 mr-1" /> Par check</Button>
-                <Button size="sm" variant="outline" onClick={() => openPO(sup.id)} disabled={busy}><Plus className="size-4 mr-1" /> New PO</Button>
+                <Button size="sm" variant="outline" onClick={() => openPO(sup.id)} disabled={nonFormBusy}><Plus className="size-4 mr-1" /> New PO</Button>
               </div>
             </CardTitle>
           </CardHeader>
@@ -312,7 +333,7 @@ export default function ManagerPurchasingPage() {
                 <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="Filter" /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="open">Open</SelectItem><SelectItem value="counting">Counting</SelectItem><SelectItem value="committed">Committed</SelectItem></SelectContent>
               </Select>
-              <Button size="sm" variant="outline" onClick={() => { setStDate(new Date().toISOString().slice(0, 10)); setStOpen(true); }}>
+              <Button size="sm" variant="outline" onClick={() => { stocktakeForm.reset({ date: new Date().toISOString().slice(0, 10) }); setStOpen(true); }}>
                 <Plus className="size-3.5 mr-1" /> New stocktake
               </Button>
             </div>
@@ -329,7 +350,7 @@ export default function ManagerPurchasingPage() {
                   <div><p className={`text-sm font-semibold tabular-nums ${st.totalVarianceCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{formatMoney(st.totalVarianceCents, "CAD")}</p><p className="text-xs text-muted-foreground">{st.lines.length} lines</p></div>
                   {st.status !== "committed" && (
                     <ConfirmDialog
-                      trigger={<Button size="sm" disabled={busy}>Commit</Button>}
+                      trigger={<Button size="sm" disabled={nonFormBusy}>Commit</Button>}
                       title="Commit stocktake?"
                       description="Writes adjustment movements for every non-zero variance line. This action is audited and irreversible."
                       confirmLabel="Commit"
@@ -356,22 +377,22 @@ export default function ManagerPurchasingPage() {
       <Dialog open={supOpen} onOpenChange={setSupOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>{supEditing ? "Edit supplier" : "Add supplier"}</DialogTitle><DialogDescription>Supplier contact and ordering defaults.</DialogDescription></DialogHeader>
-          <div className="space-y-3">
-            <div><Label htmlFor="s-name">Name *</Label><Input id="s-name" value={supForm.name} onChange={(e) => setSupForm((p) => ({ ...p, name: e.target.value }))} /></div>
+          <form onSubmit={onSaveSupplier} className="space-y-3">
+            <div><Label htmlFor="s-name">Name *</Label><Input id="s-name" {...supplierForm.register("name")} />{supplierForm.formState.errors.name && <p className="text-xs text-destructive">{supplierForm.formState.errors.name.message}</p>}</div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="s-contact">Contact</Label><Input id="s-contact" value={supForm.contactName} onChange={(e) => setSupForm((p) => ({ ...p, contactName: e.target.value }))} /></div>
-              <div><Label htmlFor="s-phone">Phone</Label><Input id="s-phone" value={supForm.phone} onChange={(e) => setSupForm((p) => ({ ...p, phone: e.target.value }))} /></div>
+              <div><Label htmlFor="s-contact">Contact</Label><Input id="s-contact" {...supplierForm.register("contactName")} /></div>
+              <div><Label htmlFor="s-phone">Phone</Label><Input id="s-phone" {...supplierForm.register("phone")} /></div>
             </div>
-            <div><Label htmlFor="s-email">Email</Label><Input id="s-email" type="email" value={supForm.email} onChange={(e) => setSupForm((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div><Label htmlFor="s-email">Email</Label><Input id="s-email" type="email" {...supplierForm.register("email")} />{supplierForm.formState.errors.email && <p className="text-xs text-destructive">{supplierForm.formState.errors.email.message}</p>}</div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="s-lead">Lead time (days)</Label><Input id="s-lead" type="number" min={1} value={supForm.leadTimeDays} onChange={(e) => setSupForm((p) => ({ ...p, leadTimeDays: e.target.value }))} /></div>
-              <div><Label htmlFor="s-min">Min order ($)</Label><Input id="s-min" placeholder="500" value={supForm.minOrder} onChange={(e) => setSupForm((p) => ({ ...p, minOrder: e.target.value }))} /></div>
+              <div><Label htmlFor="s-lead">Lead time (days)</Label><Input id="s-lead" type="number" min={1} {...supplierForm.register("leadTimeDays", { valueAsNumber: true })} /></div>
+              <div><Label htmlFor="s-min">Min order ($)</Label><Input id="s-min" placeholder="500" {...supplierForm.register("minOrder", { valueAsNumber: true })} /></div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSupOpen(false)}>Cancel</Button>
-            <Button onClick={saveSupplier} disabled={!supForm.name.trim() || busy}>{supEditing ? "Save" : "Add"}</Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSupOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={supBusy}>{supEditing ? "Save" : "Add"}</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -392,7 +413,7 @@ export default function ManagerPurchasingPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
-            <Button onClick={receivePO} disabled={busy}>Confirm receipt</Button>
+            <Button onClick={receivePO} disabled={nonFormBusy}>Confirm receipt</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -464,7 +485,7 @@ export default function ManagerPurchasingPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPoOpen(false)}>Cancel</Button>
-            <Button onClick={savePO} disabled={busy}>Create PO</Button>
+            <Button onClick={savePO} disabled={nonFormBusy}>Create PO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -478,11 +499,11 @@ export default function ManagerPurchasingPage() {
           </DialogHeader>
 
           {/* Add/edit form */}
-          <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+          <form onSubmit={onSaveCatalogueItem} className="space-y-3 rounded-lg border bg-muted/30 p-3">
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 <Label className="text-xs">Item</Label>
-                <Select value={catForm.menuItemId} onValueChange={(v) => setCatForm((p) => ({ ...p, menuItemId: v }))}>
+                <Select value={catForm.watch("menuItemId")} onValueChange={(v) => catForm.setValue("menuItemId", v)}>
                   <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Select menu item" /></SelectTrigger>
                   <SelectContent>
                     {items.filter((i) => catEditing || !supplierItems.some((si) => si.supplierId === catSupplierId && si.menuItemId === i.id)).map((i) => (
@@ -490,26 +511,26 @@ export default function ManagerPurchasingPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {catForm.formState.errors.menuItemId && <p className="text-xs text-destructive">{catForm.formState.errors.menuItemId.message}</p>}
               </div>
               <div className="w-24">
                 <Label className="text-xs">Unit cost ($)</Label>
-                <Input className="mt-1 h-8 text-sm" value={catForm.unitCostCents} onChange={(e) => setCatForm((p) => ({ ...p, unitCostCents: e.target.value }))} placeholder="4.00" />
+                <Input className="mt-1 h-8 text-sm" type="number" step={0.01} value={catForm.watch("unitCostCents") ? (catForm.watch("unitCostCents") / 100).toString() : ""} onChange={(e) => catForm.setValue("unitCostCents", Math.round(parseFloat(e.target.value) * 100) || 0, { shouldValidate: true })} placeholder="4.00" />
+                {catForm.formState.errors.unitCostCents && <p className="text-xs text-destructive">{catForm.formState.errors.unitCostCents.message}</p>}
               </div>
             </div>
             <div className="flex gap-3">
-              <div className="flex-1"><Label className="text-xs">SKU</Label><Input className="mt-1 h-8 text-sm" value={catForm.supplierSku} onChange={(e) => setCatForm((p) => ({ ...p, supplierSku: e.target.value }))} placeholder="GG-750" /></div>
-              <div className="w-20"><Label className="text-xs">Case size</Label><Input className="mt-1 h-8 text-sm" type="number" value={catForm.caseSize} onChange={(e) => setCatForm((p) => ({ ...p, caseSize: e.target.value }))} placeholder="6" /></div>
-              <div className="w-24"><Label className="text-xs">Case cost ($)</Label><Input className="mt-1 h-8 text-sm" value={catForm.caseCostCents} onChange={(e) => setCatForm((p) => ({ ...p, caseCostCents: e.target.value }))} placeholder="24.00" /></div>
+              <div className="flex-1"><Label className="text-xs">SKU</Label><Input className="mt-1 h-8 text-sm" {...catForm.register("supplierSku")} placeholder="GG-750" /></div>
             </div>
-            <label className="flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={catForm.preferred} onChange={(e) => setCatForm((p) => ({ ...p, preferred: e.target.checked }))} />
-              Preferred supplier for this item
-            </label>
+            <div className="flex items-center gap-2 text-xs">
+              <Switch checked={catForm.watch("preferred")} onCheckedChange={(v) => catForm.setValue("preferred", v)} id="cat-preferred" />
+              <Label htmlFor="cat-preferred">Preferred supplier for this item</Label>
+            </div>
             <div className="flex gap-2">
-              <Button size="sm" onClick={saveCatalogueItem} disabled={!catForm.menuItemId || busy}>{catEditing ? "Update" : "Add to catalogue"}</Button>
-              {catEditing && <Button size="sm" variant="ghost" onClick={addNewCatalogueItem}>Cancel edit</Button>}
+              <Button type="submit" size="sm" disabled={!catForm.watch("menuItemId") || catBusy}>{catEditing ? "Update" : "Add to catalogue"}</Button>
+              {catEditing && <Button type="button" size="sm" variant="ghost" onClick={addNewCatalogueItem}>Cancel edit</Button>}
             </div>
-          </div>
+          </form>
 
           {/* Existing catalogue items */}
           <div className="max-h-60 space-y-1 overflow-y-auto">
@@ -551,16 +572,16 @@ export default function ManagerPurchasingPage() {
               Snapshots current stock levels for all {items.length} items. Count and commit after.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <div><Label htmlFor="st-date">Business date</Label><Input id="st-date" type="date" value={stDate} onChange={(e) => setStDate(e.target.value)} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStOpen(false)}>Cancel</Button>
-            <Button onClick={startStocktake} disabled={busy}>
-              {busy && "Starting…"}
-              {!busy && "Start stocktake"}
-            </Button>
-          </DialogFooter>
+          <form onSubmit={onStartStocktake} className="space-y-3">
+            <div><Label htmlFor="st-date">Business date</Label><Input id="st-date" type="date" {...stocktakeForm.register("date")} /></div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setStOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={nonFormBusy || stocktakeForm.formState.isSubmitting}>
+                {(nonFormBusy || stocktakeForm.formState.isSubmitting) && "Starting…"}
+                {!(nonFormBusy || stocktakeForm.formState.isSubmitting) && "Start stocktake"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

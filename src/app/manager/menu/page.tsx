@@ -2,8 +2,11 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Gift, Martini, Pencil, Plus, Trash2 } from "lucide-react";
+import { Gift, Loader2, Martini, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,13 +24,14 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MenuItemCard } from "@/components/shared/menu-item-card";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { PackageEditor, type PackageDraft } from "@/components/manager/package-editor";
 import { ModifierPresetEditor } from "@/components/manager/modifier-preset-editor";
 import { menuService, type PackageQuote } from "@/features/menu/services";
 import { formatMoney } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
-import type { BottlePackage, MenuCategory, MenuItem } from "@/lib/types";
+import type { BottlePackage, MenuCategory, MenuItem, ModifierGroup } from "@/lib/types";
 
 type PackageWithQuote = BottlePackage & { quote: PackageQuote };
 
@@ -39,15 +43,39 @@ function MenuContent() {
   const [activeCategory, setActiveCategory] = useState<string>(
     searchParams.get("category") ?? "",
   );
-  const [itemsPage, setItemsPage] = useState(1);
-  const [packagesPage, setPackagesPage] = useState(1);
-  const [editing, setEditing] = useState<MenuItem | null>(null);
-  const [saving, setSaving] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPackage, setEditingPackage] = useState<BottlePackage | null>(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
-  const [categoryDraft, setCategoryDraft] = useState<Omit<MenuCategory, "id"> | null>(null);
+
+  const zCategoryForm = z.object({
+    name: z.string().min(1, "Name is required"),
+    sortOrder: z.number().int().nonnegative().default(0),
+    description: z.string().default(""),
+    isActive: z.boolean().default(true),
+  });
+
+  const zItemEditForm = z.object({
+    name: z.string().min(1, "Name is required"),
+    description: z.string().default(""),
+    price: z.number().positive("Price must be positive"),
+  });
+
+  const categoryForm = useForm({
+    resolver: zodResolver(zCategoryForm),
+    defaultValues: { name: "", sortOrder: 0, description: "", isActive: true },
+  });
+
+  const [editing, setEditing] = useState<MenuItem | null>(null);
+
+  const itemForm = useForm({
+    resolver: zodResolver(zItemEditForm),
+    defaultValues: { name: "", description: "", price: 0 },
+  });
+
+  const [modifierGroups, setModifierGroups] = useState<ModifierGroup[]>([]);
+
+  const isSaving = categoryForm.formState.isSubmitting || itemForm.formState.isSubmitting;
 
   const refresh = useCallback(async () => {
     const [cats, its, pkgs] = await Promise.all([
@@ -67,48 +95,49 @@ function MenuContent() {
 
   function openCategory(category?: MenuCategory) {
     setEditingCategory(category ?? null);
-    setCategoryDraft(category
-      ? {
-          venueId: category.venueId,
-          name: category.name,
-          description: category.description,
-          sortOrder: category.sortOrder,
-          isActive: category.isActive,
-          modifierGroups: structuredClone(category.modifierGroups),
-        }
-      : {
-          venueId: "venue-1",
-          name: "",
-          description: "",
-          sortOrder: (categories?.length ?? 0) + 1,
-          isActive: true,
-          modifierGroups: [],
-        });
+    if (category) {
+      categoryForm.reset({
+        name: category.name,
+        sortOrder: category.sortOrder,
+        description: category.description,
+        isActive: category.isActive,
+      });
+      setModifierGroups(structuredClone(category.modifierGroups));
+    } else {
+      categoryForm.reset({
+        name: "",
+        sortOrder: (categories?.length ?? 0) + 1,
+        description: "",
+        isActive: true,
+      });
+      setModifierGroups([]);
+    }
     setCategoryOpen(true);
   }
 
-  async function saveCategory() {
-    if (!categoryDraft?.name.trim()) {
-      toast.error("Give the category a name.");
-      return;
-    }
-    setSaving(true);
+  const onCategorySave = categoryForm.handleSubmit(async (data) => {
     try {
+      const draft = {
+        venueId: editingCategory?.venueId ?? "venue-1",
+        name: data.name.trim(),
+        description: data.description,
+        sortOrder: data.sortOrder,
+        isActive: data.isActive,
+        modifierGroups,
+      };
       if (editingCategory) {
-        await menuService.updateCategory(editingCategory.id, categoryDraft);
-        toast.success(`${categoryDraft.name} updated`);
+        await menuService.updateCategory(editingCategory.id, draft);
+        toast.success(`${data.name} updated`);
       } else {
-        await menuService.createCategory({ ...categoryDraft, name: categoryDraft.name.trim() });
-        toast.success(`${categoryDraft.name} created`);
+        await menuService.createCategory(draft);
+        toast.success(`${data.name} created`);
       }
       setCategoryOpen(false);
       await refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save the category.");
-    } finally {
-      setSaving(false);
     }
-  }
+  });
 
   async function removeCategory(category: MenuCategory) {
     try {
@@ -129,29 +158,27 @@ function MenuContent() {
     await refresh();
   }
 
-  async function saveEdit() {
+  const onItemSave = itemForm.handleSubmit(async (data) => {
     if (!editing) return;
-    setSaving(true);
-    // Guest-facing fields only — stock lives in /manager/inventory.
     await menuService.updateItem(editing.id, {
-      name: editing.name,
-      description: editing.description,
-      price: editing.price,
+      name: data.name,
+      description: data.description,
+      price: data.price,
     });
-    setSaving(false);
     setEditing(null);
     toast.success("Item updated");
     await refresh();
-  }
+  });
 
   // ---------- Packages ----------
 
   async function savePackage(draft: PackageDraft) {
+    const payload = { ...draft, price: draft.priceCents / 100 } as any;
     if (editingPackage) {
-      await menuService.updatePackage(editingPackage.id, draft);
+      await menuService.updatePackage(editingPackage.id, payload as any);
       toast.success(`${draft.name} updated`);
     } else {
-      await menuService.createPackage({ venueId: "venue-1", ...draft });
+      await menuService.createPackage({ venueId: "venue-1", ...payload } as any);
       toast.success(`${draft.name} created`);
     }
     await refresh();
@@ -170,6 +197,11 @@ function MenuContent() {
   }
 
   const visibleItems = items.filter((i) => i.categoryId === activeCategory);
+
+  const { sliced: slicedItems, hasMore: itemsHasMore, loadMore: loadMoreItems, reset: resetItems } = useInfiniteSlice(visibleItems, 10);
+  const { sliced: slicedPackages, hasMore: pkgsHasMore, loadMore: loadMorePkgs, reset: resetPkgs } = useInfiniteSlice(packages, 10);
+
+  useEffect(() => { resetItems(); }, [activeCategory, resetItems]);
 
   return (
     <div className="space-y-5">
@@ -230,8 +262,9 @@ function MenuContent() {
                 description="Add bottles to make them orderable from the guest menu."
               />
             ) : (
+              <>
               <div className="grid gap-2.5 lg:grid-cols-2">
-                {paginate(visibleItems, itemsPage).map((item) => (
+                {slicedItems.map((item) => (
                   <MenuItemCard
                     key={item.id}
                     item={item}
@@ -258,7 +291,7 @@ function MenuContent() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setEditing(item)}
+                          onClick={() => { setEditing(item); itemForm.reset({ name: item.name, description: item.description, price: item.price }); }}
                           aria-label="Edit item"
                         >
                           <Pencil className="size-4" />
@@ -268,8 +301,9 @@ function MenuContent() {
                   />
                 ))}
               </div>
+              <InfiniteScrollSentinel onLoadMore={loadMoreItems} hasMore={itemsHasMore} />
+              </>
             )}
-            <Pagination totalItems={visibleItems.length} currentPage={itemsPage} onPageChange={setItemsPage} className="mt-3" />
           </TabsContent>
 
           {/* ---------- Packages tab ---------- */}
@@ -292,8 +326,9 @@ function MenuContent() {
                 description="Bundle bottles into a package guests can order in one tap."
               />
             ) : (
+              <>
               <div className="grid gap-3 lg:grid-cols-2">
-                {paginate(packages, packagesPage).map((pkg) => (
+                {slicedPackages.map((pkg) => (
                   <Card key={pkg.id} className={`py-4 ${pkg.isActive ? "" : "opacity-60"}`}>
                     <CardContent className="space-y-3 px-4">
                       <div className="flex items-start gap-3">
@@ -385,46 +420,45 @@ function MenuContent() {
                   </Card>
                 ))}
               </div>
+              <InfiniteScrollSentinel onLoadMore={loadMorePkgs} hasMore={pkgsHasMore} />
+              </>
             )}
-            <Pagination totalItems={packages.length} currentPage={packagesPage} onPageChange={setPackagesPage} className="mt-3" />
           </TabsContent>
         </Tabs>
       )}
 
-      {/* ---------- Item edit dialog ---------- */}
+      {/* ---------- Category edit dialog ---------- */}
       <Dialog open={categoryOpen} onOpenChange={setCategoryOpen}>
         <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingCategory ? `Edit ${editingCategory.name}` : "New category"}</DialogTitle>
           </DialogHeader>
-          {categoryDraft && (
-            <div className="space-y-4">
+          <form onSubmit={onCategorySave} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
                 <div className="space-y-1.5">
                   <Label htmlFor="category-name">Name</Label>
-                  <Input id="category-name" value={categoryDraft.name} onChange={(event) => setCategoryDraft({ ...categoryDraft, name: event.target.value })} />
+                  <Input id="category-name" {...categoryForm.register("name")} />
+                  {categoryForm.formState.errors.name && <p className="text-xs text-destructive">{categoryForm.formState.errors.name.message}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="category-order">Sort order</Label>
-                  <Input id="category-order" type="number" min={1} value={categoryDraft.sortOrder} onChange={(event) => setCategoryDraft({ ...categoryDraft, sortOrder: Math.max(1, Number(event.target.value)) })} />
+                  <Input id="category-order" type="number" min={1} {...categoryForm.register("sortOrder", { valueAsNumber: true })} />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="category-description">Description</Label>
-                <Textarea id="category-description" value={categoryDraft.description} onChange={(event) => setCategoryDraft({ ...categoryDraft, description: event.target.value })} />
+                <Textarea id="category-description" {...categoryForm.register("description")} />
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div><p className="text-sm font-medium">Active</p><p className="text-xs text-muted-foreground">Visible on the guest menu</p></div>
-                <Switch checked={categoryDraft.isActive} onCheckedChange={(isActive) => setCategoryDraft({ ...categoryDraft, isActive })} />
+                <Switch checked={categoryForm.watch("isActive")} onCheckedChange={(v) => categoryForm.setValue("isActive", v)} />
               </div>
               <ModifierPresetEditor
-                value={categoryDraft.modifierGroups}
-                onChange={(modifierGroups) => setCategoryDraft({ ...categoryDraft, modifierGroups })}
+                value={modifierGroups}
+                onChange={setModifierGroups}
                 inventoryItems={items}
               />
-            </div>
-          )}
-          <DialogFooter className="sm:justify-between">
+            <DialogFooter className="sm:justify-between">
             <div>
               {editingCategory && (
                 <ConfirmDialog
@@ -438,62 +472,49 @@ function MenuContent() {
               )}
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setCategoryOpen(false)} disabled={saving}>Cancel</Button>
-              <Button onClick={saveCategory} disabled={saving}>{saving ? "Saving…" : "Save category"}</Button>
+              <Button type="button" variant="ghost" onClick={() => setCategoryOpen(false)} disabled={isSaving}>Cancel</Button>
+              <Button type="submit" disabled={isSaving}>{isSaving ? "Saving…" : "Save category"}</Button>
             </div>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
       {/* ---------- Item edit dialog ---------- */}
-      <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+      <Dialog open={editing !== null} onOpenChange={(open) => { if (!open) setEditing(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit bottle</DialogTitle>
           </DialogHeader>
           {editing && (
-            <div className="space-y-4">
+            <form onSubmit={onItemSave} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="edit-name">Name</Label>
-                <Input
-                  id="edit-name"
-                  value={editing.name}
-                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                />
+                <Input id="edit-name" {...itemForm.register("name")} />
+                {itemForm.formState.errors.name && <p className="text-xs text-destructive">{itemForm.formState.errors.name.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="edit-desc">Description</Label>
-                <Textarea
-                  id="edit-desc"
-                  rows={2}
-                  value={editing.description}
-                  onChange={(e) => setEditing({ ...editing, description: e.target.value })}
-                />
+                <Textarea id="edit-desc" rows={2} {...itemForm.register("description")} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="edit-price">Price ($ CAD)</Label>
-                <Input
-                  id="edit-price"
-                  type="number"
-                  min={0}
-                  step={5}
-                  value={editing.price}
-                  onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) })}
-                />
+                <Input id="edit-price" type="number" min={0} step={5} {...itemForm.register("price", { valueAsNumber: true })} />
+                {itemForm.formState.errors.price && <p className="text-xs text-destructive">{itemForm.formState.errors.price.message}</p>}
               </div>
               <p className="text-xs text-muted-foreground">
                 Stock levels are managed in Inventory — restocks and corrections happen there.
               </p>
-            </div>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving ? "Saving…" : "Save"}
+                </Button>
+              </DialogFooter>
+            </form>
           )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>
-              Cancel
-            </Button>
-            <Button onClick={saveEdit} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
