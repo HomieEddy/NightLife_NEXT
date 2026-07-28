@@ -123,7 +123,20 @@ export function computeEventPnL(
   };
 }
 
-/** RV-05: Computes a priority score for an order — higher = fulfill first. Based on zone, minimum spend, session age, and order type. */
+/** CRM-04: Computes guest spend by category from delivered orders. */
+export function computeGuestSpendByCategory(
+  orders: { orderId: string; menuItemId: string; categoryId: string; priceCents: number; status: string; deliveredAt: string }[],
+): Record<string, { totalCents: number; count: number }> {
+  const byCat: Record<string, { totalCents: number; count: number }> = {};
+  for (const o of orders) {
+    if (o.status !== "delivered") continue;
+    const cat = byCat[o.categoryId] ?? { totalCents: 0, count: 0 };
+    cat.totalCents += o.priceCents;
+    cat.count += 1;
+    byCat[o.categoryId] = cat;
+  }
+  return byCat;
+}
 export function computeOrderPriority(
   zoneName: string,
   minimumSpendCents: number | undefined,

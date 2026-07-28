@@ -526,4 +526,17 @@ export const mockOrdersService = {
     await delay(100);
     return clone(mockGuestSessions.filter((s) => s.tableId === tableId && s.status === "approved"));
   },
+
+  /** RV-06: Pre-order inventory availability check — returns items that would go out of stock. */
+  async checkInventoryAvailability(cartLines: { menuItemId: string; quantity: number }[]): Promise<{ menuItemId: string; name: string; available: number; requested: number }[]> {
+    await delay(100);
+    const warnings: { menuItemId: string; name: string; available: number; requested: number }[] = [];
+    for (const line of cartLines) {
+      const item = mockMenuItems.find((i) => i.id === line.menuItemId);
+      if (item && item.inventory < line.quantity) {
+        warnings.push({ menuItemId: item.id, name: item.name, available: item.inventory, requested: line.quantity });
+      }
+    }
+    return warnings;
+  },
 };

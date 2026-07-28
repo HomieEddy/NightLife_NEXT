@@ -197,5 +197,9 @@ export const liveOrdersService = {
   async detectDualSession(_tableId: string): Promise<GuestSession[]> {
     return api("/api/sessions/dual");
   },
+
+  async checkInventoryAvailability(_cartLines: { menuItemId: string; quantity: number }[]): Promise<{ menuItemId: string; name: string; available: number; requested: number }[]> {
+    return api("/api/inventory/availability", { method: "POST" });
+  },
 };
 import { liveFetch } from "./live-fetch";
