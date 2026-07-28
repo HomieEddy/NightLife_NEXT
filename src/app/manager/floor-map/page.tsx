@@ -61,7 +61,6 @@ function FloorMapPageContent() {
   const [tableSessions, setTableSessions] = useState<GuestSession[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
-  const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
   const snapshotRef = useRef<{ tables: VenueTable[]; floorMap: Venue["floorMap"] } | null>(null);
 
   const refresh = useCallback(async () => {
@@ -155,35 +154,18 @@ function FloorMapPageContent() {
     setVenue({ ...venue, floorMap });
   }
 
-  // ---------- Drag handling (edit mode) ----------
+  // ---------- Drag handling (edit mode via dnd-kit) ----------
 
-  function onPointerDown(e: React.PointerEvent, table: VenueTable) {
-    dragRef.current = { id: table.id, moved: false };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  function handleTableDrag(tableId: string, mapX: number, mapY: number) {
+    setTables((prev) =>
+      prev ? prev.map((t) => (t.id === tableId ? { ...t, mapX, mapY } : t)) : prev,
+    );
   }
 
   function handleSelectTable(table: VenueTable) {
     const next = table.id === selectedId ? null : table.id;
     setSelectedId(next);
     setTableOrders(null);
-  }
-
-  function onPointerMove(e: React.PointerEvent) {
-    const drag = dragRef.current;
-    if (!drag) return;
-    drag.moved = true;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.min(98, Math.max(2, ((e.clientX - rect.left) / rect.width) * 100));
-    const y = Math.min(98, Math.max(2, ((e.clientY - rect.top) / rect.height) * 100));
-    setTables((prev) =>
-      prev ? prev.map((t) => (t.id === drag.id ? { ...t, mapX: x, mapY: y } : t)) : prev,
-    );
-  }
-
-  function onPointerUp() {
-    const drag = dragRef.current;
-    dragRef.current = null;
-    if (!drag?.moved) return;
   }
 
   async function setStatus(table: VenueTable, status: TableStatus) {
@@ -322,9 +304,7 @@ function FloorMapPageContent() {
             selectedId={selectedId}
             editMode={editMode}
             onSelectTable={handleSelectTable}
-            onDragStart={onPointerDown}
-            onDragMove={onPointerMove}
-            onDragEnd={onPointerUp}
+            onTableDrag={handleTableDrag}
           />
 
           {/* ---------- Side panel ---------- */}
