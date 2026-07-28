@@ -110,6 +110,7 @@ export default function CashoutPage() {
       <PageHeader
         title="Cash-out"
         description={`Business date ${businessDate || "…"} — the venue's night runs to ${nightEndHour}:00.`}
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Cash Out" }]}
       />
 
       <Card>

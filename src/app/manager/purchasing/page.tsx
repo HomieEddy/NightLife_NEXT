@@ -234,6 +234,7 @@ export default function ManagerPurchasingPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Purchasing" description="Suppliers, purchase orders, stocktakes and suggested ordering"
+        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Purchasing" }]}
         actions={<Button size="sm" onClick={openSupCreate}><Plus className="size-4 mr-1" /> Add supplier</Button>}
       />
 

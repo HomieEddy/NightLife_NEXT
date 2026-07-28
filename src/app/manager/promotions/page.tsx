@@ -162,6 +162,7 @@ function PromotionsContent() {
       <PageHeader
         title="Promotions"
         description="Promo codes and discounts applied at checkout."
+        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Promotions" }]}
         actions={
           <Button onClick={openCreate}>
             <Plus className="size-4" /> New promotion

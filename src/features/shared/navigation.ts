@@ -40,6 +40,7 @@ export interface NavItem {
 
 export interface NavGroup {
   label: string;
+  defaultCollapsed?: boolean;
   items: NavItem[];
 }
 
@@ -91,6 +92,7 @@ export const MANAGER_NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Insights",
+    defaultCollapsed: true,
     items: [
       { href: "/manager/analytics", label: "Analytics", icon: BarChart3, feature: "analytics" },
       { href: "/manager/automations", label: "Automations", icon: Bot },
@@ -128,7 +130,10 @@ const COLLAPSED_KEY_PREFIX = "nlx-nav-collapsed-";
 
 export function isGroupCollapsed(label: string): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem(`${COLLAPSED_KEY_PREFIX}${label}`) === "1";
+  const stored = localStorage.getItem(`${COLLAPSED_KEY_PREFIX}${label}`);
+  if (stored !== null) return stored === "1";
+  const group = MANAGER_NAV_GROUPS.find((g) => g.label === label);
+  return group?.defaultCollapsed ?? false;
 }
 
 export function setGroupCollapsed(label: string, collapsed: boolean): void {

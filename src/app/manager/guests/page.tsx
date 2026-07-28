@@ -152,6 +152,7 @@ export default function ManagerGuestsPage() {
   return (
     <div className="space-y-5">
       <PageHeader title="Guests" description="Persistent guest identity — profiles, VIP tiers and bans."
+        breadcrumbs={[{ label: "Bookings", href: "/manager/reservations" }, { label: "Guests" }]}
         actions={<Button size="sm" onClick={openCreate}><Plus className="size-4 mr-1" /> Add guest</Button>}
       />
 

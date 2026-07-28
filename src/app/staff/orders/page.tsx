@@ -229,11 +229,7 @@ function StaffOrdersContent() {
         <EmptyState
           icon={Inbox}
           title="Queue is clear"
-          description={
-            zoneScoped
-              ? "No orders in your zones right now. Nice work."
-              : "No orders match this filter."
-          }
+          description="Orders placed by guests will appear here. Claim one to start delivering."
         />
       ) : (
         <div className="stagger-children space-y-3">

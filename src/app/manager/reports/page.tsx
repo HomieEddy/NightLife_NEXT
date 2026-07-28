@@ -205,6 +205,7 @@ function ReportsPageContent() {
       <PageHeader
         title="Reports"
         description="Build, save and schedule recurring reports over historical data."
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Reports" }]}
       />
 
       {/* ---------- Builder ---------- */}

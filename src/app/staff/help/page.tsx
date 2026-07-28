@@ -87,11 +87,7 @@ export default function StaffHelpPage() {
         <EmptyState
           icon={LifeBuoy}
           title={isSecurityRole ? "No active security requests" : "All guests are happy"}
-          description={
-            isSecurityRole
-              ? "Security help requests will appear here as soon as a guest flags a situation."
-              : "Open help requests will appear here the moment a guest taps a button."
-          }
+          description="Guest help requests appear here. Respond to claim and assist."
         />
       ) : (
         <div className="stagger-children space-y-3">

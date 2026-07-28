@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -8,6 +8,7 @@ import { AuthBanner } from "@/components/shared/auth-banner";
 import { MobileBottomNav } from "@/components/shared/mobile-bottom-nav";
 import { RequireAuth } from "@/components/shared/require-auth";
 import { BroadcastBanner } from "@/components/staff/broadcast-banner";
+import { CommandPalette } from "@/components/shared/command-palette";
 import { staffService } from "@/features/workforce/staff-service";
 import { venueService } from "@/features/venue/services";
 import { useEntitlements } from "@/lib/use-entitlements";
@@ -21,12 +22,26 @@ import type { StaffMember } from "@/lib/types";
 export function StaffShell({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<StaffMember | null>(null);
   const [venueName, setVenueName] = useState<string | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const { hasFeature } = useEntitlements();
 
   useEffect(() => {
     staffService.getCurrentStaff().then(setMe);
     venueService.getVenue().then((v) => setVenueName(v.name));
   }, []);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      setPaletteOpen(true);
+    }
+    if (e.key === "Escape") setPaletteOpen(false);
+  }, []);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   return (
     <RequireAuth>
@@ -60,6 +75,10 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         items={getStaffNav(me?.role ?? "runner").filter(
           (item) => !item.feature || hasFeature(item.feature),
         )}
+      />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
       />
     </div>
     </RequireAuth>

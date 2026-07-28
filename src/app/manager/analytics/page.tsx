@@ -155,6 +155,7 @@ function AnalyticsPageContent() {
       <PageHeader
         title="Analytics"
         description="Historical performance — tonight's live numbers live on the Dashboard."
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Analytics" }]}
       />
 
       {/* ---------- Range controls ---------- */}

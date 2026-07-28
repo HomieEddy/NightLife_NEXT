@@ -104,6 +104,7 @@ export default function ManagerTipsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Tips" description="Distribute the night's tip pool by rule"
+        breadcrumbs={[{ label: "Team", href: "/manager/staff" }, { label: "Tips" }]}
         actions={<Button size="sm" variant="outline" onClick={openRuleEdit}><Pencil className="size-4 mr-1" /> Edit rule</Button>}
       />
 

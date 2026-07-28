@@ -153,6 +153,7 @@ function HappyHourContent() {
       <PageHeader
         title="Happy hour"
         description="Time-based discounts, applied automatically to guest orders."
+        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Happy Hour" }]}
         actions={
           <Button onClick={openCreate}>
             <Plus className="size-4" /> New rule

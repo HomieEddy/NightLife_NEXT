@@ -283,7 +283,7 @@ export default function StaffIncidentsPage() {
       {incidents === null ? (
         <ListSkeleton rows={3} rowHeight="h-20" />
       ) : incidents.length === 0 ? (
-        <EmptyState icon={ListChecks} title="No incidents" description="Filed reports will show up here." />
+        <EmptyState icon={ListChecks} title="No incidents" description="Incidents filed by your team appear here for review." />
       ) : (
         <div className="stagger-children space-y-2">
           {paginate(incidents, page).map((incident) => (

@@ -93,7 +93,7 @@ function CommissionContent() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Commission" description="Promoter commission rules and statements" />
+      <PageHeader title="Commission" description="Promoter commission rules and statements" breadcrumbs={[{ label: "Team", href: "/manager/staff" }, { label: "Commission" }]} />
       {promoterStaff.length === 0 ? (
         <EmptyState icon={UserCheck} title="No promoters" description="Add a promoter to the team first." />
       ) : (

@@ -204,6 +204,7 @@ function EventsContent() {
       <PageHeader
         title="Events"
         description="Promotions, parties and guestlists for the venue."
+        breadcrumbs={[{ label: "Bookings", href: "/manager/reservations" }, { label: "Events" }]}
         actions={
           <div className="flex items-center gap-2">
             {venue && (

@@ -112,6 +112,7 @@ function AutomationsPageContent() {
       <PageHeader
         title="Automations"
         description="Configure and trigger automated workflows. Each runs as a scheduled job on the live track."
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Automations" }]}
       />
 
       {/* Summary bar */}

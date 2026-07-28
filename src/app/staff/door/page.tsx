@@ -686,7 +686,7 @@ export default function StaffDoorPage() {
         ) : (
           <>
             {waitlist.filter((w) => w.status === "waiting" || w.status === "notified").length === 0 ? (
-              <EmptyState icon={Users} title="No one waiting" description="Walk-ins you add show up here." />
+              <EmptyState icon={Users} title="No one waiting" description="Admissions and occupancy tracking will appear here when the venue opens." />
             ) : (
               <div className="stagger-children space-y-2">
                 {waitlist

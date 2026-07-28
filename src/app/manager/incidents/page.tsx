@@ -144,6 +144,7 @@ export default function ManagerIncidentsPage() {
       <PageHeader
         title="Incidents"
         description={incidents ? `${visible.length} of ${incidents.length} incidents` : "Loading…"}
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Incidents" }]}
       />
 
       <Card>

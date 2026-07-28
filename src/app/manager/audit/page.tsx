@@ -76,6 +76,7 @@ export default function AuditTrailPage() {
       <PageHeader
         title="Audit trail"
         description={entries ? `${visible.length} of ${entries.length} entries` : "Loading…"}
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Audit Trail" }]}
       />
 
       <Card>

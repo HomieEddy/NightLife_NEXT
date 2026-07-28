@@ -274,6 +274,7 @@ function InventoryPageContent() {
       <PageHeader
         title="Inventory"
         description="Stock levels and adjustments — restocking is handled via Purchasing."
+        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Inventory" }]}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" asChild>

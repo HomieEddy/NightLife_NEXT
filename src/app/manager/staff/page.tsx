@@ -92,6 +92,7 @@ function StaffContent() {
       <PageHeader
         title="Staff"
         description={staff ? `${visible.length} team members · ${onShift} on shift` : "Loading…"}
+        breadcrumbs={[{ label: "Team", href: "/manager/staff" }, { label: "Staff" }]}
       />
 
       <div className="flex flex-wrap items-center gap-3">

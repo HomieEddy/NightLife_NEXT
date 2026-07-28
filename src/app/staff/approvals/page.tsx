@@ -126,7 +126,7 @@ export default function StaffApprovalsPage() {
               <EmptyState
                 icon={UserCheck}
                 title="No pending requests"
-                description="New table join requests will show up here."
+                description="When guests scan their table QR code, they'll appear here for approval."
               />
             ) : (
               pending.map((session) => (
