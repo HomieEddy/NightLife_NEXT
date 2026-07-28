@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
+import { NotificationPreferencesCard } from "@/components/shared/notification-preferences-card";
 import { venueService } from "@/lib/services/venue-service";
 import { ordersService } from "@/lib/services/orders-service";
 import { computeFeeLines, computeServiceFee } from "@/lib/fees";
@@ -548,6 +549,8 @@ export default function ManagerSettingsPage() {
       <TabLedgerCard venue={venue} setVenue={setVenue} />
 
       <DoorSafetyCard venue={venue} setVenue={setVenue} />
+
+      <NotificationPreferencesCard />
 
       <Card>
         <CardHeader>

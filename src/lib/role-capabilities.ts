@@ -12,6 +12,7 @@ import {
   DoorOpen,
   AlertTriangle,
   DollarSign,
+  BellRing,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -38,6 +39,7 @@ const BASE_NAV: StaffNavItem[] = [
   { href: "/staff/help", label: "Help", icon: LifeBuoy },
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
   TIPS_ITEM,
+  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
 ];
 
 /** Runner: fulfillment only — no session approvals. */
@@ -48,6 +50,7 @@ const RUNNER_NAV: StaffNavItem[] = [
   SCHEDULE_ITEM,
   TIPS_ITEM,
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
+  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
 ];
 
 /** Security: door + trouble + hours + radio — no orders or approvals. */
@@ -59,6 +62,7 @@ const SECURITY_NAV: StaffNavItem[] = [
   SCHEDULE_ITEM,
   TIPS_ITEM,
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
+  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
 ];
 
 /** Host: floor role focused on approvals, not the door — that's Security's domain. */
@@ -70,6 +74,7 @@ const HOST_NAV: StaffNavItem[] = [
   SCHEDULE_ITEM,
   TIPS_ITEM,
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
+  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
 ];
 
 const PROMOTER_NAV: StaffNavItem[] = [
@@ -81,6 +86,7 @@ const PROMOTER_NAV: StaffNavItem[] = [
   SCHEDULE_ITEM,
   TIPS_ITEM,
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
+  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
 ];
 
 /** All non-runner, non-security, non-promoter floor roles. */
@@ -89,6 +95,7 @@ const FLOOR_NAV: StaffNavItem[] = [
   SCHEDULE_ITEM,
   TIPS_ITEM,
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
+  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
 ];
 
 const STAFF_NAV: Record<StaffRole, StaffNavItem[]> = {
