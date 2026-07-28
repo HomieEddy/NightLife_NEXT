@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { getDb, type SessionContext } from "../features/shared/db";
-import { createTestDb, type TestDb } from "../features/shared/test-pglite";
+import { getDb, type SessionContext } from "@/features/shared/db";
+import { createTestDb, type TestDb } from "@/features/shared/test-pglite";
 import { createCategory, createItem } from "@/features/menu/core";
 import { submitOrder } from "@/features/ordering/core";
-import { toCents } from "../features/shared/money";
+import { toCents } from "@/features/shared/money";
 import {
   getSummaryForVenue,
   computeRollup,
@@ -19,8 +19,8 @@ import {
   recordRun,
   findDueReports,
 } from "@/features/analytics/report-core";
-import { nightContaining, nightForDate } from "../features/shared/night";
-import { expectTenantIsolation } from "../features/shared/test-helpers";
+import { nightContaining, nightForDate } from "@/features/shared/night";
+import { expectTenantIsolation } from "@/features/shared/test-helpers";
 
 const UTC_NIGHT = {
   timezone: "UTC",

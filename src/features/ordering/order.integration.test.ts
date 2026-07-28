@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { getDb, type SessionContext } from "../features/shared/db";
-import { createTestDb, type TestDb } from "../features/shared/test-pglite";
+import { getDb, type SessionContext } from "@/features/shared/db";
+import { createTestDb, type TestDb } from "@/features/shared/test-pglite";
 import {
   submitOrder,
   getOrder,
@@ -14,8 +14,8 @@ import {
   nextStatus,
 } from "@/features/ordering/core";
 import { createCategory, createItem, createPackage, checkLedger, getItem } from "@/features/menu/core";
-import { expectTenantIsolation } from "../features/shared/test-helpers";
-import { toCents } from "../features/shared/money";
+import { expectTenantIsolation } from "@/features/shared/test-helpers";
+import { toCents } from "@/features/shared/money";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string, serviceFees: any = []) {

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { PrismaClient } from "@prisma/client";
-import { getDb, type SessionContext } from "../features/shared/db";
-import { createTestDb, type TestDb } from "../features/shared/test-pglite";
+import { getDb, type SessionContext } from "@/features/shared/db";
+import { createTestDb, type TestDb } from "@/features/shared/test-pglite";
 import {
   listCategories,
   createCategory,
@@ -30,8 +30,8 @@ import {
   deleteHappyHourRule,
   checkLedger,
 } from "@/features/menu/core";
-import { expectTenantIsolation } from "../features/shared/test-helpers";
-import { toCents } from "../features/shared/money";
+import { expectTenantIsolation } from "@/features/shared/test-helpers";
+import { toCents } from "@/features/shared/money";
 
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {
   const org = await rawClient.organization.create({ data: { id: `org-${slug}`, name, slug } });

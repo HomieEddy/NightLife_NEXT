@@ -16,7 +16,7 @@ async function livePOST(request: NextRequest) {
   const { getRawPrisma } = await import("@/features/shared/db");
   const { findDueReports } = await import("@/features/analytics/report-core");
   const { dispatch: notify } = await import("@/features/notifications/dispatch");
-  await import("@/server/notifications/templates");
+  await import("@/features/notifications/templates");
 
   const prisma = getRawPrisma();
   const tenants = await prisma.tenant.findMany({ select: { id: true } });

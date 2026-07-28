@@ -30,7 +30,7 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
   const hasPhone = !!((result.reservation as unknown as Record<string, unknown>).guestPhone);
   if (parsed.data === "confirmed" && (hasEmail || hasPhone)) {
     try {
-      await import("@/server/notifications/templates");
+      await import("@/features/notifications/templates");
       const { dispatch } = await import("@/features/notifications/dispatch");
       const { normalizePhone } = await import("@/lib/phone");
       const prisma = getRawPrisma();
