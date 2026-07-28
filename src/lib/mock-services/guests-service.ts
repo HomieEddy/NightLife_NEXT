@@ -11,6 +11,7 @@ import { mockReservationService } from "./reservation-service";
 import { mockVenueService } from "./venue-service";
 import { mockAuditService } from "./audit-service";
 import { mockIncidentService } from "./incident-service";
+import { mockGuestService } from "./guest-service";
 
 let sessions: GuestSession[] = clone(mockGuestSessions);
 let helpRequests: HelpRequest[] = clone(mockHelpRequests);
@@ -165,6 +166,31 @@ export const mockGuestsService = {
       metadata: { childSessionId: child.id },
     });
     return clone(parent);
+  },
+
+  /** RV-17: Ejection-to-door integrated workflow — refuses service, bans the guest, and files an ejection incident in one audited action. */
+  async ejectGuest(
+    sessionId: string,
+    staffId: string,
+    staffName: string,
+    reason: string,
+    guestProfileId?: string,
+  ): Promise<void> {
+    await delay(400);
+    await this.refuseService(sessionId, reason, staffId, staffName);
+    if (guestProfileId) {
+      await mockGuestService.setBanStatus(guestProfileId, { banned: true, reason }, staffId, staffName);
+    }
+    await mockIncidentService.reportIncident({
+      type: "ejection",
+      severity: "high",
+      involvedStaffIds: [staffId],
+      narrative: `Guest ejected: ${reason}`,
+      actionsTaken: "Service refused, tab closed, guest banned.",
+      policeInvolved: false,
+      reportedByStaffId: staffId,
+      reportedByStaffName: staffName,
+    });
   },
 
   /**
