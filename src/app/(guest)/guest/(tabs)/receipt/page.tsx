@@ -18,7 +18,6 @@ import { ordersService } from "@/features/ordering/services";
 import { guestsService } from "@/features/guests/services";
 import { formatDate, formatMoney, formatTime } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
-import { orderLineSubtotal } from "@/lib/order-line";
 import { evenShares, summarizeReceipt } from "@/lib/receipt";
 import { computeSessionBalance } from "@/lib/tab";
 import type { Order, TabAdjustment, Venue } from "@/lib/types";
@@ -35,7 +34,7 @@ function OrderLines({ order }: { order: Order }) {
                 {item.quantity}× {item.name}
               </span>
               <span className="tabular-nums">
-                {formatMoney(orderLineSubtotal(item.unitPrice, item.quantity, item.modifiers))}
+                {formatMoney(item.unitPrice * item.quantity)}
               </span>
             </div>
             {item.modifiers.length > 0 && (
@@ -408,7 +407,7 @@ function NightReceipt() {
                         {item.quantity}× {item.name}
                       </span>
                       <span className="whitespace-nowrap tabular-nums">
-                        {formatMoney(orderLineSubtotal(item.unitPrice, item.quantity, item.modifiers))}
+                        {formatMoney(item.unitPrice * item.quantity)}
                       </span>
                     </div>
                     {item.modifiers.length > 0 && (
