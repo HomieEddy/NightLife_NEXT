@@ -71,14 +71,12 @@ export async function findTableByQrSlug(
       defaultTipPct: venueRow.defaultTipPct,
       nightStartHour: venueRow.nightStartHour,
       nightEndHour: venueRow.nightEndHour,
-      // TODO(backend): plan 16 graduation — see venue-core.ts's toVenue() note.
-      compThresholdCents: 10000,
-      minimumSpendWarningRatio: 0.25,
-      // TODO(backend): plan 17 graduation — see venue-core.ts's toVenue() note.
-      legalCapacity: 400,
-      occupancyWarnRatio: 0.9,
-      coatCheckEnabled: false,
-      doorRequiresIdCheck: false,
+      compThresholdCents: venueRow.compThresholdCents,
+      minimumSpendWarningRatio: venueRow.minimumSpendWarningRatio,
+      legalCapacity: venueRow.legalCapacity,
+      occupancyWarnRatio: venueRow.occupancyWarnRatio,
+      coatCheckEnabled: venueRow.coatCheckEnabled,
+      doorRequiresIdCheck: venueRow.doorRequiresIdCheck,
       legalDrinkingAge: 18,
     },
   };

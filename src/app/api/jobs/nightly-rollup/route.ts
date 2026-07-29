@@ -36,8 +36,6 @@ async function livePOST(request: NextRequest) {
         data: { tenantId: tenant.id, jobName: jobKey, status: "running", startedAt: new Date() },
       });
 
-      // TODO(backend): nightContaining needs venue nightStartHour/nightEndHour —
-      // fetch the Venue row per tenant and pass the config.
       const venue = await prisma.venue.findUnique({ where: { id: tenant.id } });
       if (!venue) continue;
 

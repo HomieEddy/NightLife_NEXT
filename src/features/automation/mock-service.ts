@@ -184,14 +184,14 @@ executions = [
 export const mockAutomationService = {
   /** List all automation rules for the venue. */
   async listRules(): Promise<AutomationRule[]> {
-    // TODO(backend): SELECT from automation_rules WHERE venueId = current.
+
     await delay(300);
     return clone(rules);
   },
 
   /** Toggle a rule on or off. */
   async setEnabled(ruleId: string, enabled: boolean): Promise<AutomationRule> {
-    // TODO(backend): UPDATE automation_rules SET enabled = $1, updatedAt = now() WHERE id = $2.
+
     await delay(250);
     const idx = rules.findIndex((r) => r.id === ruleId);
     if (idx === -1) throw new Error("Automation rule not found");
@@ -204,7 +204,7 @@ export const mockAutomationService = {
     ruleId: string,
     config: Record<string, string | number | boolean>,
   ): Promise<AutomationRule> {
-    // TODO(backend): UPDATE automation_rules SET config = $1, updatedAt = now() WHERE id = $2.
+
     await delay(250);
     const idx = rules.findIndex((r) => r.id === ruleId);
     if (idx === -1) throw new Error("Automation rule not found");
@@ -253,7 +253,7 @@ export const mockAutomationService = {
 
   /** List execution log entries, newest first. */
   async listExecutions(limit = 50): Promise<AutomationExecution[]> {
-    // TODO(backend): SELECT from automation_executions WHERE venueId = current ORDER BY triggeredAt DESC LIMIT $1.
+
     await delay(250);
     return clone(executions.slice(0, limit));
   },

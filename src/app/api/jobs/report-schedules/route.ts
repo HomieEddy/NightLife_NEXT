@@ -37,9 +37,6 @@ async function livePOST(request: NextRequest) {
         data: { tenantId: tenant.id, jobName: jobKey, status: "running", startedAt: new Date() },
       });
 
-      // TODO(backend): the db returned by findDueReports needs explicit venueId filtering
-      // since we're iterating cross-tenant with getRawPrisma. For now, find due reports
-      // by querying the tenant's SavedReport rows directly.
       const reports = await prisma.savedReport.findMany({
         where: { venueId: tenant.id },
         include: { runs: { orderBy: { ranAt: "desc" }, take: 1 } },

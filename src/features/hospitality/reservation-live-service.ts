@@ -1,6 +1,6 @@
 "use client";
 
-import type { Reservation, ReservationChannel, ReservationStatus } from "@/lib/types";
+import type { BlackoutDate, Reservation, ReservationChannel, ReservationStatus } from "@/lib/types";
 import type { PublicAvailability } from "@/features/hospitality/reservation-mock-service";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -141,11 +141,11 @@ export const liveReservationService = {
   },
 
   // TODO(backend): blackout date API routes
-  async listBlackoutDates() {
-    return api<ReturnType<typeof import("@/lib/mock-services/reservation-service").mockReservationService.listBlackoutDates>>("/api/reservations/blackout-dates");
+  async listBlackoutDates(): Promise<BlackoutDate[]> {
+    return api<BlackoutDate[]>("/api/reservations/blackout-dates");
   },
-  async createBlackoutDate(input: { date: string; reason: string; zoneId?: string }) {
-    return api<ReturnType<typeof import("@/lib/mock-services/reservation-service").mockReservationService.createBlackoutDate>>("/api/reservations/blackout-dates", { method: "POST", body: JSON.stringify(input) });
+  async createBlackoutDate(input: { date: string; reason: string; zoneId?: string }): Promise<BlackoutDate> {
+    return api<BlackoutDate>("/api/reservations/blackout-dates", { method: "POST", body: JSON.stringify(input) });
   },
   async deleteBlackoutDate(id: string) {
     await api<void>(`/api/reservations/blackout-dates/${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -155,8 +155,8 @@ export const liveReservationService = {
   async bumpReservation(
     reservationId: string,
     input: { reason: string; alternativeTableId?: string; byStaffId: string; byStaffName: string },
-  ) {
-    return api<ReturnType<typeof import("@/lib/mock-services/reservation-service").mockReservationService.bumpReservation>>(`/api/reservations/${encodeURIComponent(reservationId)}/bump`, { method: "POST", body: JSON.stringify(input) });
+  ): Promise<Reservation> {
+    return api<Reservation>(`/api/reservations/${encodeURIComponent(reservationId)}/bump`, { method: "POST", body: JSON.stringify(input) });
   },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

@@ -33,6 +33,12 @@ function toVenue(
     defaultTipPct: number;
     nightStartHour: number;
     nightEndHour: number;
+    compThresholdCents: number;
+    minimumSpendWarningRatio: number;
+    legalCapacity: number;
+    occupancyWarnRatio: number;
+    coatCheckEnabled: boolean;
+    doorRequiresIdCheck: boolean;
     publicSlug?: string | null;
   },
   org: OrgIdentity,
@@ -57,16 +63,12 @@ function toVenue(
     defaultTipPct: row.defaultTipPct,
     nightStartHour: row.nightStartHour,
     nightEndHour: row.nightEndHour,
-    // TODO(backend): plan 16 graduation — add compThresholdCents/minimumSpendWarningRatio
-    // columns; until then the live track uses the same defaults as the demo seed.
-    compThresholdCents: 10000,
-    minimumSpendWarningRatio: 0.25,
-    // TODO(backend): plan 17 graduation — add legalCapacity/occupancyWarnRatio/
-    // coatCheckEnabled/doorRequiresIdCheck/legalDrinkingAge columns; door is demo-track only until then.
-    legalCapacity: 400,
-    occupancyWarnRatio: 0.9,
-    coatCheckEnabled: false,
-    doorRequiresIdCheck: false,
+    compThresholdCents: row.compThresholdCents,
+    minimumSpendWarningRatio: row.minimumSpendWarningRatio,
+    legalCapacity: row.legalCapacity,
+    occupancyWarnRatio: row.occupancyWarnRatio,
+    coatCheckEnabled: row.coatCheckEnabled,
+    doorRequiresIdCheck: row.doorRequiresIdCheck,
     legalDrinkingAge: 18,
   };
 }
