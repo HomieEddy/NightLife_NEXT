@@ -11,6 +11,7 @@ import type {
   OrderStatus,
   TabAdjustment,
   TabAdjustmentKind,
+  WalkoutRecord,
 } from "@/lib/types";
 import { mockOrders, mockGuestSessions } from "@/features/ordering/mock-data";
 import { mockMenuItems } from "@/features/menu/mock-data";
@@ -39,6 +40,7 @@ export { nextStatus, ORDER_FLOW };
 // simulating shared state between guest and staff surfaces.
 let orders: Order[] = clone(mockOrders);
 let orderCounter = 39;
+let walkoutRecords: WalkoutRecord[] = [];
 
 // ---------- Tab ledger: adjustments (plan 16) ----------
 // Append-only — corrections are new rows (a reversal), never edits (INV-I1 rule).
@@ -545,6 +547,24 @@ export const mockOrdersService = {
   async detectDualSession(tableId: string): Promise<GuestSession[]> {
     await delay(100);
     return clone(mockGuestSessions.filter((s) => s.tableId === tableId && s.status === "approved"));
+  },
+
+  /** OT-09: Report a walkout — force-closes session and creates a walkout record. */
+  async reportWalkout(sessionId: string, description: string, staffId: string, staffName: string): Promise<WalkoutRecord> {
+    await delay(400);
+    await mockGuestsService.forceCloseSession(sessionId, `Walkout: ${description}`, staffId, staffName);
+    const session = await mockGuestsService.getSession(sessionId);
+    const record: WalkoutRecord = {
+      id: uid("wo"),
+      sessionId,
+      tableCode: session?.tableCode ?? "unknown",
+      description,
+      reportedByStaffId: staffId,
+      reportedByStaffName: staffName,
+      reportedAt: new Date().toISOString(),
+    };
+    walkoutRecords = [...walkoutRecords, record];
+    return clone(record);
   },
 
   /** RV-06: Pre-order inventory availability check — returns items that would go out of stock. */

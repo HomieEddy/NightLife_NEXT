@@ -87,5 +87,15 @@ export const liveStaffService = {
       }),
     });
   },
+
+  async generateHandoff(): Promise<import("@/lib/types").ShiftHandoff> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async acknowledgeHandoff(): Promise<import("@/lib/types").ShiftHandoff | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async listHandoffs(): Promise<import("@/lib/types").ShiftHandoff[]> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

@@ -250,7 +250,7 @@ async function main() {
         label: table.label,
         seats: table.seats,
         minimumSpend: table.minimumSpend,
-        status: table.status,
+        status: table.status as any,
         qrSlug: table.qrSlug,
         mapX: table.mapX,
         mapY: table.mapY,

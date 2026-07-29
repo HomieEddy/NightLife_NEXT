@@ -153,4 +153,48 @@ export const mockVenueService = {
     table.status = status;
     return clone(table);
   },
+
+  /** VM-04: Hold a table for a VIP or special purpose. */
+  async holdTable(tableId: string, reason: string, heldBy: string, heldUntil?: string): Promise<VenueTable | null> {
+    await delay(300);
+    const table = tables.find((t) => t.id === tableId);
+    if (!table || table.status !== "open") return null;
+    table.status = "held";
+    table.holdReason = reason;
+    table.heldBy = heldBy;
+    table.heldUntil = heldUntil;
+    return clone(table);
+  },
+
+  async releaseHold(tableId: string): Promise<VenueTable | null> {
+    await delay(200);
+    const table = tables.find((t) => t.id === tableId);
+    if (!table || table.status !== "held") return null;
+    table.status = "open";
+    table.holdReason = undefined;
+    table.heldBy = undefined;
+    table.heldUntil = undefined;
+    return clone(table);
+  },
+
+  async markOutOfService(tableId: string, reason: string, heldBy: string): Promise<VenueTable | null> {
+    await delay(300);
+    const table = tables.find((t) => t.id === tableId);
+    if (!table) return null;
+    table.status = "out-of-service";
+    table.holdReason = reason;
+    table.heldBy = heldBy;
+    return clone(table);
+  },
+
+  async returnToService(tableId: string): Promise<VenueTable | null> {
+    await delay(200);
+    const table = tables.find((t) => t.id === tableId);
+    if (!table || table.status !== "out-of-service") return null;
+    table.status = "open";
+    table.holdReason = undefined;
+    table.heldBy = undefined;
+    table.heldUntil = undefined;
+    return clone(table);
+  },
 };

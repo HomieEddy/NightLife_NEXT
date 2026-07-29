@@ -251,7 +251,7 @@ export async function setTableStatus(
   tableId: string,
   status: VenueTableStatus,
 ): Promise<VenueTable | null> {
-  const row = await db.venueTable.update({ where: { id: tableId }, data: { status } }).catch(() => null);
+  const row = await db.venueTable.update({ where: { id: tableId }, data: { status: status as any } }).catch(() => null);
   return row ? toTable(row) : null;
 }
 

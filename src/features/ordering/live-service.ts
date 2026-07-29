@@ -201,5 +201,9 @@ export const liveOrdersService = {
   async checkInventoryAvailability(_cartLines: { menuItemId: string; quantity: number }[]): Promise<{ menuItemId: string; name: string; available: number; requested: number }[]> {
     return api("/api/inventory/availability", { method: "POST" });
   },
+
+  async reportWalkout(): Promise<import("@/lib/types").WalkoutRecord> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

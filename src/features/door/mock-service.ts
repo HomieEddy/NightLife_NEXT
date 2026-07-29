@@ -3,7 +3,7 @@
  * admissions and coat check (plan 17). Occupancy is a counter, never derived
  * from table state — most of the room isn't at a table.
  */
-import type { Admission, AdmissionType, CoatCheckTicket, OccupancyEvent } from "@/lib/types";
+import type { Admission, AdmissionType, CoatCheckClaim, CoatCheckTicket, DoorRefusal, OccupancyEvent } from "@/lib/types";
 import { mockAdmissions, mockCoatCheckTickets, mockOccupancyEvents } from "@/features/door/mock-data";
 import { mockVenue } from "@/features/venue/mock-data";
 import { businessDateFor, canAdmitToZone, canApplyOccupancyDelta, canAdmitWithinCapacity, checkAgeOnAdmission, computeOccupancy } from "@/lib/door";
@@ -17,6 +17,8 @@ let occupancyEvents: OccupancyEvent[] = clone(mockOccupancyEvents);
 let admissions: Admission[] = clone(mockAdmissions);
 let coatCheckTickets: CoatCheckTicket[] = clone(mockCoatCheckTickets);
 let coatCheckCounter = 103;
+let doorRefusals: DoorRefusal[] = [];
+let coatCheckClaims: CoatCheckClaim[] = [];
 
 // S-03: Evacuation state — starts normal, switched during an evacuation workflow
 let evacuationState: "normal" | "evacuating" | "evacuated" = "normal";
@@ -348,6 +350,73 @@ export const mockDoorService = {
       targetId: event.id,
       summary: `Emergency evacuation ended — operations resumed at headcount ${headcountAtEvacuation}`,
     });
+  },
+
+  // ---------- DO-02: Dress code refusal tracking ----------
+
+  /** DO-02: Record a dress-code refusal at the door. */
+  async recordRefusal(input: { reason: string; description: string; partySize: number; staffId: string; staffName: string }): Promise<DoorRefusal> {
+    await delay(200);
+    const date = await currentBusinessDate();
+    const refusal: DoorRefusal = {
+      id: uid("dr"),
+      venueId: mockVenue.id,
+      businessDate: date,
+      reason: input.reason,
+      description: input.description,
+      partySize: input.partySize,
+      refusedByStaffId: input.staffId,
+      refusedByStaffName: input.staffName,
+      timestamp: new Date().toISOString(),
+    };
+    doorRefusals = [...doorRefusals, refusal];
+    return clone(refusal);
+  },
+
+  async listRefusals(businessDate?: string): Promise<DoorRefusal[]> {
+    await delay(150);
+    const date = businessDate ?? (await currentBusinessDate());
+    return clone(doorRefusals.filter((r) => r.businessDate === date)).sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  },
+
+  // ---------- DO-10: Coat check lost item ----------
+
+  /** DO-10: Report a lost coat check ticket. */
+  async reportLostTicket(description: string, staffName: string): Promise<CoatCheckClaim> {
+    await delay(200);
+    const claim: CoatCheckClaim = {
+      id: uid("ccl"),
+      claimType: "lost-ticket",
+      description,
+      reportedByStaffName: staffName,
+      reportedAt: new Date().toISOString(),
+    };
+    coatCheckClaims = [...coatCheckClaims, claim];
+    return clone(claim);
+  },
+
+  async reportLostItem(ticketId: string, description: string, staffName: string): Promise<CoatCheckClaim> {
+    await delay(200);
+    const claim: CoatCheckClaim = {
+      id: uid("ccl"),
+      ticketId,
+      claimType: "lost-item",
+      description,
+      reportedByStaffName: staffName,
+      reportedAt: new Date().toISOString(),
+    };
+    coatCheckClaims = [...coatCheckClaims, claim];
+    return clone(claim);
+  },
+
+  async resolveClaim(claimId: string, resolution: string, staffId: string): Promise<CoatCheckClaim | null> {
+    await delay(200);
+    const claim = coatCheckClaims.find((c) => c.id === claimId && !c.resolvedAt);
+    if (!claim) return null;
+    claim.resolution = resolution;
+    claim.resolvedAt = new Date().toISOString();
+    claim.resolvedByStaffId = staffId;
+    return clone(claim);
   },
 
   // ---------- S-13: Capacity-override admission ----------

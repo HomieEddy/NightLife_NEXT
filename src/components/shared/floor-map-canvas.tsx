@@ -21,6 +21,8 @@ const STATUS_NODE: Record<TableStatus, string> = {
   occupied: "bg-fuchsia-500/25 border-fuchsia-500/70 text-fuchsia-700 dark:text-fuchsia-300",
   reserved: "bg-amber-500/20 border-amber-500/60 text-amber-700 dark:text-amber-300",
   closed: "bg-muted border-border text-muted-foreground",
+  held: "bg-gray-500/20 border-gray-500/60 text-gray-700 dark:text-gray-300",
+  "out-of-service": "bg-gray-500/20 border-gray-500/60 text-gray-700 dark:text-gray-300",
 };
 
 export interface FloorMapCanvasProps {

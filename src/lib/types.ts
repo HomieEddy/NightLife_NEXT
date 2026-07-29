@@ -97,7 +97,7 @@ export interface Zone {
   capacity: number | null;
 }
 
-export type TableStatus = "open" | "occupied" | "reserved" | "closed";
+export type TableStatus = "open" | "occupied" | "reserved" | "closed" | "held" | "out-of-service";
 
 export interface VenueTable {
   id: string;
@@ -111,6 +111,10 @@ export interface VenueTable {
   /** Floor-map position as % of canvas (2–98). Defaults are auto-laid-out per zone. */
   mapX?: number;
   mapY?: number;
+  // VM-04: Table hold / out-of-service tracking
+  holdReason?: string;
+  heldBy?: string;
+  heldUntil?: string; // ISO
 }
 
 // ---------- VM-05: Opening/closing checklists ----------
@@ -399,6 +403,27 @@ export interface GuestSession {
 
 export type SettlementMethod = "terminal" | "cash" | "house";
 
+// GS-06: Session notes — staff-written annotations on a guest session.
+export interface SessionNote {
+  id: string;
+  sessionId: string;
+  note: string;
+  createdByStaffId: string;
+  createdByStaffName: string;
+  createdAt: string; // ISO
+}
+
+// OT-09: Walkout tracking — revenue protection for dine-and-dash events.
+export interface WalkoutRecord {
+  id: string;
+  sessionId: string;
+  tableCode: string;
+  description: string;
+  reportedByStaffId: string;
+  reportedByStaffName: string;
+  reportedAt: string; // ISO
+}
+
 // ---------- Tab ledger: adjustments, audit trail, cash-out (plan 16) ----------
 
 /**
@@ -649,6 +674,16 @@ export interface Broadcast {
   message: string;
   sentAt: string; // ISO
   sentBy: string;
+}
+
+// RT-01: Attention acknowledgment — staff marks "I'm handling this."
+export interface AttentionAcknowledgment {
+  id: string;
+  attentionItemId: string;
+  acknowledgedByStaffId: string;
+  acknowledgedByStaffName: string;
+  acknowledgedAt: string; // ISO
+  snoozedUntil?: string; // ISO — hide from feed until this time
 }
 
 // ---------- Analytics ----------
@@ -1299,6 +1334,35 @@ export interface CoatCheckTicket {
   staffId: string;
 }
 
+// DO-02: Dress code refusal tracking — pattern and bias detection at the door.
+export interface DoorRefusal {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  reason: string;
+  description: string;
+  partySize: number;
+  refusedByStaffId: string;
+  refusedByStaffName: string;
+  timestamp: string; // ISO
+}
+
+// DO-10: Coat check claim for lost-ticket or lost-item scenarios.
+export type CoatCheckClaimType = "normal" | "lost-ticket" | "lost-item";
+
+export interface CoatCheckClaim {
+  id: string;
+  ticketId?: string; // absent for lost-ticket claims
+  claimType: CoatCheckClaimType;
+  description: string;
+  verification?: string;
+  resolution?: string;
+  resolvedAt?: string; // ISO
+  resolvedByStaffId?: string;
+  reportedByStaffName: string;
+  reportedAt: string; // ISO
+}
+
 export type IncidentType =
   | "ejection"
   | "refused-entry"
@@ -1730,6 +1794,25 @@ export interface ShiftBriefing {
   sentByStaffId: string;
   sentByStaffName: string;
   sentAt: string;
+}
+
+// WF-10: Structured shift handoff — outgoing shift passes context to incoming shift.
+export interface ShiftHandoff {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  fromStaffId: string;
+  fromStaffName: string;
+  toStaffId?: string;
+  toStaffName?: string;
+  openIncidents: string[]; // incident IDs
+  vipNotes: string;
+  inventoryAlerts: string;
+  specialInstructions: string;
+  generatedAt: string; // ISO
+  acknowledgedByStaffId?: string;
+  acknowledgedByStaffName?: string;
+  acknowledgedAt?: string; // ISO
 }
 
 /** OE-32: Post-incident action item — assignable task from an incident review. */
@@ -2177,7 +2260,8 @@ export type AutomationCode =
   | "auto-flag-variance"           // AM-10
   | "auto-notify-vip-arrival"      // AM-11
   | "auto-flag-dormant-vip"        // AM-12
-  | "auto-suggest-table";          // AM-13
+  | "auto-suggest-table"           // AM-13
+  | "auto-close-abandoned-sessions"; // AU-01
 
 export interface AutomationRule {
   id: string;

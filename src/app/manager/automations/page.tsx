@@ -41,6 +41,7 @@ const CODE_ICONS: Record<AutomationCode, React.ReactNode> = {
   "auto-notify-vip-arrival": <Megaphone className="size-4" />,
   "auto-flag-dormant-vip": <Shield className="size-4" />,
   "auto-suggest-table": <CircleDollarSign className="size-4" />,
+  "auto-close-abandoned-sessions": <Clock className="size-4" />,
 };
 
 export default function ManagerAutomationsPage() {

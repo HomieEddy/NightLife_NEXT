@@ -6,13 +6,14 @@
  * Plan 07 ships real implementations (floor-core.ts + SSE); this mock
  * stays for the permanent Live Demo sandbox.
  */
-import type { Broadcast } from "@/lib/types";
+import type { AttentionAcknowledgment, Broadcast } from "@/lib/types";
 import { mockStaffService } from "@/features/workforce/staff-mock-service";
 import { clone, delay, uid } from "@/features/shared/delay";
 
 let broadcasts: Broadcast[] = [];
 let lastCallActive = false;
 let lastCallStartedAt: string | null = null;
+let acknowledgments: AttentionAcknowledgment[] = [];
 
 const CHANNELS = ["floor", "bar", "security"] as const;
 
@@ -73,5 +74,40 @@ export const mockPulseService = {
     await delay(300);
     lastCallActive = false;
     lastCallStartedAt = null;
+  },
+
+  /** RT-01: Staff marks an attention item as being handled. */
+  async acknowledgeAttentionItem(attentionItemId: string, staffId: string, staffName: string): Promise<AttentionAcknowledgment> {
+    await delay(200);
+    const ack: AttentionAcknowledgment = {
+      id: uid("ack"),
+      attentionItemId,
+      acknowledgedByStaffId: staffId,
+      acknowledgedByStaffName: staffName,
+      acknowledgedAt: new Date().toISOString(),
+    };
+    acknowledgments = [ack, ...acknowledgments];
+    return clone(ack);
+  },
+
+  async snoozeAttentionItem(attentionItemId: string, durationMinutes: number, staffId: string, staffName: string): Promise<AttentionAcknowledgment> {
+    await delay(200);
+    const snoozedUntil = new Date(Date.now() + durationMinutes * 60_000).toISOString();
+    const ack: AttentionAcknowledgment = {
+      id: uid("ack"),
+      attentionItemId,
+      acknowledgedByStaffId: staffId,
+      acknowledgedByStaffName: staffName,
+      acknowledgedAt: new Date().toISOString(),
+      snoozedUntil,
+    };
+    acknowledgments = [ack, ...acknowledgments];
+    return clone(ack);
+  },
+
+  /** List full acknowledgment state — callers filter by attention item id or staff. */
+  async listAcknowledgments(): Promise<AttentionAcknowledgment[]> {
+    await delay(100);
+    return clone(acknowledgments);
   },
 };

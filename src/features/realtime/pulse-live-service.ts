@@ -43,5 +43,15 @@ export const livePulseService = {
       body: JSON.stringify({ action: "end" }),
     });
   },
+
+  async acknowledgeAttentionItem(): Promise<import("@/lib/types").AttentionAcknowledgment> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async snoozeAttentionItem(): Promise<import("@/lib/types").AttentionAcknowledgment> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async listAcknowledgments(): Promise<import("@/lib/types").AttentionAcknowledgment[]> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

@@ -88,5 +88,18 @@ export const liveVenueService = {
     if ("error" in result) throw new Error(result.error);
     return result.data;
   },
+
+  async holdTable(): Promise<VenueTable | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async releaseHold(): Promise<VenueTable | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async markOutOfService(): Promise<VenueTable | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async returnToService(): Promise<VenueTable | null> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

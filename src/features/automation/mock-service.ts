@@ -106,6 +106,13 @@ const RULE_DEFS: Omit<AutomationRule, "id" | "venueId" | "enabled" | "lastTrigge
     category: "reservations",
     config: { preferSameZone: true, respectMinimumSpend: true },
   },
+  {
+    code: "auto-close-abandoned-sessions",
+    label: "Auto-close abandoned sessions",
+    description: "Detect and close sessions with no orders for the configurable threshold period.",
+    category: "orders",
+    config: { thresholdMinutes: 60, notifyManager: true },
+  },
 ];
 
 // ---------- In-memory store ----------
@@ -225,6 +232,7 @@ export const mockAutomationService = {
       "auto-notify-vip-arrival": `Checked arrivals. ${Math.ceil(Math.random() * 2)} VIP arrivals detected; host notified.`,
       "auto-flag-dormant-vip": `Scanned ${Math.ceil(Math.random() * 30)} VIP profiles. ${Math.ceil(Math.random() * 3)} dormant (>${rule.config.dormantDays ?? 90} days). Outreach prompt generated.`,
       "auto-suggest-table": `Suggested ${Math.ceil(Math.random() * 3)} table(s) for upcoming reservations based on party size and zone availability.`,
+      "auto-close-abandoned-sessions": `Scanned ${Math.ceil(Math.random() * 20)} sessions. Auto-closed ${Math.ceil(Math.random() * 2)} abandoned sessions.`,
     };
     const exe: AutomationExecution = {
       id: uid("aex"),

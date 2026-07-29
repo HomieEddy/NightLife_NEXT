@@ -140,5 +140,21 @@ export const liveGuestsService = {
   async markLastCallOrderPlaced(sessionId: string): Promise<void> {
     await api(`/api/sessions/${encodeURIComponent(sessionId)}/last-call-order`, { method: "POST" });
   },
+
+  async detectAbandonedSessions(): Promise<GuestSession[]> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async autoCloseSession(): Promise<GuestSession | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async addSessionNote(): Promise<import("@/lib/types").SessionNote> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async listSessionNotes(): Promise<import("@/lib/types").SessionNote[]> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async forceCloseSession(): Promise<GuestSession | null> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";
