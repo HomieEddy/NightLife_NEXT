@@ -2,7 +2,8 @@
  * mockReservationService — future backend boundary for table reservations.
  * The permanent demo counterpart to PostgreSQL-backed reservations.
  */
-import type { Reservation, ReservationChannel, ReservationStatus, Venue } from "@/lib/types";
+import type { BlackoutDate, Reservation, ReservationChannel, ReservationStatus, Venue } from "@/lib/types";
+import { mockBlackoutDates } from "@/features/hospitality/blackout-dates-mock-data";
 import { mockReservations } from "@/features/hospitality/reservation-mock-data";
 import { mockVenue } from "@/features/venue/mock-data";
 import { canMarkNoShow } from "@/lib/door";
@@ -10,6 +11,7 @@ import { clone, delay, uid } from "@/features/shared/delay";
 import { mockVenueService } from "@/features/venue/mock-service";
 
 let reservations: Reservation[] = clone(mockReservations);
+let blackoutDates: BlackoutDate[] = clone(mockBlackoutDates);
 
 function sortByDate(list: Reservation[]): Reservation[] {
   return [...list].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
@@ -67,7 +69,7 @@ async function applyTableStatus(res: Reservation) {
   } else if (res.status === "seated") {
     await mockVenueService.setTableStatus(res.tableId, "occupied");
   } else {
-    // cancelled, completed, no-show — all release the table.
+    // cancelled, completed, no-show ÔÇö all release the table.
     await mockVenueService.setTableStatus(res.tableId, "open");
   }
 }
@@ -136,8 +138,17 @@ export const mockReservationService = {
     depositTermsNote?: string;
     cancellationPolicyNote?: string;
     seatingNumber?: 1 | 2;
-  }): Promise<Reservation> {
+  }  ): Promise<Reservation> {
     await delay(500);
+    const date = input.startsAt.slice(0, 10);
+    const venue = await mockVenueService.getVenue();
+
+    // RV-06: reject if date is blacked out for the whole venue or for the requested zone
+    const zoneBlocked = blackoutDates.some(
+      (b) => b.date === date && (!b.zoneId || b.zoneId === input.zoneId),
+    );
+    if (zoneBlocked) throw new Error("This date is unavailable ÔÇö no reservations accepted.");
+
     const reservation: Reservation = {
       id: uid("res"),
       venueId: mockVenue.id,
@@ -162,6 +173,11 @@ export const mockReservationService = {
       seatingNumber: input.seatingNumber,
       createdAt: new Date().toISOString(),
     };
+    // RV-07: compute holdUntil from venue's grace period
+    const graceMin = venue.lateArrivalGracePeriodMinutes ?? 30;
+    const startsAtDate = new Date(input.startsAt);
+    startsAtDate.setMinutes(startsAtDate.getMinutes() + graceMin);
+    reservation.holdUntil = startsAtDate.toISOString();
     reservations = [reservation, ...reservations];
     await applyTableStatus(reservation);
     return clone(reservation);
@@ -188,6 +204,12 @@ export const mockReservationService = {
           res.status = oldStatus;
           throw new Error(`${res.tableId} already confirmed for tonight`);
         }
+        // RV-07: compute holdUntil from venue's grace period
+        const venue = await mockVenueService.getVenue();
+        const graceMin = venue.lateArrivalGracePeriodMinutes ?? 30;
+        const startsAtDate = new Date(res.startsAt);
+        startsAtDate.setMinutes(startsAtDate.getMinutes() + graceMin);
+        res.holdUntil = startsAtDate.toISOString();
         res.reservationPin = generatePin(res.id);
         // TODO(backend): send PIN via email/SMS on confirm
       } else if (["seated", "cancelled", "completed", "no-show"].includes(newStatus)) {
@@ -234,7 +256,7 @@ export const mockReservationService = {
     };
   },
 
-  // ── Public embed surface ─────────────────────────────────────
+  // ÔöÇÔöÇ Public embed surface ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 
   async getPublicAvailability(
     venueSlug: string,
@@ -244,6 +266,15 @@ export const mockReservationService = {
     const v = await mockVenueService.getVenue();
     if (v.publicSlug !== venueSlug) return null;
 
+    // RV-06: if date is blacked out for the whole venue, return null (fully unavailable)
+    const venueBlackedOut = blackoutDates.some(
+      (b) => b.date === opts.date && !b.zoneId,
+    );
+    if (venueBlackedOut) return null;
+
+    const blackedOutZoneIds = new Set(
+      blackoutDates.filter((b) => b.date === opts.date && b.zoneId).map((b) => b.zoneId),
+    );
     const allZones = await mockVenueService.listZones();
     const allTables = await mockVenueService.listTables();
 
@@ -269,7 +300,7 @@ export const mockReservationService = {
         mapX: t.mapX,
         mapY: t.mapY,
         zoneId: t.zoneId,
-        available: !bookedTableIds.has(t.id),
+        available: !bookedTableIds.has(t.id) && !blackedOutZoneIds.has(t.zoneId),
       }));
 
     return {
@@ -365,5 +396,53 @@ export const mockReservationService = {
     active.reservationPin = undefined;
     await applyTableStatus(active);
     return { ok: true };
+  },
+
+  // ÔöÇÔöÇ RV-06: Blackout dates ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+  async listBlackoutDates(): Promise<BlackoutDate[]> {
+    await delay();
+    return clone(blackoutDates).sort((a, b) => a.date.localeCompare(b.date));
+  },
+
+  async createBlackoutDate(input: { date: string; reason: string; zoneId?: string }): Promise<BlackoutDate> {
+    await delay(300);
+    const entry: BlackoutDate = {
+      id: uid("bo"),
+      venueId: mockVenue.id,
+      date: input.date,
+      reason: input.reason.trim(),
+      zoneId: input.zoneId,
+      createdAt: new Date().toISOString(),
+    };
+    blackoutDates = [entry, ...blackoutDates];
+    return clone(entry);
+  },
+
+  async deleteBlackoutDate(id: string): Promise<void> {
+    await delay(200);
+    blackoutDates = blackoutDates.filter((b) => b.id !== id);
+  },
+
+  // ÔöÇÔöÇ RV-10: Bump/upgrade workflow ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+  async bumpReservation(
+    reservationId: string,
+    input: { reason: string; alternativeTableId?: string; byStaffId: string; byStaffName: string },
+  ): Promise<Reservation> {
+    await delay(400);
+    const res = reservations.find((r) => r.id === reservationId);
+    if (!res) throw new Error("Reservation not found");
+    if (res.status !== "confirmed") throw new Error("Only confirmed reservations can be bumped");
+
+    res.status = "cancelled";
+    res.bumpReason = input.reason;
+    if (input.alternativeTableId) {
+      res.alternativeTableId = input.alternativeTableId;
+    }
+
+    await applyTableStatus(res);
+    // ponytail: audit entry creation is the same pattern already in incident-service
+    return clone(res);
   },
 };

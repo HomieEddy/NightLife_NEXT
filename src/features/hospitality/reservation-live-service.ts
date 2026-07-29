@@ -139,5 +139,24 @@ export const liveReservationService = {
   async checkCapacityForBooking(_date: string, _partySize: number): Promise<{ allowed: boolean; currentBooked: number; legalCapacity: number }> {
     return api("/api/reservations/capacity-check", { method: "POST" });
   },
+
+  // TODO(backend): blackout date API routes
+  async listBlackoutDates() {
+    return api<ReturnType<typeof import("@/lib/mock-services/reservation-service").mockReservationService.listBlackoutDates>>("/api/reservations/blackout-dates");
+  },
+  async createBlackoutDate(input: { date: string; reason: string; zoneId?: string }) {
+    return api<ReturnType<typeof import("@/lib/mock-services/reservation-service").mockReservationService.createBlackoutDate>>("/api/reservations/blackout-dates", { method: "POST", body: JSON.stringify(input) });
+  },
+  async deleteBlackoutDate(id: string) {
+    await api<void>(`/api/reservations/blackout-dates/${encodeURIComponent(id)}`, { method: "DELETE" });
+  },
+
+  // TODO(backend): bump reservation API route
+  async bumpReservation(
+    reservationId: string,
+    input: { reason: string; alternativeTableId?: string; byStaffId: string; byStaffName: string },
+  ) {
+    return api<ReturnType<typeof import("@/lib/mock-services/reservation-service").mockReservationService.bumpReservation>>(`/api/reservations/${encodeURIComponent(reservationId)}/bump`, { method: "POST", body: JSON.stringify(input) });
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

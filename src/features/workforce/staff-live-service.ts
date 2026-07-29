@@ -23,6 +23,13 @@ export const liveStaffService = {
     return api<StaffMember>("/api/staff/current");
   },
 
+  async getStaffMember(id: string): Promise<StaffMember | null> {
+    const res = await liveFetch(`/api/staff/${encodeURIComponent(id)}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Failed to get staff member ${id}`);
+    return res.json();
+  },
+
   async toggleShift(staffId: string): Promise<StaffMember | null> {
     return api<StaffMember | null>(`/api/staff/${encodeURIComponent(staffId)}/shift`, { method: "POST" });
   },

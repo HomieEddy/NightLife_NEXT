@@ -1,6 +1,6 @@
 "use client";
 
-import type { VenueEvent, EventGuest } from "@/lib/types";
+import type { VenueEvent, EventGuest, EventTalent } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await liveFetch(path, {
@@ -56,10 +56,11 @@ export const liveEventsService = {
     name: string;
     partySize: number;
     guestProfileId?: string;
+    promoterId?: string;
   }): Promise<EventGuest> {
     return api<EventGuest>(`/api/events/${encodeURIComponent(input.eventId)}/guests`, {
       method: "POST",
-      body: JSON.stringify({ name: input.name, partySize: input.partySize, guestProfileId: input.guestProfileId }),
+      body: JSON.stringify({ name: input.name, partySize: input.partySize, guestProfileId: input.guestProfileId, promoterId: input.promoterId }),
     });
   },
 
@@ -81,6 +82,45 @@ export const liveEventsService = {
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Failed to load public events`);
     return res.json();
+  },
+
+  // TODO(backend): event cancellation API route
+  async cancelEvent(id: string, reason: string): Promise<VenueEvent | null> {
+    return api<VenueEvent>(`/api/events/${encodeURIComponent(id)}/cancel`, { method: "POST", body: JSON.stringify({ reason }) });
+  },
+
+  // TODO(backend): talent management API routes
+  async listEventTalent(eventId: string): Promise<EventTalent[]> {
+    return api<EventTalent[]>(`/api/events/${encodeURIComponent(eventId)}/talent`);
+  },
+  async getTalent(id: string): Promise<EventTalent | null> {
+    const res = await liveFetch(`/api/event-talent/${encodeURIComponent(id)}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Failed to get talent ${id}`);
+    return res.json();
+  },
+  async createTalent(input: Omit<EventTalent, "id" | "venueId" | "createdAt">): Promise<EventTalent> {
+    return api<EventTalent>(`/api/events/${encodeURIComponent(input.eventId)}/talent`, { method: "POST", body: JSON.stringify(input) });
+  },
+  async updateTalent(id: string, patch: Partial<Omit<EventTalent, "id" | "venueId" | "eventId" | "createdAt">>): Promise<EventTalent | null> {
+    return api<EventTalent>(`/api/event-talent/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) });
+  },
+  async deleteTalent(id: string): Promise<void> {
+    await api<{ ok: boolean }>(`/api/event-talent/${encodeURIComponent(id)}`, { method: "DELETE" });
+  },
+  async markTalentArrived(id: string): Promise<EventTalent | null> {
+    return api<EventTalent>(`/api/event-talent/${encodeURIComponent(id)}/arrived`, { method: "POST" });
+  },
+  async markTalentPerforming(id: string): Promise<EventTalent | null> {
+    return api<EventTalent>(`/api/event-talent/${encodeURIComponent(id)}/performing`, { method: "POST" });
+  },
+  async markTalentCompleted(id: string): Promise<EventTalent | null> {
+    return api<EventTalent>(`/api/event-talent/${encodeURIComponent(id)}/completed`, { method: "POST" });
+  },
+
+  // TODO(backend): promoter quota API route
+  async getQuotaUsage(promoterId: string, eventId: string): Promise<{ quota: number | null; used: number; remaining: number | null }> {
+    return api(`/api/events/${encodeURIComponent(eventId)}/quota/${encodeURIComponent(promoterId)}`);
   },
 };
 import { liveFetch } from "@/features/shared/live-fetch";
