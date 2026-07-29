@@ -78,6 +78,8 @@ export interface Venue {
   pendingSessionTimeoutMinutes?: number;
   /** RV-19: Ratios at which minimum-spend nudge alerts fire (e.g. [0.5, 0.75, 0.9]). */
   minimumSpendCheckpoints?: number[];
+  /** RV-07: Minutes after reservation start time before the table is auto-released (AM-01). Default 30. */
+  lateArrivalGracePeriodMinutes?: number;
 }
 
 export interface Zone {
@@ -134,6 +136,8 @@ export interface StaffMember {
   employmentType?: EmploymentType;
   /** Plan 18: promoter commission rule — attribute bookings to this staff member. */
   commissionRuleId?: string;
+  /** PR-02: Max guests this promoter can add to a single event's guestlist. Unlimited when absent. */
+  guestlistQuota?: number;
 }
 
 /** One recurring weekly shift block — backed by the StaffShift table (plan 03). */
@@ -1044,12 +1048,29 @@ export interface Reservation {
   cancellationPenaltyCents?: number;
   /** RV-11: Confirmed reservations auto-release if not seated by this time. */
   holdUntil?: string;
+  /** RV-10: Set when this reservation was bumped — links to the original booking that lost the table. */
+  bumpedFromId?: string;
+  /** RV-10: Reason recorded for the bump (e.g. "walk-in whale, reassigned to table X"). */
+  bumpReason?: string;
+  /** RV-10: Table the bumped guest was offered as an alternative. */
+  alternativeTableId?: string;
+  createdAt: string; // ISO
+}
+
+/** RV-06: A date on which the venue is closed or fully booked — reservations are blocked. */
+export interface BlackoutDate {
+  id: string;
+  venueId: string;
+  date: string; // YYYY-MM-DD
+  reason: string;
+  /** When set, the blackout only applies to this zone rather than the whole venue. */
+  zoneId?: string;
   createdAt: string; // ISO
 }
 
 // ---------- Events & promotions ----------
 
-export type EventStatus = "draft" | "published" | "live" | "ended";
+export type EventStatus = "draft" | "published" | "live" | "ended" | "cancelled";
 
 export interface VenueEvent {
   id: string;
@@ -1064,6 +1085,10 @@ export interface VenueEvent {
   guestlistEnabled: boolean;
   // TODO(backend): stored as nullable text column; validated as URL by the API layer.
   ticketUrl?: string;
+  /** EV-03: Reason for cancellation — set when status moves to 'cancelled'. */
+  cancellationReason?: string;
+  /** EV-03: ISO timestamp of when the event was cancelled. */
+  cancelledAt?: string;
 }
 
 /** Event-scoped attendee name — not a stored customer/profile, unless resolved to a regular. */
@@ -1075,6 +1100,32 @@ export interface EventGuest {
   status: "invited" | "confirmed" | "checked-in";
   /** Set when a repeat guestlist name resolves to a known GuestProfile (plan 17). */
   guestProfileId?: string;
+}
+
+/** EV-01: Artist/talent booked for an event — DJ, MC, performer, host, etc. */
+export type TalentRole = "dj" | "mc" | "performer" | "host" | "dancer" | "musician" | "other";
+export type TalentStatus = "scheduled" | "arrived" | "performing" | "completed" | "cancelled";
+
+export interface TalentSetTime {
+  start: string; // "22:00"
+  end: string;   // "01:00"
+}
+
+export interface EventTalent {
+  id: string;
+  eventId: string;
+  venueId: string;
+  name: string;
+  role: TalentRole;
+  setTimes: TalentSetTime[];
+  /** When the talent is expected to arrive for soundcheck / setup. */
+  arrivalTime?: string; // ISO
+  /** Technical/hospitality rider — equipment, food, drinks, etc. */
+  rider?: string;
+  /** Green room or backstage assignment. */
+  greenRoom?: string;
+  status: TalentStatus;
+  createdAt: string; // ISO
 }
 
 export type PromotionType = "percentage" | "flat";
