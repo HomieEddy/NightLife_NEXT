@@ -56,6 +56,13 @@ export const liveMenuService = {
     return api<MenuItem[]>(`/api/menu/items${qs}`);
   },
 
+  async listItemsByAllergenExclusion(exclude: string[], categoryId?: string): Promise<MenuItem[]> {
+    const params = new URLSearchParams();
+    for (const a of exclude) params.append("excludeAllergen", a);
+    if (categoryId) params.set("categoryId", categoryId);
+    return api<MenuItem[]>(`/api/menu/items/allergen-filter?${params}`);
+  },
+
   async getItem(itemId: string): Promise<MenuItem | null> {
     const res = await liveFetch(`/api/menu/items/${encodeURIComponent(itemId)}`);
     if (res.status === 404) return null;
