@@ -3,7 +3,7 @@
  * Live sessions are keyed by signed table QR tokens; approval pushes
  * over WebSocket to the waiting guest.
  */
-import type { BarTab, GuestSession, GuestVipTier, HelpRequest, HelpRequestType, SettlementMethod, SplitBillAssignment, VipTierBenefit } from "@/lib/types";
+import type { BarTab, GuestSession, GuestVipTier, HelpRequest, HelpRequestType, SessionNote, SettlementMethod, SplitBillAssignment, VipTierBenefit } from "@/lib/types";
 import { mockGuestSessions, mockHelpRequests } from "@/features/ordering/mock-data";
 import { mockOrders } from "@/features/ordering/mock-data";
 import { mergedMinimumSpendCents } from "@/lib/tab";
@@ -17,6 +17,7 @@ import { mockGuestService } from "@/features/sessions/mock-service";
 let sessions: GuestSession[] = clone(mockGuestSessions);
 let helpRequests: HelpRequest[] = clone(mockHelpRequests);
 const barTabs: BarTab[] = [];
+let sessionNotes: SessionNote[] = [];
 
 // GS-03: VIP tier benefits — venue-configurable perks per tier
 let vipTierBenefits: VipTierBenefit[] = [
@@ -382,6 +383,71 @@ export const mockGuestsService = {
   async removeVipTierBenefit(id: string): Promise<void> {
     await delay(200);
     vipTierBenefits = vipTierBenefits.filter((b) => b.id !== id);
+  },
+
+  /** GS-05: Find approved sessions older than threshold minutes with zero orders. */
+  async detectAbandonedSessions(thresholdMinutes = 60): Promise<GuestSession[]> {
+    await delay();
+    const cutoff = new Date(Date.now() - thresholdMinutes * 60_000).toISOString();
+    const orderSessionIds = new Set(mockOrders.filter((o) => o.sessionId).map((o) => o.sessionId));
+    return clone(
+      sessions.filter(
+        (s) => s.status === "approved" && s.createdAt < cutoff && !orderSessionIds.has(s.id),
+      ),
+    );
+  },
+
+  /** GS-05: Auto-close an abandoned session. */
+  async autoCloseSession(sessionId: string): Promise<GuestSession | null> {
+    await delay(300);
+    const session = sessions.find((s) => s.id === sessionId);
+    if (!session) return null;
+    session.status = "closed";
+    session.settledExternallyAt = new Date().toISOString();
+    return clone(session);
+  },
+
+  /** GS-06: Add a note to a session. */
+  async addSessionNote(sessionId: string, note: string, staffId: string, staffName: string): Promise<SessionNote> {
+    await delay(200);
+    const sn: SessionNote = {
+      id: uid("sn"),
+      sessionId,
+      note,
+      createdByStaffId: staffId,
+      createdByStaffName: staffName,
+      createdAt: new Date().toISOString(),
+    };
+    sessionNotes = [...sessionNotes, sn];
+    return clone(sn);
+  },
+
+  async listSessionNotes(sessionId: string): Promise<SessionNote[]> {
+    await delay(150);
+    return clone(sessionNotes.filter((n) => n.sessionId === sessionId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  /** GS-07: Force-close a session at end of night — cancels open orders, closes session, audits. */
+  async forceCloseSession(sessionId: string, reason: string, staffId: string, staffName: string): Promise<GuestSession | null> {
+    await delay(400);
+    const session = sessions.find((s) => s.id === sessionId);
+    if (!session || session.status === "closed") return null;
+    const sessionOrders = mockOrders.filter((o) => o.sessionId === sessionId && o.status !== "cancelled" && o.status !== "delivered");
+    for (const order of sessionOrders) {
+      order.status = "cancelled";
+    }
+    session.status = "closed";
+    session.settledExternallyAt = new Date().toISOString();
+    await mockAuditService.record({
+      actorStaffId: staffId,
+      actorName: staffName,
+      action: "session:force-close",
+      targetType: "session",
+      targetId: session.id,
+      summary: `Force-closed ${session.displayName}'s session at ${session.tableCode} — ${reason}`,
+      metadata: { cancelledOrders: sessionOrders.length },
+    });
+    return clone(session);
   },
 
   async listHelpRequests(): Promise<HelpRequest[]> {

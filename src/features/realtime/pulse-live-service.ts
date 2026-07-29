@@ -47,5 +47,14 @@ export const livePulseService = {
   async getRevenuePace(): Promise<RevenuePace> {
     return api<RevenuePace>("/api/floor/revenue-pace");
   },
+  async acknowledgeAttentionItem(): Promise<import("@/lib/types").AttentionAcknowledgment> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async snoozeAttentionItem(): Promise<import("@/lib/types").AttentionAcknowledgment> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async listAcknowledgments(): Promise<import("@/lib/types").AttentionAcknowledgment[]> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

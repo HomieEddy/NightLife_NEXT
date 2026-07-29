@@ -12,11 +12,11 @@ describe("AutomationService mock data — rule and execution logic", () => {
     service = mod.mockAutomationService;
   });
 
-  it("lists 13 automation rules", async () => {
+  it("lists 14 automation rules", async () => {
     const rules = await service.listRules();
-    expect(rules).toHaveLength(13);
+    expect(rules).toHaveLength(14);
     const codes = new Set(rules.map((r) => r.code));
-    expect(codes.size).toBe(13);
+    expect(codes.size).toBe(14);
   });
 
   it("groups rules into six categories", async () => {

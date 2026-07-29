@@ -213,5 +213,9 @@ export const liveOrdersService = {
   async remakeOrder(_oldOrderId: string, _newOrderId: string, _reason: string, _staffId: string, _staffName: string): Promise<OrderRemake> {
     throw new Error("Not yet supported in the live build");
   },
+
+  async reportWalkout(): Promise<import("@/lib/types").WalkoutRecord> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

@@ -6,7 +6,7 @@
  * Plan 07 ships real implementations (floor-core.ts + SSE); this mock
  * stays for the permanent Live Demo sandbox.
  */
-import type { Broadcast, RevenuePace } from "@/lib/types";
+import type { AttentionAcknowledgment, Broadcast, RevenuePace } from "@/lib/types";
 import { mockStaffService } from "@/features/workforce/staff-mock-service";
 import { mockVenueService } from "@/features/venue/mock-service";
 import { clone, delay, uid } from "@/features/shared/delay";
@@ -14,6 +14,7 @@ import { clone, delay, uid } from "@/features/shared/delay";
 let broadcasts: Broadcast[] = [];
 let lastCallActive = false;
 let lastCallStartedAt: string | null = null;
+let acknowledgments: AttentionAcknowledgment[] = [];
 
 const CHANNELS = ["floor", "bar", "security"] as const;
 
@@ -97,5 +98,40 @@ export const mockPulseService = {
     const venueHours = venue.nightEndHour - venue.nightStartHour + (venue.nightEndHour < venue.nightStartHour ? 24 : 0);
     const projected = elapsedHours > 0 ? Math.round(current * (venueHours / elapsedHours)) : current;
     return { current, lastWeekSameTime, pacePercent, projected };
+  },
+
+  /** RT-01: Staff marks an attention item as being handled. */
+  async acknowledgeAttentionItem(attentionItemId: string, staffId: string, staffName: string): Promise<AttentionAcknowledgment> {
+    await delay(200);
+    const ack: AttentionAcknowledgment = {
+      id: uid("ack"),
+      attentionItemId,
+      acknowledgedByStaffId: staffId,
+      acknowledgedByStaffName: staffName,
+      acknowledgedAt: new Date().toISOString(),
+    };
+    acknowledgments = [ack, ...acknowledgments];
+    return clone(ack);
+  },
+
+  async snoozeAttentionItem(attentionItemId: string, durationMinutes: number, staffId: string, staffName: string): Promise<AttentionAcknowledgment> {
+    await delay(200);
+    const snoozedUntil = new Date(Date.now() + durationMinutes * 60_000).toISOString();
+    const ack: AttentionAcknowledgment = {
+      id: uid("ack"),
+      attentionItemId,
+      acknowledgedByStaffId: staffId,
+      acknowledgedByStaffName: staffName,
+      acknowledgedAt: new Date().toISOString(),
+      snoozedUntil,
+    };
+    acknowledgments = [ack, ...acknowledgments];
+    return clone(ack);
+  },
+
+  /** List full acknowledgment state — callers filter by attention item id or staff. */
+  async listAcknowledgments(): Promise<AttentionAcknowledgment[]> {
+    await delay(100);
+    return clone(acknowledgments);
   },
 };

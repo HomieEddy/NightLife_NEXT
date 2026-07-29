@@ -34,4 +34,9 @@ export const liveDoorService: typeof mockDoorService = {
   getOccupancyByZone: notYetSupported,
   checkZoneCapacity: notYetSupported,
   admitGroup: notYetSupported,
+  recordRefusal: notYetSupported,
+  listRefusals: notYetSupported,
+  reportLostTicket: notYetSupported,
+  reportLostItem: notYetSupported,
+  resolveClaim: notYetSupported,
 };

@@ -176,5 +176,21 @@ export const liveGuestsService = {
   async removeVipTierBenefit(): Promise<void> {
     throw new Error("Not yet supported in the live build");
   },
+
+  async detectAbandonedSessions(): Promise<GuestSession[]> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async autoCloseSession(): Promise<GuestSession | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async addSessionNote(): Promise<import("@/lib/types").SessionNote> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async listSessionNotes(): Promise<import("@/lib/types").SessionNote[]> {
+    throw new Error("Not yet supported in the live build");
+  },
+  async forceCloseSession(): Promise<GuestSession | null> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";
