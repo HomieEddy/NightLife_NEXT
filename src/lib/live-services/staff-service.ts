@@ -51,7 +51,14 @@ export const liveStaffService = {
   },
 
   async resendInvite(staffId: string): Promise<void> {
-    await api<{ ok: boolean }>(`/api/staff/${encodeURIComponent(staffId)}/resend`, { method: "POST" });
+    await api<{ ok: boolean }>(`/api/staff/${encodeURIComponent(staffId)}/resend-invite`, { method: "POST" });
+  },
+
+  async getStaffMember(id: string): Promise<StaffMember | null> {
+    const res = await liveFetch(`/api/staff/${encodeURIComponent(id)}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Failed to get staff member ${id}`);
+    return res.json();
   },
 
   async removeStaff(staffId: string): Promise<void> {
@@ -86,6 +93,11 @@ export const liveStaffService = {
         body: input.body,
       }),
     });
+  },
+
+  // TODO(backend): shift reminder scheduled job
+  async sendShiftReminders(): Promise<number> {
+    return api<number>("/api/notifications/shift-reminders", { method: "POST" });
   },
 };
 import { liveFetch } from "./live-fetch";

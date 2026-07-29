@@ -12,6 +12,7 @@ import { businessDateFor } from "@/lib/door";
 import { clone, delay, uid } from "./delay";
 import { mockAuditService } from "./audit-service";
 import { mockVenueService } from "./venue-service";
+import { mockNotificationService } from "./notification-service";
 
 let incidents: Incident[] = clone(mockIncidents);
 let notes: IncidentNote[] = clone(mockIncidentNotes);
@@ -106,6 +107,13 @@ export const mockIncidentService = {
       summary: `Filed a ${incident.severity} ${incident.type.replace(/-/g, " ")} incident`,
       metadata: { policeInvolved: incident.policeInvolved },
     });
+    // NT-08: notify security shift lead + manager on new incident
+    mockNotificationService.dispatchPush(
+      "incident-new",
+      `Incident: ${incident.severity} ${incident.type.replace(/-/g, " ")}`,
+      `Reported by ${incident.reportedByStaffName}${incident.zoneId ? ` in zone ${incident.zoneId}` : ""}. Police involved: ${incident.policeInvolved ? "yes" : "no"}.`,
+      ["security", "manager"],
+    );
     return clone(incident);
   },
 

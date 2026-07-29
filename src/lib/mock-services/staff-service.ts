@@ -7,6 +7,7 @@ import type { ChatMessage, StaffMember, StaffShift } from "@/lib/types";
 import { CURRENT_STAFF_ID, mockChatMessages, mockShifts, mockStaff } from "@/lib/mock-data/staff";
 import { mockAuthService } from "./auth-service";
 import { clone, delay, uid } from "./delay";
+import { mockNotificationService } from "./notification-service";
 
 let staff: StaffMember[] = clone(mockStaff);
 let shifts: StaffShift[] = clone(mockShifts);
@@ -125,5 +126,30 @@ export const mockStaffService = {
     };
     messages = [...messages, message];
     return clone(message);
+  },
+
+  // ── NT-13: Shift reminder (1 hour before) ────────────────────
+
+  async sendShiftReminders(minutesBefore = 60): Promise<number> {
+    await delay(200);
+    const now = new Date();
+    const windowEnd = new Date(now.getTime() + minutesBefore * 60_000);
+    const today = now.getDay();
+    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    let sent = 0;
+    for (const shift of shifts) {
+      if (shift.dayOfWeek !== today) continue;
+      if (shift.startTime <= currentTime) continue;
+      const member = staff.find((s) => s.id === shift.staffId);
+      if (!member) continue;
+      await mockNotificationService.dispatchShiftReminder(
+        member.id,
+        member.name,
+        shift.startTime,
+      );
+      sent++;
+    }
+    return sent;
   },
 };

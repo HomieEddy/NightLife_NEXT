@@ -11,8 +11,11 @@ import { clone, delay, uid } from "./delay";
 import { mockAuditService } from "./audit-service";
 import { mockGuestService } from "./guest-service";
 import { mockVenueService } from "./venue-service";
+import { mockNotificationService } from "./notification-service";
 
 let occupancyEvents: OccupancyEvent[] = clone(mockOccupancyEvents);
+/** NT-06: prevent repeated capacity-warning pushes — reset on page reload. */
+let capacityWarnedForDate: string | null = null;
 let admissions: Admission[] = clone(mockAdmissions);
 let coatCheckTickets: CoatCheckTicket[] = clone(mockCoatCheckTickets);
 let coatCheckCounter = 103;
@@ -58,7 +61,21 @@ export const mockDoorService = {
       at: new Date().toISOString(),
     };
     occupancyEvents = [event, ...occupancyEvents];
-    return { ok: true, current: current + delta };
+    const newCurrent = current + delta;
+    // NT-06: capacity warning at 90% — dispatch once per business date
+    const venue = await mockVenueService.getVenue();
+    const warnRatio = venue.occupancyWarnRatio ?? 0.9;
+    const warnAt = Math.floor(venue.legalCapacity * warnRatio);
+    if (newCurrent >= warnAt && capacityWarnedForDate !== date) {
+      capacityWarnedForDate = date;
+      mockNotificationService.dispatchPush(
+        "capacity-warning",
+        `Occupancy at ${Math.round((newCurrent / venue.legalCapacity) * 100)}%`,
+        `${newCurrent}/${venue.legalCapacity} guests in the venue — consider slowing admissions.`,
+        ["security"],
+      );
+    }
+    return { ok: true, current: newCurrent };
   },
 
   async listAdmissions(businessDate?: string): Promise<Admission[]> {
