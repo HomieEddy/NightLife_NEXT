@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdjustmentReason, GuestSession, MenuItem, Order, OrderStatus, TabAdjustment, TabAdjustmentKind } from "@/lib/types";
+import type { AdjustmentReason, GuestSession, MenuItem, Order, OrderRemake, OrderStatus, TabAdjustment, TabAdjustmentKind } from "@/lib/types";
 import type { CartLine } from "@/lib/types";
 import { toCents } from "@/features/shared/money";
 
@@ -200,6 +200,18 @@ export const liveOrdersService = {
 
   async checkInventoryAvailability(_cartLines: { menuItemId: string; quantity: number }[]): Promise<{ menuItemId: string; name: string; available: number; requested: number }[]> {
     return api("/api/inventory/availability", { method: "POST" });
+  },
+
+  async rushOrder(_orderId: string, _staffName: string): Promise<Order | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async compEntireOrder(_orderId: string, _reasonCode: string, _staffId: string, _staffName: string): Promise<TabAdjustment> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async remakeOrder(_oldOrderId: string, _newOrderId: string, _reason: string, _staffId: string, _staffName: string): Promise<OrderRemake> {
+    throw new Error("Not yet supported in the live build");
   },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

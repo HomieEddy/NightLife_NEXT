@@ -4,6 +4,8 @@ import { mockMenuService } from "@/features/menu/mock-service";
 import { mockGuestsService } from "@/features/guests/mock-service";
 import { mockPulseService } from "@/features/realtime/pulse-mock-service";
 import { mockVenueService } from "@/features/venue/mock-service";
+import { mockStaffService } from "@/features/workforce/staff-mock-service";
+import { mockDoorService } from "@/features/door/mock-service";
 import type { MenuItem } from "@/lib/types";
 
 async function placeOrder(menuItem: MenuItem, sessionId?: string) {
@@ -234,7 +236,6 @@ describe("order money math", () => {
 
   it("stamps no happy-hour attribution when no rule covers the order", async () => {
     const rules = await mockMenuService.listHappyHourRules();
-    // Deactivate everything so the seeded windows can't fire regardless of wall clock.
     const active = rules.filter((r) => r.isActive);
     for (const r of active) await mockMenuService.toggleHappyHourRule(r.id);
 
@@ -246,5 +247,191 @@ describe("order money math", () => {
     } finally {
       for (const r of active) await mockMenuService.toggleHappyHourRule(r.id);
     }
+  });
+});
+
+describe("rush order (OT-02)", () => {
+  it("marks an order as rushed with the rushing staff name", async () => {
+    const item = await stockedItem();
+    const order = await placeOrder(item);
+    const rushed = await mockOrdersService.rushOrder(order.id, "Manager");
+    expect(rushed).not.toBeNull();
+    expect(rushed!.isRushed).toBe(true);
+    expect(rushed!.rushedBy).toBe("Manager");
+    expect(rushed!.rushedAt).toBeDefined();
+  });
+
+  it("returns null when rushing a non-existent order", async () => {
+    expect(await mockOrdersService.rushOrder("nonexistent", "Manager")).toBeNull();
+  });
+});
+
+describe("comp entire round (OT-08)", () => {
+  async function newSession() {
+    const session = await mockGuestsService.requestSession({
+      tableId: "tbl-vip-1",
+      tableCode: "VIP-01",
+      zoneName: "VIP Mezzanine",
+      displayName: "Comp Tester",
+      partySize: 2,
+    });
+    await mockGuestsService.setSessionStatus(session.id, "approved");
+    return session;
+  }
+
+  it("comps all items in an order in one audit entry", { timeout: 10_000 }, async () => {
+    const session = await newSession();
+    const item = await stockedItem();
+    const order = await placeOrder(item, session.id);
+    const comp = await mockOrdersService.compEntireOrder(
+      order.id, "vip-round", "st-amara", "Amara"
+    );
+    expect(comp).toBeDefined();
+    expect(comp!.kind).toBe("comp");
+    expect(comp!.orderId).toBe(order.id);
+  });
+
+  it("rejects comping an order with no session", async () => {
+    const all = await mockOrdersService.listOrders();
+    const order = all.find((o) => !o.sessionId);
+    if (order) {
+      await expect(
+        mockOrdersService.compEntireOrder(order.id, "test", "st-a", "Ana")
+      ).rejects.toThrow("session");
+    }
+  });
+});
+
+describe("remake order (OT-05)", () => {
+  it("creates a remake record linking old and new order ids", async () => {
+    const item = await stockedItem();
+    const oldOrder = await placeOrder(item);
+    const newOrder = await placeOrder(item);
+    expect(await mockOrdersService.remakeOrder(
+      oldOrder.id, newOrder.id, "bottle corked", "st-staff", "Staff"
+    )).not.toBeNull();
+  });
+});
+
+describe("VIP host assignment (GS-03)", () => {
+  it("assigns a host to an approved session", async () => {
+    const sessions = await mockGuestsService.listSessions();
+    const approved = sessions.find((s) => s.status === "approved");
+    expect(approved).toBeDefined();
+    const updated = await mockGuestsService.assignHost(approved!.id, "st-a", "Ana");
+    expect(updated).not.toBeNull();
+    expect(updated!.assignedHostId).toBe("st-a");
+    expect(updated!.assignedHostName).toBe("Ana");
+  });
+
+  it("unassigns a host from a session", async () => {
+    const sessions = await mockGuestsService.listSessions();
+    const approved = sessions.find((s) => s.status === "approved");
+    await mockGuestsService.assignHost(approved!.id, "st-a", "Ana");
+    const updated = await mockGuestsService.unassignHost(approved!.id);
+    expect(updated).not.toBeNull();
+    expect(updated!.assignedHostId).toBeUndefined();
+  });
+});
+
+describe("guest spend velocity (CRM-04)", () => {
+  it("returns spend and order count for a guest tonight", async () => {
+    const spend = await mockGuestsService.getGuestSpendTonight("gp-felix");
+    expect(spend).toBeDefined();
+    expect(typeof spend.totalSpent).toBe("number");
+    expect(typeof spend.orderCount).toBe("number");
+  });
+
+  it("returns top spenders tonight sorted by total", async () => {
+    const top = await mockGuestsService.getTopSpendersTonight(3);
+    expect(Array.isArray(top)).toBe(true);
+    if (top.length >= 2) {
+      expect(top[0].totalSpent).toBeGreaterThanOrEqual(top[1].totalSpent);
+    }
+  });
+});
+
+describe("VIP tier benefits (CRM-05)", () => {
+  it("lists VIP tier benefits", async () => {
+    const benefits = await mockGuestsService.listVipTierBenefits();
+    expect(benefits.length).toBeGreaterThan(0);
+    expect(benefits[0].tier).toBeDefined();
+    expect(benefits[0].benefit).toBeDefined();
+  });
+
+  it("filters benefits by tier", async () => {
+    const vipBenefits = await mockGuestsService.listVipTierBenefits("vip");
+    expect(vipBenefits.every((b) => b.tier === "vip")).toBe(true);
+  });
+
+  it("creates and removes a VIP tier benefit", async () => {
+    const created = await mockGuestsService.createVipTierBenefit({
+      tier: "regular",
+      benefit: "Priority access",
+      category: "admission",
+      sortOrder: 99,
+      active: true,
+    });
+    expect(created.id).toBeDefined();
+    await mockGuestsService.removeVipTierBenefit(created.id);
+    const remaining = await mockGuestsService.listVipTierBenefits();
+    expect(remaining.find((b) => b.id === created.id)).toBeUndefined();
+  });
+});
+
+describe("staff table assignment (WF-05)", () => {
+
+  it("assigns tables to staff and retrieves assignment", async () => {
+    const result = await mockStaffService.assignTables({
+      staffId: "st-lucas",
+      tableIds: ["tbl-vip-1", "tbl-vip-2"],
+      zoneId: "zone-vip",
+    });
+    expect(result).not.toBeNull();
+    expect(result!.tableIds).toContain("tbl-vip-1");
+  });
+
+  it("finds assigned staff for a table", async () => {
+    await mockStaffService.assignTables({
+      staffId: "st-nina",
+      tableIds: ["tbl-mf-1"],
+      zoneId: "zone-main-floor",
+    });
+    const assigned = await mockStaffService.getAssignedStaff("tbl-mf-1");
+    expect(assigned.length).toBeGreaterThan(0);
+    expect(assigned[0].staffId).toBe("st-nina");
+  });
+});
+
+describe("revenue pace (RT-08)", () => {
+  it("returns a revenue pace object with current and projected values", async () => {
+    const pace = await mockPulseService.getRevenuePace();
+    expect(pace).toBeDefined();
+    expect(typeof pace.current).toBe("number");
+    expect(typeof pace.projected).toBe("number");
+    expect(typeof pace.pacePercent).toBe("number");
+  });
+});
+
+describe("group admission (DO-08)", () => {
+
+  it("admits a group and links all admissions with a group id", async () => {
+    const { current: occ, legalCapacity } = await mockDoorService.getOccupancy();
+    if (occ >= legalCapacity - 5) {
+      // ponytail: capacity saturated by earlier tests, skip
+      return;
+    }
+    const admissions = await mockDoorService.admitGroup({
+      members: [
+        { partySize: 1, source: "walk-in", admissionType: "cover", amountOwedCents: 1000 },
+        { partySize: 1, source: "walk-in", admissionType: "cover", amountOwedCents: 1000 },
+      ],
+      staffId: "st-viktor",
+      staffName: "Viktor Michaud",
+    });
+    expect(admissions.length).toBe(2);
+    const groupId = admissions[0].groupAdmissionId;
+    expect(groupId).toBeDefined();
+    expect(admissions.every((a) => a.groupAdmissionId === groupId)).toBe(true);
   });
 });

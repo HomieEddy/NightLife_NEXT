@@ -33,4 +33,5 @@ export const liveDoorService: typeof mockDoorService = {
   getZoneOccupancy: notYetSupported,
   getOccupancyByZone: notYetSupported,
   checkZoneCapacity: notYetSupported,
+  admitGroup: notYetSupported,
 };

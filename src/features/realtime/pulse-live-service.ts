@@ -1,6 +1,6 @@
 "use client";
 
-import type { Broadcast } from "@/lib/types";
+import type { Broadcast, RevenuePace } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await liveFetch(path, {
@@ -42,6 +42,10 @@ export const livePulseService = {
       method: "POST",
       body: JSON.stringify({ action: "end" }),
     });
+  },
+
+  async getRevenuePace(): Promise<RevenuePace> {
+    return api<RevenuePace>("/api/floor/revenue-pace");
   },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

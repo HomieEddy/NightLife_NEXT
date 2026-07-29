@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatMessage, StaffMember, StaffShift } from "@/lib/types";
+import type { ChatMessage, StaffMember, StaffShift, StaffTableAssignment } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await liveFetch(path, {
@@ -86,6 +86,18 @@ export const liveStaffService = {
         body: input.body,
       }),
     });
+  },
+
+  async assignTables(_input: { staffId: string; tableIds: string[]; zoneId: string; shiftId?: string }): Promise<StaffTableAssignment> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async getTableAssignment(_staffId: string): Promise<StaffTableAssignment | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async getAssignedStaff(_tableId: string): Promise<StaffTableAssignment[]> {
+    throw new Error("Not yet supported in the live build");
   },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

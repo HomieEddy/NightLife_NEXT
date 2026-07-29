@@ -380,4 +380,31 @@ export const mockDoorService = {
     });
     return admission;
   },
+
+  /** DO-08: Group admission — batch-admits a party under one group ID. */
+  /** DO-08: Batch admit a group under one groupAdmissionId — each admission flows through admit() for validation. */
+  async admitGroup(input: {
+    members: { partySize: number; admissionType: AdmissionType; amountOwedCents: number; source: Admission["source"]; guestProfileId?: string }[];
+    staffId: string;
+    staffName: string;
+    wristbandColor?: string;
+  }): Promise<Admission[]> {
+    const groupId = `grp-${uid("gadm")}`;
+    const result: Admission[] = [];
+    for (const m of input.members) {
+      const adm = await mockDoorService.admit({
+        guestProfileId: m.guestProfileId,
+        partySize: m.partySize,
+        admissionType: m.admissionType,
+        amountOwedCents: m.amountOwedCents,
+        source: m.source,
+        staffId: input.staffId,
+        staffName: input.staffName,
+        wristbandColor: input.wristbandColor,
+      });
+      adm.groupAdmissionId = groupId;
+      result.push(adm);
+    }
+    return result;
+  },
 };

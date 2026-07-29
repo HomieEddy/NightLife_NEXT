@@ -3,7 +3,7 @@
  * Plan 07 ships real chat (ChatMessage table + SSE); staff identity
  * stays mock until a future plan. This mock is the Live Demo sandbox.
  */
-import type { ChatMessage, StaffMember, StaffShift } from "@/lib/types";
+import type { ChatMessage, StaffMember, StaffShift, StaffTableAssignment } from "@/lib/types";
 import { CURRENT_STAFF_ID, mockChatMessages, mockShifts, mockStaff } from "@/features/workforce/staff-mock-data";
 import { mockAuthService } from "@/features/platform/auth-mock-service";
 import { clone, delay, uid } from "@/features/shared/delay";
@@ -11,6 +11,7 @@ import { clone, delay, uid } from "@/features/shared/delay";
 let staff: StaffMember[] = clone(mockStaff);
 let shifts: StaffShift[] = clone(mockShifts);
 let messages: ChatMessage[] = clone(mockChatMessages);
+let tableAssignments: StaffTableAssignment[] = [];
 
 export const mockStaffService = {
   async listStaff(): Promise<StaffMember[]> {
@@ -125,5 +126,36 @@ export const mockStaffService = {
     };
     messages = [...messages, message];
     return clone(message);
+  },
+
+  // WF-05: Staff table assignments — which tables each staff member covers per shift
+  async assignTables(input: { staffId: string; tableIds: string[]; zoneId: string; shiftId?: string }): Promise<StaffTableAssignment> {
+    await delay(300);
+    const existing = tableAssignments.findIndex((a) => a.staffId === input.staffId && a.zoneId === input.zoneId);
+    const assignment: StaffTableAssignment = {
+      id: uid("sta"),
+      venueId: "venue-1",
+      staffId: input.staffId,
+      tableIds: input.tableIds,
+      zoneId: input.zoneId,
+      shiftId: input.shiftId,
+      assignedAt: new Date().toISOString(),
+    };
+    if (existing !== -1) {
+      tableAssignments[existing] = assignment;
+    } else {
+      tableAssignments = [...tableAssignments, assignment];
+    }
+    return clone(assignment);
+  },
+
+  async getTableAssignment(staffId: string): Promise<StaffTableAssignment | null> {
+    await delay(150);
+    return clone(tableAssignments.find((a) => a.staffId === staffId) ?? null);
+  },
+
+  async getAssignedStaff(tableId: string): Promise<StaffTableAssignment[]> {
+    await delay(150);
+    return clone(tableAssignments.filter((a) => a.tableIds.includes(tableId)));
   },
 };

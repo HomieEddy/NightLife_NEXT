@@ -8,6 +8,7 @@ import type {
   GuestSession,
   MenuItem,
   Order,
+  OrderRemake,
   OrderStatus,
   TabAdjustment,
   TabAdjustmentKind,
@@ -44,6 +45,7 @@ let orderCounter = 39;
 // Append-only — corrections are new rows (a reversal), never edits (INV-I1 rule).
 let adjustments: TabAdjustment[] = [];
 let adjustmentReasons: AdjustmentReason[] = clone(mockAdjustmentReasons);
+let remakes: OrderRemake[] = [];
 
 function targetKey(orderId: string, orderItemId?: string) {
   return orderItemId ? `${orderId}:${orderItemId}` : orderId;
@@ -558,5 +560,43 @@ export const mockOrdersService = {
       }
     }
     return warnings;
+  },
+
+  /** OE-08: Rush/bump an order — manager overrides queue position. */
+  async rushOrder(orderId: string, staffName: string): Promise<Order | null> {
+    await delay(200);
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return null;
+    order.isRushed = true;
+    order.rushedBy = staffName;
+    order.rushedAt = new Date().toISOString();
+    return clone(order);
+  },
+
+  /** RV-07: Comp an entire order — writes a comp adjustment for the full order total. */
+  async compEntireOrder(orderId: string, reasonCode: string, staffId: string, staffName: string): Promise<TabAdjustment> {
+    return this.adjustOrder({
+      orderId,
+      kind: "comp",
+      reasonCode,
+      authorStaffId: staffId,
+      authorStaffName: staffName,
+    });
+  },
+
+  /** OT-05: Remake a voided order — creates a remake link from old to new. */
+  async remakeOrder(oldOrderId: string, newOrderId: string, reason: string, staffId: string, staffName: string): Promise<OrderRemake> {
+    await delay(300);
+    const remake: OrderRemake = {
+      id: uid("rmk"),
+      oldOrderId,
+      newOrderId,
+      reason,
+      remadeByStaffId: staffId,
+      remadeByStaffName: staffName,
+      remadeAt: new Date().toISOString(),
+    };
+    remakes = [remake, ...remakes];
+    return clone(remake);
   },
 };

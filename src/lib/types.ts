@@ -395,6 +395,9 @@ export interface GuestSession {
   pendingTimeoutMinutes?: number;
   // OT-06: Set when this session places an order after last call — blocks further orders under allow-last-round policy.
   lastCallOrderPlaced?: boolean;
+  // GS-03: VIP host assigned to this session — core bottle-service workflow.
+  assignedHostId?: string;
+  assignedHostName?: string;
 }
 
 export type SettlementMethod = "terminal" | "cash" | "house";
@@ -561,6 +564,23 @@ export interface Order {
   happyHourCents?: number;
   /** RV-05: Computed priority score (zone weight × minimum spend × session age × order type). Higher = fulfill first. */
   priorityScore?: number;
+  // OT-02: Rush/priority override — manager bumps this order ahead of the queue.
+  isRushed?: boolean;
+  rushedBy?: string;
+  rushedAt?: string;
+}
+
+// ---------- OT-05: Order remake / re-fire ----------
+
+/** Links a voided original order to a new remake order — "this bottle is corked" workflow. */
+export interface OrderRemake {
+  id: string;
+  oldOrderId: string;
+  newOrderId: string;
+  reason: string;
+  remadeByStaffId: string;
+  remadeByStaffName: string;
+  remadeAt: string;
 }
 
 // ---------- Help requests ----------
@@ -657,6 +677,14 @@ export interface RevenuePoint {
   label: string; // e.g. "22:00" or "Fri"
   revenue: number;
   orders: number;
+}
+
+// RT-08: Lightweight revenue pace for the pulse dashboard — "are we on track?"
+export interface RevenuePace {
+  current: number; // revenue so far tonight
+  lastWeekSameTime: number; // revenue at this hour last week same night
+  pacePercent: number; // current / lastWeekSameTime × 100, null-safe
+  projected: number; // extrapolated end-of-night revenue
 }
 
 export interface StaffPerformancePoint {
@@ -1206,6 +1234,18 @@ export interface GuestProfile {
   lifetimeNetCents: number;
 }
 
+// ---------- CRM-05: VIP tier benefit definitions ----------
+
+export interface VipTierBenefit {
+  id: string;
+  venueId: string;
+  tier: GuestVipTier;
+  benefit: string;
+  category: "bottle-service" | "admission" | "reservation" | "service" | "other";
+  sortOrder: number;
+  active: boolean;
+}
+
 /** The join that keeps identity opt-in — a GuestSession with no link is today's anonymous QR guest. */
 export interface GuestLink {
   id: string;
@@ -1253,6 +1293,8 @@ export interface Admission {
   wristband?: { number: string; color: string; assignedAt: string };
   /** OE-15: Distinguishes a smoke break (re-entry expected) from a final exit. */
   exitType?: "final" | "smoke-break";
+  // DO-08: Group admission — batch-admitted group links back to a single admission event.
+  groupAdmissionId?: string;
 }
 
 /**
@@ -1562,6 +1604,18 @@ export interface CommissionStatement {
   totalCents: number;
   status: "draft" | "approved";
   approvedByStaffId?: string;
+}
+
+// ---------- WF-05: Staff table assignment ----------
+
+export interface StaffTableAssignment {
+  id: string;
+  venueId: string;
+  staffId: string;
+  tableIds: string[];
+  zoneId: string;
+  shiftId?: string;
+  assignedAt: string; // ISO
 }
 
 /** Per-zone coverage rule — min staff by role the manager sees while scheduling. */

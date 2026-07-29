@@ -3,7 +3,7 @@
  * Live sessions are keyed by signed table QR tokens; approval pushes
  * over WebSocket to the waiting guest.
  */
-import type { BarTab, GuestSession, HelpRequest, HelpRequestType, SettlementMethod, SplitBillAssignment } from "@/lib/types";
+import type { BarTab, GuestSession, GuestVipTier, HelpRequest, HelpRequestType, SettlementMethod, SplitBillAssignment, VipTierBenefit } from "@/lib/types";
 import { mockGuestSessions, mockHelpRequests } from "@/features/ordering/mock-data";
 import { mockOrders } from "@/features/ordering/mock-data";
 import { mergedMinimumSpendCents } from "@/lib/tab";
@@ -16,7 +16,19 @@ import { mockGuestService } from "@/features/sessions/mock-service";
 
 let sessions: GuestSession[] = clone(mockGuestSessions);
 let helpRequests: HelpRequest[] = clone(mockHelpRequests);
-let barTabs: BarTab[] = [];
+const barTabs: BarTab[] = [];
+
+// GS-03: VIP tier benefits — venue-configurable perks per tier
+let vipTierBenefits: VipTierBenefit[] = [
+  { id: "vtb-1", venueId: "venue-1", tier: "vip", benefit: "Priority bottle-service presentation", category: "bottle-service", sortOrder: 1, active: true },
+  { id: "vtb-2", venueId: "venue-1", tier: "vip", benefit: "Dedicated VIP host for the night", category: "service", sortOrder: 2, active: true },
+  { id: "vtb-3", venueId: "venue-1", tier: "vip", benefit: "Guaranteed VIP-section table", category: "reservation", sortOrder: 3, active: true },
+  { id: "vtb-4", venueId: "venue-1", tier: "vip", benefit: "Skip-the-line entry for you and your party", category: "admission", sortOrder: 4, active: true },
+  { id: "vtb-5", venueId: "venue-1", tier: "host-list", benefit: "Priority reservation access", category: "reservation", sortOrder: 1, active: true },
+  { id: "vtb-6", venueId: "venue-1", tier: "host-list", benefit: "Expedited check-in at the door", category: "admission", sortOrder: 2, active: true },
+  { id: "vtb-7", venueId: "venue-1", tier: "regular", benefit: "Birthday celebration acknowledgment", category: "service", sortOrder: 1, active: true },
+  { id: "vtb-8", venueId: "venue-1", tier: "regular", benefit: "Standard bottle presentation", category: "bottle-service", sortOrder: 2, active: true },
+];
 
 export const mockGuestsService = {
   async listSessions(status?: GuestSession["status"]): Promise<GuestSession[]> {
@@ -286,6 +298,90 @@ export const mockGuestsService = {
       reportedByStaffName: staffName,
     });
     return clone(session);
+  },
+
+  /** GS-03: Assign a VIP host to this session — core bottle-service workflow. */
+  async assignHost(sessionId: string, hostId: string, hostName: string): Promise<GuestSession | null> {
+    await delay(300);
+    const session = sessions.find((s) => s.id === sessionId);
+    if (!session) return null;
+    session.assignedHostId = hostId;
+    session.assignedHostName = hostName;
+    return clone(session);
+  },
+
+  async unassignHost(sessionId: string): Promise<GuestSession | null> {
+    await delay(200);
+    const session = sessions.find((s) => s.id === sessionId);
+    if (!session) return null;
+    session.assignedHostId = undefined;
+    session.assignedHostName = undefined;
+    return clone(session);
+  },
+
+  async listSessionsByHost(hostId: string): Promise<GuestSession[]> {
+    await delay();
+    return clone(sessions.filter((s) => s.assignedHostId === hostId && s.status === "approved"));
+  },
+
+  /** CRM-04: Real-time spend for a guest profile tonight — uses seed data for demo simplicity. */
+  async getGuestSpendTonight(profileId: string): Promise<{ totalSpent: number; orderCount: number; sessionCount: number }> {
+    await delay(200);
+    const links = await mockGuestService.listLinks();
+    const linkedSessionIds = links
+      .filter((l) => l.guestProfileId === profileId && l.sessionId)
+      .map((l) => l.sessionId!);
+    const profileSessions = mockGuestSessions.filter(
+      (s) => linkedSessionIds.includes(s.id) && (s.status === "approved" || s.status === "closure-requested" || s.status === "closed"),
+    );
+    const sessionIds = new Set(profileSessions.map((s) => s.id));
+    const profileOrders = mockOrders.filter(
+      (o) => o.sessionId && sessionIds.has(o.sessionId) && o.status !== "cancelled",
+    );
+    const totalSpent = profileOrders.reduce((sum, o) => sum + Math.round(o.total * 100), 0);
+    return { totalSpent, orderCount: profileOrders.length, sessionCount: profileSessions.length };
+  },
+
+  /** CRM-04: Top spenders tonight — sorted by spend, limited to N. */
+  async getTopSpendersTonight(limit = 10): Promise<{ profileId: string; displayName: string; totalSpent: number; orderCount: number; tier: GuestVipTier }[]> {
+    await delay();
+    const profiles = await mockGuestService.listProfiles();
+    const results: { profileId: string; displayName: string; totalSpent: number; orderCount: number; tier: GuestVipTier }[] = [];
+    for (const profile of profiles) {
+      const spend = await this.getGuestSpendTonight(profile.id);
+      if (spend.totalSpent > 0) {
+        results.push({ profileId: profile.id, displayName: profile.displayName, totalSpent: spend.totalSpent, orderCount: spend.orderCount, tier: profile.vipTier });
+      }
+    }
+    results.sort((a, b) => b.totalSpent - a.totalSpent);
+    return results.slice(0, limit);
+  },
+
+  // GS-03: VIP tier benefits CRUD
+  async listVipTierBenefits(tier?: GuestVipTier): Promise<VipTierBenefit[]> {
+    await delay();
+    const result = tier ? vipTierBenefits.filter((b) => b.tier === tier && b.active) : vipTierBenefits.filter((b) => b.active);
+    return clone(result).sort((a, b) => a.sortOrder - b.sortOrder);
+  },
+
+  async createVipTierBenefit(input: Omit<VipTierBenefit, "id" | "venueId">): Promise<VipTierBenefit> {
+    await delay(300);
+    const benefit: VipTierBenefit = { id: uid("vtb"), venueId: "venue-1", ...input };
+    vipTierBenefits = [...vipTierBenefits, benefit];
+    return clone(benefit);
+  },
+
+  async updateVipTierBenefit(id: string, patch: Partial<Pick<VipTierBenefit, "benefit" | "category" | "sortOrder" | "active">>): Promise<VipTierBenefit | null> {
+    await delay(300);
+    const benefit = vipTierBenefits.find((b) => b.id === id);
+    if (!benefit) return null;
+    Object.assign(benefit, patch);
+    return clone(benefit);
+  },
+
+  async removeVipTierBenefit(id: string): Promise<void> {
+    await delay(200);
+    vipTierBenefits = vipTierBenefits.filter((b) => b.id !== id);
   },
 
   async listHelpRequests(): Promise<HelpRequest[]> {

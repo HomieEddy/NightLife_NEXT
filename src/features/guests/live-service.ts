@@ -140,5 +140,41 @@ export const liveGuestsService = {
   async markLastCallOrderPlaced(sessionId: string): Promise<void> {
     await api(`/api/sessions/${encodeURIComponent(sessionId)}/last-call-order`, { method: "POST" });
   },
+
+  async assignHost(): Promise<GuestSession | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async unassignHost(): Promise<GuestSession | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async listSessionsByHost(): Promise<GuestSession[]> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async getGuestSpendTonight(): Promise<{ totalSpent: number; orderCount: number; sessionCount: number }> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async getTopSpendersTonight(): Promise<{ profileId: string; displayName: string; totalSpent: number; orderCount: number; tier: import("@/lib/types").GuestVipTier }[]> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async listVipTierBenefits(): Promise<import("@/lib/types").VipTierBenefit[]> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async createVipTierBenefit(): Promise<import("@/lib/types").VipTierBenefit> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async updateVipTierBenefit(): Promise<import("@/lib/types").VipTierBenefit | null> {
+    throw new Error("Not yet supported in the live build");
+  },
+
+  async removeVipTierBenefit(): Promise<void> {
+    throw new Error("Not yet supported in the live build");
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

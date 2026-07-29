@@ -6,8 +6,9 @@
  * Plan 07 ships real implementations (floor-core.ts + SSE); this mock
  * stays for the permanent Live Demo sandbox.
  */
-import type { Broadcast } from "@/lib/types";
+import type { Broadcast, RevenuePace } from "@/lib/types";
 import { mockStaffService } from "@/features/workforce/staff-mock-service";
+import { mockVenueService } from "@/features/venue/mock-service";
 import { clone, delay, uid } from "@/features/shared/delay";
 
 let broadcasts: Broadcast[] = [];
@@ -73,5 +74,28 @@ export const mockPulseService = {
     await delay(300);
     lastCallActive = false;
     lastCallStartedAt = null;
+  },
+
+  /** RT-08: Revenue pace — are we on track vs last week same night? */
+  async getRevenuePace(): Promise<RevenuePace> {
+    await delay(200);
+    const [orders, venue] = await Promise.all([
+      import("@/features/ordering/mock-data").then((m) => m.mockOrders),
+      mockVenueService.getVenueSnapshot(),
+    ]);
+    const now = new Date();
+    const tonightStart = new Date(now);
+    tonightStart.setHours(venue.nightStartHour, 0, 0, 0);
+    if (now < tonightStart) tonightStart.setDate(tonightStart.getDate() - 1);
+    const elapsedHours = Math.max(0, (now.getTime() - tonightStart.getTime()) / 3600000);
+    const current = orders
+      .filter((o) => new Date(o.placedAt) >= tonightStart && o.status !== "cancelled")
+      .reduce((sum, o) => sum + Math.round(o.total * 100), 0);
+    // ponytail: assume last week was 85% of tonight's volume at this hour — real backend queries actual historical data
+    const lastWeekSameTime = Math.round(current * 0.85);
+    const pacePercent = lastWeekSameTime > 0 ? Math.round((current / lastWeekSameTime) * 100) : 100;
+    const venueHours = venue.nightEndHour - venue.nightStartHour + (venue.nightEndHour < venue.nightStartHour ? 24 : 0);
+    const projected = elapsedHours > 0 ? Math.round(current * (venueHours / elapsedHours)) : current;
+    return { current, lastWeekSameTime, pacePercent, projected };
   },
 };
