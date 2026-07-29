@@ -49,6 +49,7 @@ export async function findTableByQrSlug(
       description: zone.description,
       color: zone.color,
       tableCount,
+      capacity: null,
     },
     venue: {
       id: venueRow.id,

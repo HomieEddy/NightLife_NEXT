@@ -6,10 +6,11 @@
 import type { Admission, AdmissionType, CoatCheckTicket, OccupancyEvent } from "@/lib/types";
 import { mockAdmissions, mockCoatCheckTickets, mockOccupancyEvents } from "@/features/door/mock-data";
 import { mockVenue } from "@/features/venue/mock-data";
-import { businessDateFor, canApplyOccupancyDelta, canAdmitWithinCapacity, checkAgeOnAdmission, computeOccupancy } from "@/lib/door";
+import { businessDateFor, canAdmitToZone, canApplyOccupancyDelta, canAdmitWithinCapacity, checkAgeOnAdmission, computeOccupancy } from "@/lib/door";
 import { clone, delay, uid } from "@/features/shared/delay";
 import { mockAuditService } from "@/features/platform/audit-mock-service";
 import { mockGuestService } from "@/features/sessions/mock-service";
+import { mockGuestsService } from "@/features/guests/mock-service";
 import { mockVenueService } from "@/features/venue/mock-service";
 
 let occupancyEvents: OccupancyEvent[] = clone(mockOccupancyEvents);
@@ -205,6 +206,51 @@ export const mockDoorService = {
       metadata: { admissionId: admission.id },
     });
     return admission;
+  },
+
+  // ---------- DO-06: Per-zone occupancy — derived from active sessions on tables in zone ----------
+
+  /** Occupancy for a single zone: sum of partySize from active sessions on tables in that zone. */
+  async getZoneOccupancy(zoneId: string): Promise<{ zoneId: string; current: number; capacity: number | null }> {
+    await delay(150);
+    const [tables, sessions, zones] = await Promise.all([
+      mockVenueService.listTables(zoneId),
+      mockGuestsService.listSessions(),
+      mockVenueService.listZones(),
+    ]);
+    const tableIds = new Set(tables.map((t) => t.id));
+    const activeStatuses = new Set(["approved", "closure-requested"]);
+    const current = sessions
+      .filter((s) => activeStatuses.has(s.status) && tableIds.has(s.tableId))
+      .reduce((sum, s) => sum + s.partySize, 0);
+    const zone = zones.find((z) => z.id === zoneId);
+    return { zoneId, current, capacity: zone?.capacity ?? null };
+  },
+
+  /** Occupancy breakdown for every zone — one call for the manager dashboard. */
+  async getOccupancyByZone(): Promise<{ zoneId: string; zoneName: string; current: number; capacity: number | null }[]> {
+    await delay(200);
+    const [zones, allTables, sessions] = await Promise.all([
+      mockVenueService.listZones(),
+      mockVenueService.listTables(),
+      mockGuestsService.listSessions(),
+    ]);
+    const activeStatuses = new Set(["approved", "closure-requested"]);
+    const activeSessions = sessions.filter((s) => activeStatuses.has(s.status));
+    return zones.map((zone) => {
+      const tableIds = new Set(allTables.filter((t) => t.zoneId === zone.id).map((t) => t.id));
+      const current = activeSessions
+        .filter((s) => tableIds.has(s.tableId))
+        .reduce((sum, s) => sum + s.partySize, 0);
+      return { zoneId: zone.id, zoneName: zone.name, current, capacity: zone.capacity };
+    });
+  },
+
+  /** VM-02: Check if a zone can accept a party of the given size. */
+  async checkZoneCapacity(zoneId: string, partySize: number): Promise<{ allowed: boolean; current: number; capacity: number | null }> {
+    await delay(100);
+    const { current, capacity } = await mockDoorService.getZoneOccupancy(zoneId);
+    return { allowed: canAdmitToZone(current, partySize, capacity), current, capacity };
   },
 
   // ---------- Coat check — gated behind venue.coatCheckEnabled by the caller ----------

@@ -87,6 +87,8 @@ export interface Zone {
   description: string;
   color: string; // tailwind-friendly hue token, e.g. "violet"
   tableCount: number;
+  // VM-02: fire-code capacity per zone — null means uncapped
+  capacity: number | null;
 }
 
 export type TableStatus = "open" | "occupied" | "reserved" | "closed";

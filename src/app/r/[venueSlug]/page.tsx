@@ -200,6 +200,7 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
     description: "",
     color: z.color,
     tableCount: 0,
+    capacity: null,
   }));
 
   const aspect = `${data.venue.floorMap.width} / ${data.venue.floorMap.height}`;

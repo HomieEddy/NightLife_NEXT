@@ -28,7 +28,7 @@ import type { z } from "zod";
 import { ZONE_COLORS, ZONE_SWATCH as SWATCH } from "@/features/shared/zone-colors";
 
 type FormValues = z.infer<typeof zZoneInput>;
-const EMPTY_VALUES: FormValues = { name: "", description: "", color: "violet" as const };
+const EMPTY_VALUES: FormValues = { name: "", description: "", color: "violet" as const, capacity: null };
 
 function ZonesContent() {
   const [zones, setZones] = useState<Zone[] | null>(null);
@@ -64,7 +64,7 @@ function ZonesContent() {
 
   function openEdit(zone: Zone) {
     setEditingId(zone.id);
-    reset({ name: zone.name, description: zone.description, color: zone.color as FormValues["color"] });
+    reset({ name: zone.name, description: zone.description, color: zone.color as FormValues["color"], capacity: zone.capacity });
     setDialogOpen(true);
   }
 

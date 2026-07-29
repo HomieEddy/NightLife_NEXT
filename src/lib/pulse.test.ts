@@ -8,7 +8,7 @@ const table: VenueTable = {
   id: "t-1", zoneId: "z-1", code: "VIP-01", label: "Booth", seats: 6,
   minimumSpend: 800, status: "occupied", qrSlug: "vip-01",
 };
-const zone: Zone = { id: "z-1", venueId: "venue-1", name: "VIP", description: "", color: "violet", tableCount: 1 };
+const zone: Zone = { id: "z-1", venueId: "venue-1", name: "VIP", description: "", color: "violet", tableCount: 1, capacity: 60 };
 
 function session(patch: Partial<GuestSession> = {}): GuestSession {
   return {

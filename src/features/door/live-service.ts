@@ -30,4 +30,7 @@ export const liveDoorService: typeof mockDoorService = {
   evacuate: notYetSupported,
   resumeEvacuation: notYetSupported,
   admitCapacityOverride: notYetSupported,
+  getZoneOccupancy: notYetSupported,
+  getOccupancyByZone: notYetSupported,
+  checkZoneCapacity: notYetSupported,
 };

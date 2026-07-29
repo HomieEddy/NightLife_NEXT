@@ -71,7 +71,7 @@ function toVenue(
   };
 }
 
-function toZone(row: { id: string; venueId: string; name: string; description: string; color: string }, tableCount: number): Zone {
+function toZone(row: { id: string; venueId: string; name: string; description: string; color: string; capacity?: number | null }, tableCount: number): Zone {
   return {
     id: row.id,
     venueId: row.venueId,
@@ -79,6 +79,7 @@ function toZone(row: { id: string; venueId: string; name: string; description: s
     description: row.description,
     color: row.color,
     tableCount,
+    capacity: row.capacity ?? null,
   };
 }
 

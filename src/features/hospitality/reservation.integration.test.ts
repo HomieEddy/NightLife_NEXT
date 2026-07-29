@@ -56,7 +56,7 @@ describe("reservation integration (plan 08)", () => {
     sessionA = { venueId: venueA };
 
     const db = getDb(sessionA);
-    const zone = await createZone(db, venueA, { name: "Main", description: "", color: "cyan" });
+    const zone = await createZone(db, venueA, { name: "Main", description: "", color: "cyan", capacity: null });
     zoneId = zone.id;
     const table = await createTable(db, venueA, {
       zoneId,

@@ -75,6 +75,7 @@ export const zZoneInput = z.object({
   name: z.string().min(1),
   description: z.string(),
   color: zZoneColor,
+  capacity: z.number().int().positive().nullable(),
 });
 
 export const zZonePatch = zZoneInput.partial();

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   businessDateFor,
+  canAdmitToZone,
   canApplyOccupancyDelta,
   canMarkNoShow,
   canAdmitWithinCapacity,
@@ -276,5 +277,33 @@ describe("canAdmitWithinCapacity (S-13)", () => {
 
   it("allows exactly filling the last spot", () => {
     expect(canAdmitWithinCapacity(396, 4, 400)).toBe(true);
+  });
+});
+
+// ---------- VM-02 + DO-06: Per-zone capacity enforcement ----------
+
+describe("canAdmitToZone (VM-02)", () => {
+  it("allows admission when zone has room", () => {
+    expect(canAdmitToZone(30, 4, 60)).toBe(true);
+  });
+
+  it("blocks admission when zone is at capacity", () => {
+    expect(canAdmitToZone(60, 1, 60)).toBe(false);
+  });
+
+  it("blocks admission when party would exceed capacity", () => {
+    expect(canAdmitToZone(58, 4, 60)).toBe(false);
+  });
+
+  it("allows exactly filling the last spot", () => {
+    expect(canAdmitToZone(56, 4, 60)).toBe(true);
+  });
+
+  it("always passes when capacity is null (uncapped zone)", () => {
+    expect(canAdmitToZone(999, 50, null)).toBe(true);
+  });
+
+  it("always passes when capacity is zero (unset)", () => {
+    expect(canAdmitToZone(999, 50, 0)).toBe(true);
   });
 });

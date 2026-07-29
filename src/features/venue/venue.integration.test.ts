@@ -94,7 +94,7 @@ describe("venue/zone/table/shift integration (plan 03)", () => {
 
   it("creates, lists and updates zones with a derived tableCount", async () => {
     const db = getDb(sessionA);
-    const zone = await createZone(db, venueA, { name: "Patio", description: "Outside", color: "cyan" });
+    const zone = await createZone(db, venueA, { name: "Patio", description: "Outside", color: "cyan", capacity: null });
     expect(zone.tableCount).toBe(0);
 
     const table = await createTable(db, venueA, {
@@ -122,7 +122,7 @@ describe("venue/zone/table/shift integration (plan 03)", () => {
 
   it("rejects deleting a zone that still has tables (INV-V1)", async () => {
     const db = getDb(sessionA);
-    const zone = await createZone(db, venueA, { name: "Blocked Zone", description: "", color: "amber" });
+    const zone = await createZone(db, venueA, { name: "Blocked Zone", description: "", color: "amber", capacity: null });
     const table = await createTable(db, venueA, {
       zoneId: zone.id,
       code: "BZ-01",
@@ -142,7 +142,7 @@ describe("venue/zone/table/shift integration (plan 03)", () => {
 
   it("persists table status and floor-map position", async () => {
     const db = getDb(sessionA);
-    const zone = await createZone(db, venueA, { name: "Status Zone", description: "", color: "rose" });
+    const zone = await createZone(db, venueA, { name: "Status Zone", description: "", color: "rose", capacity: null });
     const table = await createTable(db, venueA, {
       zoneId: zone.id,
       code: "SZ-01",
@@ -185,7 +185,7 @@ describe("venue/zone/table/shift integration (plan 03)", () => {
 
   it("never leaks zones or tables across venues (AD-3 canary)", async () => {
     const dbB = getDb({ venueId: venueB });
-    const marker = await createZone(dbB, venueB, { name: "Venue B Zone", description: "", color: "violet" });
+    const marker = await createZone(dbB, venueB, { name: "Venue B Zone", description: "", color: "violet", capacity: null });
 
     await expectTenantIsolation(venueB, venueA, (db) =>
       db.zone.findUnique({ where: { id: marker.id } }),

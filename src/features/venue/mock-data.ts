@@ -50,6 +50,7 @@ export const mockZones: Zone[] = [
     description: "Bottle-service booths overlooking the main floor",
     color: "violet",
     tableCount: 6,
+    capacity: 60,
   },
   {
     id: "zone-dance",
@@ -58,6 +59,7 @@ export const mockZones: Zone[] = [
     description: "High-tops around the dance floor",
     color: "fuchsia",
     tableCount: 8,
+    capacity: 200,
   },
   {
     id: "zone-terrace",
@@ -66,6 +68,7 @@ export const mockZones: Zone[] = [
     description: "Open-air lounge seating",
     color: "cyan",
     tableCount: 5,
+    capacity: 80,
   },
   {
     id: "zone-bar",
@@ -74,6 +77,7 @@ export const mockZones: Zone[] = [
     description: "Intimate bar-side seating",
     color: "amber",
     tableCount: 4,
+    capacity: null,
   },
 ];
 

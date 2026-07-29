@@ -145,8 +145,8 @@ describe("generateWeekFromTemplates", () => {
 
 describe("computeCoverageGaps", () => {
   const zones: Zone[] = [
-    { id: "z1", venueId: "v", name: "VIP", description: "", color: "violet", tableCount: 4 },
-    { id: "z2", venueId: "v", name: "Main", description: "", color: "blue", tableCount: 8 },
+    { id: "z1", venueId: "v", name: "VIP", description: "", color: "violet", tableCount: 4, capacity: 60 },
+    { id: "z2", venueId: "v", name: "Main", description: "", color: "blue", tableCount: 8, capacity: 200 },
   ];
 
   test("returns gap when a zone has open orders but no bartender clocked in", () => {
