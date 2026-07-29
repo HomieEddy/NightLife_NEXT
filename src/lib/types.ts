@@ -81,6 +81,9 @@ export interface Venue {
   // OT-06: What happens when last call starts — "block-all" stops every order,
   // "allow-last-round" lets each session place one final order.
   lastCallPolicy?: "block-all" | "allow-last-round";
+  // WF-06: Quebec labor law — mandatory break after N continuous minutes.
+  requiredBreakAfterMinutes?: number;
+  breakDurationMinutes?: number;
 }
 
 export interface Zone {
