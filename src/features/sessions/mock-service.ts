@@ -11,6 +11,7 @@ import { mockVenue } from "@/features/venue/mock-data";
 import { dedupeCandidates, type DedupeCandidate } from "@/lib/door";
 import { clone, delay, uid } from "@/features/shared/delay";
 import { mockAuditService } from "@/features/platform/audit-mock-service";
+import { mockNotificationService } from "@/features/shared/notification-mock-service";
 
 let profiles: GuestProfile[] = clone(mockGuestProfiles);
 let links: GuestLink[] = clone(mockGuestLinks);
@@ -152,6 +153,15 @@ export const mockGuestService = {
         ? `Banned ${profile.displayName} — ${profile.banReason}`
         : `Lifted ban on ${profile.displayName}`,
     });
+    // NT-02: notify door staff when a ban is issued
+    if (input.banned) {
+      mockNotificationService.dispatchPush(
+        "door-ban",
+        `Guest banned: ${profile.displayName}`,
+        `${profile.displayName} has been banned${input.bannedUntil ? ` until ${input.bannedUntil}` : ""}. Reason: ${profile.banReason}. Banned by ${staffName}.`,
+        ["security"],
+      );
+    }
     return clone(profile);
   },
 

@@ -4,17 +4,20 @@
  * are appended IncidentNote rows. Writes an AuditEntry in the same logical
  * operation that creates the incident.
  */
-import type { Incident, IncidentActionItem, IncidentNote } from "@/lib/types";
+import type { Incident, IncidentActionItem, IncidentNote, IncidentTemplate } from "@/lib/types";
 import { mockIncidentNotes, mockIncidents } from "@/features/safety/mock-data";
+import { mockIncidentTemplates } from "@/features/safety/incident-templates-mock-data";
 import { mockVenue } from "@/features/venue/mock-data";
 import { businessDateFor } from "@/lib/door";
 import { clone, delay, uid } from "@/features/shared/delay";
 import { mockAuditService } from "@/features/platform/audit-mock-service";
 import { mockVenueService } from "@/features/venue/mock-service";
+import { mockNotificationService } from "@/features/shared/notification-mock-service";
 
 let incidents: Incident[] = clone(mockIncidents);
 let notes: IncidentNote[] = clone(mockIncidentNotes);
-let actionItems: IncidentActionItem[] = [];
+const actionItems: IncidentActionItem[] = [];
+const templates: IncidentTemplate[] = clone(mockIncidentTemplates);
 
 export const mockIncidentService = {
   async listIncidents(filter?: {
@@ -49,6 +52,7 @@ export const mockIncidentService = {
     occurredAt?: string;
     zoneId?: string;
     tableId?: string;
+    locationDescription?: string;
     guestProfileId?: string;
     involvedStaffIds: string[];
     narrative: string;
@@ -77,6 +81,7 @@ export const mockIncidentService = {
       occurredAt,
       zoneId: input.zoneId,
       tableId: input.tableId,
+      locationDescription: input.locationDescription?.trim() || undefined,
       guestProfileId: input.guestProfileId,
       involvedStaffIds: input.involvedStaffIds,
       narrative: input.narrative.trim(),
@@ -104,6 +109,13 @@ export const mockIncidentService = {
       summary: `Filed a ${incident.severity} ${incident.type.replace(/-/g, " ")} incident`,
       metadata: { policeInvolved: incident.policeInvolved },
     });
+    // NT-08: notify security shift lead + manager on new incident
+    mockNotificationService.dispatchPush(
+      "incident-new",
+      `Incident: ${incident.severity} ${incident.type.replace(/-/g, " ")}`,
+      `Reported by ${incident.reportedByStaffName}${incident.zoneId ? ` in zone ${incident.zoneId}` : ""}. Police involved: ${incident.policeInvolved ? "yes" : "no"}.`,
+      ["security", "manager"],
+    );
     return clone(incident);
   },
 
@@ -185,5 +197,69 @@ export const mockIncidentService = {
   async completeActionItem(itemId: string): Promise<void> {
     const item = actionItems.find((a) => a.id === itemId);
     if (item) { item.status = "completed"; item.completedAt = new Date().toISOString(); }
+  },
+
+  // ── SI-01: Incident location ──────────────────────────────────
+
+  async getIncidentsByZone(zoneId: string, dateRange?: { from: string; to: string }): Promise<Incident[]> {
+    await delay();
+    let result = incidents.filter((i) => i.zoneId === zoneId);
+    if (dateRange) {
+      result = result.filter((i) => i.occurredAt >= dateRange.from && i.occurredAt <= dateRange.to);
+    }
+    return clone(result).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+  },
+
+  // ── SI-08: Incident quick-file templates ──────────────────────
+
+  async listTemplates(): Promise<IncidentTemplate[]> {
+    await delay();
+    return clone(templates.filter((t) => t.isActive));
+  },
+
+  async fileFromTemplate(
+    templateId: string,
+    placeholders: Record<string, string>,
+    overrides: {
+      reportedByStaffId: string;
+      reportedByStaffName: string;
+      occurredAt?: string;
+      zoneId?: string;
+      tableId?: string;
+      locationDescription?: string;
+      guestProfileId?: string;
+      involvedStaffIds?: string[];
+      policeInvolved?: boolean;
+      reportable?: boolean;
+    },
+  ): Promise<Incident> {
+    await delay(400);
+    const tpl = templates.find((t) => t.id === templateId);
+    if (!tpl) throw new Error("Template not found");
+
+    let narrative = tpl.narrativeTemplate;
+    let actionsTaken = tpl.actionsTakenTemplate;
+    for (const [key, value] of Object.entries(placeholders)) {
+      const re = new RegExp(`\\{${key}\\}`, "g");
+      narrative = narrative.replace(re, value);
+      actionsTaken = actionsTaken.replace(re, value);
+    }
+
+    return this.reportIncident({
+      type: tpl.type,
+      severity: tpl.severity,
+      occurredAt: overrides.occurredAt,
+      zoneId: overrides.zoneId,
+      tableId: overrides.tableId,
+      locationDescription: overrides.locationDescription,
+      guestProfileId: overrides.guestProfileId,
+      involvedStaffIds: overrides.involvedStaffIds ?? [],
+      narrative,
+      actionsTaken,
+      policeInvolved: overrides.policeInvolved ?? false,
+      reportable: overrides.reportable,
+      reportedByStaffId: overrides.reportedByStaffId,
+      reportedByStaffName: overrides.reportedByStaffName,
+    });
   },
 };

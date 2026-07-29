@@ -116,5 +116,10 @@ export const liveStaffService = {
   async listHandoffs(): Promise<import("@/lib/types").ShiftHandoff[]> {
     throw new Error("Not yet supported in the live build");
   },
+
+  // TODO(backend): shift reminder scheduled job
+  async sendShiftReminders(): Promise<number> {
+    return api<number>("/api/notifications/shift-reminders", { method: "POST" });
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";

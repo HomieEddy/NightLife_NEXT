@@ -7,6 +7,7 @@ import type { ChatMessage, ShiftHandoff, StaffMember, StaffShift, StaffTableAssi
 import { CURRENT_STAFF_ID, mockChatMessages, mockShifts, mockStaff } from "@/features/workforce/staff-mock-data";
 import { mockAuthService } from "@/features/platform/auth-mock-service";
 import { clone, delay, uid } from "@/features/shared/delay";
+import { mockNotificationService } from "@/features/shared/notification-mock-service";
 
 let staff: StaffMember[] = clone(mockStaff);
 let shifts: StaffShift[] = clone(mockShifts);
@@ -199,5 +200,32 @@ export const mockStaffService = {
   async listHandoffs(): Promise<ShiftHandoff[]> {
     await delay(150);
     return clone(handoffs).sort((a, b) => b.generatedAt.localeCompare(a.generatedAt));
+  },
+
+  // ── NT-13: Shift reminder (1 hour before) ────────────────────
+
+  async sendShiftReminders(minutesBefore = 60): Promise<number> {
+    await delay(200);
+    const now = new Date();
+    const today = now.getDay();
+    const windowEndMinutes = now.getHours() * 60 + now.getMinutes() + minutesBefore;
+
+    let sent = 0;
+    for (const shift of shifts) {
+      if (shift.dayOfWeek !== today) continue;
+      const [sh, sm] = shift.startTime.split(":").map(Number);
+      const shiftStartMinutes = sh * 60 + sm;
+      if (shiftStartMinutes <= now.getHours() * 60 + now.getMinutes()) continue;
+      if (shiftStartMinutes > windowEndMinutes) continue;
+      const member = staff.find((s) => s.id === shift.staffId);
+      if (!member) continue;
+      await mockNotificationService.dispatchShiftReminder(
+        member.id,
+        member.name,
+        shift.startTime,
+      );
+      sent++;
+    }
+    return sent;
   },
 };
