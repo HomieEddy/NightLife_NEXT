@@ -164,7 +164,7 @@ export const zWaitlistEntryInput = z.object({
 });
 
 export const zIncidentReportInput = z.object({
-  type: z.enum(["ejection", "refused-entry", "medical", "altercation", "theft", "property-damage", "police", "other"]),
+  type: z.enum(["ejection", "refused-entry", "medical", "altercation", "theft", "property-damage", "police", "staff-injury", "other"]),
   severity: z.enum(["low", "medium", "high"]),
   narrative: z.string().min(1, "Describe what happened"),
   actionsTaken: z.string().min(1, "Describe what you did"),

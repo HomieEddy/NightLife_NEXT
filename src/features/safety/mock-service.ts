@@ -63,6 +63,7 @@ export const mockIncidentService = {
     witnesses?: Incident["witnesses"];
     cctvReference?: Incident["cctvReference"];
     medicalChecklist?: Incident["medicalChecklist"];
+    staffInjuryDetails?: Incident["staffInjuryDetails"];
   }): Promise<Incident> {
     await delay(500);
     const venue = await mockVenueService.getVenueSnapshot();
@@ -91,6 +92,7 @@ export const mockIncidentService = {
       witnesses: input.witnesses,
       cctvReference: input.cctvReference,
       medicalChecklist: input.medicalChecklist,
+      staffInjuryDetails: input.staffInjuryDetails,
     };
     incidents = [incident, ...incidents];
     await mockAuditService.record({

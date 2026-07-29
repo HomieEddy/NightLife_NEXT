@@ -1260,6 +1260,7 @@ export type IncidentType =
   | "theft"
   | "property-damage"
   | "police"
+  | "staff-injury"
   | "other";
 export type IncidentSeverity = "low" | "medium" | "high";
 export type IncidentStatus = "open" | "resolved";
@@ -1307,6 +1308,20 @@ export interface Incident {
   cctvReference?: { camera: string; timestamp: string }[];
   /** OE-31: Medical incident checklist fields. */
   medicalChecklist?: { ambulanceCalled: boolean; paramedicsArrivedAt?: string; transportTo?: string; reportFiled: boolean };
+  // SI-06: Worker's compensation details for staff-injury incidents.
+  staffInjuryDetails?: StaffInjuryDetails;
+}
+
+/** SI-06: Details specific to a staff-injury incident — worker's comp documentation. */
+export interface StaffInjuryDetails {
+  staffId: string;
+  injuryType: "slip-fall" | "cut-laceration" | "burn" | "strain-sprain" | "assault" | "other";
+  injuryDescription: string;
+  treatmentProvided: string;
+  hospitalVisitRequired: boolean;
+  workersCompFiled: boolean;
+  workersCompReference?: string;
+  returnToWorkDate?: string; // ISO date
 }
 
 /** Append-only follow-up on an Incident — the narrative itself never changes after submit. */

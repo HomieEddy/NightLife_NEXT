@@ -29,6 +29,7 @@ const TYPE_LABELS: Record<IncidentType, string> = {
   theft: "Theft",
   "property-damage": "Property damage",
   police: "Police",
+  "staff-injury": "Staff injury",
   other: "Other",
 };
 

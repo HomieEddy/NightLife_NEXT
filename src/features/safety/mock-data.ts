@@ -93,6 +93,31 @@ export const mockIncidents: Incident[] = [
     regulatoryDeadline: new Date(Date.now() + 48 * 3600_000).toISOString(),
     regulatoryAuthority: "SPVM (Service de police de la Ville de Montréal)",
   },
+  {
+    id: "inc-6",
+    venueId: "venue-1",
+    businessDate: CURRENT_BUSINESS_DATE,
+    type: "staff-injury",
+    severity: "medium",
+    occurredAt: minsAgo(90),
+    zoneId: "zone-bar",
+    involvedStaffIds: ["st-karim"],
+    narrative: "Bartender slipped on wet floor behind the bar, twisting their ankle. Ice applied immediately.",
+    actionsTaken: "First aid administered. Staff moved to break room. Shift covered by backup.",
+    policeInvolved: false,
+    reportedByStaffId: "st-amara",
+    reportedByStaffName: "Amara Bélanger",
+    status: "open",
+    reportable: false,
+    staffInjuryDetails: {
+      staffId: "st-karim",
+      injuryType: "slip-fall",
+      injuryDescription: "Twisted right ankle on wet floor behind service bar",
+      treatmentProvided: "Ice pack, compression bandage, elevated",
+      hospitalVisitRequired: false,
+      workersCompFiled: false,
+    },
+  },
 ];
 
 export const mockIncidentNotes: IncidentNote[] = [
