@@ -4,8 +4,9 @@
  * are appended IncidentNote rows. Writes an AuditEntry in the same logical
  * operation that creates the incident.
  */
-import type { Incident, IncidentActionItem, IncidentNote } from "@/lib/types";
+import type { Incident, IncidentActionItem, IncidentNote, IncidentTemplate } from "@/lib/types";
 import { mockIncidentNotes, mockIncidents } from "@/lib/mock-data/incidents";
+import { mockIncidentTemplates } from "@/lib/mock-data/incident-templates";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { businessDateFor } from "@/lib/door";
 import { clone, delay, uid } from "./delay";
@@ -15,6 +16,7 @@ import { mockVenueService } from "./venue-service";
 let incidents: Incident[] = clone(mockIncidents);
 let notes: IncidentNote[] = clone(mockIncidentNotes);
 let actionItems: IncidentActionItem[] = [];
+let templates: IncidentTemplate[] = clone(mockIncidentTemplates);
 
 export const mockIncidentService = {
   async listIncidents(filter?: {
@@ -49,6 +51,7 @@ export const mockIncidentService = {
     occurredAt?: string;
     zoneId?: string;
     tableId?: string;
+    locationDescription?: string;
     guestProfileId?: string;
     involvedStaffIds: string[];
     narrative: string;
@@ -76,6 +79,7 @@ export const mockIncidentService = {
       occurredAt,
       zoneId: input.zoneId,
       tableId: input.tableId,
+      locationDescription: input.locationDescription?.trim() || undefined,
       guestProfileId: input.guestProfileId,
       involvedStaffIds: input.involvedStaffIds,
       narrative: input.narrative.trim(),
@@ -183,5 +187,69 @@ export const mockIncidentService = {
   async completeActionItem(itemId: string): Promise<void> {
     const item = actionItems.find((a) => a.id === itemId);
     if (item) { item.status = "completed"; item.completedAt = new Date().toISOString(); }
+  },
+
+  // ── SI-01: Incident location ──────────────────────────────────
+
+  async getIncidentsByZone(zoneId: string, dateRange?: { from: string; to: string }): Promise<Incident[]> {
+    await delay();
+    let result = incidents.filter((i) => i.zoneId === zoneId);
+    if (dateRange) {
+      result = result.filter((i) => i.occurredAt >= dateRange.from && i.occurredAt <= dateRange.to);
+    }
+    return clone(result).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+  },
+
+  // ── SI-08: Incident quick-file templates ──────────────────────
+
+  async listTemplates(): Promise<IncidentTemplate[]> {
+    await delay();
+    return clone(templates.filter((t) => t.isActive));
+  },
+
+  async fileFromTemplate(
+    templateId: string,
+    placeholders: Record<string, string>,
+    overrides: {
+      reportedByStaffId: string;
+      reportedByStaffName: string;
+      occurredAt?: string;
+      zoneId?: string;
+      tableId?: string;
+      locationDescription?: string;
+      guestProfileId?: string;
+      involvedStaffIds?: string[];
+      policeInvolved?: boolean;
+      reportable?: boolean;
+    },
+  ): Promise<Incident> {
+    await delay(400);
+    const template = templates.find((t) => t.id === templateId);
+    if (!template) throw new Error("Template not found");
+
+    let narrative = template.narrativeTemplate;
+    let actionsTaken = template.actionsTakenTemplate;
+    for (const [key, value] of Object.entries(placeholders)) {
+      const re = new RegExp(`\\{${key}\\}`, "g");
+      narrative = narrative.replace(re, value);
+      actionsTaken = actionsTaken.replace(re, value);
+    }
+
+    return this.reportIncident({
+      type: template.type,
+      severity: template.severity,
+      occurredAt: overrides.occurredAt,
+      zoneId: overrides.zoneId,
+      tableId: overrides.tableId,
+      locationDescription: overrides.locationDescription,
+      guestProfileId: overrides.guestProfileId,
+      involvedStaffIds: overrides.involvedStaffIds ?? [],
+      narrative,
+      actionsTaken,
+      policeInvolved: overrides.policeInvolved ?? false,
+      reportable: overrides.reportable,
+      reportedByStaffId: overrides.reportedByStaffId,
+      reportedByStaffName: overrides.reportedByStaffName,
+    });
   },
 };

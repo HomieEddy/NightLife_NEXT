@@ -1271,6 +1271,8 @@ export interface Incident {
   occurredAt: string; // ISO
   zoneId?: string;
   tableId?: string;
+  /** SI-01: Free-text description of the exact location (e.g. "Near the VIP staircase, east side"). */
+  locationDescription?: string;
   guestProfileId?: string;
   involvedStaffIds: string[];
   narrative: string;
@@ -1306,6 +1308,21 @@ export interface IncidentNote {
   note: string;
   authorStaffId: string;
   authorStaffName: string;
+  createdAt: string; // ISO
+}
+
+/** SI-08: Pre-filled template for common incident types — speeds up filing during busy nights. */
+export interface IncidentTemplate {
+  id: string;
+  venueId: string;
+  type: IncidentType;
+  severity: IncidentSeverity;
+  /** Pre-filled narrative template with placeholders like {guestName}, {zoneName}. */
+  narrativeTemplate: string;
+  /** Pre-filled actions-taken template. */
+  actionsTakenTemplate: string;
+  /** Whether this template is active (shown in the quick-file list). */
+  isActive: boolean;
   createdAt: string; // ISO
 }
 
