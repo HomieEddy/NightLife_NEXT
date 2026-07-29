@@ -41,9 +41,10 @@ What this plan is **not**: no marketing email, no user-facing notification
 preferences UI (this ships in plan 28 alongside push — the dispatch core and
 preferences model are defined here; the preferences UI and per-channel
 control surface ship when push gives users a second channel to manage).
-No queue infrastructure (BullMQ/Redis) — sends are synchronous route-handler
-or cron work at this scale; a queue is earned when send volume or retry
-complexity demands it. Note the deferral in a `TODO(backend)`.
+Queue infrastructure (BullMQ) lands in Plan 30 §3 for staging/prod; local
+live dev uses cron-job fallback (no Redis dependency). This plan ships
+synchronous sends first — the queue adapter wraps them later without changing
+call sites.
 
 ## Design choices
 

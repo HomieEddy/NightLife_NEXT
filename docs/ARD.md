@@ -378,12 +378,14 @@ three parallel seams with different error handling, retry, and logging.
   error?, createdAt }`. Append-only. The log IS the delivery audit trail.
 - **Failure handling**: per-transport retry with exponential backoff (max 3
   retries over 10 minutes). After 3 failures, log as "failed" and do not retry.
-  No dead-letter queue at this scale — the log is queryable for failed sends.
+  The `NotificationLog` is queryable for failed sends.
+- **Queue topology**: BullMQ (Redis-backed) in staging/prod for reliable retry
+  and scheduled sends; cron-job fallback for local live dev (`dev:pglite`,
+  `dev:stack`) — no Redis dependency for local development. Plan 30 §3 is the
+  implementation vehicle.
 
 **Alternatives:** per-feature notification logic (three code paths, three error
-  models, no cross-channel preferences — rejected per AGENTS.md §1.2); queue
-  infrastructure (BullMQ/Redis — synchronous sends suffice at this scale;
-  earned by volume, noted in parking lot).
+  models, no cross-channel preferences — rejected per AGENTS.md §1.2).
 
 **Consequences:** Adding a new notification trigger is: (1) define the domain
 event if new, (2) create a template, (3) call `notify(...)` at the trigger point.

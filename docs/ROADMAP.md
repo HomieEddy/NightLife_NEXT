@@ -473,7 +473,7 @@ Key dependency rules:
 | Marketing email/SMS campaigns | Plans 25–26 are transactional only. CASL consent infrastructure not built. |
 | Metrics timeseries stack (Prometheus/Grafana/Loki) | Sentry + health checks cover incidents. Timeseries earned by trend-analysis demand. |
 | Redis-backed rate limiting | Single VPS; in-memory limiter correct for topology. |
-| Queue infrastructure (BullMQ) | Synchronous sends suffice at this scale. Earned by volume. **NOTE:** Plan 30 §3 proposes BullMQ — reconcile with this deferral before that phase ships (consistency review F-04, 2026-07-28). |
+| ~~Queue infrastructure (BullMQ)~~ | **Resolved (2026-07-28):** BullMQ adopted for staging/prod (OVHcloud); local live dev (`dev:pglite`, `dev:stack`) uses cron-job fallback — no Redis dependency for local development. Plan 30 §3 is the implementation vehicle. |
 | Self-serve DSAR portal / GDPR | Law 25/PIPEDA covered by documented procedure (plan 29). No EU market. |
 | Locales beyond fr/en, RTL | Plan 27 ships fr/en only — the QC market's actual requirement. |
 | Offline mode beyond Phase 5 action queue | Full offline with SW caching all application data breaks deploys. Offline queue + app shell covers the stated requirements (door admission, incident filing during brief outages). |
