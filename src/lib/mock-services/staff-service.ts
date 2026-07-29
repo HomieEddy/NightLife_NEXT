@@ -133,14 +133,16 @@ export const mockStaffService = {
   async sendShiftReminders(minutesBefore = 60): Promise<number> {
     await delay(200);
     const now = new Date();
-    const windowEnd = new Date(now.getTime() + minutesBefore * 60_000);
     const today = now.getDay();
-    const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const windowEndMinutes = now.getHours() * 60 + now.getMinutes() + minutesBefore;
 
     let sent = 0;
     for (const shift of shifts) {
       if (shift.dayOfWeek !== today) continue;
-      if (shift.startTime <= currentTime) continue;
+      const [sh, sm] = shift.startTime.split(":").map(Number);
+      const shiftStartMinutes = sh * 60 + sm;
+      if (shiftStartMinutes <= now.getHours() * 60 + now.getMinutes()) continue;
+      if (shiftStartMinutes > windowEndMinutes) continue;
       const member = staff.find((s) => s.id === shift.staffId);
       if (!member) continue;
       await mockNotificationService.dispatchShiftReminder(

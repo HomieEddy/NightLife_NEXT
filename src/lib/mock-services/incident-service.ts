@@ -16,8 +16,8 @@ import { mockNotificationService } from "./notification-service";
 
 let incidents: Incident[] = clone(mockIncidents);
 let notes: IncidentNote[] = clone(mockIncidentNotes);
-let actionItems: IncidentActionItem[] = [];
-let templates: IncidentTemplate[] = clone(mockIncidentTemplates);
+const actionItems: IncidentActionItem[] = [];
+const templates: IncidentTemplate[] = clone(mockIncidentTemplates);
 
 export const mockIncidentService = {
   async listIncidents(filter?: {
