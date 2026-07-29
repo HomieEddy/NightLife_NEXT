@@ -7,6 +7,7 @@ import { mockEvents, mockEventGuests } from "@/lib/mock-data/events";
 import { mockEventTalent } from "@/lib/mock-data/event-talent";
 import { mockVenue } from "@/lib/mock-data/venue";
 import { clone, delay, uid } from "./delay";
+import { mockStaffService } from "./staff-service";
 
 let events: VenueEvent[] = clone(mockEvents);
 let guests: EventGuest[] = clone(mockEventGuests);
@@ -62,8 +63,22 @@ export const mockEventsService = {
     partySize: number;
     /** Set when the door/host resolves a repeat guestlist name to a known regular (plan 17). */
     guestProfileId?: string;
+    /** PR-02: Staff promoter ID — required for quota enforcement. */
+    promoterId?: string;
   }): Promise<EventGuest> {
     await delay(300);
+    // PR-02: enforce guestlist quota if promoterId is provided
+    if (input.promoterId) {
+      const usage = await this.getQuotaUsage(input.promoterId, input.eventId);
+      if (usage.remaining === 0) {
+        throw new Error(`Promoter guestlist quota (${usage.quota}) exceeded for this event.`);
+      }
+      if (usage.remaining !== null && input.partySize > usage.remaining) {
+        throw new Error(
+          `Adding ${input.partySize} guests exceeds the promoter's remaining quota of ${usage.remaining}.`,
+        );
+      }
+    }
     const guest: EventGuest = {
       id: uid("eg"),
       eventId: input.eventId,
@@ -160,5 +175,21 @@ export const mockEventsService = {
 
   async markTalentCompleted(id: string): Promise<EventTalent | null> {
     return this.updateTalent(id, { status: "completed" });
+  },
+
+  // ── PR-02: Promoter guestlist quota ───────────────────────────
+
+  async getQuotaUsage(
+    promoterId: string,
+    eventId: string,
+  ): Promise<{ quota: number | null; used: number; remaining: number | null }> {
+    await delay(200);
+    const promoter = await mockStaffService.getStaffMember(promoterId);
+    const quota = promoter?.guestlistQuota ?? null;
+    const used = guests
+      .filter((g) => g.eventId === eventId)
+      .reduce((sum, g) => sum + g.partySize, 0);
+    const remaining = quota !== null ? Math.max(0, quota - used) : null;
+    return { quota, used, remaining };
   },
 };

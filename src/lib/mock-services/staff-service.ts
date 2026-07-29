@@ -18,6 +18,11 @@ export const mockStaffService = {
     return clone(staff);
   },
 
+  async getStaffMember(id: string): Promise<StaffMember | null> {
+    await delay(100);
+    return clone(staff.find((s) => s.id === id) ?? null);
+  },
+
   /** Simulates "who am I" — resolves from the signed-in auth persona, fallback to the seeded runner. */
   async getCurrentStaff(): Promise<StaffMember> {
     await delay(200);

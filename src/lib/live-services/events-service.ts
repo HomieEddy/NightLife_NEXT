@@ -56,10 +56,11 @@ export const liveEventsService = {
     name: string;
     partySize: number;
     guestProfileId?: string;
+    promoterId?: string;
   }): Promise<EventGuest> {
     return api<EventGuest>(`/api/events/${encodeURIComponent(input.eventId)}/guests`, {
       method: "POST",
-      body: JSON.stringify({ name: input.name, partySize: input.partySize, guestProfileId: input.guestProfileId }),
+      body: JSON.stringify({ name: input.name, partySize: input.partySize, guestProfileId: input.guestProfileId, promoterId: input.promoterId }),
     });
   },
 
@@ -115,6 +116,11 @@ export const liveEventsService = {
   },
   async markTalentCompleted(id: string): Promise<EventTalent | null> {
     return api<EventTalent>(`/api/event-talent/${encodeURIComponent(id)}/completed`, { method: "POST" });
+  },
+
+  // TODO(backend): promoter quota API route
+  async getQuotaUsage(promoterId: string, eventId: string): Promise<{ quota: number | null; used: number; remaining: number | null }> {
+    return api(`/api/events/${encodeURIComponent(eventId)}/quota/${encodeURIComponent(promoterId)}`);
   },
 };
 import { liveFetch } from "./live-fetch";
