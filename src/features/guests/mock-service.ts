@@ -53,6 +53,12 @@ export const mockGuestsService = {
     return clone(sessions.find((s) => s.id === sessionId) ?? null);
   },
 
+  // OT-06: stamp a session so only one final order is allowed under allow-last-round policy
+  async markLastCallOrderPlaced(sessionId: string): Promise<void> {
+    const session = sessions.find((s) => s.id === sessionId);
+    if (session) session.lastCallOrderPlaced = true;
+  },
+
   /**
    * Guest asks to close their tab. Only valid once every order is delivered
    * (enforced by the UI; re-checked server-side once a backend exists).

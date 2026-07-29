@@ -40,6 +40,7 @@ export const mockVenue: Venue = {
   coatCheckEnabled: true,
   doorRequiresIdCheck: true,
   legalDrinkingAge: 18,
+  lastCallPolicy: "allow-last-round" as const,
 };
 
 export const mockZones: Zone[] = [

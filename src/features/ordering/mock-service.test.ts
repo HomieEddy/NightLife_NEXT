@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { mockOrdersService } from "./mock-service";
 import { mockMenuService } from "@/features/menu/mock-service";
 import { mockGuestsService } from "@/features/guests/mock-service";
+import { mockPulseService } from "@/features/realtime/pulse-mock-service";
+import { mockVenueService } from "@/features/venue/mock-service";
 import type { MenuItem } from "@/lib/types";
 
 async function placeOrder(menuItem: MenuItem, sessionId?: string) {
@@ -144,6 +146,54 @@ describe("session closure ordering wall", () => {
     const before = (await mockMenuService.getItem(item.id))!.inventory;
     await expect(placeOrder(item, session.id)).rejects.toThrow();
     expect((await mockMenuService.getItem(item.id))!.inventory).toBe(before);
+  });
+});
+
+describe("last-call order restrictions (OT-06)", () => {
+  async function newSession() {
+    const session = await mockGuestsService.requestSession({
+      tableId: "tbl-vip-1",
+      tableCode: "VIP-01",
+      zoneName: "VIP Mezzanine",
+      displayName: "Last-Call Tester",
+      partySize: 2,
+    });
+    await mockGuestsService.setSessionStatus(session.id, "approved");
+    return session;
+  }
+
+  it("rejects orders during last call under block-all policy", { timeout: 15_000 }, async () => {
+    await mockVenueService.updateVenue({ lastCallPolicy: "block-all" });
+    await mockPulseService.startLastCall("Manager");
+    try {
+      const session = await newSession();
+      const item = await stockedItem();
+      await expect(placeOrder(item, session.id)).rejects.toThrow(/last call/i);
+    } finally {
+      await mockPulseService.endLastCall();
+      await mockVenueService.updateVenue({ lastCallPolicy: "allow-last-round" });
+    }
+  });
+
+  it("allows one final order under allow-last-round, then blocks the next", { timeout: 20_000 }, async () => {
+    await mockVenueService.updateVenue({ lastCallPolicy: "allow-last-round" });
+    await mockPulseService.startLastCall("Manager");
+    try {
+      const session = await newSession();
+      const item = await stockedItem();
+      const order = await placeOrder(item, session.id);
+      expect(order.sessionId).toBe(session.id);
+      await expect(placeOrder(item, session.id)).rejects.toThrow(/final round/i);
+    } finally {
+      await mockPulseService.endLastCall();
+    }
+  });
+
+  it("accepts orders normally when last call is not active", async () => {
+    const session = await newSession();
+    const item = await stockedItem();
+    const order = await placeOrder(item, session.id);
+    expect(order.status).toBe("pending");
   });
 });
 

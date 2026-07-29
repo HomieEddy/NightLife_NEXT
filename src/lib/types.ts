@@ -78,6 +78,9 @@ export interface Venue {
   pendingSessionTimeoutMinutes?: number;
   /** RV-19: Ratios at which minimum-spend nudge alerts fire (e.g. [0.5, 0.75, 0.9]). */
   minimumSpendCheckpoints?: number[];
+  // OT-06: What happens when last call starts — "block-all" stops every order,
+  // "allow-last-round" lets each session place one final order.
+  lastCallPolicy?: "block-all" | "allow-last-round";
 }
 
 export interface Zone {
@@ -340,6 +343,8 @@ export interface GuestSession {
   spendingCapCents?: number;
   /** RV-18: Auto-timeout minutes — pending sessions auto-rejected after this many minutes. Default from venue config. */
   pendingTimeoutMinutes?: number;
+  // OT-06: Set when this session places an order after last call — blocks further orders under allow-last-round policy.
+  lastCallOrderPlaced?: boolean;
 }
 
 export type SettlementMethod = "terminal" | "cash" | "house";

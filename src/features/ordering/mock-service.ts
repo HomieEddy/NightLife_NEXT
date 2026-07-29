@@ -29,6 +29,7 @@ import {
 import { mockGuestsService } from "@/features/guests/mock-service";
 import { mockMenuService, restoreSale } from "@/features/menu/mock-service";
 import { mockVenueService } from "@/features/venue/mock-service";
+import { mockPulseService } from "@/features/realtime/pulse-mock-service";
 import { mockAuditService } from "@/features/platform/audit-mock-service";
 import { clone, delay, uid } from "@/features/shared/delay";
 
@@ -66,6 +67,18 @@ async function assertSessionOrderable(sessionId: string | undefined): Promise<vo
   }
   if (session.serviceRefusedAt) {
     throw new Error("Service has been paused for this table. Please speak with a host.");
+  }
+  // OT-06: last-call enforcement at the service boundary
+  const lastCallState = await mockPulseService.getLastCallState();
+  if (lastCallState.active) {
+    const venue = await mockVenueService.getVenueSnapshot();
+    const policy = venue.lastCallPolicy ?? "block-all";
+    if (policy === "block-all") {
+      throw new Error("Last call — no new orders are being accepted.");
+    }
+    if (policy === "allow-last-round" && session.lastCallOrderPlaced) {
+      throw new Error("Last call — your final round has already been placed.");
+    }
   }
 }
 
@@ -191,6 +204,13 @@ export const mockOrdersService = {
         ...washerLines,
       ],
     );
+    // OT-06: stamp session so allow-last-round blocks the next order
+    if (input.sessionId) {
+      const lastCallState = await mockPulseService.getLastCallState();
+      if (lastCallState.active) {
+        await mockGuestsService.markLastCallOrderPlaced(input.sessionId);
+      }
+    }
     return clone(order);
   },
 

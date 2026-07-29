@@ -136,5 +136,9 @@ export const liveGuestsService = {
   async listBarTabs(): Promise<BarTab[]> {
     throw new Error("Not yet supported in the live build");
   },
+
+  async markLastCallOrderPlaced(sessionId: string): Promise<void> {
+    await api(`/api/sessions/${encodeURIComponent(sessionId)}/last-call-order`, { method: "POST" });
+  },
 };
 import { liveFetch } from "@/features/shared/live-fetch";
