@@ -585,6 +585,7 @@ export default function StaffDoorPage() {
                             variant="outline"
                             size="icon"
                             className="size-11"
+                            aria-label="Decrease party size"
                             onClick={() => admitSet("partySize", Math.max(1, admitWatch("partySize") ?? 1 - 1))}
                           >
                             <Minus className="size-4" />
@@ -595,6 +596,7 @@ export default function StaffDoorPage() {
                             variant="outline"
                             size="icon"
                             className="size-11"
+                            aria-label="Increase party size"
                             onClick={() => admitSet("partySize", admitWatch("partySize") ?? 1 + 1)}
                           >
                             <Plus className="size-4" />
@@ -745,11 +747,11 @@ export default function StaffDoorPage() {
                   {wlForm.formState.errors.name && <p className="text-xs text-destructive">{wlForm.formState.errors.name.message}</p>}
                   <div className="flex items-center gap-2">
                     <Label className="w-20 shrink-0 text-xs">Party</Label>
-                    <Button type="button" variant="outline" size="icon" className="size-9" onClick={() => wlSet("partySize", Math.max(1, (wlWatch("partySize") ?? 2) - 1))}>
+                    <Button type="button" variant="outline" size="icon" className="size-9" aria-label="Decrease party size" onClick={() => wlSet("partySize", Math.max(1, (wlWatch("partySize") ?? 2) - 1))}>
                       <Minus className="size-4" />
                     </Button>
                     <span className="w-6 text-center tabular-nums">{wlWatch("partySize") ?? 2}</span>
-                    <Button type="button" variant="outline" size="icon" className="size-9" onClick={() => wlSet("partySize", (wlWatch("partySize") ?? 2) + 1)}>
+                    <Button type="button" variant="outline" size="icon" className="size-9" aria-label="Increase party size" onClick={() => wlSet("partySize", (wlWatch("partySize") ?? 2) + 1)}>
                       <Plus className="size-4" />
                     </Button>
                   </div>

@@ -289,7 +289,7 @@ export default function ManagerPurchasingPage() {
             <CardTitle className="text-base flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {sup.name}
-                <Button variant="ghost" size="icon" className="size-6" onClick={() => openSupEdit(sup)}><Plus className="size-3 rotate-45" /></Button>
+                <Button variant="ghost" size="icon" className="size-6" aria-label="Edit supplier" onClick={() => openSupEdit(sup)}><Plus className="size-3 rotate-45" /></Button>
                 {!sup.active && <Badge variant="outline">Inactive</Badge>}
               </div>
               <div className="flex gap-1">
@@ -550,8 +550,8 @@ export default function ManagerPurchasingPage() {
                       {si.preferred && <Badge variant="secondary" className="ml-1 text-[10px]">Preferred</Badge>}
                     </p>
                   </div>
-                  <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => editCatalogueItem(si)}><Pencil className="size-3" /></Button>
-                  <ConfirmDialog trigger={<Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive"><Trash2 className="size-3" /></Button>} title="Remove from catalogue?" description={`Remove ${mi?.name ?? si.menuItemId} from this supplier.`} confirmLabel="Remove" destructive onConfirm={() => removeFromCatalogue(si.id)} />
+                  <Button variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Edit catalogue item" onClick={() => editCatalogueItem(si)}><Pencil className="size-3" /></Button>
+                  <ConfirmDialog trigger={<Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" aria-label="Remove from catalogue"><Trash2 className="size-3" /></Button>} title="Remove from catalogue?" description={`Remove ${mi?.name ?? si.menuItemId} from this supplier.`} confirmLabel="Remove" destructive onConfirm={() => removeFromCatalogue(si.id)} />
                 </div>
               );
             })}

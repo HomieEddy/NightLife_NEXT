@@ -306,7 +306,7 @@ function EventsContent() {
                               <span>
                                 {g.name} <span className="text-xs text-muted-foreground">· {g.partySize}</span>
                               </span>
-                              <Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-red-600" onClick={() => removeGuest(g.id)}>
+                              <Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-red-600" aria-label="Remove guest" onClick={() => removeGuest(g.id)}>
                                 <Trash2 className="size-3.5" />
                               </Button>
                             </li>
