@@ -20,7 +20,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { adminService } from "@/lib/services/admin-service";
+import { adminService } from "@/features/platform/admin-service";
 import type { TelemetryCategory, TelemetryLink } from "@/lib/types";
 
 const CATEGORIES: TelemetryCategory[] = ["monitoring", "logs", "analytics", "infra", "other"];

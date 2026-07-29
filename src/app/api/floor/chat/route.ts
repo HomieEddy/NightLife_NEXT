@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Floor routes are disabled in demo mode" }, { status: 404 });
 }
 
 async function liveGET(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
-  const { listMessages } = await import("@/server/floor-core");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { getDb } = await import("@/features/shared/db");
+  const { listMessages } = await import("@/features/realtime/floor-core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -24,11 +24,11 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
-  const { sendMessage } = await import("@/server/floor-core");
-  const { getRawPrisma } = await import("@/server/db");
-  const { getCurrentStaff } = await import("@/server/staff-core");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { getDb } = await import("@/features/shared/db");
+  const { sendMessage } = await import("@/features/realtime/floor-core");
+  const { getRawPrisma } = await import("@/features/shared/db");
+  const { getCurrentStaff } = await import("@/features/workforce/staff-core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

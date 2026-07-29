@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Lead capture is disabled in demo mode" }, { status: 404 });
 }
 
 async function livePOST(request: NextRequest) {
-  const { getPlatformDb } = await import("@/server/db");
-  const { createLead } = await import("@/server/platform/admin-core");
-  const { checkRateLimit } = await import("@/server/rate-limit");
+  const { getPlatformDb } = await import("@/features/shared/db");
+  const { createLead } = await import("@/features/platform/admin-core");
+  const { checkRateLimit } = await import("@/features/shared/rate-limit");
 
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     ?? request.headers.get("x-real-ip")

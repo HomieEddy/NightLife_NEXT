@@ -1,15 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { logger } from "@/features/shared/logger";
 
 function demoHandler() {
   return NextResponse.json({ error: "Reservation routes are disabled in demo mode" }, { status: 404 });
 }
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb, getRawPrisma } = await import("@/server/db");
-  const { setReservationStatus } = await import("@/server/reservation-core");
-  const { zReservationStatus } = await import("@/server/schemas/reservations");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { getDb, getRawPrisma } = await import("@/features/shared/db");
+  const { setReservationStatus } = await import("@/features/hospitality/reservation-core");
+  const { zReservationStatus } = await import("@/features/hospitality/reservation-schemas");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -29,8 +30,8 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
   const hasPhone = !!((result.reservation as unknown as Record<string, unknown>).guestPhone);
   if (parsed.data === "confirmed" && (hasEmail || hasPhone)) {
     try {
-      await import("@/server/notifications/templates");
-      const { dispatch } = await import("@/server/notifications/dispatch");
+      await import("@/features/notifications/templates");
+      const { dispatch } = await import("@/features/notifications/dispatch");
       const { normalizePhone } = await import("@/lib/phone");
       const prisma = getRawPrisma();
       const r = result.reservation as unknown as Record<string, unknown>;
@@ -53,7 +54,7 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
         idempotencyKey: `confirm:${id}`,
       });
     } catch (err) {
-      console.error("[reservation-confirm] Notification failed:", err);
+      logger.error("[reservation-confirm] Notification failed:", { error: String(err) });
     }
   }
 

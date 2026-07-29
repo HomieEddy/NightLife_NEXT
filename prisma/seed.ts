@@ -2,17 +2,17 @@ import type { Prisma, StaffRole } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { organization, admin, bearer } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { mockVenue, mockZones, mockTables } from "../src/lib/mock-data/venue";
+import { mockVenue, mockZones, mockTables } from "../src/features/venue/mock-data";
 import {
   mockCategories,
   mockMenuItems,
   mockPackages,
   mockStockMovements,
   mockHappyHourRules,
-} from "../src/lib/mock-data/menu";
-import { toCents } from "../src/server/money";
-import { getDb, getRawPrisma } from "../src/server/db";
-import { ensureMapPositions } from "../src/server/venue-core";
+} from "../src/features/menu/mock-data";
+import { toCents } from "../src/features/shared/money";
+import { getDb, getRawPrisma } from "../src/features/shared/db";
+import { ensureMapPositions } from "../src/features/venue/core";
 
 const DEMO_PASSWORD = "demo1234";
 
@@ -250,7 +250,7 @@ async function main() {
         label: table.label,
         seats: table.seats,
         minimumSpend: table.minimumSpend,
-        status: table.status,
+        status: table.status as any,
         qrSlug: table.qrSlug,
         mapX: table.mapX,
         mapY: table.mapY,

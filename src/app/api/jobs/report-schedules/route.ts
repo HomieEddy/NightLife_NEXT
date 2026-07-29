@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { logger } from "@/features/shared/logger";
 
 function demoHandler() {
   return NextResponse.json({ error: "Cron jobs are disabled in demo mode" }, { status: 404 });
@@ -12,10 +13,10 @@ async function livePOST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { getRawPrisma } = await import("@/server/db");
-  const { findDueReports } = await import("@/server/report-core");
-  const { dispatch: notify } = await import("@/server/notifications/dispatch");
-  await import("@/server/notifications/templates");
+  const { getRawPrisma } = await import("@/features/shared/db");
+  const { findDueReports } = await import("@/features/analytics/report-core");
+  const { dispatch: notify } = await import("@/features/notifications/dispatch");
+  await import("@/features/notifications/templates");
 
   const prisma = getRawPrisma();
   const tenants = await prisma.tenant.findMany({ select: { id: true } });
@@ -36,9 +37,6 @@ async function livePOST(request: NextRequest) {
         data: { tenantId: tenant.id, jobName: jobKey, status: "running", startedAt: new Date() },
       });
 
-      // TODO(backend): the db returned by findDueReports needs explicit venueId filtering
-      // since we're iterating cross-tenant with getRawPrisma. For now, find due reports
-      // by querying the tenant's SavedReport rows directly.
       const reports = await prisma.savedReport.findMany({
         where: { venueId: tenant.id },
         include: { runs: { orderBy: { ranAt: "desc" }, take: 1 } },
@@ -75,7 +73,7 @@ async function livePOST(request: NextRequest) {
       const run = await prisma.jobRun.findFirst({ where: { tenantId: tenant.id, jobName: jobKey, status: "running" } });
       if (run) await prisma.jobRun.update({ where: { id: run.id }, data: { status: "completed", endedAt: new Date() } });
     } catch (err) {
-      console.error(`[report-schedules] Tenant ${tenant.id}:`, err);
+      logger.error(`[report-schedules] Tenant ${tenant.id}:`, { error: String(err) });
     }
   }
 

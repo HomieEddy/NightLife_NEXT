@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { BottleIcon } from "@/components/shared/bottle-icon";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { MenuItem } from "@/lib/types";
 
 const TAG_LABELS: Record<MenuItem["tags"][number], string> = {
@@ -58,7 +58,7 @@ export function MenuItemCard({
               </Badge>
             ) : null}
           </div>
-          <p className="text-voice truncate text-[13px] text-muted-foreground">{item.description}</p>
+          <p className="text-voice truncate text-sm text-muted-foreground">{item.description}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <span className="text-sm font-semibold tabular-nums text-primary">
               {formatMoney(item.price)}

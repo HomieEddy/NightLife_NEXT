@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { Check, Loader2, UserSquare2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { guestService } from "@/lib/services/guest-service";
-import { formatMoney } from "@/lib/format";
+import { guestService } from "@/features/sessions/services";
+import { formatMoney } from "@/features/shared/format";
+import { z } from "zod";
 import type { GuestProfile, StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
 
 export type ReservationDraft = {
@@ -61,6 +64,35 @@ export const EMPTY_DRAFT: ReservationDraft = {
 const selectCls =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+const zReservationForm = z.object({
+  guestName: z.string().min(1, "Guest name is required"),
+  partySize: z.number().int().min(1),
+  zoneId: z.string().default(""),
+  tableId: z.string().default(""),
+  startsAt: z.string().default(toLocalInput(new Date().toISOString())),
+  endsAt: z.string().default(""),
+  note: z.string().default(""),
+  eventId: z.string().optional(),
+  promoterId: z.string().optional(),
+  celebration: z.string().optional(),
+  depositCents: z.string().default(""),
+  cancellationDeadlineTime: z.string().default(""),
+  holdUntil: z.string().default(""),
+  minimumSpendCents: z.string().default(""),
+  expectedDurationMinutes: z.string().default(""),
+  timeSlot: z.string().default("any"),
+});
+
+const ZFORM_EMPTY = {
+  guestName: "",
+  partySize: 2,
+  zoneId: "",
+  tableId: "",
+  startsAt: toLocalInput(new Date().toISOString()),
+  endsAt: "",
+  note: "",
+};
+
 interface ReservationFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -68,8 +100,7 @@ interface ReservationFormDialogProps {
   setDraft: (draft: ReservationDraft) => void;
   zones: Zone[];
   tablesForZone: VenueTable[];
-  saving: boolean;
-  onSave: () => void;
+  onSave: () => unknown;
   editingId: string | null;
   promoters?: StaffMember[];
   events?: VenueEvent[];
@@ -82,7 +113,6 @@ export function ReservationFormDialog({
   setDraft,
   zones,
   tablesForZone,
-  saving,
   onSave,
   editingId,
   promoters,
@@ -90,10 +120,13 @@ export function ReservationFormDialog({
 }: ReservationFormDialogProps) {
   const [candidates, setCandidates] = useState<GuestProfile[]>([]);
   const linkedProfile = candidates.find((c) => c.id === draft.guestProfileId);
+  const [saving, setSaving] = useState(false);
 
-  // Dedupe search — phone/email aren't collected on this form yet, so this
-  // matches on name only; the door and reservation-profile-search flows are
-  // where phone/email dedupe actually earns its keep (see mock-services/guest-service.ts).
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(zReservationForm) as any,
+    defaultValues: ZFORM_EMPTY,
+  });
+
   useEffect(() => {
     if (!open || draft.guestProfileId || draft.guestName.trim().length < 3) {
       setCandidates([]);
@@ -107,13 +140,22 @@ export function ReservationFormDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.guestName, open, draft.guestProfileId]);
 
+  const onSubmit = handleSubmit(async () => {
+    setSaving(true);
+    try {
+      await onSave();
+    } finally {
+      setSaving(false);
+    }
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{editingId ? "Edit reservation" : "New reservation"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="res-name">Guest name</Label>
             <Input
@@ -329,16 +371,16 @@ export function ReservationFormDialog({
                 <option value="late">Late (11 PM–3 AM)</option>
               </select>
             </div>
-          </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={onSave} disabled={saving}>
-            {saving && <Loader2 className="size-4 animate-spin" />}
-            {saving ? "Saving…" : editingId ? "Save" : "Create reservation"}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button variant="ghost" type="button" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving && <Loader2 className="size-4 animate-spin" />}
+              {saving ? "Saving…" : editingId ? "Save" : "Create reservation"}
+            </Button>
+          </DialogFooter>
+          </form>
       </DialogContent>
     </Dialog>
   );

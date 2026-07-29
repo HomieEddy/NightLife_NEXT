@@ -15,7 +15,7 @@ import type {
 } from "@/lib/types";
 import { computeSessionBalance, shortfallRatio } from "@/lib/tab";
 import { occupancyRatio } from "@/lib/door";
-import { computeOrderPriority } from "@/lib/costs";
+import { computeOrderPriority } from "@/features/ordering/costs";
 
 const HELP_LABELS: Record<HelpRequestType, string> = {
   "call-waiter": "Call waiter",

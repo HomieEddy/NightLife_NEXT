@@ -10,12 +10,13 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination, paginate } from "@/components/shared/pagination";
-import { auditService } from "@/lib/services/audit-service";
-import { staffService } from "@/lib/services/staff-service";
-import { permissionService } from "@/lib/services/permission-service";
-import { canDo } from "@/lib/permissions";
-import { formatDate, formatTime } from "@/lib/format";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
+import { auditService } from "@/features/platform/audit-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { permissionService } from "@/features/platform/permission-service";
+import { canDo } from "@/features/shared/permissions";
+import { formatDate, formatTime } from "@/features/shared/format";
 import type { AuditEntry, StaffMember } from "@/lib/types";
 
 export default function AuditTrailPage() {
@@ -25,7 +26,6 @@ export default function AuditTrailPage() {
   const [actorFilter, setActorFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
   const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [currentStaff, permissions] = await Promise.all([
@@ -56,6 +56,10 @@ export default function AuditTrailPage() {
     return true;
   });
 
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, actorFilter, actionFilter, reset]);
+
   if (me && !canRead) {
     return (
       <div className="space-y-5">
@@ -76,6 +80,7 @@ export default function AuditTrailPage() {
       <PageHeader
         title="Audit trail"
         description={entries ? `${visible.length} of ${entries.length} entries` : "Loading…"}
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Audit Trail" }]}
       />
 
       <Card>
@@ -108,7 +113,7 @@ export default function AuditTrailPage() {
         <>
         <Card>
           <CardContent className="divide-y p-0">
-            {paginate(visible, page).map((entry) => (
+            {sliced.map((entry) => (
               <div key={entry.id} className="flex items-start justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{entry.summary}</p>
@@ -123,7 +128,7 @@ export default function AuditTrailPage() {
             ))}
           </CardContent>
         </Card>
-        <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+        <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
         </>
       )}
     </div>

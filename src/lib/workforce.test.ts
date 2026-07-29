@@ -7,6 +7,9 @@ import {
   computeCoverageGaps,
   computeTipDistribution,
   computeCommission,
+  minutesSinceLastBreak,
+  getBreakComplianceStatus,
+  listStaffNeedingBreak,
 } from "./workforce";
 import type {
   CommissionRule,
@@ -145,8 +148,8 @@ describe("generateWeekFromTemplates", () => {
 
 describe("computeCoverageGaps", () => {
   const zones: Zone[] = [
-    { id: "z1", venueId: "v", name: "VIP", description: "", color: "violet", tableCount: 4 },
-    { id: "z2", venueId: "v", name: "Main", description: "", color: "blue", tableCount: 8 },
+    { id: "z1", venueId: "v", name: "VIP", description: "", color: "violet", tableCount: 4, capacity: 60 },
+    { id: "z2", venueId: "v", name: "Main", description: "", color: "blue", tableCount: 8, capacity: 200 },
   ];
 
   test("returns gap when a zone has open orders but no bartender clocked in", () => {
@@ -288,5 +291,112 @@ describe("computeCommission", () => {
       id: "cr3", venueId: "v", basis: "net-revenue", ratePct: 10,
     };
     expect(computeCommission(rule, [])).toBe(0);
+  });
+});
+
+// ---------- WF-06: Break compliance ----------
+
+describe("minutesSinceLastBreak", () => {
+  test("returns minutes since clock-in when no breaks taken", () => {
+    const now = new Date("2026-07-26T02:00:00-04:00");
+    const e: TimeEntry = {
+      id: "e1", venueId: "v", staffId: "s1",
+      clockInAt: "2026-07-25T22:00:00-04:00",
+      breaks: [], source: "self",
+    };
+    expect(minutesSinceLastBreak(e, now)).toBe(240); // 4 hours
+  });
+
+  test("returns minutes since last completed break", () => {
+    const now = new Date("2026-07-26T02:00:00-04:00");
+    const e: TimeEntry = {
+      id: "e2", venueId: "v", staffId: "s1",
+      clockInAt: "2026-07-25T22:00:00-04:00",
+      breaks: [
+        { startedAt: "2026-07-26T00:00:00-04:00", endedAt: "2026-07-26T00:30:00-04:00", paid: false },
+      ],
+      source: "self",
+    };
+    expect(minutesSinceLastBreak(e, now)).toBe(90); // 1.5 hours since break ended
+  });
+
+  test("returns 0 when currently on break", () => {
+    const now = new Date("2026-07-26T01:15:00-04:00");
+    const e: TimeEntry = {
+      id: "e3", venueId: "v", staffId: "s1",
+      clockInAt: "2026-07-25T22:00:00-04:00",
+      breaks: [
+        { startedAt: "2026-07-26T01:00:00-04:00", paid: false },
+      ],
+      source: "self",
+    };
+    expect(minutesSinceLastBreak(e, now)).toBe(0);
+  });
+});
+
+describe("getBreakComplianceStatus (WF-06)", () => {
+  const now = new Date("2026-07-26T03:00:00-04:00");
+  const required = 300; // 5 hours
+  const breakDuration = 30;
+
+  test("ok when under the threshold", () => {
+    const e: TimeEntry = {
+      id: "e1", venueId: "v", staffId: "s1",
+      clockInAt: "2026-07-25T23:00:00-04:00", // 4 hours ago
+      breaks: [], source: "self",
+    };
+    const s = getBreakComplianceStatus(e, required, breakDuration, now);
+    expect(s.status).toBe("ok");
+    expect(s.minutesSinceLastBreak).toBe(240);
+  });
+
+  test("due when at the threshold", () => {
+    const e: TimeEntry = {
+      id: "e2", venueId: "v", staffId: "s1",
+      clockInAt: "2026-07-25T22:00:00-04:00", // exactly 5 hours ago
+      breaks: [], source: "self",
+    };
+    const s = getBreakComplianceStatus(e, required, breakDuration, now);
+    expect(s.status).toBe("due");
+  });
+
+  test("overdue when past threshold + break duration", () => {
+    const e: TimeEntry = {
+      id: "e3", venueId: "v", staffId: "s1",
+      clockInAt: "2026-07-25T21:00:00-04:00", // 6 hours ago
+      breaks: [], source: "self",
+    };
+    const s = getBreakComplianceStatus(e, required, breakDuration, now);
+    expect(s.status).toBe("overdue");
+    expect(s.minutesSinceLastBreak).toBe(360);
+  });
+
+  test("ok after a recent break resets the counter", () => {
+    const e: TimeEntry = {
+      id: "e4", venueId: "v", staffId: "s1",
+      clockInAt: "2026-07-25T20:00:00-04:00", // 7 hours ago total
+      breaks: [
+        { startedAt: "2026-07-26T02:00:00-04:00", endedAt: "2026-07-26T02:30:00-04:00", paid: false },
+      ],
+      source: "self",
+    };
+    const s = getBreakComplianceStatus(e, required, breakDuration, now);
+    expect(s.status).toBe("ok");
+    expect(s.minutesSinceLastBreak).toBe(30); // 30 min since break ended
+  });
+});
+
+describe("listStaffNeedingBreak (WF-06)", () => {
+  test("returns only clocked-in staff who are due or overdue", () => {
+    const now = new Date("2026-07-26T04:00:00-04:00");
+    const entries: TimeEntry[] = [
+      { id: "e1", venueId: "v", staffId: "s1", clockInAt: "2026-07-25T22:00:00-04:00", breaks: [], source: "self" }, // 6h, overdue
+      { id: "e2", venueId: "v", staffId: "s2", clockInAt: "2026-07-26T02:00:00-04:00", breaks: [], source: "self" }, // 2h, ok
+      { id: "e3", venueId: "v", staffId: "s3", clockInAt: "2026-07-25T22:00:00-04:00", clockOutAt: "2026-07-26T03:00:00-04:00", breaks: [], source: "self" }, // clocked out
+    ];
+    const result = listStaffNeedingBreak(entries, 300, 30, now);
+    expect(result).toHaveLength(1);
+    expect(result[0].staffId).toBe("s1");
+    expect(result[0].status).toBe("overdue");
   });
 });

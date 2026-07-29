@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { assertLiveMode, isDemoMode } from "@/lib/app-mode";
+import { assertLiveMode, isDemoMode } from "@/features/shared/app-mode";
 
 type Scope = "manager" | "staff" | "guest";
 

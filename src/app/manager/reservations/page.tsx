@@ -29,17 +29,18 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WaitlistPanel } from "@/components/manager/waitlist-panel";
-import { eventsService } from "@/lib/services/events-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { staffService } from "@/lib/services/staff-service";
-import { venueService } from "@/lib/services/venue-service";
-import { isDemoMode } from "@/lib/app-mode";
-import { publicReservationHref } from "@/lib/entity-links";
-import { formatTime } from "@/lib/format";
+import { eventsService } from "@/features/hospitality/events-service";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { venueService } from "@/features/venue/services";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { publicReservationHref } from "@/features/shared/entity-links";
+import { formatTime } from "@/features/shared/format";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { SearchInput } from "@/components/shared/search-input";
-import { Pagination, paginate } from "@/components/shared/pagination";
-import { cn } from "@/lib/utils";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
+import { cn } from "@/features/shared/utils";
 import type { Reservation, ReservationStatus, StaffMember, Venue, VenueEvent, VenueTable, Zone } from "@/lib/types";
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -85,7 +86,6 @@ function ReservationsContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ReservationDraft>(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
-  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [list, z, t, v, allStaff, allEvents] = await Promise.all([
@@ -223,7 +223,11 @@ function ReservationsContent() {
         if (!`${r.guestName} ${zoneName(r.zoneId)} ${tableName(r.tableId)}`.toLowerCase().includes(q)) return false;
       }
       return true;
-    }) ?? null;
+    }) ?? [];
+
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, statusFilter, zoneFilter, dateRange, reset]);
 
   const initialTab = searchParams.get("tab") === "waitlist" ? "waitlist" : "reservations";
 
@@ -243,6 +247,7 @@ function ReservationsContent() {
       <PageHeader
         title="Reservations"
         description="Table bookings and guest lists for the night."
+        breadcrumbs={[{ label: "Bookings", href: "/manager/events" }, { label: "Reservations" }]}
         actions={
           <div className="flex items-center gap-2">
             {venue && (
@@ -331,7 +336,7 @@ function ReservationsContent() {
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {paginate(visible, page).map((res) => (
+          {sliced.map((res) => (
             <Card key={res.id} className="py-4">
               <CardContent className="space-y-3 px-4">
                 <div className="flex items-start justify-between gap-2">
@@ -420,7 +425,7 @@ function ReservationsContent() {
         </div>
       )}
 
-      <Pagination totalItems={visible?.length ?? 0} currentPage={page} onPageChange={setPage} className="mt-3" />
+      <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
 
       <ReservationFormDialog
         open={dialogOpen}
@@ -429,7 +434,6 @@ function ReservationsContent() {
         setDraft={setDraft}
         zones={zones}
         tablesForZone={tablesForZone}
-        saving={saving}
         onSave={save}
         editingId={editingId}
         promoters={promoters}

@@ -135,7 +135,7 @@ Each numbered step is a commit-sized workstream with the ladder run (§2.3):
   survives (no reload, §3.5); embed with `?lang=fr` renders French from
   first paint; print QR sheet and reports render sanely in French (longer
   strings — French runs ~20% wider; check the tight spots: badges, table
-  chips, MockChart labels).
+  chips, Recharts labels).
 - `npx next build` both modes per workstream — locale work touches
   server/client boundaries where Suspense mistakes hide.
 

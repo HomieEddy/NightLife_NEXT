@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, Pencil, Plus, Search, ShieldOff, SlidersHorizontal, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,13 +13,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination, paginate } from "@/components/shared/pagination";
-import { guestService } from "@/lib/services/guest-service";
-import { formatMoney, formatDate } from "@/lib/format";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
+import { guestService } from "@/features/sessions/services";
+import { formatMoney, formatDate } from "@/features/shared/format";
+import { zGuestInput } from "@/lib/form-schemas";
 import type { GuestProfile, GuestTag, GuestVipTier } from "@/lib/types";
 
 const VIP_OPTIONS: { value: GuestVipTier; label: string }[] = [
@@ -32,9 +37,7 @@ export default function ManagerGuestsPage() {
   const [selected, setSelected] = useState<GuestProfile | null>(null);
   const [banReason, setBanReason] = useState("");
   const [mergeTargetId, setMergeTargetId] = useState("");
-  const [busy, setBusy] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [page, setPage] = useState(1);
 
   // Filters
   const [vipFilter, setVipFilter] = useState<string>("all");
@@ -48,7 +51,12 @@ export default function ManagerGuestsPage() {
   // Create / Edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GuestProfile | null>(null);
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", email: "", dobYear: "", vipTier: "none" as GuestVipTier, tags: [] as GuestTag[], notes: "", marketingEmail: false, marketingSms: false, photoUrl: "", preferredDrink: "", dietary: "", allergies: "", celebrationDate: "", watchlistReason: "" });
+
+  const { register, handleSubmit, reset: formReset, setValue, watch, formState: { errors, isSubmitting: saving } } = useForm({
+    resolver: zodResolver(zGuestInput),
+    defaultValues: { firstName: "", lastName: "", phone: "", email: "", vipTier: "none" as GuestVipTier, tags: [] as GuestTag[], notes: "", photoUrl: "", preferredDrink: "", dietary: "", allergies: "", celebrationDate: "", watchlistReason: "", marketingEmail: false, marketingSms: false },
+  });
+  const tags = watch("tags") ?? [];
 
   const refresh = useCallback(async () => { setProfiles(await guestService.listProfiles()); }, []);
   useEffect(() => { refresh(); }, [refresh]);
@@ -75,24 +83,25 @@ export default function ManagerGuestsPage() {
     return list;
   }, [profiles, query, statusFilter, vipFilter, tagFilter, spendMin, spendMax, visitsMin, visitsMax, sortBy]);
 
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, statusFilter, vipFilter, tagFilter, spendMin, spendMax, visitsMin, visitsMax, sortBy, reset]);
+
   const filterCount = [vipFilter !== "all", tagFilter !== "all", spendMin || spendMax, visitsMin || visitsMax].filter(Boolean).length;
 
   const mergeCandidates = (profiles ?? []).filter((p) => p.id !== selected?.id);
 
-  const defaultForm = { firstName: "", lastName: "", phone: "", email: "", dobYear: "", vipTier: "none" as GuestVipTier, tags: [] as GuestTag[], notes: "", marketingEmail: false, marketingSms: false, photoUrl: "", preferredDrink: "", dietary: "", allergies: "", celebrationDate: "", watchlistReason: "" };
-
   function openCreate() {
     setEditing(null);
-    setForm(defaultForm);
+    formReset({ firstName: "", lastName: "", phone: "", email: "", vipTier: "none", tags: [], notes: "", photoUrl: "", preferredDrink: "", dietary: "", allergies: "", celebrationDate: "", watchlistReason: "", marketingEmail: false, marketingSms: false });
     setDialogOpen(true);
   }
 
   function openEdit(profile: GuestProfile) {
     setEditing(profile);
-    setForm({
-      ...defaultForm,
+    formReset({
       firstName: profile.firstName, lastName: profile.lastName ?? "", phone: profile.phone ?? "", email: profile.email ?? "",
-      dobYear: profile.dobYear ? String(profile.dobYear) : "", vipTier: profile.vipTier, tags: profile.tags, notes: profile.notes ?? "",
+      dobYear: profile.dobYear, vipTier: profile.vipTier, tags: profile.tags, notes: profile.notes ?? "",
       marketingEmail: profile.marketingConsent.email, marketingSms: profile.marketingConsent.sms,
       photoUrl: profile.photoUrl ?? "",
       preferredDrink: profile.preferences?.preferredDrink ?? "",
@@ -104,54 +113,55 @@ export default function ManagerGuestsPage() {
     setDialogOpen(true);
   }
 
-  async function saveProfile() {
-    if (!form.firstName.trim()) { toast.error("First name is required"); return; }
-    setBusy(true);
+  async function saveProfile(data: ReturnType<typeof reset> extends (v: infer V) => any ? never : any) {
+  }
+  const onSave = handleSubmit(async (data) => {
+    const prefs = data.preferredDrink || data.dietary || data.allergies || data.celebrationDate ? { preferredDrink: data.preferredDrink || undefined, dietary: data.dietary || undefined, allergies: data.allergies || undefined, celebrationDate: data.celebrationDate || undefined } : undefined;
     try {
-  const prefs = form.preferredDrink || form.dietary || form.allergies || form.celebrationDate ? { preferredDrink: form.preferredDrink || undefined, dietary: form.dietary || undefined, allergies: form.allergies || undefined, celebrationDate: form.celebrationDate || undefined } : undefined;
       if (editing) {
         await guestService.updateProfile(editing.id, {
-          firstName: form.firstName.trim(), lastName: form.lastName.trim() || undefined, phone: form.phone.trim() || undefined, email: form.email.trim() || undefined, dobYear: form.dobYear ? parseInt(form.dobYear) : undefined, tags: form.tags, vipTier: form.vipTier, notes: form.notes.trim() || undefined,
-          photoUrl: form.photoUrl.trim() || undefined,
+          firstName: data.firstName.trim(), lastName: data.lastName.trim() || undefined, phone: data.phone.trim() || undefined, email: data.email?.trim().toLowerCase() || undefined, dobYear: data.dobYear, tags: data.tags as GuestTag[], vipTier: data.vipTier, notes: data.notes.trim() || undefined,
+          photoUrl: data.photoUrl.trim() || undefined,
           preferences: prefs,
         }, "manager", "Manager");
-        toast.success(`Updated ${form.firstName}`);
+        toast.success(`Updated ${data.firstName}`);
       } else {
         await guestService.createProfile({
-          firstName: form.firstName.trim(), lastName: form.lastName.trim() || undefined, phone: form.phone.trim() || undefined, email: form.email.trim() || undefined, dobYear: form.dobYear ? parseInt(form.dobYear) : undefined, tags: form.tags, vipTier: form.vipTier, notes: form.notes.trim() || undefined, marketingConsent: { email: form.marketingEmail, sms: form.marketingSms }, source: "manager",
-          photoUrl: form.photoUrl.trim() || undefined,
+          firstName: data.firstName.trim(), lastName: data.lastName.trim() || undefined, phone: data.phone.trim() || undefined, email: data.email?.trim().toLowerCase() || undefined, dobYear: data.dobYear, tags: data.tags as GuestTag[], vipTier: data.vipTier, notes: data.notes.trim() || undefined, marketingConsent: { email: data.marketingEmail, sms: data.marketingSms }, source: "manager",
+          photoUrl: data.photoUrl.trim() || undefined,
           preferences: prefs,
         });
-        toast.success(`Created profile for ${form.firstName}`);
+        toast.success(`Created profile for ${data.firstName}`);
       }
       setDialogOpen(false);
       await refresh();
-    } catch { toast.error("Could not save profile"); } finally { setBusy(false); }
-  }
+    } catch { toast.error("Could not save profile"); }
+  });
 
   async function toggleBan(profile: GuestProfile) {
-    setBusy(true); try {
+    try {
       await guestService.setBanStatus(profile.id, { banned: profile.status !== "banned", reason: banReason || undefined }, "manager", "Manager");
       toast.success(profile.status === "banned" ? `Lifted ban on ${profile.displayName}` : `Banned ${profile.displayName}`);
       setBanReason(""); await refresh();
-    } catch { toast.error("Could not update ban status"); } finally { setBusy(false); }
+    } catch { toast.error("Could not update ban status"); }
   }
 
   async function mergeInto() {
-    if (!selected || !mergeTargetId) return; setBusy(true); try {
+    if (!selected || !mergeTargetId) return; try {
       const merged = await guestService.mergeProfiles(selected.id, mergeTargetId, "manager", "Manager");
       toast.success(`Merged into ${merged?.displayName}`);
       setSelected(null); setMergeTargetId(""); await refresh();
-    } catch { toast.error("Could not merge"); } finally { setBusy(false); }
+    } catch { toast.error("Could not merge"); }
   }
 
   function toggleTag(tag: GuestTag) {
-    setForm((prev) => ({ ...prev, tags: prev.tags.includes(tag) ? prev.tags.filter((t) => t !== tag) : [...prev.tags, tag] }));
+    setValue("tags", tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag]);
   }
 
   return (
     <div className="space-y-5">
       <PageHeader title="Guests" description="Persistent guest identity — profiles, VIP tiers and bans."
+        breadcrumbs={[{ label: "Bookings", href: "/manager/reservations" }, { label: "Guests" }]}
         actions={<Button size="sm" onClick={openCreate}><Plus className="size-4 mr-1" /> Add guest</Button>}
       />
 
@@ -182,26 +192,26 @@ export default function ManagerGuestsPage() {
         {showFilters && (
           <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-3 sm:grid-cols-4">
             <div>
-              <Label className="text-[11px]">VIP tier</Label>
+              <Label className="text-xs">VIP tier</Label>
               <Select value={vipFilter} onValueChange={setVipFilter}>
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All tiers</SelectItem><SelectItem value="none">None</SelectItem><SelectItem value="regular">Regular</SelectItem><SelectItem value="vip">VIP</SelectItem><SelectItem value="host-list">Host list</SelectItem></SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-[11px]">Tag</Label>
+              <Label className="text-xs">Tag</Label>
               <Select value={tagFilter} onValueChange={setTagFilter}>
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All tags</SelectItem>{TAG_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="flex gap-1">
-              <div className="flex-1"><Label className="text-[11px]">Spend $ min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={spendMin} onChange={(e) => setSpendMin(e.target.value)} /></div>
-              <div className="flex-1"><Label className="text-[11px]">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={spendMax} onChange={(e) => setSpendMax(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">Spend $ min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={spendMin} onChange={(e) => setSpendMin(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={spendMax} onChange={(e) => setSpendMax(e.target.value)} /></div>
             </div>
             <div className="flex gap-1">
-              <div className="flex-1"><Label className="text-[11px]">Visits min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={visitsMin} onChange={(e) => setVisitsMin(e.target.value)} /></div>
-              <div className="flex-1"><Label className="text-[11px]">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={visitsMax} onChange={(e) => setVisitsMax(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">Visits min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={visitsMin} onChange={(e) => setVisitsMin(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={visitsMax} onChange={(e) => setVisitsMax(e.target.value)} /></div>
             </div>
           </div>
         )}
@@ -211,7 +221,7 @@ export default function ManagerGuestsPage() {
         {profiles === null ? <ListSkeleton rows={5} rowHeight="h-16" /> : visible.length === 0 ? <EmptyState icon={UserPlus} title="No guests match" description="Profiles are created from reservations, guestlists and door ID checks." /> : (
           <>
           <Card><CardContent className="divide-y p-0">
-            {paginate(visible, page).map((profile) => (
+            {sliced.map((profile) => (
               <div key={profile.id} className={`flex items-center justify-between gap-2 px-4 py-3 transition-colors ${selected?.id === profile.id ? "bg-accent/60" : "hover:bg-accent/30"}`}>
                 <button type="button" onClick={() => { setSelected(profile); setBanReason(""); setMergeTargetId(""); }} className="flex-1 text-left min-w-0">
                    <p className="flex items-center gap-2 font-medium">{profile.displayName}
@@ -225,7 +235,7 @@ export default function ManagerGuestsPage() {
               </div>
             ))}
           </CardContent></Card>
-          <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+          <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
           </>
         )}
 
@@ -249,13 +259,13 @@ export default function ManagerGuestsPage() {
                 <div className="space-y-2 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
                   <p className="flex items-center gap-1.5 text-sm font-medium text-red-600 dark:text-red-400"><ShieldOff className="size-4" /> Banned</p>
                   <p className="text-sm text-muted-foreground">{selected.banReason}</p>
-                  <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={busy}>Lift ban</Button>} title={`Lift ${selected.displayName}'s ban?`} description="They will be admittable at the door again immediately." confirmLabel="Lift ban" onConfirm={() => toggleBan(selected)} />
+                  <ConfirmDialog trigger={<Button variant="outline" className="w-full">Lift ban</Button>} title={`Lift ${selected.displayName}'s ban?`} description="They will be admittable at the door again immediately." confirmLabel="Lift ban" onConfirm={() => toggleBan(selected)} />
                 </div>
               ) : (
                 <div className="space-y-2 border-t pt-3">
                   <Label htmlFor="ban-reason">Ban reason</Label>
                   <Textarea id="ban-reason" value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder="Why is this guest being banned?" rows={2} />
-                  <ConfirmDialog trigger={<Button variant="destructive" className="w-full" disabled={!banReason.trim() || busy}>Ban this guest</Button>} title={`Ban ${selected.displayName}?`} description="They'll be refused at the door on sight." confirmLabel="Ban guest" destructive onConfirm={() => toggleBan(selected)} />
+                  <ConfirmDialog trigger={<Button variant="destructive" className="w-full" disabled={!banReason.trim()}>Ban this guest</Button>} title={`Ban ${selected.displayName}?`} description="They'll be refused at the door on sight." confirmLabel="Ban guest" destructive onConfirm={() => toggleBan(selected)} />
                 </div>
               )}
               <div className="space-y-2 border-t pt-3">
@@ -264,7 +274,7 @@ export default function ManagerGuestsPage() {
                   <SelectTrigger id="merge-target" className="w-full"><SelectValue placeholder="Choose surviving profile" /></SelectTrigger>
                   <SelectContent>{mergeCandidates.map((p) => <SelectItem key={p.id} value={p.id}>{p.displayName}</SelectItem>)}</SelectContent>
                 </Select>
-                <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={!mergeTargetId || busy}>Merge duplicate</Button>} title="Merge these profiles?" description={`${selected.displayName}'s history folds into the other. Cannot be undone.`} confirmLabel="Merge" onConfirm={mergeInto} />
+                <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={!mergeTargetId}>Merge duplicate</Button>} title="Merge these profiles?" description={`${selected.displayName}'s history folds into the other. Cannot be undone.`} confirmLabel="Merge" onConfirm={mergeInto} />
               </div>
             </CardContent>
           </Card>
@@ -275,43 +285,49 @@ export default function ManagerGuestsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editing ? "Edit profile" : "New guest profile"}</DialogTitle><DialogDescription>{editing ? "Update the guest's details." : "Create a profile for a known guest."}</DialogDescription></DialogHeader>
-          <div className="space-y-3">
+          <form onSubmit={onSave} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="g-fn">First name *</Label><Input id="g-fn" value={form.firstName} onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))} /></div>
-              <div><Label htmlFor="g-ln">Last name</Label><Input id="g-ln" value={form.lastName} onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))} /></div>
+              <div><Label htmlFor="g-fn">First name *</Label><Input id="g-fn" {...register("firstName")} />{errors.firstName && <p className="text-xs text-destructive">{errors.firstName.message}</p>}</div>
+              <div><Label htmlFor="g-ln">Last name</Label><Input id="g-ln" {...register("lastName")} /></div>
             </div>
-            <div><Label htmlFor="g-phone">Phone</Label><Input id="g-phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} /></div>
-            <div><Label htmlFor="g-email">Email</Label><Input id="g-email" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div><Label htmlFor="g-phone">Phone</Label><Input id="g-phone" {...register("phone")} /></div>
+            <div><Label htmlFor="g-email">Email</Label><Input id="g-email" type="email" {...register("email")} />{errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}</div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="g-dob">Birth year</Label><Input id="g-dob" value={form.dobYear} onChange={(e) => setForm((p) => ({ ...p, dobYear: e.target.value }))} placeholder="1990" /></div>
-              <div><Label htmlFor="g-vip">VIP tier</Label><Select value={form.vipTier} onValueChange={(v) => setForm((p) => ({ ...p, vipTier: v as GuestVipTier }))}><SelectTrigger id="g-vip"><SelectValue /></SelectTrigger><SelectContent>{VIP_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
+              <div><Label htmlFor="g-dob">Birth year</Label><Input id="g-dob" type="number" min={1900} max={2026} placeholder="1990" {...register("dobYear", { valueAsNumber: true })} />{errors.dobYear && <p className="text-xs text-destructive">{errors.dobYear.message}</p>}</div>
+              <div><Label htmlFor="g-vip">VIP tier</Label><Select value={watch("vipTier")} onValueChange={(v) => setValue("vipTier", v as GuestVipTier)}><SelectTrigger id="g-vip"><SelectValue /></SelectTrigger><SelectContent>{VIP_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div>
               <Label>Tags</Label>
-              <div className="mt-1 flex flex-wrap gap-1">{TAG_OPTIONS.map((tag) => <Badge key={tag} variant={form.tags.includes(tag) ? "default" : "outline"} className="cursor-pointer text-[10px]" onClick={() => toggleTag(tag)}>{tag}</Badge>)}</div>
+              <div className="mt-1 flex flex-wrap gap-1">{TAG_OPTIONS.map((tag) => <Badge key={tag} variant={tags.includes(tag) ? "default" : "outline"} className="cursor-pointer text-[10px]" onClick={() => toggleTag(tag)}>{tag}</Badge>)}</div>
             </div>
-            <div><Label htmlFor="g-notes">Notes</Label><Textarea id="g-notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} rows={2} /></div>
-            <div><Label htmlFor="g-photo">Photo URL</Label><Input id="g-photo" value={form.photoUrl} onChange={(e) => setForm((p) => ({ ...p, photoUrl: e.target.value }))} placeholder="https://..." /></div>
+            <div><Label htmlFor="g-notes">Notes</Label><Textarea id="g-notes" {...register("notes")} rows={2} /></div>
+            <div><Label htmlFor="g-photo">Photo URL</Label><Input id="g-photo" {...register("photoUrl")} placeholder="https://..." /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="g-drink">Pref. drink</Label><Input id="g-drink" value={form.preferredDrink} onChange={(e) => setForm((p) => ({ ...p, preferredDrink: e.target.value }))} /></div>
-              <div><Label htmlFor="g-dietary">Dietary</Label><Input id="g-dietary" value={form.dietary} onChange={(e) => setForm((p) => ({ ...p, dietary: e.target.value }))} /></div>
+              <div><Label htmlFor="g-drink">Pref. drink</Label><Input id="g-drink" {...register("preferredDrink")} /></div>
+              <div><Label htmlFor="g-dietary">Dietary</Label><Input id="g-dietary" {...register("dietary")} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="g-allergies">Allergies</Label><Input id="g-allergies" value={form.allergies} onChange={(e) => setForm((p) => ({ ...p, allergies: e.target.value }))} /></div>
-              <div><Label htmlFor="g-celebration">Celebration date</Label><Input id="g-celebration" type="date" value={form.celebrationDate} onChange={(e) => setForm((p) => ({ ...p, celebrationDate: e.target.value }))} /></div>
+              <div><Label htmlFor="g-allergies">Allergies</Label><Input id="g-allergies" {...register("allergies")} /></div>
+              <div><Label htmlFor="g-celebration">Celebration date</Label><Input id="g-celebration" type="date" {...register("celebrationDate")} /></div>
             </div>
-            <div><Label htmlFor="g-watchlist">Watchlist reason</Label><Input id="g-watchlist" value={form.watchlistReason} onChange={(e) => setForm((p) => ({ ...p, watchlistReason: e.target.value }))} placeholder="Leave blank to remove" /></div>
+            <div><Label htmlFor="g-watchlist">Watchlist reason</Label><Input id="g-watchlist" {...register("watchlistReason")} placeholder="Leave blank to remove" /></div>
             {!editing && (
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.marketingEmail} onChange={(e) => setForm((p) => ({ ...p, marketingEmail: e.target.checked }))} /> Email consent</label>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.marketingSms} onChange={(e) => setForm((p) => ({ ...p, marketingSms: e.target.checked }))} /> SMS consent</label>
+                <div className="flex items-center gap-2">
+                  <Switch checked={watch("marketingEmail")} onCheckedChange={(v) => setValue("marketingEmail", v)} id="g-email-consent" />
+                  <Label htmlFor="g-email-consent" className="text-sm">Email consent</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={watch("marketingSms")} onCheckedChange={(v) => setValue("marketingSms", v)} id="g-sms-consent" />
+                  <Label htmlFor="g-sms-consent" className="text-sm">SMS consent</Label>
+                </div>
               </div>
             )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveProfile} disabled={!form.firstName.trim() || busy}>{editing ? "Save changes" : "Create"}</Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={saving}>{editing ? "Save changes" : "Create"}</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

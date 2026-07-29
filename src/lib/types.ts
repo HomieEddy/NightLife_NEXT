@@ -78,6 +78,14 @@ export interface Venue {
   pendingSessionTimeoutMinutes?: number;
   /** RV-19: Ratios at which minimum-spend nudge alerts fire (e.g. [0.5, 0.75, 0.9]). */
   minimumSpendCheckpoints?: number[];
+  /** RV-07: Minutes after reservation start time before the table is auto-released (AM-01). Default 30. */
+  lateArrivalGracePeriodMinutes?: number;
+  /** Ordering policy during last call — "block-all" stops all new orders, "allow-last-round" permits one final round. */
+  lastCallPolicy?: "block-all" | "allow-last-round";
+  /** OE-25: Minutes of continuous work before a break is required. */
+  requiredBreakAfterMinutes?: number;
+  /** OE-25: Duration of required break in minutes. */
+  breakDurationMinutes?: number;
 }
 
 export interface Zone {
@@ -87,9 +95,10 @@ export interface Zone {
   description: string;
   color: string; // tailwind-friendly hue token, e.g. "violet"
   tableCount: number;
+  capacity: number | null;
 }
 
-export type TableStatus = "open" | "occupied" | "reserved" | "closed";
+export type TableStatus = "open" | "occupied" | "reserved" | "closed" | "held" | "out-of-service";
 
 export interface VenueTable {
   id: string;
@@ -103,6 +112,9 @@ export interface VenueTable {
   /** Floor-map position as % of canvas (2–98). Defaults are auto-laid-out per zone. */
   mapX?: number;
   mapY?: number;
+  holdReason?: string;
+  heldBy?: string;
+  heldUntil?: string;
 }
 
 // ---------- Staff ----------
@@ -134,6 +146,8 @@ export interface StaffMember {
   employmentType?: EmploymentType;
   /** Plan 18: promoter commission rule — attribute bookings to this staff member. */
   commissionRuleId?: string;
+  /** PR-02: Max guests this promoter can add to a single event's guestlist. Unlimited when absent. */
+  guestlistQuota?: number;
 }
 
 /** One recurring weekly shift block — backed by the StaffShift table (plan 03). */
@@ -338,6 +352,9 @@ export interface GuestSession {
   spendingCapCents?: number;
   /** RV-18: Auto-timeout minutes — pending sessions auto-rejected after this many minutes. Default from venue config. */
   pendingTimeoutMinutes?: number;
+  lastCallOrderPlaced?: boolean;
+  assignedHostId?: string;
+  assignedHostName?: string;
 }
 
 export type SettlementMethod = "terminal" | "cash" | "house";
@@ -504,6 +521,9 @@ export interface Order {
   happyHourCents?: number;
   /** RV-05: Computed priority score (zone weight × minimum spend × session age × order type). Higher = fulfill first. */
   priorityScore?: number;
+  isRushed?: boolean;
+  rushedBy?: string;
+  rushedAt?: string;
 }
 
 // ---------- Help requests ----------
@@ -1044,12 +1064,29 @@ export interface Reservation {
   cancellationPenaltyCents?: number;
   /** RV-11: Confirmed reservations auto-release if not seated by this time. */
   holdUntil?: string;
+  /** RV-10: Set when this reservation was bumped — links to the original booking that lost the table. */
+  bumpedFromId?: string;
+  /** RV-10: Reason recorded for the bump (e.g. "walk-in whale, reassigned to table X"). */
+  bumpReason?: string;
+  /** RV-10: Table the bumped guest was offered as an alternative. */
+  alternativeTableId?: string;
+  createdAt: string; // ISO
+}
+
+/** RV-06: A date on which the venue is closed or fully booked — reservations are blocked. */
+export interface BlackoutDate {
+  id: string;
+  venueId: string;
+  date: string; // YYYY-MM-DD
+  reason: string;
+  /** When set, the blackout only applies to this zone rather than the whole venue. */
+  zoneId?: string;
   createdAt: string; // ISO
 }
 
 // ---------- Events & promotions ----------
 
-export type EventStatus = "draft" | "published" | "live" | "ended";
+export type EventStatus = "draft" | "published" | "live" | "ended" | "cancelled";
 
 export interface VenueEvent {
   id: string;
@@ -1064,6 +1101,10 @@ export interface VenueEvent {
   guestlistEnabled: boolean;
   // TODO(backend): stored as nullable text column; validated as URL by the API layer.
   ticketUrl?: string;
+  /** EV-03: Reason for cancellation — set when status moves to 'cancelled'. */
+  cancellationReason?: string;
+  /** EV-03: ISO timestamp of when the event was cancelled. */
+  cancelledAt?: string;
 }
 
 /** Event-scoped attendee name — not a stored customer/profile, unless resolved to a regular. */
@@ -1075,6 +1116,32 @@ export interface EventGuest {
   status: "invited" | "confirmed" | "checked-in";
   /** Set when a repeat guestlist name resolves to a known GuestProfile (plan 17). */
   guestProfileId?: string;
+}
+
+/** EV-01: Artist/talent booked for an event — DJ, MC, performer, host, etc. */
+export type TalentRole = "dj" | "mc" | "performer" | "host" | "dancer" | "musician" | "other";
+export type TalentStatus = "scheduled" | "arrived" | "performing" | "completed" | "cancelled";
+
+export interface TalentSetTime {
+  start: string; // "22:00"
+  end: string;   // "01:00"
+}
+
+export interface EventTalent {
+  id: string;
+  eventId: string;
+  venueId: string;
+  name: string;
+  role: TalentRole;
+  setTimes: TalentSetTime[];
+  /** When the talent is expected to arrive for soundcheck / setup. */
+  arrivalTime?: string; // ISO
+  /** Technical/hospitality rider — equipment, food, drinks, etc. */
+  rider?: string;
+  /** Green room or backstage assignment. */
+  greenRoom?: string;
+  status: TalentStatus;
+  createdAt: string; // ISO
 }
 
 export type PromotionType = "percentage" | "flat";
@@ -1196,6 +1263,7 @@ export interface Admission {
   wristband?: { number: string; color: string; assignedAt: string };
   /** OE-15: Distinguishes a smoke break (re-entry expected) from a final exit. */
   exitType?: "final" | "smoke-break";
+  groupAdmissionId?: string;
 }
 
 /**
@@ -1250,6 +1318,7 @@ export type IncidentType =
   | "theft"
   | "property-damage"
   | "police"
+  | "staff-injury"
   | "other";
 export type IncidentSeverity = "low" | "medium" | "high";
 export type IncidentStatus = "open" | "resolved";
@@ -1271,6 +1340,8 @@ export interface Incident {
   occurredAt: string; // ISO
   zoneId?: string;
   tableId?: string;
+  /** SI-01: Free-text description of the exact location (e.g. "Near the VIP staircase, east side"). */
+  locationDescription?: string;
   guestProfileId?: string;
   involvedStaffIds: string[];
   narrative: string;
@@ -1297,6 +1368,14 @@ export interface Incident {
   cctvReference?: { camera: string; timestamp: string }[];
   /** OE-31: Medical incident checklist fields. */
   medicalChecklist?: { ambulanceCalled: boolean; paramedicsArrivedAt?: string; transportTo?: string; reportFiled: boolean };
+  staffInjuryDetails?: {
+    staffId: string;
+    injuryType: string;
+    injuryDescription: string;
+    treatmentProvided: string;
+    hospitalVisitRequired: boolean;
+    workersCompFiled: boolean;
+  };
 }
 
 /** Append-only follow-up on an Incident — the narrative itself never changes after submit. */
@@ -1306,6 +1385,21 @@ export interface IncidentNote {
   note: string;
   authorStaffId: string;
   authorStaffName: string;
+  createdAt: string; // ISO
+}
+
+/** SI-08: Pre-filled template for common incident types — speeds up filing during busy nights. */
+export interface IncidentTemplate {
+  id: string;
+  venueId: string;
+  type: IncidentType;
+  severity: IncidentSeverity;
+  /** Pre-filled narrative template with placeholders like {guestName}, {zoneName}. */
+  narrativeTemplate: string;
+  /** Pre-filled actions-taken template. */
+  actionsTakenTemplate: string;
+  /** Whether this template is active (shown in the quick-file list). */
+  isActive: boolean;
   createdAt: string; // ISO
 }
 
@@ -2105,7 +2199,8 @@ export type AutomationCode =
   | "auto-flag-variance"           // AM-10
   | "auto-notify-vip-arrival"      // AM-11
   | "auto-flag-dormant-vip"        // AM-12
-  | "auto-suggest-table";          // AM-13
+  | "auto-suggest-table"           // AM-13
+  | "auto-close-abandoned-sessions";
 
 export interface AutomationRule {
   id: string;
@@ -2138,4 +2233,166 @@ export interface AutomationExecution {
   affectedEntityIds: string[];
   /** Duration in milliseconds the automation took to run. */
   durationMs: number;
+}
+
+// ---------- Realtime: revenue pace & attention acknowledgments ----------
+
+export interface RevenuePace {
+  current: number;
+  lastWeekSameTime: number;
+  pacePercent: number;
+  projected: number;
+}
+
+export interface AttentionAcknowledgment {
+  id: string;
+  attentionItemId: string;
+  acknowledgedByStaffId: string;
+  acknowledgedByStaffName: string;
+  acknowledgedAt: string;
+  snoozedUntil?: string;
+}
+
+// ---------- Door: coat check & refusals ----------
+
+export interface CoatCheckClaim {
+  id: string;
+  ticketId?: string;
+  claimType: "lost-ticket" | "lost-item";
+  description: string;
+  reportedByStaffName: string;
+  reportedAt: string;
+  resolution?: string;
+  resolvedAt?: string;
+  resolvedByStaffId?: string;
+}
+
+export interface DoorRefusal {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  reason: string;
+  description: string;
+  partySize: number;
+  refusedByStaffId: string;
+  refusedByStaffName: string;
+  timestamp: string;
+}
+
+// ---------- Guest sessions: notes & VIP tiers ----------
+
+export interface SessionNote {
+  id: string;
+  sessionId: string;
+  note: string;
+  createdByStaffId: string;
+  createdByStaffName: string;
+  createdAt: string;
+}
+
+export interface VipTierBenefit {
+  id: string;
+  venueId: string;
+  tier: GuestVipTier;
+  benefit: string;
+  category: string;
+  sortOrder: number;
+  active: boolean;
+}
+
+// ---------- Orders: remakes & walkouts ----------
+
+export interface OrderRemake {
+  id: string;
+  oldOrderId: string;
+  newOrderId: string;
+  reason: string;
+  remadeByStaffId: string;
+  remadeByStaffName: string;
+  remadeAt: string;
+}
+
+export interface WalkoutRecord {
+  id: string;
+  sessionId: string;
+  tableCode: string;
+  description: string;
+  reportedByStaffId: string;
+  reportedByStaffName: string;
+  reportedAt: string;
+}
+
+// ---------- Workforce: assignments & handoffs ----------
+
+export interface StaffTableAssignment {
+  id: string;
+  venueId: string;
+  staffId: string;
+  tableIds: string[];
+  zoneId: string;
+  shiftId?: string;
+  assignedAt: string;
+}
+
+export interface ShiftHandoff {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  fromStaffId: string;
+  fromStaffName: string;
+  toStaffId?: string;
+  toStaffName?: string;
+  openIncidents: string[];
+  vipNotes: string;
+  inventoryAlerts: string;
+  specialInstructions: string;
+  generatedAt: string;
+  acknowledgedByStaffId?: string;
+  acknowledgedByStaffName?: string;
+  acknowledgedAt?: string;
+}
+
+// ---------- Venue: checklists ----------
+
+export type ChecklistType = "opening" | "closing";
+
+export interface ChecklistTemplateItem {
+  id: string;
+  label: string;
+  required: boolean;
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  venueId: string;
+  name: string;
+  type: ChecklistType;
+  active: boolean;
+  items: ChecklistTemplateItem[];
+}
+
+export interface ChecklistRunItem {
+  templateItemId: string;
+  label: string;
+  checked: boolean;
+  checkedAt?: string;
+  checkedByStaffId?: string;
+  note?: string;
+}
+
+export interface ChecklistRun {
+  id: string;
+  venueId: string;
+  templateId: string;
+  templateName: string;
+  type: ChecklistType;
+  businessDate: string;
+  status: "in-progress" | "completed" | "skipped";
+  items: ChecklistRunItem[];
+  startedAt: string;
+  startedByStaffId: string;
+  startedByStaffName: string;
+  completedAt?: string;
+  completedByStaffId?: string;
+  completedByStaffName?: string;
 }

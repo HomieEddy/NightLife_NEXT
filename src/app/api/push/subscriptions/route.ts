@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json(
@@ -9,9 +9,9 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
-  const { zPushSubscribe } = await import("@/server/schemas/notifications");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { getDb } = await import("@/features/shared/db");
+  const { zPushSubscribe } = await import("@/features/notifications/schemas");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -50,8 +50,8 @@ async function livePOST(request: NextRequest) {
 }
 
 async function liveDELETE(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { getDb } = await import("@/features/shared/db");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

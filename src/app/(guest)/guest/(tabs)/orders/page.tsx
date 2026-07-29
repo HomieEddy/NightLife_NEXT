@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  Clock,
   Loader2,
   Receipt,
   ReceiptText,
@@ -18,14 +19,14 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useGuest } from "@/context/guest-context";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { useLiveEvents } from "@/lib/use-live-events";
-import { analyticsService } from "@/lib/services/analytics-service";
-import { guestsService } from "@/lib/services/guests-service";
-import { ordersService, ORDER_FLOW } from "@/lib/services/orders-service";
-import { estimateEtaMinutes, formatEta } from "@/lib/eta";
-import { formatMoney, timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { analyticsService } from "@/features/analytics/analytics-service";
+import { guestsService } from "@/features/guests/services";
+import { ordersService, ORDER_FLOW } from "@/features/ordering/services";
+import { estimateEtaMinutes, formatEta } from "@/features/shared/eta";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { Order } from "@/lib/types";
 import { DemoClosureApprovalControl, DemoOrderProgressControl } from "@/components/shared/demo-controls";
 
@@ -41,48 +42,43 @@ function OrderTracker({ order }: { order: Order }) {
   const currentIndex = (ORDER_FLOW as readonly string[]).indexOf(order.status);
   if (order.status === "cancelled") return null;
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-end">
       {ORDER_FLOW.map((step, i) => {
         const done = i <= currentIndex;
         return (
-          <div key={step} className="flex flex-1 flex-col items-center gap-1">
-            <div className="flex w-full items-center">
+          <div key={step} className="flex items-end [&:not(:last-child)]:flex-1">
+            <div className="flex flex-1 flex-col items-center gap-1">
               <div
-                className={cn(
-                  "h-0.5 flex-1",
-                  i === 0 ? "bg-transparent" : done ? "bg-primary" : "bg-border",
-                )}
-              />
-              <div
+                key={`${step}-${order.status}`}
                 className={cn(
                   "flex size-5 shrink-0 items-center justify-center rounded-full border text-[10px]",
                   done
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? "border-primary bg-primary text-primary-foreground animate-pop-in"
                     : "border-border bg-card text-muted-foreground",
                   i === currentIndex && "animate-pulse glow-primary",
                 )}
               >
                 {done && i < currentIndex ? <Check className="size-3" /> : i + 1}
               </div>
+              <span
+                className={cn(
+                  "text-[10px]",
+                  i === currentIndex ? "font-semibold text-primary" : "text-muted-foreground",
+                )}
+              >
+                {STEP_LABELS[step]}
+              </span>
+            </div>
+            {i < ORDER_FLOW.length - 1 && (
               <div
                 className={cn(
-                  "h-0.5 flex-1",
-                  i === ORDER_FLOW.length - 1
-                    ? "bg-transparent"
-                    : i < currentIndex
-                      ? "bg-primary"
-                      : "bg-border",
+                  "flex-1 self-center",
+                  i < currentIndex
+                    ? "order-connector h-0.5 w-full bg-primary"
+                    : "h-0.5 w-0 bg-border",
                 )}
               />
-            </div>
-            <span
-              className={cn(
-                "text-[10px]",
-                i === currentIndex ? "font-semibold text-primary" : "text-muted-foreground",
-              )}
-            >
-              {STEP_LABELS[step]}
-            </span>
+            )}
           </div>
         );
       })}
@@ -219,8 +215,7 @@ export default function GuestOrdersPage() {
                 <div>
                   <p className="font-mono text-sm font-semibold">{order.code}</p>
                   <p className="text-xs text-muted-foreground">
-                    {order.items.reduce((n, i) => n + i.quantity, 0)} items ·{" "}
-                    {timeAgo(order.placedAt)}
+                    {order.items.reduce((n, i) => n + i.quantity, 0)} items
                   </p>
                   {order.promotionCode && (
                     <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-primary">
@@ -230,7 +225,7 @@ export default function GuestOrdersPage() {
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <StatusBadge status={order.status} pulse={order.status === "pending"} />
+                  <div key={`${order.id}-${order.status}`}><StatusBadge status={order.status} pulse={order.status === "pending"} /></div>
                   <span className="text-sm font-semibold tabular-nums">
                     {formatMoney(order.total)}
                   </span>
@@ -238,9 +233,17 @@ export default function GuestOrdersPage() {
               </div>
 
               {(() => {
-                const eta = formatEta(estimateEtaMinutes(order, avgFulfillmentMinutes));
+                const etaMinutes = estimateEtaMinutes(order, avgFulfillmentMinutes);
+                const eta = formatEta(etaMinutes);
+                const isImminent = etaMinutes !== null && etaMinutes <= 5;
                 return eta ? (
-                  <p className="text-xs font-medium text-primary">{eta}</p>
+                  <p className={cn(
+                    "flex items-center gap-1 text-xs font-medium",
+                    isImminent ? "text-primary animate-glow-pulse" : "text-primary",
+                  )}>
+                    <Clock className="size-3" />
+                    {eta}
+                  </p>
                 ) : null;
               })()}
 
@@ -266,7 +269,9 @@ export default function GuestOrdersPage() {
               <Wallet className="size-6 text-primary" />
             </div>
             <div>
-              <p className="font-semibold">All orders delivered</p>
+              <p className="font-semibold">
+                {delivered.length} {delivered.length === 1 ? "order" : "orders"} delivered
+              </p>
               <p className="text-sm text-muted-foreground">
                 Ready to head out? Ask your host to close the tab and get your night&apos;s
                 receipt.

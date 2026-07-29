@@ -29,8 +29,8 @@ per feature, not per era (ARD AD-14):
 Which track is a given task on? New feature or UX change → demo track first.
 Implementing/altering persistence, auth, realtime → live track, governed by the
 feature's plan. Mocks are never edited to ship live behavior, and live code
-never leaks into the demo bundle — the selector layer (`src/lib/services/`) is
-the only meeting point.
+never leaks into the demo bundle — the selector layer
+(`src/features/{domain}/services.ts`) is the only meeting point.
 
 Everything else — reasoning, planning, quality, review — applies identically
 on both tracks.
@@ -75,23 +75,31 @@ it was always there.
 3. **Checkpoint cheaply and often.** Run `npx tsc --noEmit` after each
    workstream, not at the end of five. A type error caught early is a one-line
    fix; caught late it's archaeology.
-4. **Don't gold-plate a prototype.** YAGNI aggressively: no state libraries, no
-   form libraries, no chart libraries (there's a hand-rolled `MockChart`), no
-   drag-and-drop packages (the floor map is pointer events + absolute
-   positioning). The only dependency added in months was `qrcode`, because
-   fake QR codes can't be scanned. Earn every dependency.
+4. **Don't gold-plate a prototype.** YAGNI aggressively: no state libraries.
+   Dependencies earned their place — react-hook-form replaced hand-rolled
+   form state across 25 forms, Recharts replaced `MockChart`, dnd-kit
+   replaced raw pointer events on the floor map, TanStack Virtual replaced
+   page-based pagination, and react-day-picker replaced native date inputs
+   (plan 30). Each was swapped in only after the hand-rolled version proved
+   insufficient. Earn every dependency.
 
 ## 3. Architecture — the load-bearing walls
 
 The repo has exactly one architectural idea. Respect it:
 
 ```
-src/lib/types.ts            ← the contract. One interface per domain concept.
-src/lib/mock-data/*.ts      ← seed data (plain literals, realistic, French-touched)
-src/lib/mock-services/*.ts  ← the future backend boundary. ALL reads/writes go here.
-src/app/**/page.tsx         ← client pages that only talk to mock services
-src/components/shared/*.tsx ← cross-role primitives (cards, badges, chips, dialogs)
-src/components/manager/*.tsx← role-specific composites when a page gets fat
+src/features/{domain}/        ← Feature folders aligned with DDD bounded contexts
+  services.ts                 ← selector: picks mock vs live
+  mock-service.ts             ← in-memory demo implementation
+  mock-data.ts                ← seed data (plain literals, French-touched)
+  live-service.ts             ← live (DB-backed) implementation
+  core.ts                     ← business logic, invariants, state machines
+  schemas.ts                  ← Zod validation at the boundary
+  types.ts                    ← domain-specific types
+src/lib/types.ts              ← the central type contract (re-exports feature types)
+src/app/**/page.tsx           ← client pages that only talk to feature services
+src/components/shared/*.tsx   ← cross-role primitives (cards, badges, chips, dialogs)
+src/components/manager/*.tsx ← role-specific composites when a page gets fat
 ```
 
 Rules that follow from it:
@@ -321,7 +329,7 @@ bang**. The whole design bet is the service boundary; cash it in like this.
    replace mock bodies. Instead: the mock defines the type
    (`type XService = typeof mockXService`), the real implementation is declared
    `satisfies XService`, and pages import the plain name from a
-   `src/lib/services/` selector that picks mock vs real from
+   `src/features/{domain}/services.ts` selector that picks mock vs real from
    `NEXT_PUBLIC_APP_MODE` (demo/live builds). If you find yourself editing 15
    pages to ship one endpoint — or editing a mock to ship a real feature —
    you're doing it wrong. No `mockXService → xService` renames, ever.
@@ -527,8 +535,8 @@ makes it obsolete.
   `?highlight=` scroll-and-ring pattern in `use-highlight.ts`).
 - Print styles: manager chrome is `print:hidden`; the QR sheet is
   `hidden print:block`. Test with the print dialog, not by guessing.
-- `MockChart` renders every label — aggregate to weekly buckets past ~21 data
-  points (`aggregateWeekly`).
+- Recharts renders every label by default — aggregate to weekly buckets past
+  ~21 data points (`aggregateWeekly`) to keep chart axes legible.
 - The dev server module graph re-instantiates service state on HMR of any file
   in the import chain. If a manual test spans an edit, re-run the test.
 - All graduated services (plans 03–10) persist across reload **in live mode

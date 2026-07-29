@@ -190,6 +190,9 @@
 .animate-bounce-soft {
   animation: nln-bounce-soft 1.6s ease-in-out infinite;
 }
+.order-connector {
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
 /* Stagger children of a list: pair .animate-fade-up with .stagger-children */
 .stagger-children > * {
   animation: nln-fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;

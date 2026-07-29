@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react";
 import { Loader2, Minus, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,9 +15,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { menuService } from "@/lib/services/menu-service";
-import { cn } from "@/lib/utils";
+import { menuService } from "@/features/menu/services";
+import { cn } from "@/features/shared/utils";
 import type { MenuItem } from "@/lib/types";
+
+const zBulkRestockForm = z.object({
+  note: z.string().default(""),
+});
 
 /** One delivery, many bottles: set quantities per item and apply in one action. */
 export function BulkRestockDialog({
@@ -30,8 +37,11 @@ export function BulkRestockDialog({
 }) {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [query, setQuery] = useState("");
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
+
+  const { register, handleSubmit, reset, formState: { isSubmitting: busy } } = useForm({
+    resolver: zodResolver(zBulkRestockForm),
+    defaultValues: { note: "" },
+  });
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,24 +60,22 @@ export function BulkRestockDialog({
     setQuantities((prev) => ({ ...prev, [itemId]: Math.max(0, (prev[itemId] ?? 0) + delta) }));
   }
 
-  async function apply() {
+  const onSubmit = handleSubmit(async (data) => {
     if (lines.length === 0) {
       toast.error("Set a quantity on at least one bottle.");
       return;
     }
-    setBusy(true);
     const applied = await menuService.bulkRestock(
       lines.map(([itemId, quantity]) => ({ itemId, quantity })),
-      note.trim() || undefined,
+      data.note.trim() || undefined,
     );
-    setBusy(false);
     toast.success(`Restocked ${applied} items · +${totalBottles} bottles`);
     setQuantities({});
-    setNote("");
+    reset();
     setQuery("");
     onOpenChange(false);
     onDone();
-  }
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -155,18 +163,17 @@ export function BulkRestockDialog({
           <Input
             id="bulk-note"
             placeholder="e.g. Friday delivery — Maison Prestige"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
+            {...register("note")}
           />
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancel
           </Button>
           <ConfirmDialog
             trigger={
-              <Button disabled={busy || lines.length === 0}>
+              <Button type="button" disabled={busy || lines.length === 0}>
                 {busy && <Loader2 className="size-4 animate-spin" />}
                 {busy
                   ? "Applying…"
@@ -178,7 +185,7 @@ export function BulkRestockDialog({
             title={`Apply this restock?`}
             description={`Adds ${totalBottles} bottles across ${lines.length} items and logs one movement per item.`}
             confirmLabel="Apply restock"
-            onConfirm={apply}
+            onConfirm={onSubmit}
           />
         </DialogFooter>
       </DialogContent>

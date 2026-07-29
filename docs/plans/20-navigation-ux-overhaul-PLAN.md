@@ -1,6 +1,6 @@
 # 20 — Navigation & UX Overhaul · PLAN
 
-**Status: not started — demo track first (AD-14). Presentation-layer, like plan 11.**
+**Status: mostly complete — remaining: staff-scoped palette (plan 30 §6.3).**
 
 Goal: the manager area has grown from a prototype's page list into an 18-item
 flat sidebar — and plans 16–19 add roughly ten more destinations. Before that
@@ -101,8 +101,10 @@ uses: **`MobileBottomNav` with four primaries + More**.
      `entity-links.ts`.
   2. **Navigation** — every item in the grouped structure.
   3. **Actions** — "Start last call", "Send broadcast", "New reservation",
-     "Report an incident", "Open stocktake". Each is a registered action with a
-     capability guard; actions the role lacks never appear.
+      "Report an incident", "Open stocktake". **Done 2026-07-28** — action commands
+      implemented in `action-commands.ts` with scope support (manager/staff),
+      service dispatch, and role gating. Each is a registered action with a
+      capability guard; actions the role lacks never appear.
 - A **persistent search input in the manager header** opens the same palette —
   a large share of users never discover a keyboard shortcut (review §3).
 - Staff panel gets the palette too, scoped to their capabilities (search an order

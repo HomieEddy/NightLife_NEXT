@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AlertTriangle, CalendarCheck, DoorOpen, Map, Martini, PartyPopper, Table2, Tag, UserSquare2, Users } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import {
   doorHref,
   eventHref,
@@ -16,7 +16,7 @@ import {
   zoneHref,
   zoneStaffHref,
   zoneTablesHref,
-} from "@/lib/entity-links";
+} from "@/features/shared/entity-links";
 
 export type EntityChipType =
   | "zone" // → zones page, highlighted

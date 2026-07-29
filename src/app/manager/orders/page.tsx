@@ -14,18 +14,19 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { AdjustmentDialog } from "@/components/shared/adjustment-dialog";
-import { Pagination, paginate } from "@/components/shared/pagination";
-import { menuService } from "@/lib/services/menu-service";
-import { ordersService } from "@/lib/services/orders-service";
-import { staffService } from "@/lib/services/staff-service";
-import { guestsService } from "@/lib/services/guests-service";
-import { venueService } from "@/lib/services/venue-service";
-import { permissionService } from "@/lib/services/permission-service";
-import { canDo } from "@/lib/permissions";
-import { formatMoney } from "@/lib/format";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
+import { menuService } from "@/features/menu/services";
+import { ordersService } from "@/features/ordering/services";
+import { staffService } from "@/features/workforce/staff-service";
+import { guestsService } from "@/features/guests/services";
+import { venueService } from "@/features/venue/services";
+import { permissionService } from "@/features/platform/permission-service";
+import { canDo } from "@/features/shared/permissions";
+import { formatMoney } from "@/features/shared/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { SessionOverview } from "@/components/shared/session-overview";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import { Wallet } from "lucide-react";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { DateRangePicker, getDefaultDateRange, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
@@ -53,7 +54,7 @@ export default function ManagerOrdersPage() {
   const [view, setView] = useState<"orders" | "sessions">("orders");
   const [sessions, setSessions] = useState<GuestSession[] | null>(null);
   const [me, setMe] = useState<StaffMember | null>(null);
-  const [permissions, setPermissions] = useState<import("@/lib/permissions").RolePermissions | null>(null);
+  const [permissions, setPermissions] = useState<import("@/features/shared/permissions").RolePermissions | null>(null);
   const [compThresholdCents, setCompThresholdCents] = useState(0);
   const [minimumSpendWarningRatio, setMinimumSpendWarningRatio] = useState(0.25);
 
@@ -65,7 +66,6 @@ export default function ManagerOrdersPage() {
   const [staffFilter, setStaffFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
-  const [page, setPage] = useState(1);
   const [sessionDateRange, setSessionDateRange] = useState<DateRangeValue>(getDefaultDateRange);
 
   const refresh = useCallback(async () => {
@@ -153,6 +153,10 @@ export default function ManagerOrdersPage() {
       })
       .sort((a, b) => b.placedAt.localeCompare(a.placedAt));
   }, [orders, status, zoneFilter, tableFilter, staffFilter, categoryFilter, query, staff, itemCategory, dateRange]);
+
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, status, zoneFilter, tableFilter, staffFilter, categoryFilter, dateRange, reset]);
 
   const hasFilters =
     query !== "" ||
@@ -347,7 +351,7 @@ export default function ManagerOrdersPage() {
           ) : (
             <>
             <div className="grid gap-3 md:grid-cols-2">
-              {paginate(visible, page).map((order) => {
+              {sliced.map((order) => {
                 const availableKinds: TabAdjustmentKind[] = permissions && me
                   ? (["void", "comp", "discount"] as const).filter((k) => canDo(permissions, me.role, `tab:${k}` as const))
                   : [];
@@ -378,7 +382,7 @@ export default function ManagerOrdersPage() {
                 );
               })}
             </div>
-            <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+            <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
             </>
           )}
         </>

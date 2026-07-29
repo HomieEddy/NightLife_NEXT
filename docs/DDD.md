@@ -105,6 +105,11 @@ tests-first treatment.
 - **INV-O9 (auto-gratuity):** `autoGratuityCents` is computed server-side in the
   settlement transaction from active `AutoGratuityRule` definitions at close time;
   the guest sees it as an explicit line item.
+- **INV-O10 (modification):** an order may only be modified (add/remove items,
+  change modifiers) while in `pending` status. Once `accepted`, the order is
+  immutable — corrections after acceptance are tab adjustments (Plan 16), not
+  edits. Modification re-runs INV-O2 (total recomputation) and INV-O5
+  (inventory check for added items) in one transaction.
 
 **GuestSession** (root) — the table's tab for the night.
 - INV-S1: pending → approved | denied; approved → closure-requested → closed |
@@ -124,6 +129,14 @@ tests-first treatment.
 - **INV-S7 (transfer chain):** session transfers record a full chain
   (`transferredFromTableId` is the immediate predecessor; the full chain is
   derived by walking predecessor links).
+- **INV-S8 (auto-timeout):** pending sessions with no approval action within
+  `venue.sessionTimeoutMinutes` are auto-transitioned to `denied` with reason
+  `timeout` by an idempotent cron job (AD-9).
+- **INV-S9 (reopen window):** a `closed` session may transition to `reopened`
+  only within `venue.sessionReopenWindowMinutes` of closure. Reopening
+  re-occupies the table (INV-S4) and restores the original minimum-spend
+  snapshot (INV-S6). A session closed by cash-out (Plan 16) cannot be reopened
+  — the reconciliation is final.
 
 **HelpRequest** (root) — open → acknowledged → resolved; timestamps drive Pulse SLA.
 
@@ -159,7 +172,8 @@ thresholds, last-call auto-flag, tip presets, night-window hours,
 `publicSlug`, `legalDrinkingAge`, `cancellationWindowHours`,
 `reservationHoldMinutes`, `sessionTimeoutMinutes`, `reEntryCutoffTime`,
 `swapDeadlineHours`, `overtimeThresholdHours`, `breakRequirementMinutes`,
-`noShowGraceMinutes`, `lateThresholdMinutes`, and `occupancyWarnRatio`.
+`noShowGraceMinutes`, `lateThresholdMinutes`, `sessionReopenWindowMinutes`,
+and `occupancyWarnRatio`.
 
 **Zone**, **VenueTable** (roots) — table carries status + map position +
 `tokenVersion` + `requiresVipTier`.
@@ -223,6 +237,9 @@ no-show. Carries `arrivalTime`, `durationMinutes`, `channel`, `promoterId`,
 - INV-R1: no two confirmed reservations for the same table have overlapping
   `[arrivalTime, arrivalTime + durationMinutes]` windows.
 - INV-R2: deposit status must be `paid` before transition to `confirmed`.
+  All deposit status transitions (paid, forfeited, refunded) are staff-initiated
+  manual toggles reflecting external actions — the platform records the status,
+  it does not process the payment (PRD §4).
 - INV-R3: cancellation within `cancellationWindowHours` of `arrivalTime`
   auto-flags `lateCancellation: true` and transitions deposit to `forfeited`.
 - INV-R4: a `holdExpiresAt` in the past triggers auto-cancellation (cron job).
@@ -233,6 +250,12 @@ no-show. Carries `arrivalTime`, `durationMinutes`, `channel`, `promoterId`,
 - INV-E1: Σ event guests cannot exceed `event.guestlistCapacity`.
 - INV-E2: per-promoter allocation: Σ guests attributed to promoter ≤
   `promoterAllocation.limit`.
+- **INV-E3 (event menu/pricing):** an `EventMenuOverride` scopes item
+  availability and price overrides to `[event.startTime, event.endTime]`.
+  During an active event window, the override price takes precedence over
+  the base `MenuItem.priceCents` for ordering (INV-O2 uses the override).
+  Items excluded by the override are unavailable for the event's duration.
+  Outside the window, the base catalog applies — no manual toggle required.
 
 **Promotion** (root) — `redemptionCount` increments only inside an order
 transaction that applied it.
@@ -342,8 +365,9 @@ transaction that applied it.
 
 **Supplier**, **SupplierItem**, **PurchaseOrder** (root) + lines,
 **Stocktake** (root) + lines.
-- INV-C1 through INV-C5: unchanged from prior DDD version.
-- **INV-C6 (auto-suggested PO):** `suggestedOrderQuantity = max(parLevel[today] -
+- INV-CS1 through INV-CS5: unchanged from prior DDD version (renamed from
+  INV-C* to avoid collision with Compliance context invariants).
+- **INV-CS6 (auto-suggested PO):** `suggestedOrderQuantity = max(parLevel[today] -
   currentStock, 0)`, surfaced as an attention item and a one-click "create PO" action.
 
 ### Platform context

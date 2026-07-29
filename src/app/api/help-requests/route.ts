@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Help request routes are disabled in demo mode" }, { status: 404 });
 }
 
 async function liveGET() {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
-  const { listHelpRequests } = await import("@/server/session-core");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { getDb } = await import("@/features/shared/db");
+  const { listHelpRequests } = await import("@/features/sessions/core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

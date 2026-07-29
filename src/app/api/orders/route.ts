@@ -1,15 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Order routes are disabled in demo mode" }, { status: 404 });
 }
 
 async function liveGET(request: NextRequest) {
-  const { getGuestAccess } = await import("@/server/guest-auth");
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
-  const { listOrders } = await import("@/server/order-core");
+  const { getGuestAccess } = await import("@/features/guests/guest-auth");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { getDb } = await import("@/features/shared/db");
+  const { listOrders } = await import("@/features/ordering/core");
 
   const guest = await getGuestAccess(request);
   const auth = guest ? null : await requireApiArea("staff");
@@ -35,11 +35,11 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { getGuestAccess } = await import("@/server/guest-auth");
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
-  const { submitOrder } = await import("@/server/order-core");
-  const { zSubmitOrder } = await import("@/server/schemas/orders");
+  const { getGuestAccess } = await import("@/features/guests/guest-auth");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { getDb } = await import("@/features/shared/db");
+  const { submitOrder } = await import("@/features/ordering/core");
+  const { zSubmitOrder } = await import("@/features/ordering/schemas");
 
   const guest = await getGuestAccess(request);
   const auth = guest ? null : await requireApiArea("staff");

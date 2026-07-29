@@ -14,10 +14,11 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { useAuth } from "@/context/auth-context";
-import { incidentService } from "@/lib/services/incident-service";
-import { formatDate, formatTime } from "@/lib/format";
+import { incidentService } from "@/features/safety/services";
+import { formatDate, formatTime } from "@/features/shared/format";
 import type { Incident, IncidentNote, IncidentSeverity, IncidentType } from "@/lib/types";
 
 const TYPE_LABELS: Record<IncidentType, string> = {
@@ -28,6 +29,7 @@ const TYPE_LABELS: Record<IncidentType, string> = {
   theft: "Theft",
   "property-damage": "Property damage",
   police: "Police",
+  "staff-injury": "Staff injury",
   other: "Other",
 };
 
@@ -42,7 +44,6 @@ export default function ManagerIncidentsPage() {
   const [notes, setNotes] = useState<Record<string, IncidentNote[]>>({});
   const [noteDraft, setNoteDraft] = useState("");
   const [saving, setSaving] = useState(false);
-  const [page, setPage] = useState(1);
   // S-02: Reportable incident controls
   const [regDeadline, setRegDeadline] = useState("");
   const [regAuthority, setRegAuthority] = useState("");
@@ -62,6 +63,10 @@ export default function ManagerIncidentsPage() {
       return true;
     });
   }, [incidents, typeFilter, severityFilter, statusFilter, query]);
+
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, typeFilter, severityFilter, statusFilter, reset]);
 
   async function toggleExpand(incident: Incident) {
     if (expanded === incident.id) {
@@ -144,6 +149,7 @@ export default function ManagerIncidentsPage() {
       <PageHeader
         title="Incidents"
         description={incidents ? `${visible.length} of ${incidents.length} incidents` : "Loading…"}
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Incidents" }]}
       />
 
       <Card>
@@ -187,7 +193,7 @@ export default function ManagerIncidentsPage() {
       ) : (
         <>
         <div className="space-y-3">
-          {paginate(visible, page).map((incident) => (
+          {sliced.map((incident) => (
             <Card key={incident.id} id={incident.id}>
               <CardContent className="space-y-2 px-4 py-3">
                 <div className="flex items-start justify-between gap-3">
@@ -314,7 +320,7 @@ export default function ManagerIncidentsPage() {
             </Card>
           ))}
         </div>
-        <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+        <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
         </>
       )}
     </div>

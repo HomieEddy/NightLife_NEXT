@@ -11,15 +11,15 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { guestsService } from "@/lib/services/guests-service";
-import { ordersService } from "@/lib/services/orders-service";
-import { venueService } from "@/lib/services/venue-service";
-import { staffService } from "@/lib/services/staff-service";
-import { cashoutService } from "@/lib/services/cashout-service";
-import { permissionService } from "@/lib/services/permission-service";
-import { canDo } from "@/lib/permissions";
+import { guestsService } from "@/features/guests/services";
+import { ordersService } from "@/features/ordering/services";
+import { venueService } from "@/features/venue/services";
+import { staffService } from "@/features/workforce/staff-service";
+import { cashoutService } from "@/features/platform/cashout-service";
+import { permissionService } from "@/features/platform/permission-service";
+import { canDo } from "@/features/shared/permissions";
 import { businessDateFor, computeCashoutVariance, emptyMethodTotals } from "@/lib/tab";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import type { SettlementMethod, ShiftCashout, StaffMember } from "@/lib/types";
 
 const METHODS: { id: SettlementMethod; label: string }[] = [
@@ -110,6 +110,7 @@ export default function CashoutPage() {
       <PageHeader
         title="Cash-out"
         description={`Business date ${businessDate || "…"} — the venue's night runs to ${nightEndHour}:00.`}
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Cash Out" }]}
       />
 
       <Card>

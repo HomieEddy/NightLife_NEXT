@@ -12,17 +12,18 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { AdjustmentDialog } from "@/components/shared/adjustment-dialog";
-import { ordersService, nextStatus } from "@/lib/services/orders-service";
-import { guestsService } from "@/lib/services/guests-service";
-import { showQueueService, orderNeedsShow } from "@/lib/services/show-queue-service";
-import { staffService } from "@/lib/services/staff-service";
-import { venueService } from "@/lib/services/venue-service";
-import { canDo } from "@/lib/permissions";
-import { permissionService } from "@/lib/services/permission-service";
-import type { RolePermissions } from "@/lib/permissions";
-import { cn } from "@/lib/utils";
+import { ordersService, nextStatus } from "@/features/ordering/services";
+import { guestsService } from "@/features/guests/services";
+import { showQueueService, orderNeedsShow } from "@/features/realtime/show-queue-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { venueService } from "@/features/venue/services";
+import { canDo } from "@/features/shared/permissions";
+import { permissionService } from "@/features/platform/permission-service";
+import type { RolePermissions } from "@/features/shared/permissions";
+import { cn } from "@/features/shared/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { Wallet } from "lucide-react";
 import type { ActiveShow, Order, OrderStatus, StaffMember, TabAdjustmentKind } from "@/lib/types";
 
@@ -56,7 +57,6 @@ function StaffOrdersContent() {
   const [activeShow, setActiveShow] = useState<ActiveShow | null>(null);
   const [promoterSessionIds, setPromoterSessionIds] = useState<Set<string> | null>(null);
   const [compThresholdCents, setCompThresholdCents] = useState(0);
-  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     const [orderList, currentStaff, show, perms, venue] = await Promise.all([
@@ -186,8 +186,12 @@ function StaffOrdersContent() {
     return !["delivered", "cancelled"].includes(o.status);
   });
 
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [filter, zoneScoped, tableFilter, reset]);
+
   return (
-    <div className="space-y-4 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-display text-xl">Order feed</h1>
         <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh">
@@ -229,15 +233,11 @@ function StaffOrdersContent() {
         <EmptyState
           icon={Inbox}
           title="Queue is clear"
-          description={
-            zoneScoped
-              ? "No orders in your zones right now. Nice work."
-              : "No orders match this filter."
-          }
+          description="Orders placed by guests will appear here. Claim one to start delivering."
         />
       ) : (
-        <div className="space-y-3">
-          {paginate(visible, page).map((order) => {
+        <div className="stagger-children space-y-3">
+          {sliced.map((order) => {
             const label = ADVANCE_LABEL[order.status];
             const canAccept = (me && permissions) ? canDo(permissions, me.role, "order:accept") : true;
             const isPending = order.status === "pending";
@@ -379,7 +379,7 @@ function StaffOrdersContent() {
           })}
         </div>
       )}
-      <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+      <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
     </div>
   );
 }

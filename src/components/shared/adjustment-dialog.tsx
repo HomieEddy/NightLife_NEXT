@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
   DialogContent,
@@ -18,10 +20,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { ordersService } from "@/lib/services/orders-service";
-import { formatMoney } from "@/lib/format";
+import { ordersService } from "@/features/ordering/services";
+import { formatMoney } from "@/features/shared/format";
 import { orderItemAmountCents, orderItemPartialAmountCents, orderTotalCents } from "@/lib/tab";
+import { zAdjustmentInput } from "@/lib/form-schemas";
 import type { AdjustmentReason, Order, TabAdjustmentKind } from "@/lib/types";
+import type { z } from "zod";
 
 const KIND_LABEL: Record<TabAdjustmentKind, string> = {
   void: "Void",
@@ -62,20 +66,24 @@ export function AdjustmentDialog({
   const [open, setOpen] = useState(false);
   // "" = whole order; otherwise an order-item id — the scope picker.
   const [itemId, setItemId] = useState("");
-  const [kind, setKind] = useState<TabAdjustmentKind>(availableKinds[0] ?? "comp");
   const [quantity, setQuantity] = useState(1);
-  const [reasonCode, setReasonCode] = useState("");
-  const [note, setNote] = useState("");
   const [reasons, setReasons] = useState<AdjustmentReason[]>([]);
-  const [saving, setSaving] = useState(false);
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zAdjustmentInput),
+    defaultValues: { scope: "line" as const, kind: availableKinds[0] ?? "comp" as TabAdjustmentKind, reasonCode: "", note: "" },
+  });
+  const kind = watch("kind");
+  const reasonCode = watch("reasonCode");
+  const note = watch("note");
 
   const item = itemId ? order.items.find((i) => i.id === itemId) : undefined;
 
   useEffect(() => {
     if (!open) return;
-    setReasonCode("");
+    setValue("reasonCode", "");
     ordersService.listAdjustmentReasons(kind).then(setReasons);
-  }, [open, kind]);
+  }, [open, kind, setValue]);
 
   // Reset the draft only on the closed→open transition — NOT on every parent
   // re-render. `availableKinds` is a fresh array on each render (built inline
@@ -84,11 +92,10 @@ export function AdjustmentDialog({
   useEffect(() => {
     if (!open) return;
     setItemId("");
-    setKind(availableKinds[0] ?? "comp");
+    reset({ scope: "line", kind: availableKinds[0] ?? "comp", reasonCode: "", note: "" });
     setQuantity(1);
-    setNote("");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally excludes availableKinds, see comment above
-  }, [open]);
+  }, [open, reset]);
 
   useEffect(() => {
     setQuantity(item?.quantity ?? 1);
@@ -104,28 +111,25 @@ export function AdjustmentDialog({
     [reasons, reasonCode],
   );
 
-  async function submit() {
-    setSaving(true);
+  const onSubmit = handleSubmit(async (data) => {
     try {
       await ordersService.adjustOrder({
         orderId: order.id,
         orderItemId: item?.id,
         quantity: item ? quantity : undefined,
-        kind,
-        reasonCode,
-        note: note || undefined,
+        kind: data.kind,
+        reasonCode: data.reasonCode,
+        note: data.note || undefined,
         authorStaffId,
         authorStaffName,
       });
-      toast.success(`${KIND_LABEL[kind]}ed ${label} — ${formatMoney(amountCents / 100)}`);
+      toast.success(`${KIND_LABEL[data.kind]}ed ${label} — ${formatMoney(amountCents / 100)}`);
       setOpen(false);
       onDone();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not record the adjustment");
-    } finally {
-      setSaving(false);
     }
-  }
+  });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -138,7 +142,7 @@ export function AdjustmentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <form onSubmit={onSubmit} className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="adj-scope">Scope</Label>
             <Select value={itemId || "__order__"} onValueChange={(v) => setItemId(v === "__order__" ? "" : v)}>
@@ -161,7 +165,7 @@ export function AdjustmentDialog({
               <button
                 key={k}
                 type="button"
-                onClick={() => setKind(k)}
+                onClick={() => setValue("kind", k)}
                 className={
                   "rounded-full border px-3 py-1 text-sm font-medium transition-colors " +
                   (kind === k
@@ -204,7 +208,7 @@ export function AdjustmentDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="adj-reason">Reason</Label>
-            <Select value={reasonCode} onValueChange={setReasonCode}>
+            <Select value={reasonCode} onValueChange={(v) => setValue("reasonCode", v)}>
               <SelectTrigger id="adj-reason" className="w-full">
                 <SelectValue placeholder="Choose a reason…" />
               </SelectTrigger>
@@ -216,14 +220,14 @@ export function AdjustmentDialog({
                 ))}
               </SelectContent>
             </Select>
+            {errors.reasonCode && <p className="text-xs text-red-600">{errors.reasonCode.message}</p>}
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="adj-note">Note (optional)</Label>
             <Textarea
               id="adj-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
+              {...register("note")}
               placeholder="Add context for the audit trail…"
               rows={2}
             />
@@ -235,13 +239,13 @@ export function AdjustmentDialog({
               ask a manager to approve it.
             </p>
           )}
-        </div>
+        </form>
 
         <DialogFooter>
           <ConfirmDialog
             trigger={
-              <Button disabled={!reasonCode || overThreshold || saving} className="w-full">
-                {saving ? "Recording…" : `${KIND_LABEL[kind]} ${label}`}
+              <Button disabled={!reasonCode || overThreshold || isSubmitting} className="w-full">
+                {isSubmitting ? "Recording…" : `${KIND_LABEL[kind]} ${label}`}
               </Button>
             }
             title={`${KIND_LABEL[kind]} ${label} — ${formatMoney(amountCents / 100)}${reasonLabel ? ` — ${reasonLabel}` : ""}?`}
@@ -253,7 +257,7 @@ export function AdjustmentDialog({
                   : "Reduces revenue by this amount. Inventory is not affected."
             }
             confirmLabel={`${KIND_LABEL[kind]} it`}
-            onConfirm={submit}
+            onConfirm={onSubmit}
           />
         </DialogFooter>
       </DialogContent>

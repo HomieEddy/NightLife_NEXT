@@ -2,13 +2,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { venueService } from "@/lib/services/venue-service";
-import { ordersService } from "@/lib/services/orders-service";
-import { guestsService } from "@/lib/services/guests-service";
-import { doorService } from "@/lib/services/door-service";
-import { waitlistService } from "@/lib/services/waitlist-service";
-import { incidentService } from "@/lib/services/incident-service";
-import { pulseService } from "@/lib/services/pulse-service";
+import { venueService } from "@/features/venue/services";
+import { ordersService } from "@/features/ordering/services";
+import { guestsService } from "@/features/guests/services";
+import { doorService } from "@/features/door/services";
+import { waitlistService } from "@/features/door/waitlist-service";
+import { incidentService } from "@/features/safety/services";
+import { pulseService } from "@/features/realtime/pulse-service";
 import { computeAttentionItems } from "@/lib/pulse";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { AttentionItem, AttentionItemType } from "@/lib/types";

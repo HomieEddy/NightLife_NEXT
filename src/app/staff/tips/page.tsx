@@ -6,9 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
-import { tipsService } from "@/lib/services/tips-service";
-import { staffService } from "@/lib/services/staff-service";
-import { formatMoney } from "@/lib/format";
+import { tipsService } from "@/features/workforce/tips-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { formatMoney } from "@/features/shared/format";
 import type { StaffMember, TipDistribution } from "@/lib/types";
 
 export default function StaffTipsPage() {
@@ -31,7 +31,7 @@ export default function StaffTipsPage() {
   const staffName = (id: string) => staff.find((s) => s.id === id)?.name ?? id;
 
   return (
-    <div className="space-y-5 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
           <DollarSign className="size-5 text-primary" /> My tips
@@ -44,7 +44,7 @@ export default function StaffTipsPage() {
       ) : distributions.length === 0 ? (
         <EmptyState icon={DollarSign} title="No closed distributions yet" description="Your tip share appears here once the manager closes the night's distribution." />
       ) : (
-        <div className="space-y-3">
+        <div className="stagger-children space-y-3">
           {distributions.map((d) => {
             const myLine = d.lines.find((l) => l.staffId === me?.id);
             return (
@@ -55,7 +55,7 @@ export default function StaffTipsPage() {
                     <Badge variant="outline"><Lock className="size-3 mr-1" /> Closed</Badge>
                   </div>
                   {myLine ? (
-                    <p className="text-2xl font-bold tabular-nums">{formatMoney(myLine.shareCents, "CAD")}</p>
+                    <p className="text-2xl font-semibold tabular-nums">{formatMoney(myLine.shareCents, "CAD")}</p>
                   ) : (
                     <p className="text-sm text-muted-foreground">Not included in this distribution.</p>
                   )}

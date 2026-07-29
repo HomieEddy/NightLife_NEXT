@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -13,18 +15,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { staffService } from "@/lib/services/staff-service";
-import { cn } from "@/lib/utils";
-import { ASSIGNABLE_ROLES, type StaffMember, type StaffRole, type Zone } from "@/lib/types";
+import { staffService } from "@/features/workforce/staff-service";
+import { cn } from "@/features/shared/utils";
+import { zStaffInput } from "@/lib/form-schemas";
+import { ASSIGNABLE_ROLES, type StaffMember, type Zone } from "@/lib/types";
+import type { z } from "zod";
 
-interface Draft {
-  name: string;
-  role: StaffRole;
-  phone: string;
-  email: string;
-  assignedZoneIds: string[];
-  suspended: boolean;
-}
+type FormValues = z.infer<typeof zStaffInput>;
+const EMPTY_VALUES: FormValues = { name: "", role: "runner", phone: "", email: "", assignedZoneIds: [], suspended: false };
 
 export function StaffEditDialog({
   open,
@@ -39,58 +37,50 @@ export function StaffEditDialog({
   zones: Zone[];
   onDone: () => void;
 }) {
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [saving, setSaving] = useState(false);
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zStaffInput),
+    defaultValues: EMPTY_VALUES,
+  });
+  const assignedZoneIds = watch("assignedZoneIds");
+  const suspended = watch("suspended");
 
   useEffect(() => {
     if (!open) return;
-    setDraft(
-      member
-        ? {
-            name: member.name,
-            role: member.role,
-            phone: member.phone,
-            email: member.email,
-            assignedZoneIds: member.assignedZoneIds,
-            suspended: member.accountStatus === "suspended",
-          }
-        : { name: "", role: "runner", phone: "", email: "", assignedZoneIds: [], suspended: false },
-    );
-  }, [open, member]);
+    if (member) {
+      reset({
+        name: member.name,
+        role: member.role,
+        phone: member.phone,
+        email: member.email,
+        assignedZoneIds: member.assignedZoneIds,
+        suspended: member.accountStatus === "suspended",
+      });
+    } else {
+      reset(EMPTY_VALUES);
+    }
+  }, [open, member, reset]);
 
   function toggleZone(zoneId: string) {
-    if (!draft) return;
-    setDraft({
-      ...draft,
-      assignedZoneIds: draft.assignedZoneIds.includes(zoneId)
-        ? draft.assignedZoneIds.filter((id) => id !== zoneId)
-        : [...draft.assignedZoneIds, zoneId],
-    });
+    setValue("assignedZoneIds",
+      (assignedZoneIds ?? []).includes(zoneId)
+        ? (assignedZoneIds ?? []).filter((id) => id !== zoneId)
+        : [...(assignedZoneIds ?? []), zoneId],
+    );
   }
 
-  async function save() {
-    if (!draft) return;
-    if (!draft.name.trim()) {
-      toast.error("Name is required.");
-      return;
-    }
-    if (!draft.email.trim()) {
-      toast.error("Email is required — it's the staff login.");
-      return;
-    }
-    setSaving(true);
+  const onSave = handleSubmit(async (data) => {
     const base = {
-      name: draft.name.trim(),
-      role: draft.role,
-      phone: draft.phone.trim(),
-      email: draft.email.trim().toLowerCase(),
-      assignedZoneIds: draft.assignedZoneIds,
+      name: data.name.trim(),
+      role: data.role,
+      phone: data.phone?.trim() ?? "",
+      email: data.email?.trim().toLowerCase() ?? "",
+      assignedZoneIds: data.assignedZoneIds ?? [],
     };
     try {
       if (member) {
         await staffService.updateStaff(member.id, {
           ...base,
-          accountStatus: draft.suspended ? "suspended" : member.accountStatus === "suspended" ? "active" : member.accountStatus,
+          accountStatus: data.suspended ? "suspended" : member.accountStatus === "suspended" ? "active" : member.accountStatus,
         });
         toast.success(`${base.name} updated`);
       } else {
@@ -106,10 +96,8 @@ export function StaffEditDialog({
       onDone();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save the team member.");
-    } finally {
-      setSaving(false);
     }
-  }
+  });
 
   async function resetPin() {
     if (!member) return;
@@ -133,24 +121,16 @@ export function StaffEditDialog({
             </DialogDescription>
           )}
         </DialogHeader>
-        {draft && (
-          <div className="space-y-4">
+        <form onSubmit={onSave} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="staff-name">Full name</Label>
-              <Input
-                id="staff-name"
-                placeholder="e.g. Marie Dupont"
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              />
+              <Input id="staff-name" placeholder="e.g. Marie Dupont" {...register("name")} />
+              {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Role</Label>
-                <Select
-                  value={draft.role}
-                  onValueChange={(v) => setDraft({ ...draft, role: v as StaffRole })}
-                >
+                <Select value={watch("role")} onValueChange={(v) => setValue("role", v as FormValues["role"])}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -165,23 +145,13 @@ export function StaffEditDialog({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="staff-phone">Phone</Label>
-                <Input
-                  id="staff-phone"
-                  placeholder="+33 6 …"
-                  value={draft.phone}
-                  onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-                />
+                <Input id="staff-phone" placeholder="+33 6 …" {...register("phone")} />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="staff-email">Email (login)</Label>
-              <Input
-                id="staff-email"
-                type="email"
-                placeholder="name@venue.club"
-                value={draft.email}
-                onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-              />
+              <Input id="staff-email" type="email" placeholder="name@venue.club" {...register("email")} />
+              {errors.email && <p className="text-xs text-red-600">{errors.email.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label>Assigned zones</Label>
@@ -193,7 +163,7 @@ export function StaffEditDialog({
                     onClick={() => toggleZone(zone.id)}
                     className={cn(
                       "rounded-full border px-3 py-1 text-xs transition-colors",
-                      draft.assignedZoneIds.includes(zone.id)
+                      (assignedZoneIds ?? []).includes(zone.id)
                         ? "border-primary bg-primary/15 text-primary"
                         : "text-muted-foreground hover:text-foreground",
                     )}
@@ -215,8 +185,8 @@ export function StaffEditDialog({
                     </p>
                   </div>
                   <Switch
-                    checked={draft.suspended}
-                    onCheckedChange={(suspended) => setDraft({ ...draft, suspended })}
+                    checked={suspended}
+                    onCheckedChange={(v) => setValue("suspended", v)}
                     aria-label="Suspend account"
                   />
                 </div>
@@ -225,17 +195,16 @@ export function StaffEditDialog({
                 </Button>
               </div>
             )}
-          </div>
-        )}
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={save} disabled={saving}>
-            {saving && <Loader2 className="size-4 animate-spin" />}
-            {saving ? "Saving…" : member ? "Save" : "Send invite"}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button variant="ghost" type="button" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+              {isSubmitting ? "Saving…" : member ? "Save" : "Send invite"}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -185,7 +185,7 @@ Numbered for traceability (`Rn`). Extended from the original 14.
 
 **R1 — Contract stability.** Every page calls the same service interface. Mock
 defines the contract; real implementation satisfies it; pages import through the
-`src/lib/services/` selector (AD-14). Mocks co-exist permanently.
+`src/features/{domain}/services.ts` selector (AD-14). Mocks co-exist permanently.
 
 **R2 — Tenant isolation.** No query returns another venue's rows. Enforced
 centrally via scoped Prisma client. `/admin` is the sole cross-tenant surface

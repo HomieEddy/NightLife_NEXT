@@ -23,13 +23,14 @@ import { RolesAccessTab } from "@/components/manager/roles-access-tab";
 import { ScheduleTab } from "@/components/manager/schedule-tab";
 import { CertificationsTab } from "@/components/manager/certifications-tab";
 import { StaffEditDialog } from "@/components/manager/staff-edit-dialog";
-import { staffService } from "@/lib/services/staff-service";
-import { venueService } from "@/lib/services/venue-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { venueService } from "@/features/venue/services";
 import { SearchInput } from "@/components/shared/search-input";
 import { DateRangePicker, getDefaultDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
-import { isDemoMode } from "@/lib/app-mode";
-import { cn } from "@/lib/utils";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { cn } from "@/features/shared/utils";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import type { StaffAccountStatus, StaffMember, StaffRole, Zone } from "@/lib/types";
 
 // TODO(backend): derive from the authenticated session's venueId.
@@ -52,7 +53,6 @@ function StaffContent() {
   const [scheduleDateRange, setScheduleDateRange] = useState<DateRangeValue>(getDefaultDateRange);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
-  const [page, setPage] = useState(1);
 
   const refresh = useCallback(async () => {
     setStaff(await staffService.listStaff());
@@ -87,11 +87,16 @@ function StaffContent() {
   });
   const onShift = visible.filter((s) => s.isOnShift).length;
 
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, zoneFilter, roleFilter, reset]);
+
   return (
     <div className="space-y-5">
       <PageHeader
         title="Staff"
         description={staff ? `${visible.length} team members · ${onShift} on shift` : "Loading…"}
+        breadcrumbs={[{ label: "Team", href: "/manager/staff" }, { label: "Staff" }]}
       />
 
       <div className="flex flex-wrap items-center gap-3">
@@ -152,7 +157,7 @@ function StaffContent() {
             <>
 
             <div className="grid gap-3 md:grid-cols-2">
-              {paginate(visible, page).map((member) => {
+              {sliced.map((member) => {
                 const accountBadge = ACCOUNT_BADGE[member.accountStatus];
                 return (
                   <Card
@@ -254,7 +259,7 @@ function StaffContent() {
                 );
               })}
             </div>
-            <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+            <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
             </>
           )}
         </TabsContent>

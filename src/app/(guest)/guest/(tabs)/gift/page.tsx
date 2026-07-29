@@ -15,11 +15,11 @@ import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { PageHeader } from "@/components/shared/page-header";
 import { ClosureGate } from "@/components/guest/closure-gate";
 import { useGuest } from "@/context/guest-context";
-import { menuService } from "@/lib/services/menu-service";
-import { ordersService } from "@/lib/services/orders-service";
-import { venueService } from "@/lib/services/venue-service";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { menuService } from "@/features/menu/services";
+import { ordersService } from "@/features/ordering/services";
+import { venueService } from "@/features/venue/services";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { MenuItem, VenueTable } from "@/lib/types";
 
 const MAX_GIFT_PRICE = 60;

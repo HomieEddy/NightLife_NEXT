@@ -5,6 +5,8 @@ import { FeatureGate } from "@/components/shared/feature-gate";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { Loader2, Pencil, Plus, Tag, Trash2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -21,11 +23,13 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { promotionsService } from "@/lib/services/promotions-service";
-import { menuService } from "@/lib/services/menu-service";
+import { promotionsService } from "@/features/hospitality/promotions-service";
+import { menuService } from "@/features/menu/services";
 import { SearchInput } from "@/components/shared/search-input";
-import { cn } from "@/lib/utils";
-import type { MenuCategory, Promotion, PromotionStatus, PromotionType } from "@/lib/types";
+import { cn } from "@/features/shared/utils";
+import { zPromotionInput } from "@/lib/form-schemas";
+import type { MenuCategory, Promotion, PromotionStatus } from "@/lib/types";
+import type { z } from "zod";
 
 const selectCls =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -39,21 +43,11 @@ function fromLocalInput(value: string): string {
   return new Date(value).toISOString();
 }
 
-type PromoDraft = {
-  code: string;
-  name: string;
-  type: PromotionType;
-  value: number;
-  appliesToCategoryIds: string[];
-  startsAt: string;
-  endsAt: string;
-  status: PromotionStatus;
-};
-
-const EMPTY_DRAFT: PromoDraft = {
+type FormValues = z.infer<typeof zPromotionInput>;
+const EMPTY_VALUES: FormValues = {
   code: "",
   name: "",
-  type: "percentage",
+  type: "pct",
   value: 10,
   appliesToCategoryIds: [],
   startsAt: toLocalInput(new Date().toISOString()),
@@ -68,10 +62,14 @@ function PromotionsContent() {
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<PromoDraft>(EMPTY_DRAFT);
-  const [saving, setSaving] = useState(false);
   const [testCode, setTestCode] = useState("");
   const [testResult, setTestResult] = useState<Promotion | null | undefined>(undefined);
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zPromotionInput),
+    defaultValues: EMPTY_VALUES,
+  });
+  const appliesToCategoryIds = watch("appliesToCategoryIds");
 
   const refresh = useCallback(async () => {
     const [list, cats] = await Promise.all([
@@ -96,48 +94,44 @@ function PromotionsContent() {
   }
 
   function toggleCat(id: string) {
-    setDraft((d) => ({
-      ...d,
-      appliesToCategoryIds: d.appliesToCategoryIds.includes(id)
-        ? d.appliesToCategoryIds.filter((x) => x !== id)
-        : [...d.appliesToCategoryIds, id],
-    }));
+    setValue("appliesToCategoryIds",
+      (appliesToCategoryIds ?? []).includes(id)
+        ? (appliesToCategoryIds ?? []).filter((x) => x !== id)
+        : [...(appliesToCategoryIds ?? []), id],
+    );
   }
 
   function openCreate() {
     setEditingId(null);
-    setDraft(EMPTY_DRAFT);
+    reset(EMPTY_VALUES);
     setDialogOpen(true);
   }
 
   function openEdit(p: Promotion) {
     setEditingId(p.id);
-    setDraft({
+    reset({
       code: p.code,
       name: p.name,
-      type: p.type,
+      type: p.type === "percentage" ? "pct" : ("flat" as FormValues["type"]),
       value: p.value,
       appliesToCategoryIds: p.appliesToCategoryIds,
       startsAt: toLocalInput(p.startsAt),
       endsAt: toLocalInput(p.endsAt),
-      status: p.status,
+      status: (p.status === "expired" ? "inactive" : p.status) as FormValues["status"],
     });
     setDialogOpen(true);
   }
 
-  async function save() {
-    if (!draft.code.trim()) return toast.error("Code is required.");
-    if (!draft.name.trim()) return toast.error("Name is required.");
-    setSaving(true);
+  const onSave = handleSubmit(async (data) => {
     const payload = {
-      code: draft.code.trim().toUpperCase(),
-      name: draft.name.trim(),
-      type: draft.type,
-      value: draft.value,
-      appliesToCategoryIds: draft.appliesToCategoryIds,
-      startsAt: fromLocalInput(draft.startsAt),
-      endsAt: fromLocalInput(draft.endsAt),
-      status: draft.status,
+      code: data.code.trim().toUpperCase(),
+      name: data.name.trim(),
+      type: data.type === "pct" ? "percentage" as const : "flat" as const,
+      value: data.value,
+      appliesToCategoryIds: data.appliesToCategoryIds ?? [],
+      startsAt: fromLocalInput(data.startsAt),
+      endsAt: fromLocalInput(data.endsAt),
+      status: data.status as PromotionStatus,
     };
     if (editingId) {
       await promotionsService.updatePromotion(editingId, payload);
@@ -146,10 +140,9 @@ function PromotionsContent() {
       await promotionsService.createPromotion(payload);
       toast.success("Promotion created");
     }
-    setSaving(false);
     setDialogOpen(false);
     await refresh();
-  }
+  });
 
   async function remove(p: Promotion) {
     await promotionsService.deletePromotion(p.id);
@@ -162,6 +155,7 @@ function PromotionsContent() {
       <PageHeader
         title="Promotions"
         description="Promo codes and discounts applied at checkout."
+        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Promotions" }]}
         actions={
           <Button onClick={openCreate}>
             <Plus className="size-4" /> New promotion
@@ -293,15 +287,16 @@ function PromotionsContent() {
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit promotion" : "New promotion"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={onSave} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="promo-code">Code</Label>
-                <Input id="promo-code" value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} placeholder="WELCOME10" />
+                <Input id="promo-code" {...register("code")} placeholder="WELCOME10" />
+                {errors.code && <p className="text-xs text-red-600">{errors.code.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="promo-status">Status</Label>
-                <select id="promo-status" className={selectCls} value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as PromotionStatus })}>
+                <select id="promo-status" className={selectCls} value={watch("status")} onChange={(e) => setValue("status", e.target.value as FormValues["status"])}>
                   <option value="scheduled">Scheduled</option>
                   <option value="active">Active</option>
                   <option value="expired">Expired</option>
@@ -310,29 +305,30 @@ function PromotionsContent() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="promo-name">Name</Label>
-              <Input id="promo-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+              <Input id="promo-name" {...register("name")} />
+              {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="promo-type">Type</Label>
-                <select id="promo-type" className={selectCls} value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as PromotionType })}>
-                  <option value="percentage">Percentage</option>
+                <select id="promo-type" className={selectCls} value={watch("type")} onChange={(e) => setValue("type", e.target.value as FormValues["type"])}>
+                  <option value="pct">Percentage</option>
                   <option value="flat">Flat amount</option>
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="promo-value">{draft.type === "percentage" ? "Percent" : "Amount ($)"}</Label>
-                <Input id="promo-value" type="number" min={0} value={draft.value} onChange={(e) => setDraft({ ...draft, value: Math.max(0, Number(e.target.value)) })} />
+                <Label htmlFor="promo-value">{watch("type") === "pct" ? "Percent" : "Amount ($)"}</Label>
+                <Input id="promo-value" type="number" min={0} {...register("value", { valueAsNumber: true })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="promo-start">Starts</Label>
-                <Input id="promo-start" type="datetime-local" value={draft.startsAt} onChange={(e) => setDraft({ ...draft, startsAt: e.target.value })} />
+                <Input id="promo-start" type="datetime-local" {...register("startsAt")} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="promo-end">Ends</Label>
-                <Input id="promo-end" type="datetime-local" value={draft.endsAt} onChange={(e) => setDraft({ ...draft, endsAt: e.target.value })} />
+                <Input id="promo-end" type="datetime-local" {...register("endsAt")} />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -345,7 +341,7 @@ function PromotionsContent() {
                     onClick={() => toggleCat(c.id)}
                     className={cn(
                       "rounded-full border px-3 py-1 text-xs transition-colors",
-                      draft.appliesToCategoryIds.includes(c.id)
+                      (appliesToCategoryIds ?? []).includes(c.id)
                         ? "border-primary bg-primary/15 text-primary"
                         : "text-muted-foreground hover:text-foreground",
                     )}
@@ -356,14 +352,14 @@ function PromotionsContent() {
               </div>
               <p className="text-xs text-muted-foreground">None selected = applies to all categories.</p>
             </div>
-          </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={save} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : editingId ? "Save" : "Create promotion"}
+            <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+              {isSubmitting ? "Saving…" : editingId ? "Save" : "Create promotion"}
             </Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

@@ -5,6 +5,8 @@ import { FeatureGate } from "@/components/shared/feature-gate";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { Clock, Loader2, Pencil, Percent, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -18,17 +20,18 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { EntityChip } from "@/components/shared/entity-chip";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { menuService } from "@/lib/services/menu-service";
+import { menuService } from "@/features/menu/services";
 import { SearchInput } from "@/components/shared/search-input";
 import { useHighlight } from "@/lib/use-highlight";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
+import { zHappyHourInput } from "@/lib/form-schemas";
 import type { HappyHourRule, MenuCategory } from "@/lib/types";
+import type { z } from "zod";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-type RuleDraft = Omit<HappyHourRule, "id" | "venueId">;
-
-const EMPTY_DRAFT: RuleDraft = {
+type FormValues = z.infer<typeof zHappyHourInput>;
+const EMPTY_VALUES: FormValues = {
   name: "",
   daysOfWeek: [4, 5, 6],
   startTime: "22:00",
@@ -46,10 +49,14 @@ function HappyHourContent() {
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<RuleDraft>(EMPTY_DRAFT);
-  const [saving, setSaving] = useState(false);
-  // ?category= highlights rules that apply to that category ("applies to" cross-check)
   const highlightedCategory = useHighlight("category");
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zHappyHourInput),
+    defaultValues: EMPTY_VALUES,
+  });
+  const daysOfWeek = watch("daysOfWeek");
+  const appliesToCategoryIds = watch("appliesToCategoryIds");
 
   const refresh = useCallback(async () => {
     const [ruleList, catList] = await Promise.all([
@@ -72,32 +79,26 @@ function HappyHourContent() {
 
   function openCreate() {
     setEditingId(null);
-    setDraft(EMPTY_DRAFT);
+    reset(EMPTY_VALUES);
     setDialogOpen(true);
   }
 
   function openEdit(rule: HappyHourRule) {
     setEditingId(rule.id);
-    const { id: _id, venueId: _venueId, ...rest } = rule;
-    setDraft(rest);
+    reset({
+      name: rule.name,
+      daysOfWeek: rule.daysOfWeek,
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      discountPct: rule.discountPct,
+      appliesToCategoryIds: rule.appliesToCategoryIds,
+      isActive: rule.isActive,
+    });
     setDialogOpen(true);
   }
 
-  async function save() {
-    if (!draft.name.trim()) {
-      toast.error("Rule name is required.");
-      return;
-    }
-    if (draft.daysOfWeek.length === 0) {
-      toast.error("Pick at least one day.");
-      return;
-    }
-    if (draft.appliesToCategoryIds.length === 0) {
-      toast.error("Pick at least one category.");
-      return;
-    }
-    setSaving(true);
-    const input = { ...draft, name: draft.name.trim() };
+  const onSave = handleSubmit(async (data) => {
+    const input: Parameters<typeof menuService.createHappyHourRule>[0] = { ...data, name: data.name.trim(), isActive: data.isActive ?? true };
     if (editingId) {
       await menuService.updateHappyHourRule(editingId, input);
       toast.success(`${input.name} updated`);
@@ -105,10 +106,9 @@ function HappyHourContent() {
       await menuService.createHappyHourRule(input);
       toast.success(`${input.name} created`);
     }
-    setSaving(false);
     setDialogOpen(false);
     await refresh();
-  }
+  });
 
   async function remove(rule: HappyHourRule) {
     await menuService.deleteHappyHourRule(rule.id);
@@ -117,21 +117,19 @@ function HappyHourContent() {
   }
 
   function toggleDraftDay(day: number) {
-    setDraft((d) => ({
-      ...d,
-      daysOfWeek: d.daysOfWeek.includes(day)
-        ? d.daysOfWeek.filter((x) => x !== day)
-        : [...d.daysOfWeek, day].sort(),
-    }));
+    setValue("daysOfWeek",
+      daysOfWeek.includes(day)
+        ? daysOfWeek.filter((x) => x !== day)
+        : [...daysOfWeek, day].sort(),
+    );
   }
 
   function toggleDraftCategory(id: string) {
-    setDraft((d) => ({
-      ...d,
-      appliesToCategoryIds: d.appliesToCategoryIds.includes(id)
-        ? d.appliesToCategoryIds.filter((x) => x !== id)
-        : [...d.appliesToCategoryIds, id],
-    }));
+    setValue("appliesToCategoryIds",
+      appliesToCategoryIds.includes(id)
+        ? appliesToCategoryIds.filter((x) => x !== id)
+        : [...appliesToCategoryIds, id],
+    );
   }
 
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
@@ -153,6 +151,7 @@ function HappyHourContent() {
       <PageHeader
         title="Happy hour"
         description="Time-based discounts, applied automatically to guest orders."
+        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Happy Hour" }]}
         actions={
           <Button onClick={openCreate}>
             <Plus className="size-4" /> New rule
@@ -291,7 +290,7 @@ function HappyHourContent() {
                   {DAY_LABELS.map((day, i) => (
                     <span
                       key={day}
-                      className={`rounded-md border px-2 py-0.5 text-[11px] ${
+                      className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${
                         rule.daysOfWeek.includes(i)
                           ? "border-primary/40 bg-primary/10 text-primary"
                           : "text-muted-foreground/50"
@@ -324,50 +323,24 @@ function HappyHourContent() {
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit rule" : "New happy hour rule"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={onSave} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="rule-name">Name</Label>
-              <Input
-                id="rule-name"
-                placeholder="e.g. Early bird bottles"
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              />
+              <Input id="rule-name" placeholder="e.g. Early bird bottles" {...register("name")} />
+              {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="rule-start">Start</Label>
-                <Input
-                  id="rule-start"
-                  type="time"
-                  value={draft.startTime}
-                  onChange={(e) => setDraft({ ...draft, startTime: e.target.value })}
-                />
+                <Input id="rule-start" type="time" {...register("startTime")} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="rule-end">End</Label>
-                <Input
-                  id="rule-end"
-                  type="time"
-                  value={draft.endTime}
-                  onChange={(e) => setDraft({ ...draft, endTime: e.target.value })}
-                />
+                <Input id="rule-end" type="time" {...register("endTime")} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="rule-pct">Discount %</Label>
-                <Input
-                  id="rule-pct"
-                  type="number"
-                  min={1}
-                  max={90}
-                  value={draft.discountPct}
-                  onChange={(e) =>
-                    setDraft({
-                      ...draft,
-                      discountPct: Math.min(90, Math.max(1, Number(e.target.value))),
-                    })
-                  }
-                />
+                <Input id="rule-pct" type="number" min={1} max={90} {...register("discountPct", { valueAsNumber: true })} />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -380,7 +353,7 @@ function HappyHourContent() {
                     onClick={() => toggleDraftDay(i)}
                     className={cn(
                       "rounded-md border px-2.5 py-1 text-xs transition-colors",
-                      draft.daysOfWeek.includes(i)
+                      daysOfWeek.includes(i)
                         ? "border-primary bg-primary/15 text-primary"
                         : "text-muted-foreground hover:text-foreground",
                     )}
@@ -400,7 +373,7 @@ function HappyHourContent() {
                     onClick={() => toggleDraftCategory(cat.id)}
                     className={cn(
                       "rounded-full border px-3 py-1 text-xs transition-colors",
-                      draft.appliesToCategoryIds.includes(cat.id)
+                      appliesToCategoryIds.includes(cat.id)
                         ? "border-primary bg-primary/15 text-primary"
                         : "text-muted-foreground hover:text-foreground",
                     )}
@@ -410,16 +383,16 @@ function HappyHourContent() {
                 ))}
               </div>
             </div>
-          </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
+            <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={save} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : editingId ? "Save" : "Create rule"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+              {isSubmitting ? "Saving…" : editingId ? "Save" : "Create rule"}
             </Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

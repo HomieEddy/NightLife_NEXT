@@ -133,7 +133,7 @@ Interpretation choices (per AGENTS.md §1.4):
 
 - **Pour cost** = COGS ÷ net revenue, per item, category, zone and night.
 - **Margin** on every existing revenue view: the analytics revenue cards gain a
-  margin companion; `MockChart` gets a cost series where it already renders
+  margin companion; `RevenueChart` gets a cost series via Recharts where it already renders
   revenue (no new charting dependency — AGENTS.md §2.4).
 - **Canonical P&L formula** — the single source of truth for profitability
   math, consumed by all analytics views and the dashboard snapshot:

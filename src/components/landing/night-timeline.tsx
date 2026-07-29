@@ -2,7 +2,7 @@
 
 import { useRef, type ReactNode } from "react";
 import { Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import { gsap, ScrollTrigger, useGSAP } from "@/lib/gsap";
 
 /** The night runs 22:00 → 03:00; scroll progress scrubs the clock across it. */

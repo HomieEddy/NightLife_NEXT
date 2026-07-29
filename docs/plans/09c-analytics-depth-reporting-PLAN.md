@@ -91,7 +91,7 @@ live branch computes them from real rows.
   new sections; `mockAnalyticsService.getHistorical` scales them with the same
   `seeded()` hash approach — deterministic, no `Math.random`.
 - **Analytics page**: new sections slot into the existing tab/card layout
-  (reuse `MockChart`, stat cards, `EntityChip` links to
+  (reuse `RevenueChart` (Recharts), stat cards, `EntityChip` links to
   reservations/events/promotions pages). No new dependencies.
 - **Report engine**: `REPORT_METRICS` grows ids — `sessions`, `reservations`,
   `happy-hours`, `events`, `promotions`, `service-fees`, `order-funnel` — each

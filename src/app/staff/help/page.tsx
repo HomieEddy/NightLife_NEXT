@@ -9,11 +9,11 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { guestsService } from "@/lib/services/guests-service";
-import { staffService } from "@/lib/services/staff-service";
-import { getHelpScope } from "@/lib/role-capabilities";
-import { timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { guestsService } from "@/features/guests/services";
+import { staffService } from "@/features/workforce/staff-service";
+import { getHelpScope } from "@/features/shared/role-capabilities";
+import { timeAgo } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { HelpRequest, HelpRequestType, StaffMember } from "@/lib/types";
 
@@ -76,7 +76,7 @@ export default function StaffHelpPage() {
   const isSecurityRole = me?.role === "security";
 
   return (
-    <div className="space-y-5 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <h1 className="text-display text-xl">
         {isSecurityRole ? "Security requests" : "Help requests"}
       </h1>
@@ -87,14 +87,10 @@ export default function StaffHelpPage() {
         <EmptyState
           icon={LifeBuoy}
           title={isSecurityRole ? "No active security requests" : "All guests are happy"}
-          description={
-            isSecurityRole
-              ? "Security help requests will appear here as soon as a guest flags a situation."
-              : "Open help requests will appear here the moment a guest taps a button."
-          }
+          description="Guest help requests appear here. Respond to claim and assist."
         />
       ) : (
-        <div className="space-y-3">
+        <div className="stagger-children space-y-3">
           {open.map((request) => {
             const meta = TYPE_META[request.type];
             return (

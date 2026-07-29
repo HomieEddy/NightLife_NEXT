@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 /** Sun/moon toggle. Renders a placeholder until mounted to avoid hydration flicker. */
 export function ThemeToggle({ className }: { className?: string }) {

@@ -3,15 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { Clock, Minus, Plus, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
-import { waitlistService } from "@/lib/services/waitlist-service";
-import type { WaitlistEntryWithPosition } from "@/lib/services/waitlist-service";
-import { cn } from "@/lib/utils";
+import { waitlistService } from "@/features/door/waitlist-service";
+import { zWaitlistEntryInput } from "@/lib/form-schemas";
+import type { WaitlistEntryWithPosition } from "@/features/door/waitlist-service";
+import { cn } from "@/features/shared/utils";
+import type { z } from "zod";
 
 const QUOTE_PRESETS = [15, 30, 45];
 
@@ -26,11 +30,16 @@ const STATUS_LABEL: Record<WaitlistEntryWithPosition["status"], string> = {
 /** Shares the same waitlist state as /staff/door — a table on reservations page for manager visibility. */
 export function WaitlistPanel() {
   const [entries, setEntries] = useState<WaitlistEntryWithPosition[] | null>(null);
-  const [name, setName] = useState("");
-  const [partySize, setPartySize] = useState(2);
-  const [quotedMinutes, setQuotedMinutes] = useState(15);
   const [busy, setBusy] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+
+  type FormValues = z.infer<typeof zWaitlistEntryInput>;
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zWaitlistEntryInput),
+    defaultValues: { name: "", partySize: 2, quotedMinutes: 15 },
+  });
+  const quotedMinutes = watch("quotedMinutes");
+  const partySize = watch("partySize");
 
   const refresh = useCallback(async () => {
     setEntries(await waitlistService.listEntries());
@@ -45,22 +54,19 @@ export function WaitlistPanel() {
   const active = (entries ?? []).filter((e) => e.status === "waiting" || e.status === "notified");
   const history = (entries ?? []).filter((e) => e.status !== "waiting" && e.status !== "notified");
 
-  async function join() {
-    if (!name.trim()) return;
+  const onJoin = handleSubmit(async (data) => {
     setBusy(true);
     try {
-      await waitlistService.join({ name: name.trim(), partySize, quotedMinutes });
-      setName("");
-      setPartySize(2);
-      setQuotedMinutes(15);
-      toast.success(`${name.trim()} added to the waitlist`);
+      await waitlistService.join({ name: data.name.trim(), partySize: data.partySize, quotedMinutes: data.quotedMinutes });
+      reset({ name: "", partySize: 2, quotedMinutes: 15 });
+      toast.success(`${data.name.trim()} added to the waitlist`);
       await refresh();
     } catch {
       toast.error("Could not add to the waitlist");
     } finally {
       setBusy(false);
     }
-  }
+  });
 
   async function setStatus(id: string, status: "notified" | "left" | "seated") {
     await waitlistService.setStatus(id, status);
@@ -121,14 +127,16 @@ export function WaitlistPanel() {
       <Card>
         <CardContent className="space-y-3 pt-4">
           <p className="text-sm font-medium">Add a walk-in</p>
-          <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+          <form onSubmit={onJoin} className="space-y-3">
+          <Input placeholder="Name" {...register("name")} />
+          {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
           <div className="flex items-center gap-2">
             <Label className="w-20 shrink-0 text-xs">Party</Label>
-            <Button variant="outline" size="icon" className="size-9" onClick={() => setPartySize((p) => Math.max(1, p - 1))}>
+            <Button type="button" variant="outline" size="icon" className="size-9" onClick={() => setValue("partySize", Math.max(1, partySize - 1))}>
               <Minus className="size-4" />
             </Button>
             <span className="w-6 text-center tabular-nums">{partySize}</span>
-            <Button variant="outline" size="icon" className="size-9" onClick={() => setPartySize((p) => p + 1)}>
+            <Button type="button" variant="outline" size="icon" className="size-9" onClick={() => setValue("partySize", partySize + 1)}>
               <Plus className="size-4" />
             </Button>
           </div>
@@ -141,16 +149,17 @@ export function WaitlistPanel() {
                   type="button"
                   size="sm"
                   variant={quotedMinutes === m ? "default" : "outline"}
-                  onClick={() => setQuotedMinutes(m)}
+                  onClick={() => setValue("quotedMinutes", m)}
                 >
                   <Clock className="size-3.5" /> {m}m
                 </Button>
               ))}
             </div>
           </div>
-          <Button className="w-full" disabled={!name.trim() || busy} onClick={join}>
+          <Button type="submit" className="w-full" disabled={isSubmitting || busy}>
             <UserPlus className="size-4" /> Add to waitlist
           </Button>
+          </form>
         </CardContent>
       </Card>
     </div>

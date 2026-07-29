@@ -4,9 +4,9 @@ import { Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { DEFAULT_PLAN_CONFIGS, FEATURE_CATALOG } from "@/lib/plan-catalog";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import type { PlanConfig } from "@/lib/types";
 
 export const metadata = { title: "Pricing" };
@@ -34,8 +34,8 @@ function limitRows(plan: PlanConfig): string[] {
 
 async function getPlans(): Promise<PlanConfig[]> {
   if (isDemoMode()) return DEFAULT_PLAN_CONFIGS;
-  const { getPlatformDb } = await import("@/server/db");
-  const { listPlanConfigs } = await import("@/server/platform/admin-core");
+  const { getPlatformDb } = await import("@/features/shared/db");
+  const { listPlanConfigs } = await import("@/features/platform/admin-core");
   return listPlanConfigs(getPlatformDb());
 }
 

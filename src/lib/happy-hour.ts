@@ -3,6 +3,8 @@
  * (src/server/pricing.ts) and the demo order/cart path. Pure — no I/O.
  */
 
+import { dayOfWeek } from "@/features/shared/dates";
+
 export interface HappyHourWindow {
   isActive: boolean;
   daysOfWeek: number[]; // 0 = Sunday
@@ -24,7 +26,7 @@ function timeToMinutes(time: string): number {
 export function isInHappyHourWindow(rule: HappyHourWindow, now: Date): boolean {
   if (!rule.isActive) return false;
 
-  const dayOfWeek = now.getDay();
+  const dow = dayOfWeek(now);
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const start = timeToMinutes(rule.startTime);
   const end = timeToMinutes(rule.endTime);
@@ -34,13 +36,13 @@ export function isInHappyHourWindow(rule: HappyHourWindow, now: Date): boolean {
   if (crossesMidnight) {
     // Window like 22:00–02:00: check if we're in the late part (22:00–23:59)
     // on a matching day, or in the early part (00:00–02:00) on the day after.
-    if (nowMinutes >= start && rule.daysOfWeek.includes(dayOfWeek)) return true;
-    const yesterday = (dayOfWeek + 6) % 7;
+    if (nowMinutes >= start && rule.daysOfWeek.includes(dow)) return true;
+    const yesterday = (dow + 6) % 7;
     if (nowMinutes < end && rule.daysOfWeek.includes(yesterday)) return true;
     return false;
   }
 
-  return rule.daysOfWeek.includes(dayOfWeek) && nowMinutes >= start && nowMinutes < end;
+  return rule.daysOfWeek.includes(dow) && nowMinutes >= start && nowMinutes < end;
 }
 
 /**

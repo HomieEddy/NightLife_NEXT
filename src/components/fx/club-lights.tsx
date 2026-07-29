@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 /**
  * Three.js ambient "club lights" — a drifting field of glowing particles in

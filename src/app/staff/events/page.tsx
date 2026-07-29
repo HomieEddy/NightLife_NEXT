@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EventCard, EventActionGold } from "@/components/shared/event-card";
-import { eventsService } from "@/lib/services/events-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { staffService } from "@/lib/services/staff-service";
+import { eventsService } from "@/features/hospitality/events-service";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { staffService } from "@/features/workforce/staff-service";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { VenueEvent, StaffMember } from "@/lib/types";
 
@@ -79,7 +79,7 @@ export default function StaffEventsPage() {
 
   if (!events || !me) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="animate-fade-in space-y-5 p-4">
         <Skeleton className="h-8 w-48" />
         {Array.from({ length: 3 }, (_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -89,8 +89,8 @@ export default function StaffEventsPage() {
   }
 
   return (
-    <div className="space-y-4 p-4">
-      <h1 className="text-lg font-semibold">Events</h1>
+    <div className="animate-fade-in stagger-children space-y-5 p-4">
+      <h1 className="text-display text-xl">Events</h1>
 
       <div className="flex items-center justify-between">
         <Button

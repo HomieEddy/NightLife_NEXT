@@ -13,23 +13,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InfoTip } from "@/components/shared/info-tip";
 import { MetricCard } from "@/components/shared/metric-card";
-import { MockChart } from "@/components/shared/mock-chart";
+import { RevenueChart } from "@/components/shared/revenue-chart";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PulseTab } from "@/components/manager/pulse-tab";
 import { useAuth } from "@/context/auth-context";
-import { analyticsService } from "@/lib/services/analytics-service";
-import { doorService } from "@/lib/services/door-service";
-import { guestsService } from "@/lib/services/guests-service";
-import { incidentService } from "@/lib/services/incident-service";
-import { ordersService } from "@/lib/services/orders-service";
-import { pulseService } from "@/lib/services/pulse-service";
-import { venueService } from "@/lib/services/venue-service";
-import { waitlistService } from "@/lib/services/waitlist-service";
+import { analyticsService } from "@/features/analytics/analytics-service";
+import { doorService } from "@/features/door/services";
+import { guestsService } from "@/features/guests/services";
+import { incidentService } from "@/features/safety/services";
+import { ordersService } from "@/features/ordering/services";
+import { pulseService } from "@/features/realtime/pulse-service";
+import { venueService } from "@/features/venue/services";
+import { waitlistService } from "@/features/door/waitlist-service";
 import { computeAttentionItems } from "@/lib/pulse";
 import { useLiveEvents } from "@/lib/use-live-events";
-import { formatMoney, formatPct } from "@/lib/format";
+import { formatMoney, formatPct } from "@/features/shared/format";
 import type { AnalyticsSummary, AttentionItem, Order } from "@/lib/types";
 
 export default function ManagerDashboardPage() {
@@ -256,7 +256,7 @@ function TonightTab({
             {summary === null ? (
               <Skeleton className="h-48 w-full" />
             ) : (
-              <MockChart data={summary.revenueByHour} />
+              <RevenueChart data={summary.revenueByHour} />
             )}
           </CardContent>
         </Card>

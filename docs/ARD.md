@@ -148,8 +148,8 @@ limits; no Stripe Connect, no guest-facing Checkout, no payment intents.
 ## AD-14 · Dual-mode: the mock demo is a permanent product surface
 
 **Choice:** Mock and real implementations co-exist. Contract from the mock
-(`type XService = typeof mockXService`). Selector layer (`src/lib/services/`)
-picks via `NEXT_PUBLIC_APP_MODE`. Demo build on Vercel, live build on OVHcloud.
+(`type XService = typeof mockXService`). Selector layer
+(`src/features/{domain}/services.ts`) picks via `NEXT_PUBLIC_APP_MODE`. Demo build on Vercel, live build on OVHcloud.
 Same repo, two deploy targets. Build-time inlining drops unused implementation.
 
 **Demo-first lifecycle:** Sketch mock-first → iterate UX in demo → gate behind
@@ -378,12 +378,14 @@ three parallel seams with different error handling, retry, and logging.
   error?, createdAt }`. Append-only. The log IS the delivery audit trail.
 - **Failure handling**: per-transport retry with exponential backoff (max 3
   retries over 10 minutes). After 3 failures, log as "failed" and do not retry.
-  No dead-letter queue at this scale — the log is queryable for failed sends.
+  The `NotificationLog` is queryable for failed sends.
+- **Queue topology**: BullMQ (Redis-backed) in staging/prod for reliable retry
+  and scheduled sends; cron-job fallback for local live dev (`dev:pglite`,
+  `dev:stack`) — no Redis dependency for local development. Plan 30 §3 is the
+  implementation vehicle.
 
 **Alternatives:** per-feature notification logic (three code paths, three error
-  models, no cross-channel preferences — rejected per AGENTS.md §1.2); queue
-  infrastructure (BullMQ/Redis — synchronous sends suffice at this scale;
-  earned by volume, noted in parking lot).
+  models, no cross-channel preferences — rejected per AGENTS.md §1.2).
 
 **Consequences:** Adding a new notification trigger is: (1) define the domain
 event if new, (2) create a template, (3) call `notify(...)` at the trigger point.
@@ -434,7 +436,7 @@ demo) and the team is small.
 
 ```
 Browser / PWA (manager / staff / guest / admin UIs)
-   │  imports from src/lib/services/* selectors (AD-14)
+   │  imports from src/features/{domain}/services.ts selectors (AD-14)
    │  Service Worker: cache-first app shell + offline queue + push events (AD-19/20)
    ▼
 xService = demo → mockXService (in-memory, self-resetting)

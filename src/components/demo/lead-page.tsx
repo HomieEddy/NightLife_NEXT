@@ -5,41 +5,38 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { isDemoMode } from "@/lib/app-mode";
-import { adminService } from "@/lib/services/admin-service";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { adminService } from "@/features/platform/admin-service";
+import { zLeadInput } from "@/lib/form-schemas";
 
 export default function LeadPage() {
-  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zLeadInput),
+    defaultValues: { venueName: "", contactName: "", email: "", phone: "", city: "", source: "landing-page" as const, dealValue: 2988, notes: "" },
+  });
+
+  const onSubmit = handleSubmit(async (data) => {
     setError(null);
-    const data = new FormData(e.currentTarget);
-    const venueName = String(data.get("venueName") ?? "").trim();
-    const contactName = String(data.get("contactName") ?? "").trim();
-    const email = String(data.get("email") ?? "").trim();
-    if (!venueName || !contactName || !email) {
-      setError("Please fill in the required fields.");
-      return;
-    }
-    setSubmitting(true);
     try {
       const payload = {
-        venueName,
-        contactName,
-        email,
-        phone: String(data.get("phone") ?? ""),
-        city: String(data.get("city") ?? ""),
+        venueName: data.venueName.trim(),
+        contactName: data.contactName.trim(),
+        email: data.email.trim().toLowerCase(),
+        phone: data.phone?.trim() ?? "",
+        city: data.city?.trim() ?? "",
         source: "landing-page" as const,
         dealValue: 2988,
-        notes: String(data.get("notes") ?? ""),
+        notes: data.notes?.trim() ?? "",
       };
       if (isDemoMode()) {
         await adminService.createLead(payload);
@@ -52,10 +49,10 @@ export default function LeadPage() {
         if (!res.ok) throw new Error("Request failed");
       }
       setSubmitted(true);
-    } finally {
-      setSubmitting(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }
+  });
 
   if (submitted) {
     return (
@@ -89,44 +86,42 @@ export default function LeadPage() {
           <CardTitle className="text-base">Venue details</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="venueName">Venue name *</Label>
-                <Input id="venueName" name="venueName" placeholder="Club Onyx" />
+                <Input id="venueName" {...register("venueName")} placeholder="Club Onyx" />
+                {errors.venueName && <p className="text-xs text-red-600">{errors.venueName.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="city">City</Label>
-                <Input id="city" name="city" placeholder="Paris" />
+                <Input id="city" {...register("city")} placeholder="Paris" />
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="contactName">Your name *</Label>
-                <Input id="contactName" name="contactName" placeholder="Alex Martin" />
+                <Input id="contactName" {...register("contactName")} placeholder="Alex Martin" />
+                {errors.contactName && <p className="text-xs text-red-600">{errors.contactName.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" name="phone" type="tel" placeholder="+33 6 …" />
+                <Input id="phone" {...register("phone")} type="tel" placeholder="+33 6 …" />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="email">Work email *</Label>
-              <Input id="email" name="email" type="email" placeholder="alex@clubonyx.com" />
+              <Input id="email" {...register("email")} type="email" placeholder="alex@clubonyx.com" />
+              {errors.email && <p className="text-xs text-red-600">{errors.email.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="notes">Anything we should know?</Label>
-              <Textarea
-                id="notes"
-                name="notes"
-                placeholder="Capacity, number of zones, current ordering setup…"
-                rows={3}
-              />
+              <Textarea id="notes" {...register("notes")} placeholder="Capacity, number of zones, current ordering setup…" rows={3} />
             </div>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-            <Button type="submit" variant="foil" className="w-full" size="lg" disabled={submitting}>
-              {submitting && <Loader2 className="size-4 animate-spin" />}
-              {submitting ? "Sending…" : "Request demo"}
+            <Button type="submit" variant="foil" className="w-full" size="lg" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+              {isSubmitting ? "Sending…" : "Request demo"}
             </Button>
           </form>
         </CardContent>

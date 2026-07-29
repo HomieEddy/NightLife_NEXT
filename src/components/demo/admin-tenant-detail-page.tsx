@@ -28,8 +28,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { adminService } from "@/lib/services/admin-service";
-import { formatDate, formatMoney, timeAgo } from "@/lib/format";
+import { adminService } from "@/features/platform/admin-service";
+import { formatDate, formatMoney, timeAgo } from "@/features/shared/format";
 import type { Tenant, TenantPlan, TenantStatus } from "@/lib/types";
 
 const PLAN_IDS: TenantPlan[] = ["starter", "pro", "enterprise"];

@@ -221,3 +221,43 @@ were resolved across governing documents and plans. Key changes:
   convention retention clarified.
 - TRACEABILITY.md: coverage status assertion updated.
 | Roadmap phases | 7 (was single-sequence list of 29 plans) |
+
+---
+
+## Foundation Modernization — Plan 30 Partial Execution (2026-07-28)
+
+### Libraries added
+
+| Library | Replaces | Scope |
+|---------|----------|-------|
+| Recharts | `MockChart` (deleted) | `revenue-chart.tsx`, `horizontal-bar.tsx`, analytics + dashboard + reports |
+| @dnd-kit/core | Raw pointer events | Floor map drag-and-drop (`floor-map-canvas.tsx`, `floor-map/page.tsx`) |
+| react-hook-form + @hookform/resolvers/zod | Manual form state | 25 forms across all role surfaces |
+| @tanstack/react-virtual | `Pagination` component (deleted) | 15 list pages + `ChatPanel` virtualization |
+| react-day-picker | Native `<input type="date">` | `calendar-date-picker.tsx`, `calendar-date-range-picker.tsx`, analytics date inputs |
+
+### New files created
+
+| File | Purpose |
+|------|---------|
+| `form-schemas.ts` | Shared Zod schemas for react-hook-form validation |
+| `action-commands.ts` | 5 command palette actions (last call, broadcast, new reservation, report incident, open stocktake) |
+| `use-infinite-slice.ts` | TanStack Virtual data slice hook |
+| `infinite-scroll-sentinel.tsx` | IntersectionObserver infinite scroll trigger |
+| `calendar-date-picker.tsx` | Wrapped react-day-picker single-date picker |
+| `calendar-date-range-picker.tsx` | Wrapped react-day-picker range picker |
+
+### Files deleted
+
+| File | Replaced by |
+|------|-------------|
+| `mock-chart.tsx` | Recharts |
+| `pagination.tsx` | @tanstack/react-virtual infinite scroll |
+
+### Permissions added
+
+`lastcall:start` and `broadcast:send` added to `StaffAction` union and manager defaults.
+
+### Docs updated
+
+AGENTS.md §2.4, AGENTS.md Appendix, README.md tech stack, ROADMAP.md parking lot, 30-foundation-modernization-PLAN.md, plan files with MockChart references.

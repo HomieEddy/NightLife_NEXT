@@ -1,0 +1,34 @@
+"use client";
+
+import type { mockPurchasingService } from "@/features/platform/purchasing-mock-service";
+
+function notYetSupported(): never {
+  throw new Error("Purchasing/cost features are not yet supported in the live build — see docs/plans/19-cost-supply-profitability-PLAN.md");
+}
+
+export const livePurchasingService: typeof mockPurchasingService = {
+  listSuppliers: notYetSupported,
+  listSupplierItems: notYetSupported,
+  saveSupplier: notYetSupported,
+  saveSupplierItem: notYetSupported,
+  removeSupplierItem: notYetSupported,
+  listPurchaseOrders: notYetSupported,
+  savePurchaseOrder: notYetSupported,
+  submitPurchaseOrder: notYetSupported,
+  receivePurchaseOrder: notYetSupported,
+  listStocktakes: notYetSupported,
+  saveStocktake: notYetSupported,
+  commitStocktake: notYetSupported,
+  listEightySixEntries: notYetSupported,
+  eightySixItem: notYetSupported,
+  recordWaste: notYetSupported,
+  listProfitTargets: notYetSupported,
+  saveProfitTarget: notYetSupported,
+  listEventCosts: notYetSupported,
+  saveEventCost: notYetSupported,
+  listEventRunSheet: notYetSupported,
+  saveEventRunSheet: notYetSupported,
+  getSupplierPerformance: notYetSupported,
+  listChecklists: notYetSupported,
+  saveChecklist: notYetSupported,
+};

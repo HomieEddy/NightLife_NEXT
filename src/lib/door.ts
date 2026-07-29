@@ -157,3 +157,18 @@ export function canAdmitWithinCapacity(
   if (legalCapacity <= 0) return true;
   return currentOccupancy + partySize <= legalCapacity;
 }
+
+// ---------- VM-02 + DO-06: Per-zone capacity enforcement ----------
+
+/**
+ * True when adding `partySize` to `currentZoneOccupancy` stays within the zone's
+ * fire-code capacity. A null capacity means uncapped — the check always passes.
+ */
+export function canAdmitToZone(
+  currentZoneOccupancy: number,
+  partySize: number,
+  zoneCapacity: number | null,
+): boolean {
+  if (zoneCapacity === null || zoneCapacity <= 0) return true;
+  return currentZoneOccupancy + partySize <= zoneCapacity;
+}

@@ -11,13 +11,13 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { commissionService } from "@/lib/services/commission-service";
-import { staffService } from "@/lib/services/staff-service";
+import { commissionService } from "@/features/workforce/commission-service";
+import { staffService } from "@/features/workforce/staff-service";
 import { buildCommissionStatement } from "@/lib/workforce";
-import { formatMoney } from "@/lib/format";
-import { canDo } from "@/lib/permissions";
-import { permissionService } from "@/lib/services/permission-service";
-import type { RolePermissions } from "@/lib/permissions";
+import { formatDate, formatMoney } from "@/features/shared/format";
+import { canDo } from "@/features/shared/permissions";
+import { permissionService } from "@/features/platform/permission-service";
+import type { RolePermissions } from "@/features/shared/permissions";
 import type { CommissionRule, CommissionStatement, StaffMember } from "@/lib/types";
 
 const BASIS_LABELS: Record<string, string> = {
@@ -93,7 +93,7 @@ function CommissionContent() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Commission" description="Promoter commission rules and statements" />
+      <PageHeader title="Commission" description="Promoter commission rules and statements" breadcrumbs={[{ label: "Team", href: "/manager/staff" }, { label: "Commission" }]} />
       {promoterStaff.length === 0 ? (
         <EmptyState icon={UserCheck} title="No promoters" description="Add a promoter to the team first." />
       ) : (
@@ -128,7 +128,7 @@ function CommissionContent() {
                               />
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">{stmt.lines.length} attributed items · period {stmt.periodStart}–{stmt.periodEnd}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{stmt.lines.length} attributed items · {formatDate(stmt.periodStart)} – {formatDate(stmt.periodEnd)}</p>
                         </div>
                       ))
                     ) : (

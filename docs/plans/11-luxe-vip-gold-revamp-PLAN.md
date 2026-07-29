@@ -102,7 +102,7 @@ under the existing `prefers-reduced-motion` block.
 WS1–3 to `src/components/shared/*` once: cards (depth + focal-halo variant),
 badges/chips (foil + zone-data variants), buttons (foil-gradient primary), section
 headers (gradient-rule), `BrandLogo`, `MetricCard` (poster hero numbers), empty
-states (serif-voice), `MockChart` (gold series). This is the leverage point
+states (serif-voice), `RevenueChart` (gold series via Recharts). This is the leverage point
 — pages inherit from here.
 
 **WS5 — Guest surface.** *Invoke impeccable + motion-design.* Apply fully to

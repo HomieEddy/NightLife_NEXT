@@ -12,6 +12,7 @@ import {
   Receipt,
   Search,
 } from "lucide-react";
+import { toast } from "sonner";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { RequireAuth } from "@/components/shared/require-auth";
 import { isManagerOnboarded } from "@/lib/onboarding";
@@ -23,12 +24,13 @@ import { ShortcutHelp } from "@/components/shared/shortcut-help";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { GROUP_JUMPS } from "@/lib/shortcuts";
 import { PulseTab } from "@/components/manager/pulse-tab";
-import { cn } from "@/lib/utils";
-import { isDemoMode } from "@/lib/app-mode";
-import { venueService } from "@/lib/services/venue-service";
+import { cn } from "@/features/shared/utils";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { venueService } from "@/features/venue/services";
 import { useAttention } from "@/lib/attention-provider";
 import { useFocusOnNavigate } from "@/lib/use-focus-on-navigate";
 import { useEntitlements } from "@/lib/use-entitlements";
+import type { ActionCommand } from "@/features/shared/action-commands";
 import {
   MANAGER_NAV_GROUPS,
   MANAGER_FOOTER_ITEMS,
@@ -37,7 +39,7 @@ import {
   isGroupCollapsed,
   setGroupCollapsed,
   type NavGroup,
-} from "@/lib/navigation";
+} from "@/features/shared/navigation";
 
 export function ManagerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -87,6 +89,27 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
 
   // Attention state comes from the AttentionProvider wrapping this shell.
   const managerName = "Manager";
+
+  function handlePaletteAction(action: ActionCommand) {
+    switch (action.key) {
+      case "last-call":
+        toggleLastCall(managerName);
+        toast.success("Last call started");
+        break;
+      case "broadcast":
+        setAttentionSheetOpen(true);
+        break;
+      case "new-reservation":
+        router.push("/manager/reservations?action=create");
+        break;
+      case "report-incident":
+        router.push("/manager/incidents?action=create");
+        break;
+      case "open-stocktake":
+        router.push(action.href!);
+        break;
+    }
+  }
 
   // Keyboard shortcuts
   const gKeyRef = useRef(false);
@@ -399,7 +422,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
         </nav>
       </div>
     </div>
-    <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+    <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} scope="manager" onAction={handlePaletteAction} />
     <ShortcutHelp open={shortcutHelpOpen} onClose={() => setShortcutHelpOpen(false)} />
     </RequireAuth>
   );

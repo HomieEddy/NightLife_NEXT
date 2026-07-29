@@ -17,14 +17,14 @@ import {
   toLocalInput,
   fromLocalInput,
 } from "@/components/shared/reservation-form-dialog";
-import { eventsService } from "@/lib/services/events-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { staffService } from "@/lib/services/staff-service";
-import { venueService } from "@/lib/services/venue-service";
-import { formatTime } from "@/lib/format";
-import { canDo } from "@/lib/permissions";
-import { permissionService } from "@/lib/services/permission-service";
-import type { RolePermissions } from "@/lib/permissions";
+import { eventsService } from "@/features/hospitality/events-service";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { venueService } from "@/features/venue/services";
+import { formatTime } from "@/features/shared/format";
+import { canDo } from "@/features/shared/permissions";
+import { permissionService } from "@/features/platform/permission-service";
+import type { RolePermissions } from "@/features/shared/permissions";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { Reservation, StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
 
@@ -196,7 +196,7 @@ function StaffReservationsContent() {
 
   if (!reservations || !me) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="animate-fade-in space-y-5 p-4">
         <Skeleton className="h-8 w-48" />
         {Array.from({ length: 3 }, (_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -206,9 +206,9 @@ function StaffReservationsContent() {
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">My Reservations</h1>
+        <h1 className="text-display text-xl">My Reservations</h1>
         {isPromoter && permissions && canDo(permissions, "promoter", "reservation:create-own") && (
           <Button size="sm" onClick={openCreate}>
             <Plus className="mr-1.5 size-4" /> New
@@ -221,7 +221,7 @@ function StaffReservationsContent() {
       )}
 
       {grouped.map(([dateKey, items]) => (
-        <div key={dateKey} className="space-y-2">
+        <div key={dateKey} className="stagger-children space-y-2">
           <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {nightLabel(items[0].startsAt)}
           </h2>
@@ -295,7 +295,6 @@ function StaffReservationsContent() {
         setDraft={setDraft}
         zones={zones}
         tablesForZone={tablesForZone}
-        saving={saving}
         onSave={save}
         editingId={editingId}
         events={events}

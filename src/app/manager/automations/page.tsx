@@ -13,10 +13,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FeatureGate } from "@/components/shared/feature-gate";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
-import { automationService } from "@/lib/services/automation-service";
+import { automationService } from "@/features/automation/services";
 import type { AutomationRule, AutomationCode, AutomationExecution } from "@/lib/types";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   reservations: <CalendarCheck className="size-4" />,
@@ -41,6 +41,7 @@ const CODE_ICONS: Record<AutomationCode, React.ReactNode> = {
   "auto-notify-vip-arrival": <Megaphone className="size-4" />,
   "auto-flag-dormant-vip": <Shield className="size-4" />,
   "auto-suggest-table": <CircleDollarSign className="size-4" />,
+  "auto-close-abandoned-sessions": <Clock className="size-4" />,
 };
 
 export default function ManagerAutomationsPage() {
@@ -112,6 +113,7 @@ function AutomationsPageContent() {
       <PageHeader
         title="Automations"
         description="Configure and trigger automated workflows. Each runs as a scheduled job on the live track."
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Automations" }]}
       />
 
       {/* Summary bar */}

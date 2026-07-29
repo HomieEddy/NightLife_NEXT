@@ -13,10 +13,10 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   billingService, type Invoice, type Subscription,
-} from "@/lib/services/billing-service";
+} from "@/features/platform/billing-service";
 import { FEATURE_CATALOG } from "@/lib/plan-catalog";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { PlanConfig, TenantPlan } from "@/lib/types";
 
 const PLAN_ORDER: TenantPlan[] = ["starter", "pro", "enterprise"];

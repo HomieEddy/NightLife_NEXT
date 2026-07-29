@@ -4,7 +4,7 @@
  * migrate one-shot service to make `docker compose up` idempotent.
  */
 
-import { getRawPrisma } from "../src/server/db";
+import { getRawPrisma } from "../src/features/shared/db";
 
 async function main() {
   const prisma = getRawPrisma();

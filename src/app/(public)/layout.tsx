@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { DemoPublicFooter, DemoPublicNav } from "@/components/shared/demo-links";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (

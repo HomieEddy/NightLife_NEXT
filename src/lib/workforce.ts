@@ -204,6 +204,73 @@ export function computeCommission(
   return total;
 }
 
+// ---------- WF-06: Break compliance (Quebec labor law) ----------
+
+export interface BreakComplianceStatus {
+  staffId: string;
+  minutesSinceLastBreak: number;
+  requiredAfterMinutes: number;
+  breakDurationMinutes: number;
+  status: "ok" | "due" | "overdue";
+}
+
+/**
+ * How long since the staff member's last break (or clock-in if no break taken).
+ * An open (ongoing) break returns 0 minutes since last break.
+ */
+export function minutesSinceLastBreak(entry: TimeEntry, now = new Date()): number {
+  if (!entry.clockInAt) return 0;
+  const lastBreakEnd = [...entry.breaks]
+    .filter((b) => b.endedAt)
+    .sort((a, b) => b.endedAt!.localeCompare(a.endedAt!))
+    [0]?.endedAt;
+  // Currently on break — no compliance concern
+  if (entry.breaks.some((b) => !b.endedAt)) return 0;
+  const ref = lastBreakEnd ? new Date(lastBreakEnd).getTime() : new Date(entry.clockInAt).getTime();
+  return Math.max(0, Math.round((now.getTime() - ref) / 60_000));
+}
+
+/**
+ * Break compliance for a single clocked-in staff member.
+ * - "ok": under the threshold
+ * - "due": at or past threshold, should take a break soon
+ * - "overdue": past threshold + breakDuration (compliance violation)
+ */
+export function getBreakComplianceStatus(
+  entry: TimeEntry,
+  requiredAfterMinutes: number,
+  breakDurationMinutes: number,
+  now = new Date(),
+): BreakComplianceStatus {
+  const mins = minutesSinceLastBreak(entry, now);
+  let status: BreakComplianceStatus["status"] = "ok";
+  if (mins >= requiredAfterMinutes + breakDurationMinutes) {
+    status = "overdue";
+  } else if (mins >= requiredAfterMinutes) {
+    status = "due";
+  }
+  return {
+    staffId: entry.staffId,
+    minutesSinceLastBreak: mins,
+    requiredAfterMinutes,
+    breakDurationMinutes,
+    status,
+  };
+}
+
+/** All clocked-in staff who need a break (status "due" or "overdue"). */
+export function listStaffNeedingBreak(
+  entries: TimeEntry[],
+  requiredAfterMinutes: number,
+  breakDurationMinutes: number,
+  now = new Date(),
+): BreakComplianceStatus[] {
+  return entries
+    .filter((e) => e.clockInAt && !e.clockOutAt)
+    .map((e) => getBreakComplianceStatus(e, requiredAfterMinutes, breakDurationMinutes, now))
+    .filter((s) => s.status !== "ok");
+}
+
 /** Build a CommissionStatement from attributed items and a rule. */
 export function buildCommissionStatement(
   rule: CommissionRule,

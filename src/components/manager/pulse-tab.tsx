@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EntityChip } from "@/components/shared/entity-chip";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { AttentionItem, AttentionItemType } from "@/lib/types";
 import type { EntityChipType } from "@/components/shared/entity-chip";
 

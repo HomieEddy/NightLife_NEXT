@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Guest session routes are disabled in demo mode" }, { status: 404 });
@@ -13,8 +13,8 @@ async function liveGET(request: NextRequest) {
   const sessionId = getGuestSessionId(request);
   if (!sessionId) return NextResponse.json({ error: "No guest session" }, { status: 401 });
 
-  const { getPlatformDb, getDb } = await import("@/server/db");
-  const { getSession } = await import("@/server/session-core");
+  const { getPlatformDb, getDb } = await import("@/features/shared/db");
+  const { getSession } = await import("@/features/sessions/core");
 
   const platformDb = getPlatformDb();
   const row = await platformDb.guestSession.findUnique({ where: { id: sessionId } });
@@ -29,8 +29,8 @@ async function livePOST(request: NextRequest) {
   const sessionId = getGuestSessionId(request);
   if (!sessionId) return NextResponse.json({ error: "No guest session" }, { status: 401 });
 
-  const { getPlatformDb, getDb } = await import("@/server/db");
-  const { requestClosure } = await import("@/server/session-core");
+  const { getPlatformDb, getDb } = await import("@/features/shared/db");
+  const { requestClosure } = await import("@/features/sessions/core");
 
   const platformDb = getPlatformDb();
   const row = await platformDb.guestSession.findUnique({ where: { id: sessionId } });

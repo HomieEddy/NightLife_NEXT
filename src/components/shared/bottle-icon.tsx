@@ -10,7 +10,7 @@ import {
   Wheat,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { BottleIconKey } from "@/lib/types";
 
 const ICON_MAP: Record<BottleIconKey, { icon: LucideIcon; className: string }> = {

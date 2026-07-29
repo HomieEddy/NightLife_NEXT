@@ -17,14 +17,14 @@ import { EntityChip } from "@/components/shared/entity-chip";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ordersService } from "@/lib/services/orders-service";
-import { guestsService } from "@/lib/services/guests-service";
-import { venueService } from "@/lib/services/venue-service";
-import { ZONE_SWATCH } from "@/lib/zone-colors";
-import { formatMoney } from "@/lib/format";
+import { ordersService } from "@/features/ordering/services";
+import { guestsService } from "@/features/guests/services";
+import { venueService } from "@/features/venue/services";
+import { ZONE_SWATCH } from "@/features/shared/zone-colors";
+import { formatMoney } from "@/features/shared/format";
 import { FloorMapCanvas } from "@/components/shared/floor-map-canvas";
 import { SessionOverview } from "@/components/shared/session-overview";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { GuestSession, Order, TableStatus, Venue, VenueTable, Zone } from "@/lib/types";
 
 const STATUS_NODE: Record<TableStatus, string> = {
@@ -32,6 +32,8 @@ const STATUS_NODE: Record<TableStatus, string> = {
   occupied: "bg-fuchsia-500/25 border-fuchsia-500/70 text-fuchsia-700 dark:text-fuchsia-300",
   reserved: "bg-amber-500/20 border-amber-500/60 text-amber-700 dark:text-amber-300",
   closed: "bg-muted border-border text-muted-foreground",
+  held: "bg-gray-500/20 border-gray-500/60 text-gray-700 dark:text-gray-300",
+  "out-of-service": "bg-gray-500/20 border-gray-500/60 text-gray-700 dark:text-gray-300",
 };
 
 const STATUSES: TableStatus[] = ["open", "occupied", "reserved", "closed"];
@@ -61,7 +63,6 @@ function FloorMapPageContent() {
   const [tableSessions, setTableSessions] = useState<GuestSession[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
-  const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
   const snapshotRef = useRef<{ tables: VenueTable[]; floorMap: Venue["floorMap"] } | null>(null);
 
   const refresh = useCallback(async () => {
@@ -155,35 +156,18 @@ function FloorMapPageContent() {
     setVenue({ ...venue, floorMap });
   }
 
-  // ---------- Drag handling (edit mode) ----------
+  // ---------- Drag handling (edit mode via dnd-kit) ----------
 
-  function onPointerDown(e: React.PointerEvent, table: VenueTable) {
-    dragRef.current = { id: table.id, moved: false };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  function handleTableDrag(tableId: string, mapX: number, mapY: number) {
+    setTables((prev) =>
+      prev ? prev.map((t) => (t.id === tableId ? { ...t, mapX, mapY } : t)) : prev,
+    );
   }
 
   function handleSelectTable(table: VenueTable) {
     const next = table.id === selectedId ? null : table.id;
     setSelectedId(next);
     setTableOrders(null);
-  }
-
-  function onPointerMove(e: React.PointerEvent) {
-    const drag = dragRef.current;
-    if (!drag) return;
-    drag.moved = true;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.min(98, Math.max(2, ((e.clientX - rect.left) / rect.width) * 100));
-    const y = Math.min(98, Math.max(2, ((e.clientY - rect.top) / rect.height) * 100));
-    setTables((prev) =>
-      prev ? prev.map((t) => (t.id === drag.id ? { ...t, mapX: x, mapY: y } : t)) : prev,
-    );
-  }
-
-  function onPointerUp() {
-    const drag = dragRef.current;
-    dragRef.current = null;
-    if (!drag?.moved) return;
   }
 
   async function setStatus(table: VenueTable, status: TableStatus) {
@@ -322,9 +306,7 @@ function FloorMapPageContent() {
             selectedId={selectedId}
             editMode={editMode}
             onSelectTable={handleSelectTable}
-            onDragStart={onPointerDown}
-            onDragMove={onPointerMove}
-            onDragEnd={onPointerUp}
+            onTableDrag={handleTableDrag}
           />
 
           {/* ---------- Side panel ---------- */}
