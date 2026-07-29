@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { commissionService } from "@/features/workforce/commission-service";
 import { staffService } from "@/features/workforce/staff-service";
 import { buildCommissionStatement } from "@/lib/workforce";
-import { formatMoney } from "@/features/shared/format";
+import { formatDate, formatMoney } from "@/features/shared/format";
 import { canDo } from "@/features/shared/permissions";
 import { permissionService } from "@/features/platform/permission-service";
 import type { RolePermissions } from "@/features/shared/permissions";
@@ -128,7 +128,7 @@ function CommissionContent() {
                               />
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">{stmt.lines.length} attributed items · period {stmt.periodStart}–{stmt.periodEnd}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{stmt.lines.length} attributed items · {formatDate(stmt.periodStart)} – {formatDate(stmt.periodEnd)}</p>
                         </div>
                       ))
                     ) : (
