@@ -113,6 +113,53 @@ export interface VenueTable {
   mapY?: number;
 }
 
+// ---------- VM-05: Opening/closing checklists ----------
+
+export type ChecklistType = "opening" | "closing";
+
+export interface ChecklistTemplateItem {
+  id: string;
+  label: string;
+  required: boolean;
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  venueId: string;
+  name: string;
+  type: ChecklistType;
+  items: ChecklistTemplateItem[];
+  active: boolean;
+}
+
+export type ChecklistRunStatus = "in-progress" | "completed" | "skipped";
+
+export interface ChecklistRunItem {
+  templateItemId: string;
+  label: string;
+  checked: boolean;
+  checkedAt?: string; // ISO
+  checkedByStaffId?: string;
+  note?: string;
+}
+
+export interface ChecklistRun {
+  id: string;
+  venueId: string;
+  templateId: string;
+  templateName: string;
+  type: ChecklistType;
+  businessDate: string;
+  status: ChecklistRunStatus;
+  items: ChecklistRunItem[];
+  startedAt: string; // ISO
+  startedByStaffId: string;
+  startedByStaffName: string;
+  completedAt?: string; // ISO
+  completedByStaffId?: string;
+  completedByStaffName?: string;
+}
+
 // ---------- Staff ----------
 
 export type StaffRole = "manager" | "host" | "bartender" | "runner" | "security" | "promoter";
