@@ -91,7 +91,7 @@ function AcceptContent() {
             {done ? (
               <div className="space-y-2 text-center">
                 <CheckCircle2 className="mx-auto size-10 text-green-500" />
-                <h1 className="text-display text-lg">You&apos;re in!</h1>
+                <h1 className="text-display text-xl">You&apos;re in!</h1>
                 <p className="text-sm text-muted-foreground">
                   Redirecting to sign in…
                 </p>
@@ -102,7 +102,7 @@ function AcceptContent() {
                   <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/15 text-primary">
                     <UserPlus className="size-5" />
                   </div>
-                  <h1 className="text-display text-lg">Join the team</h1>
+                  <h1 className="text-display text-xl">Join the team</h1>
                   <p className="text-sm text-muted-foreground">
                     Set up your account to accept the invitation.
                   </p>

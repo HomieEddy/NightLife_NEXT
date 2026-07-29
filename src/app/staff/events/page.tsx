@@ -79,7 +79,7 @@ export default function StaffEventsPage() {
 
   if (!events || !me) {
     return (
-      <div className="animate-fade-in space-y-4 p-4">
+      <div className="animate-fade-in space-y-5 p-4">
         <Skeleton className="h-8 w-48" />
         {Array.from({ length: 3 }, (_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -89,8 +89,8 @@ export default function StaffEventsPage() {
   }
 
   return (
-    <div className="animate-fade-in stagger-children space-y-4 p-4">
-      <h1 className="text-lg font-semibold">Events</h1>
+    <div className="animate-fade-in stagger-children space-y-5 p-4">
+      <h1 className="text-display text-xl">Events</h1>
 
       <div className="flex items-center justify-between">
         <Button

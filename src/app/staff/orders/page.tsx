@@ -191,7 +191,7 @@ function StaffOrdersContent() {
   useEffect(() => { reset(); }, [filter, zoneScoped, tableFilter, reset]);
 
   return (
-    <div className="animate-fade-in space-y-4 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-display text-xl">Order feed</h1>
         <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh">

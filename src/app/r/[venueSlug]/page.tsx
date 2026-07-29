@@ -152,7 +152,7 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
           <Check className="size-8" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold">Request received!</h1>
+          <h1 className="text-display text-2xl">Request received!</h1>
           <p className="max-w-sm text-muted-foreground">
             {data.venue.name} will review your reservation for{" "}
             {new Date(date + "T12:00:00").toLocaleDateString(undefined, {
@@ -210,7 +210,7 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
       {/* Header */}
       <div className="text-center">
         <BrandLogo />
-        <h1 className="mt-3 text-2xl font-bold">{data.venue.name}</h1>
+        <h1 className="text-display mt-3 text-2xl">{data.venue.name}</h1>
         <p className="mt-1 text-sm text-muted-foreground">Reserve your table</p>
       </div>
 

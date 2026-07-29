@@ -196,7 +196,7 @@ function StaffReservationsContent() {
 
   if (!reservations || !me) {
     return (
-      <div className="animate-fade-in space-y-4 p-4">
+      <div className="animate-fade-in space-y-5 p-4">
         <Skeleton className="h-8 w-48" />
         {Array.from({ length: 3 }, (_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -206,9 +206,9 @@ function StaffReservationsContent() {
   }
 
   return (
-    <div className="animate-fade-in space-y-4 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">My Reservations</h1>
+        <h1 className="text-display text-xl">My Reservations</h1>
         {isPromoter && permissions && canDo(permissions, "promoter", "reservation:create-own") && (
           <Button size="sm" onClick={openCreate}>
             <Plus className="mr-1.5 size-4" /> New

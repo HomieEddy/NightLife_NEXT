@@ -411,7 +411,7 @@ function NightReceipt() {
                       </span>
                     </div>
                     {item.modifiers.length > 0 && (
-                      <ul className="pl-3 space-y-0.5 text-[11px] text-zinc-500">
+                      <ul className="pl-3 space-y-0.5 text-[11px] text-muted-foreground">
                         {item.modifiers.map((m, i) => (
                           <li key={i} className="flex justify-between">
                             <span>• {m.quantity}× {m.optionName}</span>

@@ -284,7 +284,7 @@ function MenuContent() {
                             confirmLabel={item.isAvailable ? "86 it" : "Make it live"}
                             onConfirm={() => toggleAvailability(item)}
                           />
-                          <span className="text-[9px] text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground">
                             {item.isAvailable ? "Live" : "86'd"}
                           </span>
                         </div>

@@ -192,26 +192,26 @@ export default function ManagerGuestsPage() {
         {showFilters && (
           <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-3 sm:grid-cols-4">
             <div>
-              <Label className="text-[11px]">VIP tier</Label>
+              <Label className="text-xs">VIP tier</Label>
               <Select value={vipFilter} onValueChange={setVipFilter}>
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All tiers</SelectItem><SelectItem value="none">None</SelectItem><SelectItem value="regular">Regular</SelectItem><SelectItem value="vip">VIP</SelectItem><SelectItem value="host-list">Host list</SelectItem></SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-[11px]">Tag</Label>
+              <Label className="text-xs">Tag</Label>
               <Select value={tagFilter} onValueChange={setTagFilter}>
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All tags</SelectItem>{TAG_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="flex gap-1">
-              <div className="flex-1"><Label className="text-[11px]">Spend $ min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={spendMin} onChange={(e) => setSpendMin(e.target.value)} /></div>
-              <div className="flex-1"><Label className="text-[11px]">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={spendMax} onChange={(e) => setSpendMax(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">Spend $ min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={spendMin} onChange={(e) => setSpendMin(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={spendMax} onChange={(e) => setSpendMax(e.target.value)} /></div>
             </div>
             <div className="flex gap-1">
-              <div className="flex-1"><Label className="text-[11px]">Visits min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={visitsMin} onChange={(e) => setVisitsMin(e.target.value)} /></div>
-              <div className="flex-1"><Label className="text-[11px]">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={visitsMax} onChange={(e) => setVisitsMax(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">Visits min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={visitsMin} onChange={(e) => setVisitsMin(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={visitsMax} onChange={(e) => setVisitsMax(e.target.value)} /></div>
             </div>
           </div>
         )}

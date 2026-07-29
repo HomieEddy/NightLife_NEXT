@@ -66,7 +66,7 @@ interface SecurityHomeProps {
 
 function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, occupancy, openIncidentCount }: SecurityHomeProps) {
   return (
-    <div className="animate-fade-in space-y-4 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
           Good evening, {me.name.split(" ")[0]}
@@ -81,7 +81,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
           <Card className="h-full py-4 transition-colors hover:border-primary/50">
             <CardContent className="px-4">
               <DoorOpen className="size-4 text-primary" />
-              <p className="mt-2 text-3xl font-bold tabular-nums">
+              <p className="mt-2 text-3xl font-semibold tabular-nums">
                 {occupancy ? occupancy.current : "…"}
               </p>
               <p className="text-xs text-muted-foreground">
@@ -97,7 +97,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
                 <AlertTriangle className="size-4 text-primary" />
                 {openIncidentCount > 0 && <span className="size-2 animate-pulse rounded-full bg-amber-400" />}
               </div>
-              <p className="mt-2 text-3xl font-bold tabular-nums">{openIncidentCount}</p>
+              <p className="mt-2 text-3xl font-semibold tabular-nums">{openIncidentCount}</p>
               <p className="text-xs text-muted-foreground">Open incidents</p>
             </CardContent>
           </Card>
@@ -115,7 +115,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
                   <span className="size-2 animate-pulse rounded-full bg-red-400" />
                 )}
               </div>
-              <p className="mt-2 text-3xl font-bold tabular-nums">{openSecurityCount}</p>
+              <p className="mt-2 text-3xl font-semibold tabular-nums">{openSecurityCount}</p>
               <p className="text-xs text-muted-foreground">Open security requests</p>
             </div>
             <ArrowRight className="size-4 text-muted-foreground" />
@@ -289,7 +289,7 @@ export default function StaffHomePage() {
     : [];
 
   return (
-    <div className="animate-fade-in space-y-4 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
           Good evening{me ? `, ${me.name.split(" ")[0]}` : ""}
@@ -326,7 +326,7 @@ export default function StaffHomePage() {
                       <span className="size-2 animate-pulse rounded-full bg-amber-400" />
                     )}
                   </div>
-                  <p className="mt-3 text-3xl font-bold tabular-nums"><CountUp value={tile.count} /></p>
+                  <p className="mt-3 text-3xl font-semibold tabular-nums"><CountUp value={tile.count} /></p>
                   <p className="text-xs text-muted-foreground">{tile.label}</p>
                 </CardContent>
               </Card>

@@ -547,7 +547,7 @@ export default function ManagerPurchasingPage() {
                       {formatMoney(si.unitCostCents ?? 0, "CAD")}/unit
                       {si.supplierSku && ` · ${si.supplierSku}`}
                       {si.caseSize && ` · case of ${si.caseSize}`}
-                      {si.preferred && <Badge variant="secondary" className="ml-1 text-[9px]">Preferred</Badge>}
+                      {si.preferred && <Badge variant="secondary" className="ml-1 text-[10px]">Preferred</Badge>}
                     </p>
                   </div>
                   <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => editCatalogueItem(si)}><Pencil className="size-3" /></Button>

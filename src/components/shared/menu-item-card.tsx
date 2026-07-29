@@ -58,7 +58,7 @@ export function MenuItemCard({
               </Badge>
             ) : null}
           </div>
-          <p className="text-voice truncate text-[13px] text-muted-foreground">{item.description}</p>
+          <p className="text-voice truncate text-sm text-muted-foreground">{item.description}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <span className="text-sm font-semibold tabular-nums text-primary">
               {formatMoney(item.price)}

@@ -55,7 +55,7 @@ export default function StaffTipsPage() {
                     <Badge variant="outline"><Lock className="size-3 mr-1" /> Closed</Badge>
                   </div>
                   {myLine ? (
-                    <p className="text-2xl font-bold tabular-nums">{formatMoney(myLine.shareCents, "CAD")}</p>
+                    <p className="text-2xl font-semibold tabular-nums">{formatMoney(myLine.shareCents, "CAD")}</p>
                   ) : (
                     <p className="text-sm text-muted-foreground">Not included in this distribution.</p>
                   )}

@@ -290,7 +290,7 @@ function HappyHourContent() {
                   {DAY_LABELS.map((day, i) => (
                     <span
                       key={day}
-                      className={`rounded-md border px-2 py-0.5 text-[11px] ${
+                      className={`rounded-md border px-2 py-0.5 text-[10px] font-medium ${
                         rule.daysOfWeek.includes(i)
                           ? "border-primary/40 bg-primary/10 text-primary"
                           : "text-muted-foreground/50"

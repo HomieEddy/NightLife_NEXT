@@ -109,7 +109,7 @@ function EventsContent({ venueSlug }: { venueSlug: string }) {
       <div className="text-center">
         <BrandLogo href={`/e/${venueSlug}`} className="justify-center" />
         {venueName && (
-          <h1 className="mt-3 text-2xl font-bold">{venueName}</h1>
+          <h1 className="text-display mt-3 text-2xl">{venueName}</h1>
         )}
         <p className="mt-1 text-sm text-muted-foreground">
           Upcoming events
