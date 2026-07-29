@@ -118,8 +118,12 @@ Interpretation choices (per AGENTS.md §1.4):
   `BottlePackage` reachable at booking time (gap review §2, last bullet).
 - **Cash-out.** `/manager/cashout` (and a staff-side "close my drawer" for
   bartenders): expected-by-method from the session ledger for the business date,
-  counted entered by the closer, variance computed and audited. Business date
-  comes from the venue's `nightStartHour`/`nightEndHour` — never `toDateString()`.
+  counted entered by the closer, variance computed and audited. Cover-charge
+  totals by admission type (plan 17's `Admission.amountOwedCents`) appear in
+  the reconciliation alongside order settlement methods — cover charges are a
+  significant revenue line and must not be invisible in financial reporting.
+  Business date comes from the venue's `nightStartHour`/`nightEndHour` — never
+  `toDateString()`.
 - **Tip basis.** Tips are already captured per order; this plan adds the
   attribution *basis* (`tipCents` grouped by claiming staff and by shift) and
   exposes it as a read. **Distribution/pooling is plan 18** — 16 makes the number

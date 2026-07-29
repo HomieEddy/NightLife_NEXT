@@ -199,6 +199,20 @@ The product becomes operationally complete for a single-venue nightclub.
 | CRM-06 | Guest referral tracking (attribution chain, referral bonus basis) | Medium | Small |
 | CRM-07 | GDPR / data deletion request workflow | Medium | Medium |
 
+**Recommended sub-phasing** (consistency review F-11, 2026-07-28): Phase 3 is
+~86 features across 4 domains — too large for a single milestone. Subdivide into:
+
+| Milestone | Scope | Gate |
+|-----------|-------|------|
+| 3a — Financial Foundation | Plans 18–19 (workforce + cost/supply) | Labour cost and product cost flow into analytics |
+| 3b — Revenue & Guest Experience | RV-01 through RV-21 + Plan 20 (navigation) | Time-slotted reservations, split-bill, auto-gratuity live |
+| 3c — Operational Efficiency | OE-01 through OE-35 | SLA timers, door ops, shift management complete |
+| 3d — CRM & Identity | CRM-01 through CRM-07 | Guest profiles fully operational |
+
+Each milestone ships independently with its own exit criteria. Decompose features
+into implementation stories (acceptance criteria, permissions, tests) at the start
+of each milestone, not all at once.
+
 **Exit criteria (Phase 3):** All RV, OE, and CRM features implemented (demo track
 first, then graduated). All plans 16–20 live-graduated. The product supports a
 complete nightclub operational cycle from opening checklist through peak service
@@ -459,7 +473,7 @@ Key dependency rules:
 | Marketing email/SMS campaigns | Plans 25–26 are transactional only. CASL consent infrastructure not built. |
 | Metrics timeseries stack (Prometheus/Grafana/Loki) | Sentry + health checks cover incidents. Timeseries earned by trend-analysis demand. |
 | Redis-backed rate limiting | Single VPS; in-memory limiter correct for topology. |
-| Queue infrastructure (BullMQ) | Synchronous sends suffice at this scale. Earned by volume. |
+| Queue infrastructure (BullMQ) | Synchronous sends suffice at this scale. Earned by volume. **NOTE:** Plan 30 §3 proposes BullMQ — reconcile with this deferral before that phase ships (consistency review F-04, 2026-07-28). |
 | Self-serve DSAR portal / GDPR | Law 25/PIPEDA covered by documented procedure (plan 29). No EU market. |
 | Locales beyond fr/en, RTL | Plan 27 ships fr/en only — the QC market's actual requirement. |
 | Offline mode beyond Phase 5 action queue | Full offline with SW caching all application data breaks deploys. Offline queue + app shell covers the stated requirements (door admission, incident filing during brief outages). |

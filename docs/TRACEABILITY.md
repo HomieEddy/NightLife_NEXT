@@ -33,6 +33,7 @@ phase where it is addressed.
 | Time-slotted reservations | R5, R18 | AD-21 | INV-R1 | RV-01 |
 | Capacity-aware booking | R4, R12 | AD-21 | INV-V3 | RV-02 |
 | Auto-gratuity rules engine | R3, R15 | AD-21 | INV-O9 | RV-03 |
+| Cover price schedule engine | R5, R12 | AD-21 | INV-V4 | RV-04 |
 | Order priority system | R6 | AD-21 | INV-O7 | RV-05 |
 | Pre-order inventory check | R4 | — | INV-O5 | RV-06 |
 | Delegated comp authority | R11 | AD-21 | INV-T3 | RV-07 |
@@ -44,7 +45,7 @@ phase where it is addressed.
 | Celebration detection | R15, R16 | AD-17, AD-21 | INV-G5 | RV-13 |
 | Guest value scoring (RFM) | R8 | AD-17 | INV-G8 | RV-14 |
 | Incident history on profile | R16 | AD-17 | — | RV-16 |
-| Pending session timeout | R5 | AD-9, AD-21 | — | RV-18 |
+| Pending session timeout | R5 | AD-9, AD-21 | INV-S8 | RV-18 |
 | Minimum-spend progress alerts | R15 | AD-21 | INV-S6 | RV-19 |
 | Tab spending cap | R5 | AD-21 | — | RV-20 |
 | Bar tab support | R16 | AD-17 | — | RV-21 |
@@ -58,11 +59,11 @@ phase where it is addressed.
 | Order SLA timer & escalation | R6, R15 | AD-21 | INV-O8 | OE-01 |
 | Drink preparation ETA | R6, R16 | — | — | OE-02 |
 | Batch fulfillment | R16 | — | — | OE-03 |
-| Order modification (pending) | R5 | — | — | OE-04 |
+| Order modification (pending) | R5 | — | INV-O10 | OE-04 |
 | Service items checklist | R16 | — | — | OE-05 |
 | Round tracking | R18 | AD-21 | — | OE-06 |
 | Dual session detection | R5 | AD-21 | — | OE-07 |
-| Session reopen | R5 | — | INV-S1 (reopened) | OE-08 |
+| Session reopen | R5 | — | INV-S1, INV-S9 | OE-08 |
 | Pre-closure itemized review | R16 | — | — | OE-09 |
 | Shift handoff for orders | R5, R18 | — | — | OE-10 |
 | Reservation name matching | R16, R18 | — | — | OE-11 |
@@ -74,7 +75,7 @@ phase where it is addressed.
 | Guest-list capacity enforcement | R5 | AD-21 | INV-E1, INV-E2 | OE-17 |
 | Guest-list bulk import | R16 | — | — | OE-18 |
 | Event run sheet | R16 | — | — | OE-19 |
-| Event-specific menu/pricing | R5 | AD-21 | — | OE-20 |
+| Event-specific menu/pricing | R5 | AD-21 | INV-E3 | OE-20 |
 | Overtime detection | R14, R15 | AD-21 | INV-W6 | OE-22 |
 | Late-arrival tracking | R14, R15 | AD-21 | INV-W7 | OE-23 |
 | No-show auto-detection | R5, R15 | AD-9, AD-21 | INV-W8 | OE-24 |
@@ -114,7 +115,7 @@ phase where it is addressed.
 | Promoter performance report | R8, R15 | AD-11 | — | AI-09 |
 | Night summary auto-generation | R8, R15 | AD-9, AD-11 | — | AI-14 |
 | Auto-release overdue reservations | R5, R18 | AD-9, AD-21 | INV-R4 | AM-01 |
-| Auto-suggested PO | R4, R18 | AD-9, AD-21 | INV-C6 | AM-02 |
+| Auto-suggested PO | R4, R18 | AD-9, AD-21 | INV-CS6 | AM-02 |
 | Auto-escalate overdue orders | R6, R15, R18 | AD-9, AD-21 | INV-O8 | AM-03 |
 | Auto-detect duplicate reservations | R18 | AD-21 | — | AM-04 |
 | Auto-flag VIP tier upgrade | R18 | AD-17, AD-21 | — | AM-05 |

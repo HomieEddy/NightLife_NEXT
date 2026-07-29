@@ -29,8 +29,8 @@ per feature, not per era (ARD AD-14):
 Which track is a given task on? New feature or UX change → demo track first.
 Implementing/altering persistence, auth, realtime → live track, governed by the
 feature's plan. Mocks are never edited to ship live behavior, and live code
-never leaks into the demo bundle — the selector layer (`src/lib/services/`) is
-the only meeting point.
+never leaks into the demo bundle — the selector layer
+(`src/features/{domain}/services.ts`) is the only meeting point.
 
 Everything else — reasoning, planning, quality, review — applies identically
 on both tracks.
@@ -89,7 +89,7 @@ The repo has exactly one architectural idea. Respect it:
 
 ```
 src/features/{domain}/        ← Feature folders aligned with DDD bounded contexts
-  services.ts                 ← selector: picks mock vs live (was src/lib/services/)
+  services.ts                 ← selector: picks mock vs live
   mock-service.ts             ← in-memory demo implementation
   mock-data.ts                ← seed data (plain literals, French-touched)
   live-service.ts             ← live (DB-backed) implementation
@@ -329,7 +329,7 @@ bang**. The whole design bet is the service boundary; cash it in like this.
    replace mock bodies. Instead: the mock defines the type
    (`type XService = typeof mockXService`), the real implementation is declared
    `satisfies XService`, and pages import the plain name from a
-   `src/lib/services/` selector that picks mock vs real from
+   `src/features/{domain}/services.ts` selector that picks mock vs real from
    `NEXT_PUBLIC_APP_MODE` (demo/live builds). If you find yourself editing 15
    pages to ship one endpoint — or editing a mock to ship a real feature —
    you're doing it wrong. No `mockXService → xService` renames, ever.

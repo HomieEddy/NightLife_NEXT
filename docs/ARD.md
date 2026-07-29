@@ -148,8 +148,8 @@ limits; no Stripe Connect, no guest-facing Checkout, no payment intents.
 ## AD-14 · Dual-mode: the mock demo is a permanent product surface
 
 **Choice:** Mock and real implementations co-exist. Contract from the mock
-(`type XService = typeof mockXService`). Selector layer (`src/lib/services/`)
-picks via `NEXT_PUBLIC_APP_MODE`. Demo build on Vercel, live build on OVHcloud.
+(`type XService = typeof mockXService`). Selector layer
+(`src/features/{domain}/services.ts`) picks via `NEXT_PUBLIC_APP_MODE`. Demo build on Vercel, live build on OVHcloud.
 Same repo, two deploy targets. Build-time inlining drops unused implementation.
 
 **Demo-first lifecycle:** Sketch mock-first → iterate UX in demo → gate behind
@@ -434,7 +434,7 @@ demo) and the team is small.
 
 ```
 Browser / PWA (manager / staff / guest / admin UIs)
-   │  imports from src/lib/services/* selectors (AD-14)
+   │  imports from src/features/{domain}/services.ts selectors (AD-14)
    │  Service Worker: cache-first app shell + offline queue + push events (AD-19/20)
    ▼
 xService = demo → mockXService (in-memory, self-resetting)
