@@ -129,6 +129,21 @@ export const mockMenuService = {
     return clone(result);
   },
 
+  /** MI-01: Filter items that DO NOT contain any of the excluded allergens. */
+  async listItemsByAllergenExclusion(
+    exclude: string[],
+    categoryId?: string,
+  ): Promise<MenuItem[]> {
+    await delay();
+    const lowerExclude = exclude.map((a) => a.toLowerCase());
+    let pool = categoryId ? items.filter((i) => i.categoryId === categoryId) : items;
+    const result = pool.filter(
+      (item) =>
+        !item.allergens.some((a) => lowerExclude.includes(a.toLowerCase())),
+    );
+    return clone(result);
+  },
+
   async getItem(itemId: string): Promise<MenuItem | null> {
     await delay(200);
     return clone(items.find((i) => i.id === itemId) ?? null);

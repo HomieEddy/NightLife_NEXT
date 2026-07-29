@@ -24,4 +24,7 @@ export const liveIncidentService: typeof mockIncidentService = {
   listActionItems: notYetSupported,
   createActionItem: notYetSupported,
   completeActionItem: notYetSupported,
+  getIncidentsByZone: notYetSupported,
+  listTemplates: notYetSupported,
+  fileFromTemplate: notYetSupported,
 };
