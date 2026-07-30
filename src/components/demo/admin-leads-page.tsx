@@ -2,8 +2,9 @@
 
 // Plan 10 graduates this demo-only surface.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, ChevronRight, Columns3, Filter, List, Loader2, Pencil, Plus, Rocket, Search, Send, Trash2,
 } from "lucide-react";
@@ -28,6 +29,7 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { adminService } from "@/features/platform/admin-service";
+import { adminKeys } from "@/features/platform/query-keys";
 import { formatMoney, timeAgo } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import { zLeadInput } from "@/lib/form-schemas";
@@ -44,7 +46,7 @@ const SOURCE_LABEL: Record<LeadSource, string> = {
 };
 
 export default function AdminLeadsPage() {
-  const [leads, setLeads] = useState<Lead[] | null>(null);
+  const queryClient = useQueryClient();
   const [view, setView] = useState<"board" | "list">("board");
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<"all" | LeadSource>("all");
@@ -53,7 +55,7 @@ export default function AdminLeadsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(zLeadInput),
     defaultValues: { venueName: "", contactName: "", email: "", phone: "", city: "", source: "landing-page" as const, dealValue: 2988, notes: "" },
   });
@@ -61,15 +63,63 @@ export default function AdminLeadsPage() {
   // Detail dialog
   const [detailId, setDetailId] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [sendingNote, setSendingNote] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setLeads(await adminService.listLeads());
-  }, []);
+  const { data: leads } = useQuery({
+    queryKey: adminKeys.leads,
+    queryFn: () => adminService.listLeads(),
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: adminKeys.leads });
+  };
+
+  const statusMutation = useMutation({
+    mutationFn: ({ lead, status }: { lead: Lead; status: LeadStatus }) =>
+      adminService.setLeadStatus(lead.id, status),
+    onSuccess: (_, { lead, status }) => {
+      toast.success(`${lead.venueName} → ${status}`);
+      invalidate();
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof zLeadInput>) => {
+      const input = {
+        ...data,
+        venueName: data.venueName.trim(),
+        contactName: data.contactName.trim(),
+        email: data.email.trim().toLowerCase(),
+        dealValue: Math.max(0, data.dealValue ?? 0),
+      };
+      if (editingId) {
+        return adminService.updateLead(editingId, input);
+      }
+      return adminService.createLead(input);
+    },
+    onSuccess: (_, data) => {
+      toast.success(editingId ? `${data.venueName} updated` : `${data.venueName} added to the pipeline`);
+      setFormOpen(false);
+      invalidate();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (lead: Lead) => adminService.deleteLead(lead.id),
+    onSuccess: (_, lead) => {
+      if (detailId === lead.id) setDetailId(null);
+      toast.info(`${lead.venueName} removed from the pipeline`);
+      invalidate();
+    },
+  });
+
+  const noteMutation = useMutation({
+    mutationFn: ({ lead, text }: { lead: Lead; text: string }) =>
+      adminService.addLeadNote(lead.id, text),
+    onSuccess: () => {
+      setNote("");
+      invalidate();
+    },
+  });
 
   const visible = useMemo(() => {
     return (leads ?? []).filter((lead) => {
@@ -95,10 +145,8 @@ export default function AdminLeadsPage() {
 
   // ---------- Actions ----------
 
-  async function setStatus(lead: Lead, status: LeadStatus) {
-    await adminService.setLeadStatus(lead.id, status);
-    toast.success(`${lead.venueName} → ${status}`);
-    await refresh();
+  function setStatus(lead: Lead, status: LeadStatus) {
+    statusMutation.mutate({ lead, status });
   }
 
   function moveStage(lead: Lead, direction: 1 | -1) {
@@ -131,38 +179,16 @@ export default function AdminLeadsPage() {
   }
 
   const onSave = handleSubmit(async (data) => {
-    const input = {
-      ...data,
-      venueName: data.venueName.trim(),
-      contactName: data.contactName.trim(),
-      email: data.email.trim().toLowerCase(),
-      dealValue: Math.max(0, data.dealValue ?? 0),
-    };
-    if (editingId) {
-      await adminService.updateLead(editingId, input);
-      toast.success(`${input.venueName} updated`);
-    } else {
-      await adminService.createLead(input);
-      toast.success(`${input.venueName} added to the pipeline`);
-    }
-    setFormOpen(false);
-    await refresh();
+    saveMutation.mutate(data);
   });
 
-  async function remove(lead: Lead) {
-    await adminService.deleteLead(lead.id);
-    if (detailId === lead.id) setDetailId(null);
-    toast.info(`${lead.venueName} removed from the pipeline`);
-    await refresh();
+  function remove(lead: Lead) {
+    deleteMutation.mutate(lead);
   }
 
   async function addNote() {
     if (!detail || !note.trim()) return;
-    setSendingNote(true);
-    await adminService.addLeadNote(detail.id, note.trim());
-    setNote("");
-    setSendingNote(false);
-    await refresh();
+    noteMutation.mutate({ lead: detail, text: note.trim() });
   }
 
   // ---------- Card ----------
@@ -228,7 +254,7 @@ export default function AdminLeadsPage() {
       <PageHeader
         title="Lead pipeline"
         description={
-          leads
+          leads !== undefined
             ? `${visible.length} leads · ${formatMoney(openPipelineValue)} open pipeline`
             : "Loading…"
         }
@@ -287,7 +313,7 @@ export default function AdminLeadsPage() {
         </Select>
       </div>
 
-      {leads === null ? (
+      {leads === undefined ? (
         <ListSkeleton rows={5} rowHeight="h-28" />
       ) : visible.length === 0 ? (
         <EmptyState
@@ -407,9 +433,9 @@ export default function AdminLeadsPage() {
               <Button variant="ghost" type="button" onClick={() => setFormOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-                {isSubmitting ? "Saving…" : editingId ? "Save" : "Add lead"}
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                {saveMutation.isPending ? "Saving…" : editingId ? "Save" : "Add lead"}
               </Button>
             </DialogFooter>
           </form>
@@ -447,7 +473,7 @@ export default function AdminLeadsPage() {
 
                 {detail.notes && (
                   <p className="rounded-lg bg-accent/50 p-3 text-sm text-muted-foreground">
-                    “{detail.notes}”
+                    "{detail.notes}"
                   </p>
                 )}
 
@@ -519,10 +545,10 @@ export default function AdminLeadsPage() {
                     <Button
                       size="icon"
                       onClick={addNote}
-                      disabled={sendingNote || !note.trim()}
+                      disabled={noteMutation.isPending || !note.trim()}
                       aria-label="Add note"
                     >
-                      {sendingNote ? (
+                      {noteMutation.isPending ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
                         <Send className="size-4" />

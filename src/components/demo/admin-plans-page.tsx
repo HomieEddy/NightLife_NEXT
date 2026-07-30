@@ -2,9 +2,10 @@
 
 // Plan 10 graduates this demo-only surface.
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2, Save, Star } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,24 +16,24 @@ import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { adminService } from "@/features/platform/admin-service";
+import { adminKeys } from "@/features/platform/query-keys";
 import { FEATURE_CATALOG } from "@/lib/plan-catalog";
 import { formatMoney } from "@/features/shared/format";
 import type { FeatureKey, PlanConfig, TenantPlan } from "@/lib/types";
 
 export default function AdminPlansPage() {
-  const [plans, setPlans] = useState<PlanConfig[] | null>(null);
+  const queryClient = useQueryClient();
   const [drafts, setDrafts] = useState<Record<TenantPlan, PlanConfig> | null>(null);
   const [saving, setSaving] = useState<TenantPlan | null>(null);
 
-  const refresh = useCallback(async () => {
-    const configs = await adminService.getPlanConfigs();
-    setPlans(configs);
-    setDrafts(Object.fromEntries(configs.map((c) => [c.id, structuredClone(c)])) as Record<TenantPlan, PlanConfig>);
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: plans } = useQuery({
+    queryKey: adminKeys.plans,
+    queryFn: async () => {
+      const configs = await adminService.getPlanConfigs();
+      setDrafts(Object.fromEntries(configs.map((c) => [c.id, structuredClone(c)])) as Record<TenantPlan, PlanConfig>);
+      return configs;
+    },
+  });
 
   function patchDraft(id: TenantPlan, patch: Partial<PlanConfig>) {
     setDrafts((prev) => (prev ? { ...prev, [id]: { ...prev[id], ...patch } } : prev));
@@ -48,31 +49,43 @@ export default function AdminPlansPage() {
     });
   }
 
+  const saveMutation = useMutation({
+    mutationFn: async (id: TenantPlan) => {
+      if (!drafts) return;
+      const draft = drafts[id];
+      const price = draft.monthlyPrice;
+      if (!Number.isFinite(price) || price < 0) {
+        toast.error("Price must be zero or positive.");
+        return;
+      }
+      if ((draft.tableLimit !== null && draft.tableLimit < 1) || (draft.staffLimit !== null && draft.staffLimit < 1)) {
+        toast.error("Limits must be at least 1, or unlimited.");
+        return;
+      }
+      return adminService.updatePlanConfig(id, {
+        name: draft.name,
+        monthlyPrice: Math.round(price * 100) / 100,
+        tagline: draft.tagline,
+        highlight: draft.highlight,
+        tableLimit: draft.tableLimit,
+        staffLimit: draft.staffLimit,
+        features: draft.features,
+      });
+    },
+    onSuccess: (_, id) => {
+      if (!drafts) return;
+      setSaving(null);
+      toast.success(`${drafts[id].name} plan updated`);
+      queryClient.invalidateQueries({ queryKey: adminKeys.plans });
+    },
+    onError: () => {
+      setSaving(null);
+    },
+  });
+
   async function save(id: TenantPlan) {
-    if (!drafts) return;
-    const draft = drafts[id];
-    const price = draft.monthlyPrice;
-    if (!Number.isFinite(price) || price < 0) {
-      toast.error("Price must be zero or positive.");
-      return;
-    }
-    if ((draft.tableLimit !== null && draft.tableLimit < 1) || (draft.staffLimit !== null && draft.staffLimit < 1)) {
-      toast.error("Limits must be at least 1, or unlimited.");
-      return;
-    }
     setSaving(id);
-    await adminService.updatePlanConfig(id, {
-      name: draft.name,
-      monthlyPrice: Math.round(price * 100) / 100,
-      tagline: draft.tagline,
-      highlight: draft.highlight,
-      tableLimit: draft.tableLimit,
-      staffLimit: draft.staffLimit,
-      features: draft.features,
-    });
-    setSaving(null);
-    toast.success(`${draft.name} plan updated`);
-    await refresh();
+    saveMutation.mutate(id);
   }
 
   function isDirty(id: TenantPlan): boolean {
@@ -81,7 +94,7 @@ export default function AdminPlansPage() {
     return JSON.stringify(saved) !== JSON.stringify(drafts[id]);
   }
 
-  if (plans === null || drafts === null) {
+  if (plans === undefined || drafts === null) {
     return (
       <div className="space-y-4">
         <PageHeader title="Plan builder" />
@@ -151,7 +164,7 @@ export default function AdminPlansPage() {
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <p className="text-sm font-medium">Highlight on pricing</p>
-                    <p className="text-xs text-muted-foreground">Shows the “best value” treatment.</p>
+                    <p className="text-xs text-muted-foreground">Shows the "best value" treatment.</p>
                   </div>
                   <Switch
                     checked={draft.highlight}
