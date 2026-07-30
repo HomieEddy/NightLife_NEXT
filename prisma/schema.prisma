@@ -1747,6 +1747,41 @@ model EventCost {
   @@map("event_costs")
 }
 
+/// Plan 19: Checklist template — venue-scoped, reusable (VM-05).
+model ChecklistTemplate {
+  id      String  @id @default(cuid())
+  venueId String  @map("venue_id")
+  name    String
+  type    String  // "opening" | "closing"
+  active  Boolean @default(true)
+  items   Json    @default("[]") // ChecklistTemplateItem[]
+
+  @@index([venueId])
+  @@map("checklist_templates")
+}
+
+/// Plan 19: Checklist run — append-only per business date (VM-05).
+model ChecklistRun {
+  id                   String   @id @default(cuid())
+  venueId              String   @map("venue_id")
+  templateId           String   @map("template_id")
+  templateName         String   @map("template_name")
+  type                 String   // "opening" | "closing"
+  businessDate         String   @map("business_date")
+  status               String   @default("in-progress") // "in-progress" | "completed" | "skipped"
+  items                Json     @default("[]") // ChecklistRunItem[]
+  startedAt            DateTime @map("started_at") @db.Timestamptz
+  startedByStaffId     String   @map("started_by_staff_id")
+  startedByStaffName   String   @map("started_by_staff_name")
+  completedAt          DateTime? @map("completed_at") @db.Timestamptz
+  completedByStaffId   String?  @map("completed_by_staff_id")
+  completedByStaffName String?  @map("completed_by_staff_name")
+
+  @@index([venueId, businessDate])
+  @@index([venueId, type])
+  @@map("checklist_runs")
+}
+
 /// Append-only notification log (AD-8) — one row per delivery attempt.
 /// Email/SMS/Push transports each write here; the log is the idempotency check.
 model NotificationLog {
