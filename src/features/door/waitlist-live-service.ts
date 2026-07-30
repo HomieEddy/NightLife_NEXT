@@ -1,19 +1,38 @@
 "use client";
 
-/**
- * liveWaitlistService — plan 17 shipped demo-track only (AD-14). No Prisma
- * models or route handlers exist yet for the walk-in waitlist; this
- * satisfies mockWaitlistService's type so the selector compiles, but every
- * method is unreachable until the live track graduates.
- */
-import type { mockWaitlistService } from "@/features/door/waitlist-mock-service";
+import type { WaitlistEntry, WaitlistStatus } from "@/lib/types";
+import type { mockWaitlistService, WaitlistEntryWithPosition } from "@/features/door/waitlist-mock-service";
+import { liveFetch } from "@/features/shared/live-fetch";
 
-function notYetSupported(): never {
-  throw new Error("Waitlist is not yet supported in the live build — see docs/plans/17-door-arrival-guest-identity-PLAN.md");
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await liveFetch(path, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body.error ?? `Request to ${path} failed (${res.status})`);
+  }
+  return res.json() as Promise<T>;
 }
 
 export const liveWaitlistService: typeof mockWaitlistService = {
-  listEntries: notYetSupported,
-  join: notYetSupported,
-  setStatus: notYetSupported,
+  async listEntries(status?: WaitlistStatus) {
+    const params = status ? `?status=${encodeURIComponent(status)}` : "";
+    return api<WaitlistEntryWithPosition[]>(`/api/waitlist/entries${params}`);
+  },
+
+  async join(input) {
+    return api<WaitlistEntry>("/api/waitlist/entries", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  async setStatus(id: string, status: WaitlistStatus) {
+    return api<WaitlistEntry | null>(`/api/waitlist/entries/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  },
 };

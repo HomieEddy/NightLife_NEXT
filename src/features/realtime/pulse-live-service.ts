@@ -1,6 +1,7 @@
 "use client";
 
 import type { Broadcast, RevenuePace } from "@/lib/types";
+import { liveFetch } from "@/features/shared/live-fetch";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await liveFetch(path, {
@@ -47,14 +48,31 @@ export const livePulseService = {
   async getRevenuePace(): Promise<RevenuePace> {
     return api<RevenuePace>("/api/floor/revenue-pace");
   },
-  async acknowledgeAttentionItem(): Promise<import("@/lib/types").AttentionAcknowledgment> {
-    throw new Error("Not yet supported in the live build");
+
+  // ---------- WS-2: Attention items ----------
+  async acknowledgeAttentionItem(
+    attentionItemId: string,
+    staffId: string,
+    staffName: string,
+  ): Promise<import("@/lib/types").AttentionAcknowledgment> {
+    return api<import("@/lib/types").AttentionAcknowledgment>(
+      `/api/floor/attention/${encodeURIComponent(attentionItemId)}/ack`,
+      { method: "POST", body: JSON.stringify({ staffId, staffName }) },
+    );
   },
-  async snoozeAttentionItem(): Promise<import("@/lib/types").AttentionAcknowledgment> {
-    throw new Error("Not yet supported in the live build");
+  async snoozeAttentionItem(
+    attentionItemId: string,
+    durationMinutes: number,
+    staffId: string,
+    staffName: string,
+  ): Promise<import("@/lib/types").AttentionAcknowledgment> {
+    const snoozedUntil = new Date(Date.now() + durationMinutes * 60_000).toISOString();
+    return api<import("@/lib/types").AttentionAcknowledgment>(
+      `/api/floor/attention/${encodeURIComponent(attentionItemId)}/snooze`,
+      { method: "POST", body: JSON.stringify({ staffId, staffName, snoozedUntil }) },
+    );
   },
   async listAcknowledgments(): Promise<import("@/lib/types").AttentionAcknowledgment[]> {
-    throw new Error("Not yet supported in the live build");
+    return api<import("@/lib/types").AttentionAcknowledgment[]>("/api/floor/attention?mode=acknowledgments");
   },
 };
-import { liveFetch } from "@/features/shared/live-fetch";

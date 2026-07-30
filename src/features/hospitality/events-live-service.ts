@@ -68,11 +68,15 @@ export const liveEventsService = {
     await api<{ ok: boolean }>(`/api/event-guests/${encodeURIComponent(guestId)}`, { method: "DELETE" });
   },
 
-  // TODO(backend): plan 17 graduation — no PATCH route exists yet for
-  // event-guest status (only POST/DELETE); door check-in stays demo-track
-  // only until that route ships.
-  async setEventGuestStatus(): Promise<EventGuest | null> {
-    throw new Error("Not yet supported in the live build");
+  async setEventGuestStatus(guestId: string, status: EventGuest["status"]): Promise<EventGuest | null> {
+    const res = await liveFetch(`/api/event-guests/${encodeURIComponent(guestId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Failed to set event guest status`);
+    return res.json();
   },
 
   async listPublicEvents(
