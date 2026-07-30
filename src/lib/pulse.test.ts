@@ -29,14 +29,24 @@ function order(total: number): Order {
 describe("computeAttentionItems — table-under-minimum (plan 16)", () => {
   it("flags an open session short of its minimum, only once last call is active", () => {
     const sessions = [session()];
-    const orders = [order(300)]; // $300 of $800 minimum
+    const orders = [order(300)]; // $300 of $800 minimum — 37.5% of minimum
+    // Without last call, the mid-night progress check (RV-19) still fires because
+    // progress is below the 50% checkpoint.
     const withoutLastCall = computeAttentionItems([], [], [table], [zone], thresholds, false, true, sessions, [], 0.25);
-    expect(withoutLastCall.some((i) => i.type === "table-under-minimum")).toBe(false);
+    // Mid-night progress fires a table-under-minimum item even without last call.
+    expect(withoutLastCall.some((i) => i.type === "table-under-minimum")).toBe(true);
 
     const withLastCall = computeAttentionItems([], [], [table], [zone], thresholds, true, true, sessions, [], 0.25);
-    const item = withLastCall.find((i) => i.type === "table-under-minimum");
-    expect(item).toBeDefined();
-    expect(item?.tableCode).toBe("VIP-01");
+    const items = withLastCall.filter((i) => i.type === "table-under-minimum");
+    expect(items.length).toBeGreaterThanOrEqual(1);
+    expect(items.some((i) => i.tableCode === "VIP-01")).toBe(true);
+  });
+
+  it("suppresses mid-night progress check when the session is well above minimum", () => {
+    const sessions = [session()];
+    const orders = [order(720)]; // $720 of $800 minimum — 90%, at or above all checkpoints [0.5, 0.75, 0.9]
+    const items = computeAttentionItems(orders, [], [table], [zone], thresholds, false, true, sessions, [], 0.25);
+    expect(items.some((i) => i.type === "table-under-minimum")).toBe(false);
   });
 
   it("does not flag a session that already met its minimum", () => {
