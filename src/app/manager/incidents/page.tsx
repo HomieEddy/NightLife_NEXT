@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -18,8 +19,9 @@ import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { useAuth } from "@/context/auth-context";
 import { incidentService } from "@/features/safety/services";
+import { incidentsKeys } from "@/features/safety/query-keys";
 import { formatDate, formatTime } from "@/features/shared/format";
-import type { Incident, IncidentNote, IncidentSeverity, IncidentType } from "@/lib/types";
+import type { Incident, IncidentNote, IncidentType } from "@/lib/types";
 
 const TYPE_LABELS: Record<IncidentType, string> = {
   ejection: "Ejection",
@@ -35,7 +37,8 @@ const TYPE_LABELS: Record<IncidentType, string> = {
 
 export default function ManagerIncidentsPage() {
   const { user } = useAuth();
-  const [incidents, setIncidents] = useState<Incident[] | null>(null);
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -44,15 +47,58 @@ export default function ManagerIncidentsPage() {
   const [notes, setNotes] = useState<Record<string, IncidentNote[]>>({});
   const [noteDraft, setNoteDraft] = useState("");
   const [saving, setSaving] = useState(false);
-  // S-02: Reportable incident controls
   const [regDeadline, setRegDeadline] = useState("");
   const [regAuthority, setRegAuthority] = useState("");
 
-  const refresh = useCallback(async () => {
-    setIncidents(await incidentService.listIncidents());
-  }, []);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: incidentsKeys.all(venueId) });
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: incidents } = useQuery({
+    queryKey: incidentsKeys.all(venueId),
+    queryFn: () => incidentService.listIncidents(),
+    enabled: !!venueId,
+  });
+
+  const resolveMutation = useMutation({
+    mutationFn: (incidentId: string) => incidentService.setStatus(incidentId, "resolved"),
+    onSuccess: () => {
+      toast.success("Incident marked resolved");
+      invalidate();
+    },
+    onError: () => toast.error("Could not resolve incident"),
+  });
+
+  const markReportableMutation = useMutation({
+    mutationFn: (incidentId: string) => {
+      if (!user || !regDeadline || !regAuthority.trim()) {
+        throw new Error("Provide a deadline and regulatory authority");
+      }
+      return incidentService.markReportable(incidentId, {
+        regulatoryDeadline: regDeadline,
+        regulatoryAuthority: regAuthority.trim(),
+        staffId: user.id,
+        staffName: user.name,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Incident marked as reportable");
+      setRegDeadline("");
+      setRegAuthority("");
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not mark as reportable"),
+  });
+
+  const recordReportedMutation = useMutation({
+    mutationFn: (incidentId: string) => {
+      if (!user) throw new Error("Not authenticated");
+      return incidentService.recordReportedToAuthority(incidentId, user.id, user.name);
+    },
+    onSuccess: () => {
+      toast.success("Reported to authority");
+      invalidate();
+    },
+    onError: () => toast.error("Could not record the report"),
+  });
 
   const visible = useMemo(() => {
     return (incidents ?? []).filter((i) => {
@@ -94,51 +140,6 @@ export default function ManagerIncidentsPage() {
       toast.success("Note added");
     } catch {
       toast.error("Could not add the note");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function resolveIncident(incidentId: string) {
-    await incidentService.setStatus(incidentId, "resolved");
-    toast.success("Incident marked resolved");
-    await refresh();
-  }
-
-  // S-02: Reportable incident controls
-  async function markReportable(incidentId: string) {
-    if (!user || !regDeadline || !regAuthority.trim()) {
-      toast.error("Provide a deadline and regulatory authority");
-      return;
-    }
-    setSaving(true);
-    try {
-      await incidentService.markReportable(incidentId, {
-        regulatoryDeadline: regDeadline,
-        regulatoryAuthority: regAuthority.trim(),
-        staffId: user.id,
-        staffName: user.name,
-      });
-      toast.success("Incident marked as reportable");
-      setRegDeadline("");
-      setRegAuthority("");
-      await refresh();
-    } catch {
-      toast.error("Could not mark as reportable");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function recordReported(incidentId: string) {
-    if (!user) return;
-    setSaving(true);
-    try {
-      await incidentService.recordReportedToAuthority(incidentId, user.id, user.name);
-      toast.success("Reported to authority");
-      await refresh();
-    } catch {
-      toast.error("Could not record the report");
     } finally {
       setSaving(false);
     }
@@ -186,141 +187,149 @@ export default function ManagerIncidentsPage() {
         </CardContent>
       </Card>
 
-      {incidents === null ? (
+      {incidents === undefined ? (
         <ListSkeleton rows={4} rowHeight="h-24" />
       ) : visible.length === 0 ? (
         <EmptyState icon={ListChecks} title="No incidents match" description="Filed reports will appear here." />
       ) : (
         <>
-        <div className="space-y-3">
-          {sliced.map((incident) => (
-            <Card key={incident.id} id={incident.id}>
-              <CardContent className="space-y-2 px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{TYPE_LABELS[incident.type]}</p>
-                      <span
-                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                          incident.severity === "high"
-                            ? "border-red-500/30 text-red-600 dark:text-red-400"
-                            : incident.severity === "medium"
-                            ? "border-amber-500/30 text-amber-600 dark:text-amber-400"
-                            : "border-zinc-500/30 text-zinc-600 dark:text-zinc-400"
-                        }`}
-                      >
-                        {incident.severity}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {incident.status === "open" ? "Open" : "Resolved"}
-                      </span>
+          <div className="space-y-3">
+            {sliced.map((incident) => (
+              <Card key={incident.id} id={incident.id}>
+                <CardContent className="space-y-2 px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{TYPE_LABELS[incident.type]}</p>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                            incident.severity === "high"
+                              ? "border-red-500/30 text-red-600 dark:text-red-400"
+                              : incident.severity === "medium"
+                              ? "border-amber-500/30 text-amber-600 dark:text-amber-400"
+                              : "border-zinc-500/30 text-zinc-600 dark:text-zinc-400"
+                          }`}
+                        >
+                          {incident.severity}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {incident.status === "open" ? "Open" : "Resolved"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm">{incident.narrative}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {incident.reportedByStaffName} · {formatDate(incident.occurredAt)} {formatTime(incident.occurredAt)}
+                        {incident.policeInvolved && " · Police involved"}
+                      </p>
                     </div>
-                    <p className="mt-1 text-sm">{incident.narrative}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {incident.reportedByStaffName} · {formatDate(incident.occurredAt)} {formatTime(incident.occurredAt)}
-                      {incident.policeInvolved && " · Police involved"}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    {incident.status === "open" && (
-                      <ConfirmDialog
-                        trigger={<Button size="sm" variant="outline">Resolve</Button>}
-                        title={`Resolve this ${incident.type.replace(/-/g, " ")} incident?`}
-                        description="This closes the incident as dealt with. The narrative and follow-up notes remain on file permanently."
-                        confirmLabel="Resolve"
-                        onConfirm={() => resolveIncident(incident.id)}
-                      />
-                    )}
-                    <Button size="sm" variant="ghost" onClick={() => toggleExpand(incident)}>
-                      {expanded === incident.id ? "Hide" : "Details"}
-                    </Button>
-                  </div>
-                </div>
-
-                {expanded === incident.id && (
-                  <div className="space-y-3 border-t pt-3">
-                    <p className="text-sm">
-                      <span className="font-medium">Actions taken: </span>
-                      {incident.actionsTaken}
-                    </p>
-                    {/* S-02: Reportable incident controls */}
-                    {incident.reportable && (
-                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-                        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Reportable to authority</p>
-                        {incident.regulatoryAuthority && (
-                          <p className="text-xs text-muted-foreground">
-                            {incident.regulatoryAuthority}
-                            {incident.regulatoryDeadline && ` · Deadline: ${formatDate(incident.regulatoryDeadline)}`}
-                          </p>
-                        )}
-                        {incident.reportedToAuthorityAt ? (
-                          <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                            Reported {formatDate(incident.reportedToAuthorityAt)}
-                          </p>
-                        ) : (
-                          <ConfirmDialog
-                            trigger={<Button size="sm" variant="outline" className="mt-1 h-8" disabled={saving}>Record as reported</Button>}
-                            title="Record as reported to authority?"
-                            description={`This confirms the incident was filed with ${incident.regulatoryAuthority ?? "the regulatory authority"}. This action is audited.`}
-                            confirmLabel="Record report"
-                            onConfirm={() => recordReported(incident.id)}
-                          />
-                        )}
-                      </div>
-                    )}
-                    {!incident.reportable && (
-                      <div className="space-y-1.5 rounded-lg border px-3 py-2">
-                        <p className="text-xs font-medium">Mark as reportable (S-02)</p>
-                        <div className="flex gap-2">
-                          <Input
-                            type="date"
-                            value={regDeadline}
-                            onChange={(e) => setRegDeadline(e.target.value)}
-                            className="h-8 text-xs"
-                          />
-                          <Input
-                            placeholder="Authority (e.g. Régie des alcools)"
-                            value={regAuthority}
-                            onChange={(e) => setRegAuthority(e.target.value)}
-                            className="h-8 text-xs"
-                          />
-                          <Button size="sm" className="h-8 shrink-0" disabled={saving} onClick={() => markReportable(incident.id)}>
-                            Set
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                    {(notes[incident.id] ?? []).length > 0 && (
-                      <ul className="space-y-1.5">
-                        {(notes[incident.id] ?? []).map((note) => (
-                          <li key={note.id} className="text-sm">
-                            <span className="text-xs text-muted-foreground">
-                              {note.authorStaffName} · {formatDate(note.createdAt)}
-                            </span>
-                            <p>{note.note}</p>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="flex gap-2">
-                      <Textarea
-                        placeholder="Add a follow-up note…"
-                        value={noteDraft}
-                        onChange={(e) => setNoteDraft(e.target.value)}
-                        rows={1}
-                        className="min-h-9"
-                      />
-                      <Button size="sm" disabled={!noteDraft.trim() || saving} onClick={() => addNote(incident.id)}>
-                        Add
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      {incident.status === "open" && (
+                        <ConfirmDialog
+                          trigger={<Button size="sm" variant="outline">Resolve</Button>}
+                          title={`Resolve this ${incident.type.replace(/-/g, " ")} incident?`}
+                          description="This closes the incident as dealt with. The narrative and follow-up notes remain on file permanently."
+                          confirmLabel="Resolve"
+                          onConfirm={() => resolveMutation.mutate(incident.id)}
+                        />
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => toggleExpand(incident)}>
+                        {expanded === incident.id ? "Hide" : "Details"}
                       </Button>
                     </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
+
+                  {expanded === incident.id && (
+                    <div className="space-y-3 border-t pt-3">
+                      <p className="text-sm">
+                        <span className="font-medium">Actions taken: </span>
+                        {incident.actionsTaken}
+                      </p>
+                      {incident.reportable && (
+                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+                          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Reportable to authority</p>
+                          {incident.regulatoryAuthority && (
+                            <p className="text-xs text-muted-foreground">
+                              {incident.regulatoryAuthority}
+                              {incident.regulatoryDeadline && ` · Deadline: ${formatDate(incident.regulatoryDeadline)}`}
+                            </p>
+                          )}
+                          {incident.reportedToAuthorityAt ? (
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                              Reported {formatDate(incident.reportedToAuthorityAt)}
+                            </p>
+                          ) : (
+                            <ConfirmDialog
+                              trigger={
+                                <Button size="sm" variant="outline" className="mt-1 h-8" disabled={recordReportedMutation.isPending}>
+                                  Record as reported
+                                </Button>
+                              }
+                              title="Record as reported to authority?"
+                              description={`This confirms the incident was filed with ${incident.regulatoryAuthority ?? "the regulatory authority"}. This action is audited.`}
+                              confirmLabel="Record report"
+                              onConfirm={() => recordReportedMutation.mutate(incident.id)}
+                            />
+                          )}
+                        </div>
+                      )}
+                      {!incident.reportable && (
+                        <div className="space-y-1.5 rounded-lg border px-3 py-2">
+                          <p className="text-xs font-medium">Mark as reportable (S-02)</p>
+                          <div className="flex gap-2">
+                            <Input
+                              type="date"
+                              value={regDeadline}
+                              onChange={(e) => setRegDeadline(e.target.value)}
+                              className="h-8 text-xs"
+                            />
+                            <Input
+                              placeholder="Authority (e.g. Régie des alcools)"
+                              value={regAuthority}
+                              onChange={(e) => setRegAuthority(e.target.value)}
+                              className="h-8 text-xs"
+                            />
+                            <Button
+                              size="sm"
+                              className="h-8 shrink-0"
+                              disabled={markReportableMutation.isPending}
+                              onClick={() => markReportableMutation.mutate(incident.id)}
+                            >
+                              Set
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {(notes[incident.id] ?? []).length > 0 && (
+                        <ul className="space-y-1.5">
+                          {(notes[incident.id] ?? []).map((note) => (
+                            <li key={note.id} className="text-sm">
+                              <span className="text-xs text-muted-foreground">
+                                {note.authorStaffName} · {formatDate(note.createdAt)}
+                              </span>
+                              <p>{note.note}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="flex gap-2">
+                        <Textarea
+                          placeholder="Add a follow-up note…"
+                          value={noteDraft}
+                          onChange={(e) => setNoteDraft(e.target.value)}
+                          rows={1}
+                          className="min-h-9"
+                        />
+                        <Button size="sm" disabled={!noteDraft.trim() || saving} onClick={() => addNote(incident.id)}>
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
         </>
       )}
     </div>

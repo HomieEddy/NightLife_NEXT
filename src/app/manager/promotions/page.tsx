@@ -2,9 +2,10 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { Loader2, Pencil, Plus, Tag, Trash2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -25,10 +26,13 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { promotionsService } from "@/features/hospitality/promotions-service";
 import { menuService } from "@/features/menu/services";
+import { promotionsKeys } from "@/features/hospitality/query-keys";
+import { menuKeys } from "@/features/menu/query-keys";
 import { SearchInput } from "@/components/shared/search-input";
+import { useAuth } from "@/context/auth-context";
 import { cn } from "@/features/shared/utils";
 import { zPromotionInput } from "@/lib/form-schemas";
-import type { MenuCategory, Promotion, PromotionStatus } from "@/lib/types";
+import type { Promotion, PromotionStatus } from "@/lib/types";
 import type { z } from "zod";
 
 const selectCls =
@@ -56,8 +60,9 @@ const EMPTY_VALUES: FormValues = {
 };
 
 function PromotionsContent() {
-  const [promos, setPromos] = useState<Promotion[] | null>(null);
-  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<PromotionStatus | "all">("all");
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -65,24 +70,63 @@ function PromotionsContent() {
   const [testCode, setTestCode] = useState("");
   const [testResult, setTestResult] = useState<Promotion | null | undefined>(undefined);
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(zPromotionInput),
     defaultValues: EMPTY_VALUES,
   });
   const appliesToCategoryIds = watch("appliesToCategoryIds");
 
-  const refresh = useCallback(async () => {
-    const [list, cats] = await Promise.all([
-      promotionsService.listPromotions(),
-      menuService.listCategories(true),
-    ]);
-    setPromos(list);
-    setCategories(cats);
-  }, []);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: promotionsKeys.all(venueId) });
+  };
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: promos } = useQuery({
+    queryKey: promotionsKeys.all(venueId),
+    queryFn: () => promotionsService.listPromotions(),
+    enabled: !!venueId,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: menuKeys.categories(venueId),
+    queryFn: () => menuService.listCategories(true),
+    enabled: !!venueId,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const payload = {
+        code: data.code.trim().toUpperCase(),
+        name: data.name.trim(),
+        type: data.type === "pct" ? "percentage" as const : "flat" as const,
+        value: data.value,
+        appliesToCategoryIds: data.appliesToCategoryIds ?? [],
+        startsAt: fromLocalInput(data.startsAt),
+        endsAt: fromLocalInput(data.endsAt),
+        status: data.status as PromotionStatus,
+      };
+      if (editingId) {
+        await promotionsService.updatePromotion(editingId, payload);
+        return "Promotion updated";
+      } else {
+        await promotionsService.createPromotion(payload);
+        return "Promotion created";
+      }
+    },
+    onSuccess: (message) => {
+      toast.success(message);
+      setDialogOpen(false);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (p: Promotion) => promotionsService.deletePromotion(p.id),
+    onSuccess: (_, p) => {
+      toast.info(`${p.name} deleted`);
+      invalidate();
+    },
+  });
 
   const catName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
 
@@ -120,34 +164,6 @@ function PromotionsContent() {
       status: (p.status === "expired" ? "inactive" : p.status) as FormValues["status"],
     });
     setDialogOpen(true);
-  }
-
-  const onSave = handleSubmit(async (data) => {
-    const payload = {
-      code: data.code.trim().toUpperCase(),
-      name: data.name.trim(),
-      type: data.type === "pct" ? "percentage" as const : "flat" as const,
-      value: data.value,
-      appliesToCategoryIds: data.appliesToCategoryIds ?? [],
-      startsAt: fromLocalInput(data.startsAt),
-      endsAt: fromLocalInput(data.endsAt),
-      status: data.status as PromotionStatus,
-    };
-    if (editingId) {
-      await promotionsService.updatePromotion(editingId, payload);
-      toast.success("Promotion updated");
-    } else {
-      await promotionsService.createPromotion(payload);
-      toast.success("Promotion created");
-    }
-    setDialogOpen(false);
-    await refresh();
-  });
-
-  async function remove(p: Promotion) {
-    await promotionsService.deletePromotion(p.id);
-    toast.info(`${p.name} deleted`);
-    await refresh();
   }
 
   return (
@@ -217,7 +233,7 @@ function PromotionsContent() {
         </div>
       </div>
 
-      {promos === null ? (
+      {promos === undefined ? (
         <ListSkeleton rows={3} rowHeight="h-28" />
       ) : (() => {
         const visible = promos.filter((p) => {
@@ -236,49 +252,49 @@ function PromotionsContent() {
           />
         );
         return (
-        <div className="grid gap-3 md:grid-cols-2">
-          {visible.map((p) => (
-            <Card key={p.id} className="py-4">
-              <CardContent className="space-y-3 px-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                      <Tag className="size-5" />
+          <div className="grid gap-3 md:grid-cols-2">
+            {visible.map((p) => (
+              <Card key={p.id} className="py-4">
+                <CardContent className="space-y-3 px-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                        <Tag className="size-5" />
+                      </div>
+                      <div>
+                        <p className="font-mono text-sm font-semibold">{p.code}</p>
+                        <p className="text-xs text-muted-foreground">{p.name}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-mono text-sm font-semibold">{p.code}</p>
-                      <p className="text-xs text-muted-foreground">{p.name}</p>
-                    </div>
+                    <StatusBadge status={p.status} />
                   </div>
-                  <StatusBadge status={p.status} />
-                </div>
-                <p className="text-sm">
-                  {p.type === "percentage" ? `−${p.value}%` : `−${p.value}$`} · {p.redemptionCount} redemptions
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Applies to: {p.appliesToCategoryIds.length === 0 ? "All categories" : p.appliesToCategoryIds.map(catName).join(", ")}
-                </p>
-                <div className="flex flex-wrap items-center gap-1.5 border-t pt-2">
-                  <Button size="sm" variant="ghost" onClick={() => openEdit(p)}>
-                    <Pencil className="size-3.5" /> Edit
-                  </Button>
-                  <ConfirmDialog
-                    trigger={
-                      <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400">
-                        <Trash2 className="size-3.5" /> Delete
-                      </Button>
-                    }
-                    title={`Delete ${p.code}?`}
-                    description="The promo code stops applying immediately."
-                    confirmLabel="Delete promotion"
-                    destructive
-                    onConfirm={() => remove(p)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  <p className="text-sm">
+                    {p.type === "percentage" ? `−${p.value}%` : `−${p.value}$`} · {p.redemptionCount} redemptions
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Applies to: {p.appliesToCategoryIds.length === 0 ? "All categories" : p.appliesToCategoryIds.map(catName).join(", ")}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5 border-t pt-2">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(p)}>
+                      <Pencil className="size-3.5" /> Edit
+                    </Button>
+                    <ConfirmDialog
+                      trigger={
+                        <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400">
+                          <Trash2 className="size-3.5" /> Delete
+                        </Button>
+                      }
+                      title={`Delete ${p.code}?`}
+                      description="The promo code stops applying immediately."
+                      confirmLabel="Delete promotion"
+                      destructive
+                      onConfirm={() => removeMutation.mutate(p)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         );
       })()}
 
@@ -287,7 +303,7 @@ function PromotionsContent() {
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit promotion" : "New promotion"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={onSave} className="space-y-4">
+          <form onSubmit={handleSubmit((data) => saveMutation.mutate(data))} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="promo-code">Code</Label>
@@ -352,13 +368,13 @@ function PromotionsContent() {
               </div>
               <p className="text-xs text-muted-foreground">None selected = applies to all categories.</p>
             </div>
-          <DialogFooter>
-            <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-              {isSubmitting ? "Saving…" : editingId ? "Save" : "Create promotion"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                {saveMutation.isPending ? "Saving…" : editingId ? "Save" : "Create promotion"}
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

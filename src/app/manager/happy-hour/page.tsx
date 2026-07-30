@@ -2,9 +2,10 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { Clock, Loader2, Pencil, Percent, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -21,11 +22,13 @@ import { EntityChip } from "@/components/shared/entity-chip";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { menuService } from "@/features/menu/services";
+import { menuKeys } from "@/features/menu/query-keys";
 import { SearchInput } from "@/components/shared/search-input";
 import { useHighlight } from "@/lib/use-highlight";
+import { useAuth } from "@/context/auth-context";
 import { cn } from "@/features/shared/utils";
 import { zHappyHourInput } from "@/lib/form-schemas";
-import type { HappyHourRule, MenuCategory } from "@/lib/types";
+import type { HappyHourRule } from "@/lib/types";
 import type { z } from "zod";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -42,8 +45,9 @@ const EMPTY_VALUES: FormValues = {
 };
 
 function HappyHourContent() {
-  const [rules, setRules] = useState<HappyHourRule[] | null>(null);
-  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [dayFilter, setDayFilter] = useState<number | "all">("all");
   const [query, setQuery] = useState("");
@@ -51,31 +55,68 @@ function HappyHourContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const highlightedCategory = useHighlight("category");
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(zHappyHourInput),
     defaultValues: EMPTY_VALUES,
   });
   const daysOfWeek = watch("daysOfWeek");
   const appliesToCategoryIds = watch("appliesToCategoryIds");
 
-  const refresh = useCallback(async () => {
-    const [ruleList, catList] = await Promise.all([
-      menuService.listHappyHourRules(),
-      menuService.listCategories(true),
-    ]);
-    setRules(ruleList);
-    setCategories(catList);
-  }, []);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: menuKeys.happyHour(venueId) });
+  };
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: rules } = useQuery({
+    queryKey: menuKeys.happyHour(venueId),
+    queryFn: () => menuService.listHappyHourRules(),
+    enabled: !!venueId,
+  });
 
-  async function toggle(rule: HappyHourRule) {
-    await menuService.toggleHappyHourRule(rule.id);
-    toast.success(`${rule.name} ${rule.isActive ? "deactivated" : "activated"}`);
-    await refresh();
-  }
+  const { data: categories = [] } = useQuery({
+    queryKey: menuKeys.categories(venueId),
+    queryFn: () => menuService.listCategories(true),
+    enabled: !!venueId,
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (rule: HappyHourRule) => menuService.toggleHappyHourRule(rule.id),
+    onSuccess: (_, rule) => {
+      toast.success(`${rule.name} ${rule.isActive ? "deactivated" : "activated"}`);
+      invalidate();
+    },
+    onError: () => toast.error("Could not toggle rule"),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const input: Parameters<typeof menuService.createHappyHourRule>[0] = {
+        ...data,
+        name: data.name.trim(),
+        isActive: data.isActive ?? true,
+      };
+      if (editingId) {
+        await menuService.updateHappyHourRule(editingId, input);
+        return `${input.name} updated`;
+      } else {
+        await menuService.createHappyHourRule(input);
+        return `${input.name} created`;
+      }
+    },
+    onSuccess: (message) => {
+      toast.success(message);
+      setDialogOpen(false);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (rule: HappyHourRule) => menuService.deleteHappyHourRule(rule.id),
+    onSuccess: (_, rule) => {
+      toast.info(`${rule.name} deleted`);
+      invalidate();
+    },
+  });
 
   function openCreate() {
     setEditingId(null);
@@ -95,25 +136,6 @@ function HappyHourContent() {
       isActive: rule.isActive,
     });
     setDialogOpen(true);
-  }
-
-  const onSave = handleSubmit(async (data) => {
-    const input: Parameters<typeof menuService.createHappyHourRule>[0] = { ...data, name: data.name.trim(), isActive: data.isActive ?? true };
-    if (editingId) {
-      await menuService.updateHappyHourRule(editingId, input);
-      toast.success(`${input.name} updated`);
-    } else {
-      await menuService.createHappyHourRule(input);
-      toast.success(`${input.name} created`);
-    }
-    setDialogOpen(false);
-    await refresh();
-  });
-
-  async function remove(rule: HappyHourRule) {
-    await menuService.deleteHappyHourRule(rule.id);
-    toast.info(`${rule.name} deleted`);
-    await refresh();
   }
 
   function toggleDraftDay(day: number) {
@@ -216,7 +238,7 @@ function HappyHourContent() {
         </div>
       </div>
 
-      {rules === null ? (
+      {rules === undefined ? (
         <ListSkeleton rows={3} rowHeight="h-32" />
       ) : visible.length === 0 ? (
         <EmptyState
@@ -261,7 +283,7 @@ function HappyHourContent() {
                           : `Guests get −${rule.discountPct}% on the selected categories during the set hours.`
                       }
                       confirmLabel={rule.isActive ? "Deactivate" : "Activate"}
-                      onConfirm={() => toggle(rule)}
+                      onConfirm={() => toggleMutation.mutate(rule)}
                     />
                     <Button variant="ghost" size="icon" aria-label="Edit rule" onClick={() => openEdit(rule)}>
                       <Pencil className="size-4" />
@@ -281,7 +303,7 @@ function HappyHourContent() {
                       description="The discount stops applying immediately."
                       confirmLabel="Delete rule"
                       destructive
-                      onConfirm={() => remove(rule)}
+                      onConfirm={() => removeMutation.mutate(rule)}
                     />
                   </div>
                 </div>
@@ -317,13 +339,12 @@ function HappyHourContent() {
         Prototype note: discounts are not yet applied to guest cart pricing.
       </p>
 
-      {/* ---------- Create / edit dialog ---------- */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit rule" : "New happy hour rule"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={onSave} className="space-y-4">
+          <form onSubmit={handleSubmit((data) => saveMutation.mutate(data))} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="rule-name">Name</Label>
               <Input id="rule-name" placeholder="e.g. Early bird bottles" {...register("name")} />
@@ -383,15 +404,15 @@ function HappyHourContent() {
                 ))}
               </div>
             </div>
-          <DialogFooter>
-            <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-              {isSubmitting ? "Saving…" : editingId ? "Save" : "Create rule"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                {saveMutation.isPending ? "Saving…" : editingId ? "Save" : "Create rule"}
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

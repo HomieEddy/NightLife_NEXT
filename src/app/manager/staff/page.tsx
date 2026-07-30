@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Pencil, ShieldCheck, ShieldPlus, Trash2, UserPlus, Users } from "lucide-react";
+import { CalendarDays, Pencil, ShieldCheck, ShieldPlus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,28 +26,28 @@ import { CertificationsTab } from "@/components/manager/certifications-tab";
 import { StaffEditDialog } from "@/components/manager/staff-edit-dialog";
 import { staffService } from "@/features/workforce/staff-service";
 import { venueService } from "@/features/venue/services";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { venueKeys } from "@/features/venue/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { SearchInput } from "@/components/shared/search-input";
 import { DateRangePicker, getDefaultDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import { isDemoMode } from "@/features/shared/app-mode";
 import { cn } from "@/features/shared/utils";
 import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
-import type { StaffAccountStatus, StaffMember, StaffRole, Zone } from "@/lib/types";
-
-// TODO(backend): derive from the authenticated session's venueId.
-const VENUE_ID = "venue-1";
+import type { StaffAccountStatus, StaffMember, StaffRole } from "@/lib/types";
 
 const ACCOUNT_BADGE: Record<StaffAccountStatus, { label: string; className: string } | null> = {
-  active: null, // the default — no badge noise
+  active: null,
   invited: { label: "Invited", className: "border-cyan-500/40 text-cyan-600 dark:text-cyan-400" },
   suspended: { label: "Suspended", className: "border-red-500/40 text-red-600 dark:text-red-400" },
 };
 
 function StaffContent() {
   const searchParams = useSearchParams();
-  const [staff, setStaff] = useState<StaffMember[] | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [currentUserRole, setCurrentUserRole] = useState<StaffRole | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [zoneFilter, setZoneFilter] = useState(searchParams.get("zone") ?? "all");
   const [roleFilter, setRoleFilter] = useState<StaffRole | "all">("all");
   const [query, setQuery] = useState("");
@@ -54,26 +55,38 @@ function StaffContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
 
-  const refresh = useCallback(async () => {
-    setStaff(await staffService.listStaff());
-  }, []);
+  const invalidateStaff = () => queryClient.invalidateQueries({ queryKey: staffKeys.list(venueId) });
 
-  useEffect(() => {
-    refresh();
-    venueService.listZones().then(setZones);
-    staffService.getCurrentStaff().then((me) => setCurrentUserRole(me.role));
-  }, [refresh]);
+  const { data: staff } = useQuery({
+    queryKey: staffKeys.list(venueId),
+    queryFn: () => staffService.listStaff(),
+    enabled: !!venueId,
+  });
 
-  async function toggleShift(member: StaffMember) {
-    await staffService.toggleShift(member.id);
-    await refresh();
-  }
+  const { data: zones = [] } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
 
-  async function remove(member: StaffMember) {
-    await staffService.removeStaff(member.id);
-    toast.info(`${member.name} removed`);
-    await refresh();
-  }
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
+
+  const shiftMutation = useMutation({
+    mutationFn: (member: StaffMember) => staffService.toggleShift(member.id),
+    onSuccess: () => invalidateStaff(),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (member: StaffMember) => staffService.removeStaff(member.id),
+    onSuccess: (_, member) => {
+      toast.info(`${member.name} removed`);
+      invalidateStaff();
+    },
+  });
 
   const zoneName = (id: string) => zones.find((z) => z.id === id)?.name ?? id;
   const visible = (staff ?? []).filter((s) => {
@@ -141,141 +154,134 @@ function StaffContent() {
           </TabsTrigger>
         </TabsList>
 
-        {/* ---------- Team tab ---------- */}
         <TabsContent value="team" className="pt-3">
-          {staff === null ? (
+          {staff === undefined ? (
             <ListSkeleton rows={5} rowHeight="h-20" />
           ) : visible.length === 0 ? (
             <EmptyState
               icon={Users}
               title={zoneFilter === "all" ? "No staff yet" : "No staff assigned to this zone"}
-              description={
-                zoneFilter === "all" ? "Add your first team member to get started." : undefined
-              }
+              description={zoneFilter === "all" ? "Add your first team member to get started." : undefined}
             />
           ) : (
             <>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              {sliced.map((member) => {
-                const accountBadge = ACCOUNT_BADGE[member.accountStatus];
-                return (
-                  <Card
-                    key={member.id}
-                    className={cn("py-4", member.accountStatus === "suspended" && "opacity-60")}
-                  >
-                    <CardContent className="flex items-center gap-3 px-4">
-                      <Avatar className="size-10">
-                        <AvatarFallback className="bg-primary/20 text-sm font-semibold text-primary">
-                          {member.avatarInitials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate font-medium">{member.name}</p>
-                          <RoleBadge role={member.role} />
-                          {accountBadge && (
-                            <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px]", accountBadge.className)}>
-                              {accountBadge.label}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="truncate text-xs text-muted-foreground">{member.email}</p>
-                        {member.assignedZoneIds.length > 0 ? (
-                          <div className="mt-0.5 flex flex-wrap gap-1">
-                            {member.assignedZoneIds.map((zoneId) => (
-                              <EntityChip
-                                key={zoneId}
-                                type="zone-tables"
-                                id={zoneId}
-                                label={zoneName(zoneId)}
-                              />
-                            ))}
+              <div className="grid gap-3 md:grid-cols-2">
+                {sliced.map((member) => {
+                  const accountBadge = ACCOUNT_BADGE[member.accountStatus];
+                  return (
+                    <Card
+                      key={member.id}
+                      className={cn("py-4", member.accountStatus === "suspended" && "opacity-60")}
+                    >
+                      <CardContent className="flex items-center gap-3 px-4">
+                        <Avatar className="size-10">
+                          <AvatarFallback className="bg-primary/20 text-sm font-semibold text-primary">
+                            {member.avatarInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-medium">{member.name}</p>
+                            <RoleBadge role={member.role} />
+                            {accountBadge && (
+                              <Badge variant="outline" className={cn("px-1.5 py-0 text-[10px]", accountBadge.className)}>
+                                {accountBadge.label}
+                              </Badge>
+                            )}
                           </div>
-                        ) : (
-                          <p className="truncate text-xs text-muted-foreground">No zone assigned</p>
-                        )}
-                      </div>
-                      <div className="flex shrink-0 items-center gap-1">
-                        <div className="flex flex-col items-center gap-1">
-                          {isDemoMode() ? (
-                            <ConfirmDialog
-                              trigger={
-                                <Switch checked={member.isOnShift} aria-label="Toggle shift" />
-                              }
-                              title={
-                                member.isOnShift
-                                  ? `Clock ${member.name} out?`
-                                  : `Clock ${member.name} in?`
-                              }
-                              description={
-                                member.isOnShift
-                                  ? "They stop receiving orders from their zones."
-                                  : "They start receiving orders from their assigned zones."
-                              }
-                              confirmLabel={member.isOnShift ? "Clock out" : "Clock in"}
-                              onConfirm={() => toggleShift(member)}
-                            />
+                          <p className="truncate text-xs text-muted-foreground">{member.email}</p>
+                          {member.assignedZoneIds.length > 0 ? (
+                            <div className="mt-0.5 flex flex-wrap gap-1">
+                              {member.assignedZoneIds.map((zoneId) => (
+                                <EntityChip
+                                  key={zoneId}
+                                  type="zone-tables"
+                                  id={zoneId}
+                                  label={zoneName(zoneId)}
+                                />
+                              ))}
+                            </div>
                           ) : (
-                            <span
-                              className={`size-2 rounded-full ${member.isOnShift ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
-                            />
+                            <p className="truncate text-xs text-muted-foreground">No zone assigned</p>
                           )}
-                          <span className="text-[10px] text-muted-foreground">
-                            {member.isOnShift ? "On shift" : "Off"}
-                          </span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Edit staff"
-                          onClick={() => {
-                            setEditing(member);
-                            setDialogOpen(true);
-                          }}
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <ConfirmDialog
-                          trigger={
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                              aria-label="Remove"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          }
-                          title={`Remove ${member.name}?`}
-                          description="They will lose access to the staff panel and be removed from the schedule."
-                          confirmLabel="Remove"
-                          destructive
-                          onConfirm={() => remove(member)}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-            <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
+                        <div className="flex shrink-0 items-center gap-1">
+                          <div className="flex flex-col items-center gap-1">
+                            {isDemoMode() ? (
+                              <ConfirmDialog
+                                trigger={
+                                  <Switch checked={member.isOnShift} aria-label="Toggle shift" />
+                                }
+                                title={
+                                  member.isOnShift
+                                    ? `Clock ${member.name} out?`
+                                    : `Clock ${member.name} in?`
+                                }
+                                description={
+                                  member.isOnShift
+                                    ? "They stop receiving orders from their zones."
+                                    : "They start receiving orders from their assigned zones."
+                                }
+                                confirmLabel={member.isOnShift ? "Clock out" : "Clock in"}
+                                onConfirm={() => shiftMutation.mutate(member)}
+                              />
+                            ) : (
+                              <span
+                                className={`size-2 rounded-full ${member.isOnShift ? "bg-emerald-500" : "bg-muted-foreground/30"}`}
+                              />
+                            )}
+                            <span className="text-[10px] text-muted-foreground">
+                              {member.isOnShift ? "On shift" : "Off"}
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Edit staff"
+                            onClick={() => {
+                              setEditing(member);
+                              setDialogOpen(true);
+                            }}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <ConfirmDialog
+                            trigger={
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+                                aria-label="Remove"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            }
+                            title={`Remove ${member.name}?`}
+                            description="They will lose access to the staff panel and be removed from the schedule."
+                            confirmLabel="Remove"
+                            destructive
+                            onConfirm={() => removeMutation.mutate(member)}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
             </>
           )}
         </TabsContent>
 
-        {/* ---------- Schedule tab ---------- */}
         <TabsContent value="schedule" className="pt-3 space-y-4">
           <DateRangePicker value={scheduleDateRange} onChange={setScheduleDateRange} />
           <ScheduleTab staff={staff ?? []} zones={zones} dateRange={scheduleDateRange} />
         </TabsContent>
 
-        {/* ---------- Roles & Access tab ---------- */}
         <TabsContent value="roles" className="pt-3">
-          <RolesAccessTab currentUserRole={currentUserRole} venueId={VENUE_ID} />
+          <RolesAccessTab currentUserRole={me?.role ?? null} venueId={venueId} />
         </TabsContent>
 
-        {/* ---------- Certifications tab ---------- */}
         <TabsContent value="certifications" className="pt-3">
           <CertificationsTab />
         </TabsContent>
@@ -286,7 +292,7 @@ function StaffContent() {
         onOpenChange={setDialogOpen}
         member={editing}
         zones={zones}
-        onDone={refresh}
+        onDone={invalidateStaff}
       />
     </div>
   );

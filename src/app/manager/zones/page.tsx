@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Loader2, Map, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -18,43 +19,49 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { venueService } from "@/features/venue/services";
+import { venueKeys } from "@/features/venue/query-keys";
 import { zoneStaffHref, zoneTablesHref } from "@/features/shared/entity-links";
 import { useHighlight } from "@/lib/use-highlight";
+import { useAuth } from "@/context/auth-context";
 import { cn } from "@/features/shared/utils";
 import { zZoneInput } from "@/lib/form-schemas";
-import type { Zone, VenueTable } from "@/lib/types";
+import type { Zone } from "@/lib/types";
 import type { z } from "zod";
-
 import { ZONE_COLORS, ZONE_SWATCH as SWATCH } from "@/features/shared/zone-colors";
 
 type FormValues = z.infer<typeof zZoneInput>;
 const EMPTY_VALUES: FormValues = { name: "", description: "", color: "violet" as const, capacity: null };
 
 function ZonesContent() {
-  const [zones, setZones] = useState<Zone[] | null>(null);
-  const [tables, setTables] = useState<VenueTable[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const highlighted = useHighlight();
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(zZoneInput),
     defaultValues: EMPTY_VALUES,
   });
   const draftColor = watch("color");
 
-  const refresh = useCallback(async () => {
-    const [zoneList, tableList] = await Promise.all([
-      venueService.listZones(),
-      venueService.listTables(),
-    ]);
-    setZones(zoneList);
-    setTables(tableList);
-  }, []);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: venueKeys.zones(venueId) });
+    queryClient.invalidateQueries({ queryKey: venueKeys.tables(venueId) });
+  };
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: zones } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const { data: tables = [] } = useQuery({
+    queryKey: venueKeys.tables(venueId),
+    queryFn: () => venueService.listTables(),
+    enabled: !!venueId,
+  });
 
   function openCreate() {
     setEditingId(null);
@@ -68,28 +75,35 @@ function ZonesContent() {
     setDialogOpen(true);
   }
 
-  const onSave = handleSubmit(async (data) => {
-    const input = { ...data, name: data.name.trim() };
-    if (editingId) {
-      await venueService.updateZone(editingId, input);
-    } else {
-      await venueService.createZone(input);
-    }
-    setDialogOpen(false);
-    await refresh();
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const input = { ...data, name: data.name.trim() };
+      if (editingId) {
+        await venueService.updateZone(editingId, input);
+      } else {
+        await venueService.createZone(input);
+      }
+    },
+    onSuccess: () => {
+      setDialogOpen(false);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
   });
 
-  async function remove(zone: Zone) {
-    const result = await venueService.deleteZone(zone.id);
-    if (!result.ok) {
-      toast.error(
-        `${zone.name} still has ${result.blockedBy} table${result.blockedBy === 1 ? "" : "s"} — move or delete them first.`,
-      );
-      return;
-    }
-    toast.info(`${zone.name} deleted`);
-    await refresh();
-  }
+  const removeMutation = useMutation({
+    mutationFn: (zone: Zone) => venueService.deleteZone(zone.id),
+    onSuccess: (result, zone) => {
+      if (!result.ok) {
+        toast.error(
+          `${zone.name} still has ${result.blockedBy} table${result.blockedBy === 1 ? "" : "s"} — move or delete them first.`,
+        );
+        return;
+      }
+      toast.info(`${zone.name} deleted`);
+      invalidate();
+    },
+  });
 
   return (
     <div className="space-y-5">
@@ -103,7 +117,7 @@ function ZonesContent() {
         }
       />
 
-      {zones === null ? (
+      {zones === undefined ? (
         <ListSkeleton rows={4} rowHeight="h-28" />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -158,7 +172,7 @@ function ZonesContent() {
                         }
                         confirmLabel="Delete zone"
                         destructive
-                        onConfirm={() => remove(zone)}
+                        onConfirm={() => removeMutation.mutate(zone)}
                       />
                     </div>
                   </div>
@@ -196,11 +210,7 @@ function ZonesContent() {
           <div className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="zone-name">Name</Label>
-              <Input
-                id="zone-name"
-                placeholder="e.g. Rooftop"
-                {...register("name")}
-              />
+              <Input id="zone-name" placeholder="e.g. Rooftop" {...register("name")} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
@@ -237,9 +247,12 @@ function ZonesContent() {
             <Button variant="ghost" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={onSave} disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-              {isSubmitting ? "Saving…" : editingId ? "Save" : "Create zone"}
+            <Button
+              onClick={handleSubmit((data) => saveMutation.mutate(data))}
+              disabled={saveMutation.isPending}
+            >
+              {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+              {saveMutation.isPending ? "Saving…" : editingId ? "Save" : "Create zone"}
             </Button>
           </DialogFooter>
         </DialogContent>

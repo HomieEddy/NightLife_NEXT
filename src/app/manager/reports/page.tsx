@@ -2,11 +2,12 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   CalendarClock, Download, Eye, FileText, Loader2, Pencil, Plus, Trash2, X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@/components/ui/badge";
@@ -34,9 +35,11 @@ import {
 import {
   reportService, REPORT_METRICS, type ReportMetric, type SavedReport,
 } from "@/features/analytics/report-service";
+import { reportsKeys } from "@/features/analytics/query-keys";
 import { renderCsv } from "@/features/analytics/report-csv";
 import { formatMoney, formatPct, timeAgo } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
+import { useAuth } from "@/context/auth-context";
 import { zReportConfigInput } from "@/lib/form-schemas";
 import type { z } from "zod";
 
@@ -85,25 +88,67 @@ export default function ManagerReportsPage() {
 }
 
 function ReportsPageContent() {
-  const [reports, setReports] = useState<SavedReport[] | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewing, setViewing] = useState<{ report: SavedReport; data: HistoricalAnalytics } | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(zReportConfigInput),
     defaultValues: EMPTY_VALUES,
   });
   const scheduled = watch("scheduled");
   const metrics = watch("metrics");
 
-  const refresh = useCallback(async () => {
-    setReports(await reportService.listReports());
-  }, []);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: reportsKeys.all(venueId) });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: reports } = useQuery({
+    queryKey: reportsKeys.all(venueId),
+    queryFn: () => reportService.listReports(),
+    enabled: !!venueId,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const input = {
+        name: data.name.trim(),
+        metrics: data.metrics as ReportMetric[],
+        rangeDays: data.rangeDays,
+        schedule: data.scheduled
+          ? { frequency: data.frequency, recipient: (data.recipient ?? "").trim() }
+          : null,
+      };
+      if (editingId) {
+        await reportService.updateReport(editingId, input);
+        return `${input.name} updated`;
+      } else {
+        return reportService.createReport(input).then(() =>
+          input.schedule
+            ? `${input.name} saved — runs ${input.schedule.frequency}`
+            : `${input.name} saved`,
+        );
+      }
+    },
+    onSuccess: (message) => {
+      toast.success(message);
+      setEditingId(null);
+      reset(EMPTY_VALUES);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (report: SavedReport) => reportService.deleteReport(report.id),
+    onSuccess: (_, report) => {
+      if (viewing?.report.id === report.id) setViewing(null);
+      if (editingId === report.id) { setEditingId(null); reset(EMPTY_VALUES); }
+      toast.info(`${report.name} deleted`);
+      invalidate();
+    },
+  });
 
   function toggleMetric(id: ReportMetric) {
     setValue("metrics",
@@ -126,30 +171,7 @@ function ReportsPageContent() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const onSave = handleSubmit(async (data) => {
-    const input = {
-      name: data.name.trim(),
-      metrics: data.metrics as ReportMetric[],
-      rangeDays: data.rangeDays,
-      schedule: data.scheduled
-        ? { frequency: data.frequency, recipient: (data.recipient ?? "").trim() }
-        : null,
-    };
-    if (editingId) {
-      await reportService.updateReport(editingId, input);
-      toast.success(`${input.name} updated`);
-    } else {
-      await reportService.createReport(input);
-      toast.success(
-        input.schedule
-          ? `${input.name} saved — runs ${input.schedule.frequency}`
-          : `${input.name} saved`,
-      );
-    }
-    setEditingId(null);
-    reset(EMPTY_VALUES);
-    await refresh();
-  });
+  const onSave = handleSubmit((data) => saveMutation.mutate(data));
 
   async function run(report: SavedReport): Promise<HistoricalAnalytics> {
     const data = await analyticsService.getHistorical(
@@ -157,7 +179,7 @@ function ReportsPageContent() {
       isoDaysAgo(0),
     );
     await reportService.markRun(report.id);
-    await refresh();
+    invalidate();
     return data;
   }
 
@@ -173,17 +195,6 @@ function ReportsPageContent() {
     downloadCsv(report, await run(report));
     setRunningId(null);
     toast.success(`${report.name} downloaded as CSV`);
-  }
-
-  async function remove(report: SavedReport) {
-    await reportService.deleteReport(report.id);
-    if (viewing?.report.id === report.id) setViewing(null);
-    if (editingId === report.id) {
-      setEditingId(null);
-      reset(EMPTY_VALUES);
-    }
-    toast.info(`${report.name} deleted`);
-    await refresh();
   }
 
   return (
@@ -314,9 +325,9 @@ function ReportsPageContent() {
                 Cancel edit
               </Button>
             )}
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-              {isSubmitting ? "Saving…" : editingId ? "Save changes" : "Save report"}
+            <Button type="submit" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              {saveMutation.isPending ? "Saving…" : editingId ? "Save changes" : "Save report"}
             </Button>
           </div>
           </form>
@@ -536,7 +547,7 @@ function ReportsPageContent() {
           <CardTitle className="text-base">Saved & scheduled reports</CardTitle>
         </CardHeader>
         <CardContent>
-          {reports === null ? (
+          {reports === undefined ? (
             <ListSkeleton rows={3} rowHeight="h-12" />
           ) : reports.length === 0 ? (
             <EmptyState
@@ -636,7 +647,7 @@ function ReportsPageContent() {
                             }
                             confirmLabel="Delete report"
                             destructive
-                            onConfirm={() => remove(report)}
+                            onConfirm={() => removeMutation.mutate(report)}
                           />
                         </div>
                       </TableCell>
