@@ -29,7 +29,6 @@ export const liveReservationService = {
     return api<Reservation[]>(`/api/reservations${qs ? `?${qs}` : ""}`);
   },
 
-  // TODO(backend): add promoterId filter to reservation list query
   async listMyReservations(promoterId: string): Promise<Reservation[]> {
     const params = new URLSearchParams({ promoterId });
     return api<Reservation[]>(`/api/reservations?${params}`);
@@ -84,14 +83,10 @@ export const liveReservationService = {
     return this.setStatus(id, "cancelled");
   },
 
-  // TODO(backend): plan 17 graduation — the route handler rejects "no-show"
-  // today (see setReservationStatus in src/server/reservation-core.ts); wire
-  // it through once the Prisma enum gains the value.
   async markNoShow(id: string): Promise<Reservation | null> {
     return this.setStatus(id, "no-show");
   },
 
-  // TODO(backend): implement public reservation API routes (plan 13)
   async getPublicAvailability(
     venueSlug: string,
     opts: { date: string; eventId?: string },
@@ -140,7 +135,6 @@ export const liveReservationService = {
     return api("/api/reservations/capacity-check", { method: "POST" });
   },
 
-  // TODO(backend): blackout date API routes
   async listBlackoutDates(): Promise<BlackoutDate[]> {
     return api<BlackoutDate[]>("/api/reservations/blackout-dates");
   },
@@ -151,7 +145,6 @@ export const liveReservationService = {
     await api<void>(`/api/reservations/blackout-dates/${encodeURIComponent(id)}`, { method: "DELETE" });
   },
 
-  // TODO(backend): bump reservation API route
   async bumpReservation(
     reservationId: string,
     input: { reason: string; alternativeTableId?: string; byStaffId: string; byStaffName: string },
