@@ -104,3 +104,17 @@ CREATE TABLE IF NOT EXISTS "certifications" (
 );
 CREATE INDEX IF NOT EXISTS "idx_certifications_venue_staff" ON "certifications" ("venue_id", "staff_id");
 CREATE INDEX IF NOT EXISTS "idx_certifications_venue_expires" ON "certifications" ("venue_id", "expires_at");
+
+-- GuestReferral: guest referral tracking (CRM-06)
+CREATE TABLE IF NOT EXISTS "guest_referrals" (
+    "id" TEXT PRIMARY KEY,
+    "venue_id" TEXT NOT NULL,
+    "referrer_profile_id" TEXT NOT NULL,
+    "referred_profile_id" TEXT NOT NULL,
+    "source" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+    "converted_at" TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS "idx_guest_referrals_venue" ON "guest_referrals" ("venue_id");
+CREATE INDEX IF NOT EXISTS "idx_guest_referrals_referrer" ON "guest_referrals" ("referrer_profile_id");

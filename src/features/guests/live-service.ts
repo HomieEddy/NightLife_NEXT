@@ -1,6 +1,7 @@
 "use client";
 
 import type { BarTab, GuestSession, HelpRequest, HelpRequestType, SettlementMethod, SplitBillAssignment } from "@/lib/types";
+import { liveFetch } from "@/features/shared/live-fetch";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await liveFetch(path, {
@@ -35,7 +36,7 @@ export const liveGuestsService = {
   },
 
   async getSession(_sessionId: string): Promise<GuestSession | null> {
-    const res = await liveFetch(`/api/guest/session`);
+    const res = await liveFetch("/api/guest/session");
     if (res.status === 404) return null;
     if (!res.ok) throw new Error("Failed to get session");
     return res.json();
@@ -109,16 +110,6 @@ export const liveGuestsService = {
     });
   },
 
-  // TODO(backend): plan 17 graduation — no route exists yet for refusing
-  // service on a session; responsible-service controls stay demo-track only.
-  async refuseService(): Promise<GuestSession | null> {
-    throw new Error("Not yet supported in the live build");
-  },
-
-  async ejectGuest(): Promise<void> {
-    throw new Error("Not yet supported in the live build");
-  },
-
   async splitBill(sessionId: string, splits: { label: string; orderItemIds: string[] }[]): Promise<SplitBillAssignment | null> {
     return api<SplitBillAssignment>(`/api/tab/sessions/${encodeURIComponent(sessionId)}/split`, {
       method: "POST",
@@ -126,72 +117,151 @@ export const liveGuestsService = {
     });
   },
 
-  async createBarTab(): Promise<BarTab> {
-    throw new Error("Not yet supported in the live build");
-  },
-
-  async closeBarTab(): Promise<BarTab> {
-    throw new Error("Not yet supported in the live build");
-  },
-
-  async listBarTabs(): Promise<BarTab[]> {
-    throw new Error("Not yet supported in the live build");
-  },
-
   async markLastCallOrderPlaced(sessionId: string): Promise<void> {
     await api(`/api/sessions/${encodeURIComponent(sessionId)}/last-call-order`, { method: "POST" });
   },
 
-  async assignHost(): Promise<GuestSession | null> {
-    throw new Error("Not yet supported in the live build");
+  // ---------- WS-2 graduated methods ----------
+
+  async refuseService(sessionId: string, reason: string, staffId: string, staffName: string): Promise<GuestSession | null> {
+    return api<GuestSession>(`/api/sessions/${encodeURIComponent(sessionId)}/refuse-service`, {
+      method: "POST",
+      body: JSON.stringify({ reason, staffId, staffName }),
+    });
   },
 
-  async unassignHost(): Promise<GuestSession | null> {
-    throw new Error("Not yet supported in the live build");
+  async ejectGuest(sessionId: string, reason: string, staffId: string, staffName: string): Promise<void> {
+    await api(`/api/sessions/${encodeURIComponent(sessionId)}/eject`, {
+      method: "POST",
+      body: JSON.stringify({ reason, staffId, staffName }),
+    });
   },
 
-  async listSessionsByHost(): Promise<GuestSession[]> {
-    throw new Error("Not yet supported in the live build");
+  // ---------- WS-2: Bar tabs ----------
+
+  async createBarTab(input: {
+    guestName: string;
+    guestProfileId?: string;
+    staffId: string;
+    staffName: string;
+  }): Promise<BarTab> {
+    return api<BarTab>("/api/bar-tabs", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   },
 
-  async getGuestSpendTonight(): Promise<{ totalSpent: number; orderCount: number; sessionCount: number }> {
-    throw new Error("Not yet supported in the live build");
+  async closeBarTab(barTabId: string): Promise<BarTab> {
+    return api<BarTab>(`/api/bar-tabs/${encodeURIComponent(barTabId)}/close`, {
+      method: "POST",
+    });
   },
 
-  async getTopSpendersTonight(): Promise<{ profileId: string; displayName: string; totalSpent: number; orderCount: number; tier: import("@/lib/types").GuestVipTier }[]> {
-    throw new Error("Not yet supported in the live build");
+  async listBarTabs(): Promise<BarTab[]> {
+    return api<BarTab[]>("/api/bar-tabs");
   },
 
-  async listVipTierBenefits(): Promise<import("@/lib/types").VipTierBenefit[]> {
-    throw new Error("Not yet supported in the live build");
+  // ---------- WS-2: Host assignment ----------
+
+  async assignHost(
+    sessionId: string,
+    hostId: string,
+    hostName: string,
+  ): Promise<GuestSession | null> {
+    return api<GuestSession>(`/api/sessions/${encodeURIComponent(sessionId)}/host`, {
+      method: "POST",
+      body: JSON.stringify({ hostStaffId: hostId, hostStaffName: hostName }),
+    });
   },
 
-  async createVipTierBenefit(): Promise<import("@/lib/types").VipTierBenefit> {
-    throw new Error("Not yet supported in the live build");
+  async unassignHost(sessionId: string): Promise<GuestSession | null> {
+    return api<GuestSession>(`/api/sessions/${encodeURIComponent(sessionId)}/host`, {
+      method: "DELETE",
+    });
   },
 
-  async updateVipTierBenefit(): Promise<import("@/lib/types").VipTierBenefit | null> {
-    throw new Error("Not yet supported in the live build");
+  async listSessionsByHost(hostId: string): Promise<GuestSession[]> {
+    return api<GuestSession[]>(`/api/sessions?hostStaffId=${encodeURIComponent(hostId)}`);
   },
 
-  async removeVipTierBenefit(): Promise<void> {
-    throw new Error("Not yet supported in the live build");
+  // ---------- WS-2: Spend analytics ----------
+
+  async getGuestSpendTonight(profileId: string): Promise<{ totalSpent: number; orderCount: number; sessionCount: number }> {
+    return api(`/api/guests/spend?profileId=${encodeURIComponent(profileId)}`);
   },
 
-  async detectAbandonedSessions(): Promise<GuestSession[]> {
-    throw new Error("Not yet supported in the live build");
+  async getTopSpendersTonight(limit = 10): Promise<{ profileId: string; displayName: string; totalSpent: number; orderCount: number; tier: import("@/lib/types").GuestVipTier }[]> {
+    return api(`/api/guests/spend?top=${limit}`);
   },
-  async autoCloseSession(): Promise<GuestSession | null> {
-    throw new Error("Not yet supported in the live build");
+
+  // ---------- WS-2: VIP tier benefits ----------
+
+  async listVipTierBenefits(tier?: import("@/lib/types").GuestVipTier): Promise<import("@/lib/types").VipTierBenefit[]> {
+    const qs = tier ? `?tier=${encodeURIComponent(tier)}` : "";
+    return api<import("@/lib/types").VipTierBenefit[]>(`/api/guests/vip-tiers${qs}`);
   },
-  async addSessionNote(): Promise<import("@/lib/types").SessionNote> {
-    throw new Error("Not yet supported in the live build");
+
+  async createVipTierBenefit(input: Omit<import("@/lib/types").VipTierBenefit, "id" | "venueId">): Promise<import("@/lib/types").VipTierBenefit> {
+    return api<import("@/lib/types").VipTierBenefit>("/api/guests/vip-tiers", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   },
-  async listSessionNotes(): Promise<import("@/lib/types").SessionNote[]> {
-    throw new Error("Not yet supported in the live build");
+
+  async updateVipTierBenefit(
+    id: string,
+    patch: Partial<Pick<import("@/lib/types").VipTierBenefit, "benefit" | "category" | "sortOrder" | "active">>,
+  ): Promise<import("@/lib/types").VipTierBenefit | null> {
+    const res = await liveFetch(`/api/guests/vip-tiers/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Failed to update VIP tier benefit ${id}`);
+    return res.json();
   },
-  async forceCloseSession(): Promise<GuestSession | null> {
-    throw new Error("Not yet supported in the live build");
+
+  async removeVipTierBenefit(id: string): Promise<void> {
+    await api(`/api/guests/vip-tiers/${encodeURIComponent(id)}`, { method: "DELETE" });
+  },
+
+  // ---------- WS-2: Abandoned session detection ----------
+
+  async detectAbandonedSessions(thresholdMinutes = 60): Promise<GuestSession[]> {
+    return api<GuestSession[]>(`/api/sessions?status=approved&inactiveMinutes=${thresholdMinutes}`);
+  },
+
+  async autoCloseSession(sessionId: string): Promise<GuestSession | null> {
+    return api<GuestSession>(`/api/sessions/${encodeURIComponent(sessionId)}/force-close`, {
+      method: "POST",
+    });
+  },
+
+  // ---------- WS-2: Session notes ----------
+
+  async addSessionNote(
+    sessionId: string,
+    note: string,
+    staffId: string,
+    staffName: string,
+  ): Promise<import("@/lib/types").SessionNote> {
+    return api<import("@/lib/types").SessionNote>(`/api/sessions/${encodeURIComponent(sessionId)}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ note, staffId, staffName }),
+    });
+  },
+
+  async listSessionNotes(sessionId: string): Promise<import("@/lib/types").SessionNote[]> {
+    return api<import("@/lib/types").SessionNote[]>(
+      `/api/sessions/${encodeURIComponent(sessionId)}/notes`,
+    );
+  },
+
+  async forceCloseSession(sessionId: string, reason: string, staffId: string, staffName: string): Promise<GuestSession | null> {
+    return api<GuestSession>(`/api/sessions/${encodeURIComponent(sessionId)}/force-close`, {
+      method: "POST",
+      body: JSON.stringify({ reason, staffId, staffName }),
+    });
   },
 };
-import { liveFetch } from "@/features/shared/live-fetch";

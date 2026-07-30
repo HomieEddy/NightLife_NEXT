@@ -1,6 +1,7 @@
 "use client";
 
 import type { Venue, VenueTable, Zone } from "@/lib/types";
+import { liveFetch } from "@/features/shared/live-fetch";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await liveFetch(path, {
@@ -89,17 +90,27 @@ export const liveVenueService = {
     return result.data;
   },
 
-  async holdTable(): Promise<VenueTable | null> {
-    throw new Error("Not yet supported in the live build");
+  // ---------- WS-2: Table lifecycle actions ----------
+  async holdTable(tableId: string, reason: string, heldBy: string, heldUntil?: string): Promise<VenueTable | null> {
+    return api<VenueTable>(`/api/tables/${encodeURIComponent(tableId)}/hold`, {
+      method: "POST",
+      body: JSON.stringify({ reason, heldBy, heldUntil }),
+    });
   },
-  async releaseHold(): Promise<VenueTable | null> {
-    throw new Error("Not yet supported in the live build");
+  async releaseHold(tableId: string): Promise<VenueTable | null> {
+    return api<VenueTable>(`/api/tables/${encodeURIComponent(tableId)}/release`, {
+      method: "POST",
+    });
   },
-  async markOutOfService(): Promise<VenueTable | null> {
-    throw new Error("Not yet supported in the live build");
+  async markOutOfService(tableId: string, reason: string, heldBy: string): Promise<VenueTable | null> {
+    return api<VenueTable>(`/api/tables/${encodeURIComponent(tableId)}/oos`, {
+      method: "POST",
+      body: JSON.stringify({ reason, heldBy }),
+    });
   },
-  async returnToService(): Promise<VenueTable | null> {
-    throw new Error("Not yet supported in the live build");
+  async returnToService(tableId: string): Promise<VenueTable | null> {
+    return api<VenueTable>(`/api/tables/${encodeURIComponent(tableId)}/return-to-service`, {
+      method: "POST",
+    });
   },
 };
-import { liveFetch } from "@/features/shared/live-fetch";

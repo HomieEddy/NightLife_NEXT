@@ -18,6 +18,17 @@ async function liveGET(request: NextRequest) {
 
   const url = new URL(request.url);
   const status = url.searchParams.get("status") as Parameters<typeof listSessions>[1];
+  const hostStaffId = url.searchParams.get("hostStaffId");
+
+  if (hostStaffId) {
+    // hostStaffId is a live-track column not surfaced in the mock GuestSession type —
+    // query Prisma directly so we can filter at the DB level.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = { venueId, hostStaffId };
+    if (status) where.status = status;
+    const rows = await db.guestSession.findMany({ where, orderBy: { createdAt: "desc" } });
+    return NextResponse.json(rows);
+  }
 
   return NextResponse.json(await listSessions(db, status ?? undefined));
 }
