@@ -1116,6 +1116,8 @@ export interface EventGuest {
   status: "invited" | "confirmed" | "checked-in";
   /** Set when a repeat guestlist name resolves to a known GuestProfile (plan 17). */
   guestProfileId?: string;
+  /** PR-02: Staff promoter ID for quota enforcement. */
+  promoterId?: string;
 }
 
 /** EV-01: Artist/talent booked for an event — DJ, MC, performer, host, etc. */
