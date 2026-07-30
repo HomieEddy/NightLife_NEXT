@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use, useCallback, useEffect, useState } from "react";
+import { Suspense, use, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,10 +25,10 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FloorMapCanvas } from "@/components/shared/floor-map-canvas";
 import { reservationService } from "@/features/hospitality/reservation-service";
+import { reservationsKeys } from "@/features/hospitality/query-keys";
 import { formatMoney } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import { ZONE_SWATCH } from "@/features/shared/zone-colors";
-import type { PublicAvailability, PublicTableAvailability } from "@/features/hospitality/reservation-service";
 import type { VenueTable, Zone } from "@/lib/types";
 import { z } from "zod";
 
@@ -59,40 +60,55 @@ export default function PublicReservationPage({
 
 function ReservationContent({ venueSlug }: { venueSlug: string }) {
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const dateParam = searchParams.get("date");
   const eventParam = searchParams.get("event");
 
   const [date, setDate] = useState(dateParam || tomorrow());
-  const [data, setData] = useState<PublicAvailability | null>(null);
-  const [loading, setLoading] = useState(true);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  const { data, isPending: loading } = useQuery({
+    queryKey: reservationsKeys.publicAvailability(venueSlug),
+    queryFn: () =>
+      reservationService.getPublicAvailability(venueSlug, {
+        date,
+        eventId: eventParam || undefined,
+      }),
+    enabled: !submitted,
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async (formData: { guestName: string; guestEmail?: string; guestPhone?: string; note?: string }) => {
+      if (!selectedTable) throw new Error("No table selected");
+      await reservationService.createPublicReservation({
+        venueSlug,
+        tableId: selectedTable.id,
+        zoneId: selectedTable.zoneId,
+        guestName: formData.guestName.trim(),
+        partySize,
+        date,
+        guestEmail: formData.guestEmail?.trim() || undefined,
+        guestPhone: formData.guestPhone?.trim() || undefined,
+        note: formData.note?.trim() || undefined,
+        eventId: eventParam || undefined,
+      });
+    },
+    onSuccess: () => {
+      setSubmitted(true);
+      toast.success("Reservation request sent!");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Could not submit reservation.");
+    },
+  });
+
   // Form state
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(z.object({ guestName: z.string().min(1, "Name is required"), guestEmail: z.string().default(""), guestPhone: z.string().default(""), note: z.string().default("") })),
     defaultValues: { guestName: "", guestEmail: "", guestPhone: "", note: "" },
   });
   const [partySize, setPartySize] = useState(2);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await reservationService.getPublicAvailability(venueSlug, {
-        date,
-        eventId: eventParam || undefined,
-      });
-      setData(result);
-    } catch {
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [venueSlug, date, eventParam]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const selectedTable = data?.tables.find((t) => t.id === selectedTableId) ?? null;
 
@@ -102,26 +118,8 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
     setSelectedTableId((prev) => (prev === table.id ? null : table.id));
   }
 
-  const onSubmit = handleSubmit(async (data) => {
-    if (!data || !selectedTable) return;
-    try {
-      await reservationService.createPublicReservation({
-        venueSlug,
-        tableId: selectedTable.id,
-        zoneId: selectedTable.zoneId,
-        guestName: data.guestName.trim(),
-        partySize,
-        date,
-        guestEmail: data.guestEmail?.trim() || undefined,
-        guestPhone: data.guestPhone?.trim() || undefined,
-        note: data.note?.trim() || undefined,
-        eventId: eventParam || undefined,
-      });
-      setSubmitted(true);
-      toast.success("Reservation request sent!");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not submit reservation.");
-    }
+  const onSubmit = handleSubmit(async (formData) => {
+    submitMutation.mutate(formData);
   });
 
   if (loading) {
@@ -170,7 +168,7 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
             setSelectedTableId(null);
             reset({ guestName: "", guestEmail: "", guestPhone: "", note: "" });
             setPartySize(2);
-            refresh();
+            queryClient.invalidateQueries({ queryKey: reservationsKeys.publicAvailability(venueSlug) });
           }}
         >
           Make another reservation
@@ -340,9 +338,9 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
                     <Label htmlFor="pub-note">Note (optional)</Label>
                     <Textarea id="pub-note" rows={2} placeholder="Birthday, special requests…" {...register("note")} />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isSubmitting || data.nightOpen}>
-                    {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-                    {isSubmitting ? "Submitting…" : "Request reservation"}
+                  <Button type="submit" className="w-full" disabled={isSubmitting || submitMutation.isPending || data.nightOpen}>
+                    {(isSubmitting || submitMutation.isPending) && <Loader2 className="size-4 animate-spin" />}
+                    {isSubmitting || submitMutation.isPending ? "Submitting…" : "Request reservation"}
                   </Button>
                   </form>
                 </CardContent>

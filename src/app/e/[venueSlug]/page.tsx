@@ -1,8 +1,9 @@
 "use client";
 
-import { Suspense, use, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, use, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarCheck, ChevronLeft, ChevronRight, PartyPopper, Ticket } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandLogo } from "@/components/shared/brand-logo";
@@ -12,8 +13,8 @@ import {
   EventActionGold,
 } from "@/components/shared/event-card";
 import { eventsService } from "@/features/hospitality/events-service";
+import { eventsKeys } from "@/features/hospitality/query-keys";
 import { publicReservationHref } from "@/features/shared/entity-links";
-import type { VenueEvent } from "@/lib/types";
 
 function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -57,31 +58,23 @@ export default function PublicEventsPage({
 
 function EventsContent({ venueSlug }: { venueSlug: string }) {
   const router = useRouter();
-  const [venueName, setVenueName] = useState<string | null>(null);
-  const [events, setEvents] = useState<VenueEvent[] | null>(null);
-  const [notFound, setNotFound] = useState(false);
   const [month, setMonth] = useState(() => monthKey(new Date()));
 
-  const refresh = useCallback(async () => {
-    const result = await eventsService.listPublicEvents(venueSlug);
-    if (!result) {
-      setNotFound(true);
-      return;
-    }
-    setVenueName(result.venueName);
-    setEvents(result.events);
-  }, [venueSlug]);
+  const { data, isPending } = useQuery({
+    queryKey: eventsKeys.publicList(venueSlug),
+    queryFn: () => eventsService.listPublicEvents(venueSlug),
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const venueName = data?.venueName ?? null;
+  const events = data?.events ?? null;
 
   const visible = useMemo(
     () => events?.filter((evt) => evt.startsAt.slice(0, 7) === month) ?? null,
     [events, month],
   );
 
-  if (notFound) {
+  // notFound: data resolved to null (venue not found)
+  if (data === null) {
     return (
       <div className="flex min-h-[60dvh] items-center justify-center p-4">
         <EmptyState
@@ -93,7 +86,7 @@ function EventsContent({ venueSlug }: { venueSlug: string }) {
     );
   }
 
-  if (!events) {
+  if (isPending) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4 pt-10">
         <Skeleton className="mx-auto h-8 w-48" />
