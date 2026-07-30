@@ -1,5 +1,6 @@
 "use client";
 
+import { liveFetch } from "@/features/shared/live-fetch";
 import type { ChatMessage, StaffMember, StaffShift, StaffTableAssignment } from "@/lib/types";
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -95,31 +96,38 @@ export const liveStaffService = {
     });
   },
 
-  async assignTables(_input: { staffId: string; tableIds: string[]; zoneId: string; shiftId?: string }): Promise<StaffTableAssignment> {
-    throw new Error("Not yet supported in the live build");
+  async assignTables(input: { staffId: string; tableIds: string[]; zoneId: string; shiftId?: string }): Promise<StaffTableAssignment> {
+    return api<StaffTableAssignment>("/api/workforce/staff/assignments", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   },
 
-  async getTableAssignment(_staffId: string): Promise<StaffTableAssignment | null> {
-    throw new Error("Not yet supported in the live build");
+  async getTableAssignment(staffId: string): Promise<StaffTableAssignment | null> {
+    return api<StaffTableAssignment | null>(`/api/workforce/staff/assignments?staffId=${encodeURIComponent(staffId)}`);
   },
 
-  async getAssignedStaff(_tableId: string): Promise<StaffTableAssignment[]> {
-    throw new Error("Not yet supported in the live build");
+  async getAssignedStaff(tableId: string): Promise<StaffTableAssignment[]> {
+    return api<StaffTableAssignment[]>(`/api/workforce/staff/assignments?tableId=${encodeURIComponent(tableId)}`);
   },
 
-  async generateHandoff(): Promise<import("@/lib/types").ShiftHandoff> {
-    throw new Error("Not yet supported in the live build");
+  async generateHandoff(input: { fromStaffId: string; fromStaffName: string; toStaffId?: string; toStaffName?: string; openIncidents: string[]; vipNotes: string; inventoryAlerts: string; specialInstructions: string }): Promise<import("@/lib/types").ShiftHandoff> {
+    return api<import("@/lib/types").ShiftHandoff>("/api/workforce/staff/handoffs", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   },
-  async acknowledgeHandoff(): Promise<import("@/lib/types").ShiftHandoff | null> {
-    throw new Error("Not yet supported in the live build");
+  async acknowledgeHandoff(handoffId: string, staffId: string, staffName: string): Promise<import("@/lib/types").ShiftHandoff | null> {
+    return api<import("@/lib/types").ShiftHandoff | null>(`/api/workforce/staff/handoffs/${encodeURIComponent(handoffId)}/acknowledge`, {
+      method: "POST",
+      body: JSON.stringify({ staffId, staffName }),
+    });
   },
   async listHandoffs(): Promise<import("@/lib/types").ShiftHandoff[]> {
-    throw new Error("Not yet supported in the live build");
+    return api<import("@/lib/types").ShiftHandoff[]>("/api/workforce/staff/handoffs");
   },
 
-  // TODO(backend): shift reminder scheduled job
   async sendShiftReminders(): Promise<number> {
     return api<number>("/api/notifications/shift-reminders", { method: "POST" });
   },
 };
-import { liveFetch } from "@/features/shared/live-fetch";
