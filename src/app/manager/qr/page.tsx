@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { Copy, Download, Printer, QrCode, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -16,9 +16,11 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { venueService } from "@/features/venue/services";
+import { venueKeys } from "@/features/venue/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/features/shared/utils";
-import type { TableStatus, VenueTable, Zone } from "@/lib/types";
+import type { TableStatus, VenueTable } from "@/lib/types";
 
 /** Real, scannable QR rendered as inline SVG. */
 function QrSvg({ url, className }: { url: string; className?: string }) {
@@ -36,8 +38,8 @@ function QrSvg({ url, className }: { url: string; className?: string }) {
 }
 
 export default function ManagerQrPage() {
-  const [tables, setTables] = useState<VenueTable[] | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
   const [zoneFilter, setZoneFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<TableStatus | "all">("all");
   const [query, setQuery] = useState("");
@@ -45,18 +47,21 @@ export default function ManagerQrPage() {
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    Promise.all([venueService.listTables(), venueService.listZones()]).then(
-      ([tableList, zoneList]) => {
-        setTables(tableList);
-        setZones(zoneList);
-      },
-    );
   }, []);
 
-  const tableUrl = useCallback(
-    (table: VenueTable) => `${origin}/g/${table.qrSlug}`,
-    [origin],
-  );
+  const { data: tables } = useQuery({
+    queryKey: venueKeys.tables(venueId),
+    queryFn: () => venueService.listTables(),
+    enabled: !!venueId,
+  });
+
+  const { data: zones = [] } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const tableUrl = (table: VenueTable) => `${origin}/g/${table.qrSlug}`;
 
   function copyLink(table: VenueTable) {
     navigator.clipboard.writeText(tableUrl(table)).then(
@@ -98,7 +103,7 @@ export default function ManagerQrPage() {
       }
       return true;
     }),
-    [tables, zoneFilter, statusFilter, query],
+    [tables, zoneFilter, statusFilter, query, zones],
   );
 
   return (
@@ -156,54 +161,47 @@ export default function ManagerQrPage() {
           </div>
         </div>
 
-        {tables === null || !origin ? (
+        {tables === undefined || !origin ? (
           <ListSkeleton rows={6} rowHeight="h-24" />
+        ) : visible.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
+            <QrCode className="mx-auto mb-2 size-8 opacity-30" />
+            No tables match the current filters.
+          </div>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((table) => (
-              <Card key={table.id} className="py-4">
-                <CardContent className="flex items-center gap-4 px-4">
-                  <QrSvg
-                    url={tableUrl(table)}
-                    className="size-16 shrink-0 overflow-hidden rounded-md border bg-white p-1 [&_svg]:size-full"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-mono text-sm font-semibold">{table.code}</p>
-                      <StatusBadge status={table.status} />
+              <Card key={table.id} className="flex flex-col">
+                <CardContent className="flex flex-1 flex-col items-center gap-3 p-4">
+                  <div className="flex w-full items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">{table.code}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {zoneName(table.zoneId)} · <StatusBadge status={table.status} />
+                      </p>
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {table.label} · {zoneName(table.zoneId)}
-                    </p>
-                    <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-                      /g/{table.qrSlug}
-                    </p>
+                    <div className="flex items-center gap-0.5">
+                      <ConfirmDialog
+                        trigger={
+                          <Button variant="ghost" size="icon" className="size-8" aria-label={`Regenerate QR for ${table.code}`}>
+                            <RefreshCw className="size-3.5" />
+                          </Button>
+                        }
+                        title="Regenerate token?"
+                        description="The old QR won't work anymore. The new code prints automatically."
+                        confirmLabel="Regenerate"
+                        onConfirm={() => regenerateToken(table)}
+                      />
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => copyLink(table)} aria-label={`Copy link for ${table.code}`}>
+                        <Copy className="size-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => downloadPng(table)} aria-label={`Download QR for ${table.code}`}>
+                        <Download className="size-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 flex-col gap-1.5">
-                    <Button size="sm" variant="outline" onClick={() => copyLink(table)}>
-                      <Copy className="size-3.5" /> Copy
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => downloadPng(table)}>
-                      <Download className="size-3.5" /> PNG
-                    </Button>
-                    <ConfirmDialog
-                      trigger={
-                        <Button size="sm" variant="outline">
-                          <RefreshCw className="size-3.5" /> Regen
-                        </Button>
-                      }
-                      title={`Regenerate QR for ${table.code}?`}
-                      description="The current printed QR code will stop working. You'll need to reprint it."
-                      confirmLabel="Regenerate"
-                      destructive
-                      onConfirm={() => regenerateToken(table)}
-                    />
-                    <Button size="sm" variant="ghost" asChild>
-                      <Link href={`/g/${table.qrSlug}`}>
-                        <QrCode className="size-3.5" /> Open
-                      </Link>
-                    </Button>
-                  </div>
+                  <QrSvg url={tableUrl(table)} className="size-32 rounded-lg bg-white p-1.5" />
+                  <p className="w-full break-all text-center text-[0.7rem] leading-tight text-muted-foreground select-all">{tableUrl(table)}</p>
                 </CardContent>
               </Card>
             ))}
@@ -211,20 +209,15 @@ export default function ManagerQrPage() {
         )}
       </div>
 
-      {/* ---------- Print-only sheet (respects zone filter) ---------- */}
+      {/* Print-friendly sheet */}
       <div className="hidden print:block">
-        <div className="grid grid-cols-2 gap-6">
-          {visible.map((table) => (
-            <div
-              key={table.id}
-              className="flex break-inside-avoid flex-col items-center gap-2 rounded-xl border border-zinc-300 p-6 text-center"
-            >
-              <QrSvg url={tableUrl(table)} className="size-40 [&_svg]:size-full" />
-              <p className="font-mono text-lg font-bold">{table.code}</p>
-              <p className="text-sm text-zinc-600">
-                {table.label} · {zoneName(table.zoneId)}
-              </p>
-              <p className="text-xs text-zinc-500">Scan to order at your table</p>
+        <h2 className="mb-4 text-center text-lg font-bold">Table QR codes — Velvet Montréal</h2>
+        <div className="grid grid-cols-2 gap-4">
+          {(tables ?? []).map((table) => (
+            <div key={table.id} className="flex flex-col items-center gap-1 border p-3 text-center">
+              <p className="text-sm font-semibold">{table.code}</p>
+              <QrSvg url={tableUrl(table)} className="size-28 rounded bg-white p-1" />
+              <p className="text-[0.6rem] text-muted-foreground break-all">{tableUrl(table)}</p>
             </div>
           ))}
         </div>

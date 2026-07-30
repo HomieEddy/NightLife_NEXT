@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { NotificationPreferencesCard } from "@/components/shared/notification-preferences-card";
 import { venueService } from "@/features/venue/services";
 import { ordersService } from "@/features/ordering/services";
+import { venueKeys } from "@/features/venue/query-keys";
+import { ordersKeys } from "@/features/ordering/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { computeFeeLines, computeServiceFee } from "@/features/ordering/fees";
 import { setManagerOnboarded } from "@/lib/onboarding";
 import { cn } from "@/features/shared/utils";
@@ -21,28 +25,41 @@ import type { AdjustmentReason, ServiceFee, TabAdjustmentKind, Venue } from "@/l
 
 export default function ManagerSettingsPage() {
   const router = useRouter();
-  const [venue, setVenue] = useState<Venue | null>(null);
-  const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState<Venue | null>(null);
+
+  const { data: venue } = useQuery({
+    queryKey: venueKeys.single(venueId),
+    queryFn: () => venueService.getVenue(),
+    enabled: !!venueId,
+  });
 
   useEffect(() => {
-    venueService.getVenue().then(setVenue);
-  }, []);
+    if (venue && !draft) setDraft(venue);
+  }, [venue, draft]);
 
-  async function handleSave() {
-    if (!venue) return;
-    setSaving(true);
-    try {
-      const updated = await venueService.updateVenue(venue);
-      setVenue(updated);
+  const saveMutation = useMutation({
+    mutationFn: (v: Venue) => venueService.updateVenue(v),
+    onSuccess: (updated) => {
+      setDraft(updated);
+      queryClient.invalidateQueries({ queryKey: venueKeys.single(venueId) });
       toast.success("Venue settings saved");
-    } catch (error) {
+    },
+    onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not save venue settings");
-    } finally {
-      setSaving(false);
-    }
+    },
+  });
+
+  const saving = saveMutation.isPending;
+
+  function handleSave() {
+    if (!draft) return;
+    saveMutation.mutate(draft);
   }
 
-  if (venue === null) {
+  if (draft === null) {
     return (
       <div className="space-y-4">
         <PageHeader title="Venue settings" />
@@ -74,16 +91,16 @@ export default function ManagerSettingsPage() {
               <Label htmlFor="name">Venue name</Label>
               <Input
                 id="name"
-                value={venue.name}
-                onChange={(e) => setVenue({ ...venue, name: e.target.value })}
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="city">City</Label>
               <Input
                 id="city"
-                value={venue.city}
-                onChange={(e) => setVenue({ ...venue, city: e.target.value })}
+                value={draft.city}
+                onChange={(e) => setDraft({ ...draft, city: e.target.value })}
               />
             </div>
           </div>
@@ -91,17 +108,17 @@ export default function ManagerSettingsPage() {
             <Label htmlFor="address">Address</Label>
             <Input
               id="address"
-              value={venue.address}
-              onChange={(e) => setVenue({ ...venue, address: e.target.value })}
+              value={draft.address}
+              onChange={(e) => setDraft({ ...draft, address: e.target.value })}
             />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="timezone">IANA timezone</Label>
             <Input
               id="timezone"
-              value={venue.timezone}
+              value={draft.timezone}
               placeholder="America/Toronto"
-              onChange={(e) => setVenue({ ...venue, timezone: e.target.value })}
+              onChange={(e) => setDraft({ ...draft, timezone: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
               Used to group orders, reports and operational nights at the venue.
@@ -122,10 +139,10 @@ export default function ManagerSettingsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  setVenue({
-                    ...venue,
+                  setDraft({
+                    ...draft,
                     serviceFees: [
-                      ...venue.serviceFees,
+                      ...draft.serviceFees,
                       { id: `fee-${Date.now()}`, name: "", type: "percentage", value: 0 },
                     ],
                   })
@@ -139,17 +156,17 @@ export default function ManagerSettingsPage() {
             </p>
           </div>
 
-          {venue.serviceFees.length === 0 ? (
+          {draft.serviceFees.length === 0 ? (
             <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
               No fees configured — guests pay the subtotal plus tip only.
             </p>
           ) : (
             <div className="space-y-2">
-              {venue.serviceFees.map((fee) => {
+              {draft.serviceFees.map((fee) => {
                 const patchFee = (patch: Partial<ServiceFee>) =>
-                  setVenue({
-                    ...venue,
-                    serviceFees: venue.serviceFees.map((f) =>
+                  setDraft({
+                    ...draft,
+                    serviceFees: draft.serviceFees.map((f) =>
                       f.id === fee.id ? { ...f, ...patch } : f,
                     ),
                   });
@@ -201,9 +218,9 @@ export default function ManagerSettingsPage() {
                       className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                       aria-label={`Remove ${fee.name || "fee"}`}
                       onClick={() =>
-                        setVenue({
-                          ...venue,
-                          serviceFees: venue.serviceFees.filter((f) => f.id !== fee.id),
+                        setDraft({
+                          ...draft,
+                          serviceFees: draft.serviceFees.filter((f) => f.id !== fee.id),
                         })
                       }
                     >
@@ -222,7 +239,7 @@ export default function ManagerSettingsPage() {
               the default.
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              {venue.tipPresets.map((pct, index) => (
+              {draft.tipPresets.map((pct, index) => (
                 <div key={index} className="flex items-center gap-1 rounded-lg border px-2 py-1.5">
                   <Input
                     type="number"
@@ -231,9 +248,9 @@ export default function ManagerSettingsPage() {
                     step={1}
                     value={pct}
                     onChange={(e) => {
-                      const next = [...venue.tipPresets];
+                      const next = [...draft.tipPresets];
                       next[index] = Math.max(0, Math.min(100, Number(e.target.value)));
-                      setVenue({ ...venue, tipPresets: next, defaultTipPct: next[0] ?? 0 });
+                      setDraft({ ...draft, tipPresets: next, defaultTipPct: next[0] ?? 0 });
                     }}
                     className="w-16 pr-5 tabular-nums"
                     aria-label={`Tip preset ${index + 1}`}
@@ -245,8 +262,8 @@ export default function ManagerSettingsPage() {
                     className="size-7 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                     aria-label={`Remove ${pct}% preset`}
                     onClick={() => {
-                      const next = venue.tipPresets.filter((_, i) => i !== index);
-                      setVenue({ ...venue, tipPresets: next, defaultTipPct: next[0] ?? 0 });
+                      const next = draft.tipPresets.filter((_, i) => i !== index);
+                      setDraft({ ...draft, tipPresets: next, defaultTipPct: next[0] ?? 0 });
                     }}
                   >
                     <Trash2 className="size-3.5" />
@@ -257,8 +274,8 @@ export default function ManagerSettingsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const next = [...venue.tipPresets, 0];
-                  setVenue({ ...venue, tipPresets: next });
+                  const next = [...draft.tipPresets, 0];
+                  setDraft({ ...draft, tipPresets: next });
                 }}
               >
                 <Plus className="size-3.5" /> Add preset
@@ -269,13 +286,13 @@ export default function ManagerSettingsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Currency</Label>
-              <Input value={venue.currency} disabled />
+              <Input value={draft.currency} disabled />
             </div>
           </div>
 
           <p className="text-xs text-muted-foreground">
             Example on a $200 order:{" "}
-            {computeFeeLines(200, venue).map((line, i) => (
+            {computeFeeLines(200, draft).map((line, i) => (
               <span key={line.fee.id}>
                 {i > 0 && " + "}
                 {line.fee.name || "Fee"}{" "}
@@ -284,11 +301,11 @@ export default function ManagerSettingsPage() {
                 </span>
               </span>
             ))}
-            {venue.serviceFees.length > 0 && (
+            {draft.serviceFees.length > 0 && (
               <>
                 {" = "}
                 <span className="font-semibold text-foreground tabular-nums">
-                  ${computeServiceFee(200, venue).toFixed(2)}
+                  ${computeServiceFee(200, draft).toFixed(2)}
                 </span>{" "}
                 in fees.
               </>
@@ -302,8 +319,8 @@ export default function ManagerSettingsPage() {
               </p>
             </div>
             <Switch
-              checked={venue.autoApproveGuests}
-              onCheckedChange={(checked) => setVenue({ ...venue, autoApproveGuests: checked })}
+              checked={draft.autoApproveGuests}
+              onCheckedChange={(checked) => setDraft({ ...draft, autoApproveGuests: checked })}
             />
           </div>
         </CardContent>
@@ -325,12 +342,12 @@ export default function ManagerSettingsPage() {
                   id="order-warn"
                   type="number"
                   min={1}
-                  value={venue.slaThresholds.orderWarnMinutes}
+                  value={draft.slaThresholds.orderWarnMinutes}
                   onChange={(e) =>
-                    setVenue({
-                      ...venue,
+                    setDraft({
+                      ...draft,
                       slaThresholds: {
-                        ...venue.slaThresholds,
+                        ...draft.slaThresholds,
                         orderWarnMinutes: Math.max(1, Number(e.target.value)),
                       },
                     })
@@ -345,12 +362,12 @@ export default function ManagerSettingsPage() {
                   id="order-critical"
                   type="number"
                   min={1}
-                  value={venue.slaThresholds.orderCriticalMinutes}
+                  value={draft.slaThresholds.orderCriticalMinutes}
                   onChange={(e) =>
-                    setVenue({
-                      ...venue,
+                    setDraft({
+                      ...draft,
                       slaThresholds: {
-                        ...venue.slaThresholds,
+                        ...draft.slaThresholds,
                         orderCriticalMinutes: Math.max(1, Number(e.target.value)),
                       },
                     })
@@ -375,12 +392,12 @@ export default function ManagerSettingsPage() {
                   id="help-warn"
                   type="number"
                   min={1}
-                  value={venue.slaThresholds.helpWarnMinutes}
+                  value={draft.slaThresholds.helpWarnMinutes}
                   onChange={(e) =>
-                    setVenue({
-                      ...venue,
+                    setDraft({
+                      ...draft,
                       slaThresholds: {
-                        ...venue.slaThresholds,
+                        ...draft.slaThresholds,
                         helpWarnMinutes: Math.max(1, Number(e.target.value)),
                       },
                     })
@@ -395,12 +412,12 @@ export default function ManagerSettingsPage() {
                   id="help-critical"
                   type="number"
                   min={1}
-                  value={venue.slaThresholds.helpCriticalMinutes}
+                  value={draft.slaThresholds.helpCriticalMinutes}
                   onChange={(e) =>
-                    setVenue({
-                      ...venue,
+                    setDraft({
+                      ...draft,
                       slaThresholds: {
-                        ...venue.slaThresholds,
+                        ...draft.slaThresholds,
                         helpCriticalMinutes: Math.max(1, Number(e.target.value)),
                       },
                     })
@@ -419,8 +436,8 @@ export default function ManagerSettingsPage() {
               </p>
             </div>
             <Switch
-              checked={venue.lastCallAutoFlagTables}
-              onCheckedChange={(checked) => setVenue({ ...venue, lastCallAutoFlagTables: checked })}
+              checked={draft.lastCallAutoFlagTables}
+              onCheckedChange={(checked) => setDraft({ ...draft, lastCallAutoFlagTables: checked })}
             />
           </div>
         </CardContent>
@@ -439,8 +456,8 @@ export default function ManagerSettingsPage() {
                 type="number"
                 min={0}
                 max={23}
-                value={venue.nightStartHour}
-                onChange={(e) => setVenue({ ...venue, nightStartHour: Number(e.target.value) })}
+                value={draft.nightStartHour}
+                onChange={(e) => setDraft({ ...draft, nightStartHour: Number(e.target.value) })}
               />
             </div>
             <div className="space-y-1.5">
@@ -450,8 +467,8 @@ export default function ManagerSettingsPage() {
                 type="number"
                 min={0}
                 max={23}
-                value={venue.nightEndHour}
-                onChange={(e) => setVenue({ ...venue, nightEndHour: Number(e.target.value) })}
+                value={draft.nightEndHour}
+                onChange={(e) => setDraft({ ...draft, nightEndHour: Number(e.target.value) })}
               />
             </div>
           </div>
@@ -461,14 +478,14 @@ export default function ManagerSettingsPage() {
               type="button"
               size="sm"
               variant="outline"
-              disabled={venue.openingHours.length === 7}
+              disabled={draft.openingHours.length === 7}
               onClick={() => {
                 const day = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-                  .find((candidate) => !venue.openingHours.some((slot) => slot.day === candidate));
+                  .find((candidate) => !draft.openingHours.some((slot) => slot.day === candidate));
                 if (day) {
-                  setVenue({
-                    ...venue,
-                    openingHours: [...venue.openingHours, { day, open: "20:00", close: "03:00" }],
+                  setDraft({
+                    ...draft,
+                    openingHours: [...draft.openingHours, { day, open: "20:00", close: "03:00" }],
                   });
                 }
               }}
@@ -476,7 +493,7 @@ export default function ManagerSettingsPage() {
               <Plus className="size-3.5" /> Add day
             </Button>
           </div>
-          {venue.openingHours.map((slot, index) => (
+          {draft.openingHours.map((slot, index) => (
             <div
               key={slot.day}
               className="grid grid-cols-[1fr_auto] items-end gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_7rem_7rem_auto]"
@@ -487,9 +504,9 @@ export default function ManagerSettingsPage() {
                   id={`day-${index}`}
                   className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                   value={slot.day}
-                  onChange={(e) => setVenue({
-                    ...venue,
-                    openingHours: venue.openingHours.map((value, slotIndex) =>
+                  onChange={(e) => setDraft({
+                    ...draft,
+                    openingHours: draft.openingHours.map((value, slotIndex) =>
                       slotIndex === index ? { ...value, day: e.target.value } : value,
                     ),
                   })}
@@ -505,9 +522,9 @@ export default function ManagerSettingsPage() {
                   size="icon"
                   variant="ghost"
                   aria-label={`Remove ${slot.day} hours`}
-                  onClick={() => setVenue({
-                    ...venue,
-                    openingHours: venue.openingHours.filter((_, slotIndex) => slotIndex !== index),
+                  onClick={() => setDraft({
+                    ...draft,
+                    openingHours: draft.openingHours.filter((_, slotIndex) => slotIndex !== index),
                   })}
                 >
                   <Trash2 className="size-4" />
@@ -519,9 +536,9 @@ export default function ManagerSettingsPage() {
                   id={`open-${index}`}
                   type="time"
                   value={slot.open}
-                  onChange={(e) => setVenue({
-                    ...venue,
-                    openingHours: venue.openingHours.map((value, slotIndex) =>
+                  onChange={(e) => setDraft({
+                    ...draft,
+                    openingHours: draft.openingHours.map((value, slotIndex) =>
                       slotIndex === index ? { ...value, open: e.target.value } : value,
                     ),
                   })}
@@ -533,9 +550,9 @@ export default function ManagerSettingsPage() {
                   id={`close-${index}`}
                   type="time"
                   value={slot.close}
-                  onChange={(e) => setVenue({
-                    ...venue,
-                    openingHours: venue.openingHours.map((value, slotIndex) =>
+                  onChange={(e) => setDraft({
+                    ...draft,
+                    openingHours: draft.openingHours.map((value, slotIndex) =>
                       slotIndex === index ? { ...value, close: e.target.value } : value,
                     ),
                   })}
@@ -546,9 +563,9 @@ export default function ManagerSettingsPage() {
         </CardContent>
       </Card>
 
-      <TabLedgerCard venue={venue} setVenue={setVenue} />
+      <TabLedgerCard draft={draft} setDraft={setDraft} venueId={venueId} />
 
-      <DoorSafetyCard venue={venue} setVenue={setVenue} />
+      <DoorSafetyCard draft={draft} setDraft={setDraft} />
 
       <NotificationPreferencesCard />
 
@@ -584,49 +601,59 @@ export default function ManagerSettingsPage() {
 const KIND_LABEL: Record<TabAdjustmentKind, string> = { void: "Void", comp: "Comp", discount: "Discount" };
 
 function TabLedgerCard({
-  venue,
-  setVenue,
+  draft,
+  setDraft,
+  venueId,
 }: {
-  venue: Venue;
-  setVenue: (venue: Venue) => void;
+  draft: Venue;
+  setDraft: (venue: Venue) => void;
+  venueId: string;
 }) {
-  const [reasons, setReasons] = useState<AdjustmentReason[] | null>(null);
+  const queryClient = useQueryClient();
   const [newCode, setNewCode] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [newKind, setNewKind] = useState<TabAdjustmentKind>("comp");
-  const [savingReason, setSavingReason] = useState(false);
 
-  useEffect(() => {
-    ordersService.listAllAdjustmentReasons().then(setReasons);
-  }, []);
+  const { data: reasons } = useQuery({
+    queryKey: ordersKeys.adjustmentReasons(venueId),
+    queryFn: () => ordersService.listAllAdjustmentReasons(),
+    enabled: !!venueId,
+  });
 
-  async function addReason() {
-    if (!newCode.trim() || !newLabel.trim()) {
-      toast.error("Give the reason a code and a label");
-      return;
-    }
-    setSavingReason(true);
-    try {
-      const reason = await ordersService.createAdjustmentReason({
+  const addReasonMutation = useMutation({
+    mutationFn: async () => {
+      return ordersService.createAdjustmentReason({
         kind: newKind,
         code: newCode.trim(),
         label: newLabel.trim(),
         isActive: true,
       });
-      setReasons((prev) => [...(prev ?? []), reason]);
+    },
+    onSuccess: (reason) => {
+      queryClient.invalidateQueries({ queryKey: ordersKeys.adjustmentReasons(venueId) });
       setNewCode("");
       setNewLabel("");
       toast.success(`Added "${reason.label}"`);
-    } catch (error) {
+    },
+    onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not add the reason");
-    } finally {
-      setSavingReason(false);
-    }
-  }
+    },
+  });
 
-  async function toggleReason(reasonId: string, isActive: boolean) {
-    const updated = await ordersService.setAdjustmentReasonActive(reasonId, isActive);
-    if (updated) setReasons((prev) => (prev ?? []).map((r) => (r.id === reasonId ? updated : r)));
+  const toggleReasonMutation = useMutation({
+    mutationFn: ({ reasonId, isActive }: { reasonId: string; isActive: boolean }) =>
+      ordersService.setAdjustmentReasonActive(reasonId, isActive),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ordersKeys.adjustmentReasons(venueId) });
+    },
+  });
+
+  function addReason() {
+    if (!newCode.trim() || !newLabel.trim()) {
+      toast.error("Give the reason a code and a label");
+      return;
+    }
+    addReasonMutation.mutate();
   }
 
   return (
@@ -643,9 +670,9 @@ function TabLedgerCard({
               type="number"
               min={0}
               step="1"
-              value={venue.compThresholdCents / 100}
+              value={draft.compThresholdCents / 100}
               onChange={(e) =>
-                setVenue({ ...venue, compThresholdCents: Math.round(Number(e.target.value || 0) * 100) })
+                setDraft({ ...draft, compThresholdCents: Math.round(Number(e.target.value || 0) * 100) })
               }
             />
             <p className="text-xs text-muted-foreground">Comps above this escalate to manager approval.</p>
@@ -658,8 +685,8 @@ function TabLedgerCard({
               min={0}
               max={1}
               step="0.05"
-              value={venue.minimumSpendWarningRatio}
-              onChange={(e) => setVenue({ ...venue, minimumSpendWarningRatio: Number(e.target.value || 0) })}
+              value={draft.minimumSpendWarningRatio}
+              onChange={(e) => setDraft({ ...draft, minimumSpendWarningRatio: Number(e.target.value || 0) })}
             />
             <p className="text-xs text-muted-foreground">Shortfall/minimum ratio that turns the progress ring amber.</p>
           </div>
@@ -667,7 +694,7 @@ function TabLedgerCard({
 
         <div className="space-y-2">
           <Label>Reason codes</Label>
-          {reasons === null ? (
+          {reasons === undefined ? (
             <Skeleton className="h-24 rounded-lg" />
           ) : (
             <div className="space-y-1.5">
@@ -679,7 +706,7 @@ function TabLedgerCard({
                   </div>
                   <Switch
                     checked={reason.isActive}
-                    onCheckedChange={(checked) => toggleReason(reason.id, checked)}
+                    onCheckedChange={(checked) => toggleReasonMutation.mutate({ reasonId: reason.id, isActive: checked })}
                     aria-label={`${reason.label} active`}
                   />
                 </div>
@@ -709,99 +736,99 @@ function TabLedgerCard({
               <Label htmlFor="new-reason-label" className="text-xs">Label</Label>
               <Input id="new-reason-label" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Staff error" />
             </div>
-            <Button type="button" size="sm" onClick={addReason} disabled={savingReason}>
+            <Button type="button" size="sm" onClick={addReason} disabled={addReasonMutation.isPending}>
               <Plus className="size-3.5" /> Add
             </Button>
           </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-  // ---------- Door & Safety (S-01, S-03, S-13) ----------
+// ---------- Door & Safety (S-01, S-03, S-13) ----------
 
-  function DoorSafetyCard({
-    venue,
-    setVenue,
-  }: {
-    venue: Venue;
-    setVenue: (venue: Venue) => void;
-  }) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Door & Safety</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="legal-capacity">Legal capacity</Label>
-              <Input
-                id="legal-capacity"
-                type="number"
-                min={1}
-                value={venue.legalCapacity}
-                onChange={(e) => setVenue({ ...venue, legalCapacity: Math.max(1, Number(e.target.value) || 400) })}
-              />
-              <p className="text-xs text-muted-foreground">Fire-code maximum — the door counts against this.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="occupancy-warn">Occupancy warning ratio</Label>
-              <Input
-                id="occupancy-warn"
-                type="number"
-                min={0}
-                max={1}
-                step="0.05"
-                value={venue.occupancyWarnRatio}
-                onChange={(e) => setVenue({ ...venue, occupancyWarnRatio: Number(e.target.value || 0) })}
-              />
-              <p className="text-xs text-muted-foreground">Ratio at which Pulse raises a capacity warning.</p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="legal-drinking-age">Legal drinking age</Label>
-              <Input
-                id="legal-drinking-age"
-                type="number"
-                min={16}
-                max={21}
-                value={venue.legalDrinkingAge}
-                onChange={(e) => setVenue({ ...venue, legalDrinkingAge: Number(e.target.value || 18) })}
-              />
-              <p className="text-xs text-muted-foreground">Jurisdiction minimum — underage admission is blocked at the door.</p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div>
-              <p className="text-sm font-medium">Require ID check at door</p>
-              <p className="text-xs text-muted-foreground">
-                Forces the ID-check toggle on at admission time. Records the check only — never a document scan.
-              </p>
-            </div>
-            <Switch
-              checked={venue.doorRequiresIdCheck}
-              onCheckedChange={(checked) => setVenue({ ...venue, doorRequiresIdCheck: checked })}
+function DoorSafetyCard({
+  draft,
+  setDraft,
+}: {
+  draft: Venue;
+  setDraft: (venue: Venue) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Door & Safety</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="legal-capacity">Legal capacity</Label>
+            <Input
+              id="legal-capacity"
+              type="number"
+              min={1}
+              value={draft.legalCapacity}
+              onChange={(e) => setDraft({ ...draft, legalCapacity: Math.max(1, Number(e.target.value) || 400) })}
             />
+            <p className="text-xs text-muted-foreground">Fire-code maximum — the door counts against this.</p>
           </div>
-
-          <div className="flex items-center justify-between rounded-lg border p-4">
-            <div>
-              <p className="text-sm font-medium">Coat check</p>
-              <p className="text-xs text-muted-foreground">
-                Enables the entire coat-check surface. Disable if your venue doesn&apos;t run one.
-              </p>
-            </div>
-            <Switch
-              checked={venue.coatCheckEnabled}
-              onCheckedChange={(checked) => setVenue({ ...venue, coatCheckEnabled: checked })}
+          <div className="space-y-1.5">
+            <Label htmlFor="occupancy-warn">Occupancy warning ratio</Label>
+            <Input
+              id="occupancy-warn"
+              type="number"
+              min={0}
+              max={1}
+              step="0.05"
+              value={draft.occupancyWarnRatio}
+              onChange={(e) => setDraft({ ...draft, occupancyWarnRatio: Number(e.target.value || 0) })}
             />
+            <p className="text-xs text-muted-foreground">Ratio at which Pulse raises a capacity warning.</p>
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="legal-drinking-age">Legal drinking age</Label>
+            <Input
+              id="legal-drinking-age"
+              type="number"
+              min={16}
+              max={21}
+              value={draft.legalDrinkingAge}
+              onChange={(e) => setDraft({ ...draft, legalDrinkingAge: Number(e.target.value || 18) })}
+            />
+            <p className="text-xs text-muted-foreground">Jurisdiction minimum — underage admission is blocked at the door.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div>
+            <p className="text-sm font-medium">Require ID check at door</p>
+            <p className="text-xs text-muted-foreground">
+              Forces the ID-check toggle on at admission time. Records the check only — never a document scan.
+            </p>
+          </div>
+          <Switch
+            checked={draft.doorRequiresIdCheck}
+            onCheckedChange={(checked) => setDraft({ ...draft, doorRequiresIdCheck: checked })}
+          />
+        </div>
+
+        <div className="flex items-center justify-between rounded-lg border p-4">
+          <div>
+            <p className="text-sm font-medium">Coat check</p>
+            <p className="text-xs text-muted-foreground">
+              Enables the entire coat-check surface. Disable if your venue doesn&apos;t run one.
+            </p>
+          </div>
+          <Switch
+            checked={draft.coatCheckEnabled}
+            onCheckedChange={(checked) => setDraft({ ...draft, coatCheckEnabled: checked })}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

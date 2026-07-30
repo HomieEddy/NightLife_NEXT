@@ -2,12 +2,13 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarCheck, Code, Link2, Loader2, PartyPopper, Pencil, Plus, Ticket, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,12 +28,15 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { eventsService } from "@/features/hospitality/events-service";
 import { venueService } from "@/features/venue/services";
+import { eventsKeys } from "@/features/hospitality/query-keys";
+import { venueKeys } from "@/features/venue/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { publicEventsHref, publicReservationHref } from "@/features/shared/entity-links";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { SearchInput } from "@/components/shared/search-input";
 import { cn } from "@/features/shared/utils";
 import { zEventInput } from "@/lib/form-schemas";
-import type { EventGuest, EventStatus, Venue, VenueEvent, Zone } from "@/lib/types";
+import type { EventGuest, EventStatus, VenueEvent, Zone } from "@/lib/types";
 import type { z } from "zod";
 
 const selectCls =
@@ -63,10 +67,10 @@ const EMPTY_VALUES: FormValues = {
 
 function EventsContent() {
   const router = useRouter();
-  const [events, setEvents] = useState<VenueEvent[] | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [venue, setVenue] = useState<Venue | null>(null);
-  const [guestsByEvent, setGuestsByEvent] = useState<Record<string, EventGuest[]>>({});
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+
   const [statusFilter, setStatusFilter] = useState<"draft" | "published" | "live" | "ended" | "cancelled" | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [query, setQuery] = useState("");
@@ -81,24 +85,112 @@ function EventsContent() {
   });
   const ticketEnabled = watch("ticketEnabled");
 
-  const refresh = useCallback(async () => {
-    const [list, z, v] = await Promise.all([
-      eventsService.listEvents(),
-      venueService.listZones(),
-      venueService.getVenue(),
-    ]);
-    setEvents(list);
-    setZones(z);
-    setVenue(v);
-    const entries = await Promise.all(
-      list.filter((e) => e.guestlistEnabled).map(async (e) => [e.id, await eventsService.listEventGuests(e.id)] as const),
-    );
-    setGuestsByEvent(Object.fromEntries(entries));
-  }, []);
+  const { data: events } = useQuery({
+    queryKey: eventsKeys.all(venueId),
+    queryFn: () => eventsService.listEvents(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: zones = [] } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const { data: venue } = useQuery({
+    queryKey: venueKeys.single(venueId),
+    queryFn: () => venueService.getVenue(),
+    enabled: !!venueId,
+  });
+
+  const { data: guestsByEvent = {} } = useQuery({
+    queryKey: eventsKeys.guests(venueId),
+    queryFn: async () => {
+      const enabledEvents = (events ?? []).filter((e) => e.guestlistEnabled);
+      const entries = await Promise.all(
+        enabledEvents.map(async (e) => [e.id, await eventsService.listEventGuests(e.id)] as const),
+      );
+      return Object.fromEntries(entries);
+    },
+    enabled: !!venueId && !!events,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: eventsKeys.all(venueId) });
+    queryClient.invalidateQueries({ queryKey: eventsKeys.guests(venueId) });
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const rawTicketUrl = data.ticketEnabled ? data.ticketUrl.trim() : "";
+      const payload = {
+        name: data.name.trim(),
+        description: data.description.trim(),
+        startsAt: fromLocalInput(data.startsAt),
+        endsAt: fromLocalInput(data.endsAt),
+        zoneId: data.zoneId || undefined,
+        capacity: data.capacity,
+        status: data.status as EventStatus,
+        guestlistEnabled: data.guestlistEnabled,
+        ticketUrl: rawTicketUrl || undefined,
+      };
+      if (editingId) {
+        return eventsService.updateEvent(editingId, payload);
+      } else {
+        return eventsService.createEvent(payload);
+      }
+    },
+    onSuccess: () => {
+      setDialogOpen(false);
+      toast.success(editingId ? "Event updated" : "Event created");
+      invalidate();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (ev: VenueEvent) => eventsService.deleteEvent(ev.id),
+    onSuccess: (_, ev) => {
+      toast.info(`${ev.name} deleted`);
+      invalidate();
+    },
+  });
+
+  const toggleGuestlistMutation = useMutation({
+    mutationFn: (ev: VenueEvent) => eventsService.updateEvent(ev.id, { guestlistEnabled: !ev.guestlistEnabled }),
+    onSuccess: () => invalidate(),
+  });
+
+  const addGuestMutation = useMutation({
+    mutationFn: ({ eventId, name }: { eventId: string; name: string }) =>
+      eventsService.addEventGuest({ eventId, name, partySize: 1 }),
+    onSuccess: () => {
+      setNewGuestName("");
+      invalidate();
+    },
+  });
+
+  const removeGuestMutation = useMutation({
+    mutationFn: (guestId: string) => eventsService.removeEventGuest(guestId),
+    onSuccess: () => invalidate(),
+  });
+
+  const onSave = handleSubmit(async (data) => {
+    const rawTicketUrl = data.ticketEnabled ? data.ticketUrl.trim() : "";
+    if (rawTicketUrl && !/^https?:\/\/.+/.test(rawTicketUrl)) {
+      toast.error("Ticket URL must start with http:// or https://");
+      return;
+    }
+    if (data.ticketEnabled && !rawTicketUrl) {
+      toast.error("Paste a ticket URL or turn off the ticket link toggle.");
+      return;
+    }
+    saveMutation.mutate(data);
+  });
+
+  function addGuest(eventId: string) {
+    if (!newGuestName.trim()) return;
+    addGuestMutation.mutate({ eventId, name: newGuestName.trim() });
+  }
 
   const zoneName = (id?: string) => zones.find((z) => z.id === id)?.name ?? "—";
 
@@ -124,61 +216,6 @@ function EventsContent() {
       ticketUrl: ev.ticketUrl ?? "",
     });
     setDialogOpen(true);
-  }
-
-  const onSave = handleSubmit(async (data) => {
-    const rawTicketUrl = data.ticketEnabled ? data.ticketUrl.trim() : "";
-    if (rawTicketUrl && !/^https?:\/\/.+/.test(rawTicketUrl)) {
-      toast.error("Ticket URL must start with http:// or https://");
-      return;
-    }
-    if (data.ticketEnabled && !rawTicketUrl) {
-      toast.error("Paste a ticket URL or turn off the ticket link toggle.");
-      return;
-    }
-    const payload = {
-      name: data.name.trim(),
-      description: data.description.trim(),
-      startsAt: fromLocalInput(data.startsAt),
-      endsAt: fromLocalInput(data.endsAt),
-      zoneId: data.zoneId || undefined,
-      capacity: data.capacity,
-      status: data.status as EventStatus,
-      guestlistEnabled: data.guestlistEnabled,
-      ticketUrl: rawTicketUrl || undefined,
-    };
-    if (editingId) {
-      await eventsService.updateEvent(editingId, payload);
-      toast.success("Event updated");
-    } else {
-      await eventsService.createEvent(payload);
-      toast.success("Event created");
-    }
-    setDialogOpen(false);
-    await refresh();
-  });
-
-  async function remove(ev: VenueEvent) {
-    await eventsService.deleteEvent(ev.id);
-    toast.info(`${ev.name} deleted`);
-    await refresh();
-  }
-
-  async function toggleGuestlist(ev: VenueEvent) {
-    await eventsService.updateEvent(ev.id, { guestlistEnabled: !ev.guestlistEnabled });
-    await refresh();
-  }
-
-  async function addGuest(eventId: string) {
-    if (!newGuestName.trim()) return;
-    await eventsService.addEventGuest({ eventId, name: newGuestName, partySize: 1 });
-    setNewGuestName("");
-    await refresh();
-  }
-
-  async function removeGuest(guestId: string) {
-    await eventsService.removeEventGuest(guestId);
-    await refresh();
   }
 
   const visible = (events ?? []).filter((ev) => {
@@ -265,7 +302,7 @@ function EventsContent() {
         </div>
       </div>
 
-      {events === null ? (
+      {events === undefined ? (
         <ListSkeleton rows={3} rowHeight="h-32" />
       ) : visible.length === 0 ? (
         <EmptyState
@@ -306,7 +343,7 @@ function EventsContent() {
                               <span>
                                 {g.name} <span className="text-xs text-muted-foreground">· {g.partySize}</span>
                               </span>
-                              <Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-red-600" aria-label="Remove guest" onClick={() => removeGuest(g.id)}>
+                              <Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-red-600" aria-label="Remove guest" onClick={() => removeGuestMutation.mutate(g.id)}>
                                 <Trash2 className="size-3.5" />
                               </Button>
                             </li>
@@ -336,7 +373,7 @@ function EventsContent() {
                       description="This also removes its guestlist."
                       confirmLabel="Delete event"
                       destructive
-                      onConfirm={() => remove(ev)}
+                      onConfirm={() => deleteMutation.mutate(ev)}
                     />
                     {ev.guestlistEnabled && (
                       <EventActionChrome onClick={() => setOpenId(expanded ? null : ev.id)}>
@@ -345,7 +382,7 @@ function EventsContent() {
                     )}
                     <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
                       Guestlist
-                      <Switch checked={ev.guestlistEnabled} onCheckedChange={() => toggleGuestlist(ev)} />
+                      <Switch checked={ev.guestlistEnabled} onCheckedChange={() => toggleGuestlistMutation.mutate(ev)} />
                     </label>
                   </>
                 }

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpDown, BookOpen, Package, Loader2, Plus, Pencil, Search, ShoppingCart, Trash2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,19 +25,20 @@ import { staffService } from "@/features/workforce/staff-service";
 import { suggestPurchaseOrder } from "@/features/ordering/costs";
 import { formatMoney } from "@/features/shared/format";
 import { zSupplierInput, zSupplierCatalogueInput } from "@/lib/form-schemas";
+import { useAuth } from "@/context/auth-context";
+import { purchasingKeys } from "@/features/platform/query-keys";
+import { menuKeys } from "@/features/menu/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
 import type { PurchaseOrder, Stocktake, Supplier, SupplierItem, MenuItem } from "@/lib/types";
 
 const STATUS_BADGE: Record<string, "default" | "secondary" | "outline"> = { draft: "outline", submitted: "secondary", "partially-received": "secondary", received: "default", cancelled: "outline" };
 
 export default function ManagerPurchasingPage() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [supplierItems, setSupplierItems] = useState<SupplierItem[]>([]);
-  const [stocktakes, setStocktakes] = useState<Stocktake[]>([]);
-  const [ready, setReady] = useState(false);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+
   const [suggestions, setSuggestions] = useState<{ menuItemId: string; itemName: string; suggestedQty: number; unitCostCents: number | null }[]>([]);
-  const [meId, setMeId] = useState("");
   const [nonFormBusy, setNonFormBusy] = useState(false);
 
   // Filters
@@ -88,18 +90,81 @@ export default function ManagerPurchasingPage() {
 
   const [stOpen, setStOpen] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const [sups, pos, its, sis, sts, me] = await Promise.all([
-      purchasingService.listSuppliers(), purchasingService.listPurchaseOrders(), menuService.listItems(),
-      purchasingService.listSupplierItems(), purchasingService.listStocktakes(), staffService.getCurrentStaff(),
-    ]);
-    setSuppliers(sups); setOrders(pos); setItems(its); setSupplierItems(sis); setStocktakes(sts); setMeId(me.id); setReady(true);
-  }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: suppliers = [], isPending: loading } = useQuery({
+    queryKey: purchasingKeys.suppliers(venueId),
+    queryFn: () => purchasingService.listSuppliers(),
+    enabled: !!venueId,
+  });
 
-  const onStartStocktake = stocktakeForm.handleSubmit(async (data) => {
-    setNonFormBusy(true);
-    try {
+  const { data: orders = [] } = useQuery({
+    queryKey: purchasingKeys.purchaseOrders(venueId),
+    queryFn: () => purchasingService.listPurchaseOrders(),
+    enabled: !!venueId,
+  });
+
+  const { data: items = [] } = useQuery({
+    queryKey: menuKeys.items(venueId),
+    queryFn: () => menuService.listItems(),
+    enabled: !!venueId,
+  });
+
+  const { data: supplierItems = [] } = useQuery({
+    queryKey: purchasingKeys.supplierItems(venueId),
+    queryFn: () => purchasingService.listSupplierItems(),
+    enabled: !!venueId,
+  });
+
+  const { data: stocktakes = [] } = useQuery({
+    queryKey: purchasingKeys.stocktakes(venueId),
+    queryFn: () => purchasingService.listStocktakes(),
+    enabled: !!venueId,
+  });
+
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
+
+  const ready = !!venueId && !loading;
+  const meId = me?.id ?? "";
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: purchasingKeys.suppliers(venueId) });
+    queryClient.invalidateQueries({ queryKey: purchasingKeys.purchaseOrders(venueId) });
+    queryClient.invalidateQueries({ queryKey: purchasingKeys.supplierItems(venueId) });
+    queryClient.invalidateQueries({ queryKey: purchasingKeys.stocktakes(venueId) });
+    queryClient.invalidateQueries({ queryKey: menuKeys.items(venueId) });
+  };
+
+  // Supplier mutations
+  const saveSupplierMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof zSupplierInput>) => {
+      const s: Supplier = {
+        id: supEditing?.id ?? `sup-${Date.now()}`,
+        venueId: "venue-1",
+        name: data.name.trim(),
+        contactName: data.contactName.trim() || undefined,
+        email: data.email?.trim() || undefined,
+        phone: data.phone.trim() || undefined,
+        leadTimeDays: data.leadTimeDays || 2,
+        orderDays: [1, 2, 3, 4, 5],
+        minimumOrderCents: data.minOrder ? Math.round(data.minOrder * 100) : undefined,
+        active: true,
+      };
+      return purchasingService.saveSupplier(s);
+    },
+    onSuccess: () => {
+      toast.success(supEditing ? "Supplier updated" : "Supplier added");
+      setSupOpen(false);
+      invalidate();
+    },
+    onError: () => toast.error("Could not save supplier"),
+  });
+
+  // Stocktake mutations
+  const startStocktakeMutation = useMutation({
+    mutationFn: async (data: { date: string }) => {
       const st: Stocktake = {
         id: `st-${data.date}`,
         venueId: "venue-1",
@@ -118,21 +183,116 @@ export default function ManagerPurchasingPage() {
         })),
         totalVarianceCents: 0,
       };
-      await purchasingService.saveStocktake(st);
+      return purchasingService.saveStocktake(st);
+    },
+    onSuccess: (_, data) => {
       toast.success(`Stocktake started for ${data.date}`);
-      await refresh();
-    } catch { toast.error("Could not start stocktake"); }
-    finally { setNonFormBusy(false); }
+      invalidate();
+    },
+    onError: () => toast.error("Could not start stocktake"),
+  });
+
+  const commitStocktakeMutation = useMutation({
+    mutationFn: (st: Stocktake) => purchasingService.commitStocktake(st.id),
+    onSuccess: () => {
+      toast.success("Stocktake committed — adjustment movements written");
+      invalidate();
+    },
+    onError: () => toast.error("Could not commit"),
+  });
+
+  // PO mutations
+  const savePOMutation = useMutation({
+    mutationFn: async () => {
+      const active = poLines.filter((l) => parseInt(l.qty) > 0);
+      if (active.length === 0) throw new Error("Add at least one item with quantity");
+      const ts = Date.now();
+      const lines = active.map((l, i) => {
+        const si = supplierItems.find((s) => s.menuItemId === l.menuItemId && s.supplierId === poSupplierId);
+        const mi = items.find((it) => it.id === l.menuItemId);
+        const qty = parseInt(l.qty);
+        const unit = si?.unitCostCents ?? Math.round((mi?.price ?? 0) * 35);
+        return { id: `pol-${ts}-${i}`, menuItemId: l.menuItemId, qtyOrdered: qty, qtyReceived: 0, unitCostCents: unit, lineTotalCents: qty * unit };
+      });
+      const subtotal = lines.reduce((s, l) => s + l.lineTotalCents, 0);
+      const po: PurchaseOrder = {
+        id: `po-${ts}`, venueId: "venue-1", supplierId: poSupplierId,
+        code: `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(ts % 1000).padStart(3, "0")}`,
+        status: "draft", lines, subtotalCents: subtotal,
+      };
+      return purchasingService.savePurchaseOrder(po);
+    },
+    onSuccess: (_, __, context) => {
+      const active = poLines.filter((l) => parseInt(l.qty) > 0);
+      toast.success(`PO created with ${active.length} items`);
+      setPoOpen(false);
+      invalidate();
+    },
+    onError: (error) => {
+      if (error instanceof Error && error.message === "Add at least one item with quantity") {
+        toast.error(error.message);
+      } else {
+        toast.error("Could not create PO");
+      }
+    },
+  });
+
+  const submitPOMutation = useMutation({
+    mutationFn: (poId: string) => purchasingService.submitPurchaseOrder(poId, meId),
+    onSuccess: () => { invalidate(); toast.success("PO submitted"); },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Could not submit"),
+  });
+
+  const receivePOMutation = useMutation({
+    mutationFn: async () => {
+      if (!receivingPO) throw new Error("No PO selected");
+      const lines = Object.entries(receiveQty).map(([lineId, qty]) => ({ lineId, qtyReceived: qty }));
+      return purchasingService.receivePurchaseOrder(receivingPO.id, lines);
+    },
+    onSuccess: () => {
+      setReceiveOpen(false);
+      toast.success("PO received");
+      invalidate();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Could not receive"),
+  });
+
+  // Catalogue mutations
+  const saveCatalogueItemMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof zSupplierCatalogueInput>) => {
+      const si: SupplierItem = {
+        id: catEditing?.id ?? `si-${catSupplierId}-${data.menuItemId}`,
+        supplierId: catSupplierId,
+        menuItemId: data.menuItemId,
+        unitCostCents: data.unitCostCents || undefined,
+        caseSize: undefined,
+        caseCostCents: undefined,
+        supplierSku: data.supplierSku.trim() || undefined,
+        preferred: data.preferred,
+      };
+      return purchasingService.saveSupplierItem(si);
+    },
+    onSuccess: () => {
+      setCatEditing(null);
+      catForm.reset({ menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false });
+      toast.success(catEditing ? "Catalogue item updated" : "Item added to catalogue");
+      invalidate();
+    },
+    onError: () => toast.error("Could not save catalogue item"),
+  });
+
+  const removeCatalogueItemMutation = useMutation({
+    mutationFn: (siId: string) => purchasingService.removeSupplierItem(siId),
+    onSuccess: () => { invalidate(); toast.success("Removed from catalogue"); },
+    onError: () => toast.error("Could not remove"),
+  });
+
+  const onStartStocktake = stocktakeForm.handleSubmit(async (data) => {
+    startStocktakeMutation.mutate(data);
   });
 
   async function commitStocktake(st: Stocktake) {
-    setNonFormBusy(true);
-    try {
-      await purchasingService.commitStocktake(st.id);
-      toast.success("Stocktake committed — adjustment movements written");
-      await refresh();
-    } catch { toast.error("Could not commit"); }
-    finally { setNonFormBusy(false); }
+    commitStocktakeMutation.mutate(st);
   }
 
   // Filtered data
@@ -150,46 +310,25 @@ export default function ManagerPurchasingPage() {
   function openSupEdit(sup: Supplier) { setSupEditing(sup); supplierForm.reset({ name: sup.name, contactName: sup.contactName ?? "", email: sup.email ?? "", phone: sup.phone ?? "", leadTimeDays: sup.leadTimeDays, minOrder: sup.minimumOrderCents ? sup.minimumOrderCents / 100 : 0 }); setSupOpen(true); }
 
   const onSaveSupplier = supplierForm.handleSubmit(async (data) => {
-    try {
-      const s: Supplier = { id: supEditing?.id ?? `sup-${Date.now()}`, venueId: "venue-1", name: data.name.trim(), contactName: data.contactName.trim() || undefined, email: data.email?.trim() || undefined, phone: data.phone.trim() || undefined, leadTimeDays: data.leadTimeDays || 2, orderDays: [1, 2, 3, 4, 5], minimumOrderCents: data.minOrder ? Math.round(data.minOrder * 100) : undefined, active: true };
-      await purchasingService.saveSupplier(s); await refresh(); setSupOpen(false);
-      toast.success(supEditing ? "Supplier updated" : "Supplier added");
-    } catch { toast.error("Could not save supplier"); }
+    saveSupplierMutation.mutate(data);
   });
 
   // ── PO actions ──
   function openPO(supplierId: string) {
     setPoSupplierId(supplierId);
-    const supplierCatalogue = supplierItems.filter((si) => si.supplierId === supplierId);
-    setPoLines(supplierCatalogue.slice(0, 10).map((si) => ({ menuItemId: si.menuItemId, qty: "" })));
+    const catalogue = supplierItems.filter((si) => si.supplierId === supplierId);
+    setPoLines(catalogue.slice(0, 10).map((si) => ({ menuItemId: si.menuItemId, qty: "" })));
     setPoOpen(true);
   }
 
-  async function savePO() {
+  function savePO() {
     const active = poLines.filter((l) => parseInt(l.qty) > 0);
     if (active.length === 0) { toast.error("Add at least one item with quantity"); return; }
-    setNonFormBusy(true); try {
-      const ts = Date.now();
-      const lines = active.map((l, i) => {
-        const si = supplierItems.find((s) => s.menuItemId === l.menuItemId && s.supplierId === poSupplierId);
-        const mi = items.find((it) => it.id === l.menuItemId);
-        const qty = parseInt(l.qty);
-        const unit = si?.unitCostCents ?? Math.round((mi?.price ?? 0) * 35);
-        return { id: `pol-${ts}-${i}`, menuItemId: l.menuItemId, qtyOrdered: qty, qtyReceived: 0, unitCostCents: unit, lineTotalCents: qty * unit };
-      });
-      const subtotal = lines.reduce((s, l) => s + l.lineTotalCents, 0);
-      const po: PurchaseOrder = {
-        id: `po-${ts}`, venueId: "venue-1", supplierId: poSupplierId,
-        code: `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(ts % 1000).padStart(3, "0")}`,
-        status: "draft", lines, subtotalCents: subtotal,
-      };
-      await purchasingService.savePurchaseOrder(po); await refresh(); setPoOpen(false);
-      toast.success(`PO created with ${active.length} items`);
-    } catch { toast.error("Could not create PO"); } finally { setNonFormBusy(false); }
+    savePOMutation.mutate();
   }
 
-  async function submitPO(poId: string) {
-    try { await purchasingService.submitPurchaseOrder(poId, meId); await refresh(); toast.success("PO submitted"); } catch (err) { toast.error(err instanceof Error ? err.message : "Could not submit"); }
+  function submitPO(poId: string) {
+    submitPOMutation.mutate(poId);
   }
 
   function openReceive(po: PurchaseOrder) {
@@ -200,18 +339,15 @@ export default function ManagerPurchasingPage() {
     setReceiveOpen(true);
   }
 
-  async function receivePO() {
-    if (!receivingPO) return; setNonFormBusy(true); try {
-      const lines = Object.entries(receiveQty).map(([lineId, qty]) => ({ lineId, qtyReceived: qty }));
-      await purchasingService.receivePurchaseOrder(receivingPO.id, lines); await refresh(); setReceiveOpen(false);
-      toast.success("PO received");
-    } catch (err) { toast.error(err instanceof Error ? err.message : "Could not receive"); } finally { setNonFormBusy(false); }
+  function receivePO() {
+    receivePOMutation.mutate();
   }
 
-  async function computeSuggestions(supplierId: string) {
+  function computeSuggestions(supplierId: string) {
     const openPos = orders.filter((po) => po.status !== "received" && po.status !== "cancelled");
     const s = suggestPurchaseOrder(items, openPos, (new Date().getDay() + 1) % 7, supplierItems, supplierId);
-    setSuggestions(s); toast.success(`Found ${s.length} items below par`);
+    setSuggestions(s);
+    toast.success(`Found ${s.length} items below par`);
   }
 
   // ── Catalogue management ──
@@ -229,25 +365,11 @@ export default function ManagerPurchasingPage() {
   }
 
   const onSaveCatalogueItem = catForm.handleSubmit(async (data) => {
-    try {
-      const si: SupplierItem = {
-        id: catEditing?.id ?? `si-${catSupplierId}-${data.menuItemId}`,
-        supplierId: catSupplierId,
-        menuItemId: data.menuItemId,
-        unitCostCents: data.unitCostCents || undefined,
-        caseSize: undefined,
-        caseCostCents: undefined,
-        supplierSku: data.supplierSku.trim() || undefined,
-        preferred: data.preferred,
-      };
-      await purchasingService.saveSupplierItem(si); await refresh();
-      setCatEditing(null); catForm.reset({ menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false });
-      toast.success(catEditing ? "Catalogue item updated" : "Item added to catalogue");
-    } catch { toast.error("Could not save catalogue item"); }
+    saveCatalogueItemMutation.mutate(data);
   });
 
-  async function removeFromCatalogue(siId: string) {
-    setNonFormBusy(true); try { await purchasingService.removeSupplierItem(siId); await refresh(); toast.success("Removed from catalogue"); } catch { toast.error("Could not remove"); } finally { setNonFormBusy(false); }
+  function removeFromCatalogue(siId: string) {
+    removeCatalogueItemMutation.mutate(siId);
   }
 
   if (!ready) return <ListSkeleton />;
@@ -350,7 +472,7 @@ export default function ManagerPurchasingPage() {
                   <div><p className={`text-sm font-semibold tabular-nums ${st.totalVarianceCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{formatMoney(st.totalVarianceCents, "CAD")}</p><p className="text-xs text-muted-foreground">{st.lines.length} lines</p></div>
                   {st.status !== "committed" && (
                     <ConfirmDialog
-                      trigger={<Button size="sm" disabled={nonFormBusy}>Commit</Button>}
+                      trigger={<Button size="sm" disabled={nonFormBusy || commitStocktakeMutation.isPending}>Commit</Button>}
                       title="Commit stocktake?"
                       description="Writes adjustment movements for every non-zero variance line. This action is audited and irreversible."
                       confirmLabel="Commit"
@@ -413,7 +535,7 @@ export default function ManagerPurchasingPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
-            <Button onClick={receivePO} disabled={nonFormBusy}>Confirm receipt</Button>
+            <Button onClick={receivePO} disabled={receivePOMutation.isPending}>Confirm receipt</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -431,7 +553,6 @@ export default function ManagerPurchasingPage() {
             {(() => {
               const supplierCatalogue = supplierItems.filter((si) => si.supplierId === poSupplierId);
               const allItemIds = new Set(supplierCatalogue.map((si) => si.menuItemId));
-              // Show catalogue items first, then other menu items for convenience
               const ordered = [...supplierCatalogue.map((si) => si.menuItemId), ...items.filter((i) => !allItemIds.has(i.id)).map((i) => i.id)];
               const seen = new Set<string>();
               return ordered.map((itemId) => {
@@ -485,7 +606,7 @@ export default function ManagerPurchasingPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPoOpen(false)}>Cancel</Button>
-            <Button onClick={savePO} disabled={nonFormBusy}>Create PO</Button>
+            <Button onClick={savePO} disabled={savePOMutation.isPending}>Create PO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -576,9 +697,8 @@ export default function ManagerPurchasingPage() {
             <div><Label htmlFor="st-date">Business date</Label><Input id="st-date" type="date" {...stocktakeForm.register("date")} /></div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setStOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={nonFormBusy || stocktakeForm.formState.isSubmitting}>
-                {(nonFormBusy || stocktakeForm.formState.isSubmitting) && "Starting…"}
-                {!(nonFormBusy || stocktakeForm.formState.isSubmitting) && "Start stocktake"}
+              <Button type="submit" disabled={nonFormBusy || startStocktakeMutation.isPending || stocktakeForm.formState.isSubmitting}>
+                {(startStocktakeMutation.isPending || stocktakeForm.formState.isSubmitting) ? "Starting…" : "Start stocktake"}
               </Button>
             </DialogFooter>
           </form>

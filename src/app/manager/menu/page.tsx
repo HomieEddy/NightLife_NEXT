@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Gift, Loader2, Martini, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +30,8 @@ import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sent
 import { PackageEditor, type PackageDraft } from "@/components/manager/package-editor";
 import { ModifierPresetEditor } from "@/components/manager/modifier-preset-editor";
 import { menuService, type PackageQuote } from "@/features/menu/services";
+import { menuKeys } from "@/features/menu/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { formatMoney } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import type { BottlePackage, MenuCategory, MenuItem, ModifierGroup } from "@/lib/types";
@@ -37,9 +40,10 @@ type PackageWithQuote = BottlePackage & { quote: PackageQuote };
 
 function MenuContent() {
   const searchParams = useSearchParams();
-  const [categories, setCategories] = useState<MenuCategory[] | null>(null);
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [packages, setPackages] = useState<PackageWithQuote[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+
   const [activeCategory, setActiveCategory] = useState<string>(
     searchParams.get("category") ?? "",
   );
@@ -47,6 +51,8 @@ function MenuContent() {
   const [editingPackage, setEditingPackage] = useState<BottlePackage | null>(null);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
+  const [editing, setEditing] = useState<MenuItem | null>(null);
+  const [modifierGroups, setModifierGroups] = useState<ModifierGroup[]>([]);
 
   const zCategoryForm = z.object({
     name: z.string().min(1, "Name is required"),
@@ -66,32 +72,139 @@ function MenuContent() {
     defaultValues: { name: "", sortOrder: 0, description: "", isActive: true },
   });
 
-  const [editing, setEditing] = useState<MenuItem | null>(null);
-
   const itemForm = useForm({
     resolver: zodResolver(zItemEditForm),
     defaultValues: { name: "", description: "", price: 0 },
   });
 
-  const [modifierGroups, setModifierGroups] = useState<ModifierGroup[]>([]);
+  const { data: categories } = useQuery({
+    queryKey: menuKeys.categories(venueId),
+    queryFn: () => menuService.listCategories(true),
+    enabled: !!venueId,
+  });
+
+  const { data: items = [] } = useQuery({
+    queryKey: menuKeys.items(venueId),
+    queryFn: () => menuService.listItems(),
+    enabled: !!venueId,
+  });
+
+  const { data: packages = [] } = useQuery({
+    queryKey: menuKeys.packages(venueId),
+    queryFn: () => menuService.listPackages(true),
+    enabled: !!venueId,
+  });
+
+  // Set initial activeCategory once categories land
+  useEffect(() => {
+    if (categories?.length && !activeCategory) {
+      setActiveCategory(categories[0]?.id ?? "");
+    }
+  }, [categories, activeCategory]);
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: menuKeys.categories(venueId) });
+    queryClient.invalidateQueries({ queryKey: menuKeys.items(venueId) });
+    queryClient.invalidateQueries({ queryKey: menuKeys.packages(venueId) });
+  };
+
+  // Category mutations
+  const saveCategoryMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof zCategoryForm>) => {
+      const draft = {
+        venueId: editingCategory?.venueId ?? "venue-1",
+        name: data.name.trim(),
+        description: data.description,
+        sortOrder: data.sortOrder,
+        isActive: data.isActive,
+        modifierGroups,
+      };
+      if (editingCategory) {
+        return menuService.updateCategory(editingCategory.id, draft);
+      } else {
+        return menuService.createCategory(draft);
+      }
+    },
+    onSuccess: (_, data) => {
+      toast.success(`${data.name} ${editingCategory ? "updated" : "created"}`);
+      setCategoryOpen(false);
+      invalidate();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Could not save the category.");
+    },
+  });
+
+  const deleteCategoryMutation = useMutation({
+    mutationFn: (category: MenuCategory) => menuService.deleteCategory(category.id),
+    onSuccess: (_, category) => {
+      toast.info(`${category.name} removed`);
+      setCategoryOpen(false);
+      invalidate();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Could not delete the category.");
+    },
+  });
+
+  // Item mutations
+  const toggleItemMutation = useMutation({
+    mutationFn: (item: MenuItem) => menuService.updateItem(item.id, { isAvailable: !item.isAvailable }),
+    onSuccess: (_, item) => {
+      toast.success(`${item.name} ${item.isAvailable ? "86'd" : "back on the menu"}`);
+      invalidate();
+    },
+  });
+
+  const saveItemMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof zItemEditForm>) => {
+      if (!editing) throw new Error("No item selected");
+      return menuService.updateItem(editing.id, {
+        name: data.name,
+        description: data.description,
+        price: data.price,
+      });
+    },
+    onSuccess: () => {
+      setEditing(null);
+      toast.success("Item updated");
+      invalidate();
+    },
+  });
+
+  // Package mutations
+  const savePackageMutation = useMutation({
+    mutationFn: async (draft: PackageDraft) => {
+      const payload = { ...draft, price: draft.priceCents / 100 } as any;
+      if (editingPackage) {
+        return menuService.updatePackage(editingPackage.id, payload as any);
+      } else {
+        return menuService.createPackage({ venueId: "venue-1", ...payload } as any);
+      }
+    },
+    onSuccess: (_, draft) => {
+      toast.success(`${draft.name} ${editingPackage ? "updated" : "created"}`);
+      invalidate();
+    },
+  });
+
+  const togglePackageMutation = useMutation({
+    mutationFn: (pkg: BottlePackage) => menuService.updatePackage(pkg.id, { isActive: !pkg.isActive }),
+    onSuccess: (_, pkg) => {
+      toast.success(`${pkg.name} ${pkg.isActive ? "hidden from guests" : "live on the guest menu"}`);
+      invalidate();
+    },
+  });
+
+  const deletePackageMutation = useMutation({
+    mutationFn: (pkg: BottlePackage) => menuService.deletePackage(pkg.id),
+    onSuccess: (_, pkg) => {
+      toast.info(`${pkg.name} removed`);
+      invalidate();
+    },
+  });
 
   const isSaving = categoryForm.formState.isSubmitting || itemForm.formState.isSubmitting;
-
-  const refresh = useCallback(async () => {
-    const [cats, its, pkgs] = await Promise.all([
-      menuService.listCategories(true),
-      menuService.listItems(),
-      menuService.listPackages(true),
-    ]);
-    setCategories(cats);
-    setItems(its);
-    setPackages(pkgs);
-    setActiveCategory((current) => current || cats[0]?.id || "");
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   function openCategory(category?: MenuCategory) {
     setEditingCategory(category ?? null);
@@ -116,88 +229,14 @@ function MenuContent() {
   }
 
   const onCategorySave = categoryForm.handleSubmit(async (data) => {
-    try {
-      const draft = {
-        venueId: editingCategory?.venueId ?? "venue-1",
-        name: data.name.trim(),
-        description: data.description,
-        sortOrder: data.sortOrder,
-        isActive: data.isActive,
-        modifierGroups,
-      };
-      if (editingCategory) {
-        await menuService.updateCategory(editingCategory.id, draft);
-        toast.success(`${data.name} updated`);
-      } else {
-        await menuService.createCategory(draft);
-        toast.success(`${data.name} created`);
-      }
-      setCategoryOpen(false);
-      await refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save the category.");
-    }
+    saveCategoryMutation.mutate(data);
   });
-
-  async function removeCategory(category: MenuCategory) {
-    try {
-      await menuService.deleteCategory(category.id);
-      toast.info(`${category.name} removed`);
-      setCategoryOpen(false);
-      await refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not delete the category.");
-    }
-  }
-
-  // ---------- Items ----------
-
-  async function toggleAvailability(item: MenuItem) {
-    await menuService.updateItem(item.id, { isAvailable: !item.isAvailable });
-    toast.success(`${item.name} ${item.isAvailable ? "86'd" : "back on the menu"}`);
-    await refresh();
-  }
 
   const onItemSave = itemForm.handleSubmit(async (data) => {
-    if (!editing) return;
-    await menuService.updateItem(editing.id, {
-      name: data.name,
-      description: data.description,
-      price: data.price,
-    });
-    setEditing(null);
-    toast.success("Item updated");
-    await refresh();
+    saveItemMutation.mutate(data);
   });
 
-  // ---------- Packages ----------
-
-  async function savePackage(draft: PackageDraft) {
-    const payload = { ...draft, price: draft.priceCents / 100 } as any;
-    if (editingPackage) {
-      await menuService.updatePackage(editingPackage.id, payload as any);
-      toast.success(`${draft.name} updated`);
-    } else {
-      await menuService.createPackage({ venueId: "venue-1", ...payload } as any);
-      toast.success(`${draft.name} created`);
-    }
-    await refresh();
-  }
-
-  async function togglePackage(pkg: BottlePackage) {
-    await menuService.updatePackage(pkg.id, { isActive: !pkg.isActive });
-    toast.success(`${pkg.name} ${pkg.isActive ? "hidden from guests" : "live on the guest menu"}`);
-    await refresh();
-  }
-
-  async function removePackage(pkg: BottlePackage) {
-    await menuService.deletePackage(pkg.id);
-    toast.info(`${pkg.name} removed`);
-    await refresh();
-  }
-
   const visibleItems = items.filter((i) => i.categoryId === activeCategory);
-
   const { sliced: slicedItems, hasMore: itemsHasMore, loadMore: loadMoreItems, reset: resetItems } = useInfiniteSlice(visibleItems, 10);
   const { sliced: slicedPackages, hasMore: pkgsHasMore, loadMore: loadMorePkgs, reset: resetPkgs } = useInfiniteSlice(packages, 10);
 
@@ -210,7 +249,7 @@ function MenuContent() {
         description="What guests see — pricing, availability and curated packages."
       />
 
-      {categories === null ? (
+      {categories === undefined ? (
         <ListSkeleton rows={5} rowHeight="h-20" />
       ) : (
         <Tabs defaultValue="bottles">
@@ -282,7 +321,7 @@ function MenuContent() {
                                 : "Guests can order it again while stock lasts."
                             }
                             confirmLabel={item.isAvailable ? "86 it" : "Make it live"}
-                            onConfirm={() => toggleAvailability(item)}
+                            onConfirm={() => toggleItemMutation.mutate(item)}
                           />
                           <span className="text-[10px] text-muted-foreground">
                             {item.isAvailable ? "Live" : "86'd"}
@@ -384,7 +423,7 @@ function MenuContent() {
                                 : "The package goes live on the guest menu."
                             }
                             confirmLabel={pkg.isActive ? "Hide package" : "Publish"}
-                            onConfirm={() => togglePackage(pkg)}
+                            onConfirm={() => togglePackageMutation.mutate(pkg)}
                           />
                           <Button
                             variant="ghost"
@@ -412,7 +451,7 @@ function MenuContent() {
                             description="Guests will no longer be able to order this package. Past orders keep their history."
                             confirmLabel="Delete package"
                             destructive
-                            onConfirm={() => removePackage(pkg)}
+                            onConfirm={() => deletePackageMutation.mutate(pkg)}
                           />
                         </div>
                       </div>
@@ -467,7 +506,7 @@ function MenuContent() {
                   description="Categories with bottles cannot be deleted. Past orders keep their snapshots."
                   confirmLabel="Delete category"
                   destructive
-                  onConfirm={() => removeCategory(editingCategory)}
+                  onConfirm={() => deleteCategoryMutation.mutate(editingCategory)}
                 />
               )}
             </div>
@@ -524,7 +563,7 @@ function MenuContent() {
         onOpenChange={setEditorOpen}
         pkg={editingPackage}
         items={items}
-        onSave={savePackage}
+        onSave={async (draft) => { await savePackageMutation.mutateAsync(draft); }}
       />
     </div>
   );
