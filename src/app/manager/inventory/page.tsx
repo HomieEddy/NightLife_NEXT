@@ -2,7 +2,7 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Boxes,
@@ -57,8 +57,12 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { menuService } from "@/features/menu/services";
 import { purchasingService } from "@/features/platform/purchasing-service";
+import { menuKeys } from "@/features/menu/query-keys";
+import { inventoryKeys } from "@/features/inventory/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { formatMoney, timeAgo } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import type { BottleIconKey, MenuCategory, MenuItem, StockMovement } from "@/lib/types";
@@ -116,9 +120,9 @@ export default function ManagerInventoryPage() {
 }
 
 function InventoryPageContent() {
-  const [items, setItems] = useState<MenuItem[] | null>(null);
-  const [categories, setCategories] = useState<MenuCategory[]>([]);
-  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
@@ -145,22 +149,113 @@ function InventoryPageContent() {
     defaultValues: { quantity: "", reason: "spill" },
   });
 
-  const busy = itemForm.formState.isSubmitting || adjustForm.formState.isSubmitting || wasteForm.formState.isSubmitting;
+  const { data: items } = useQuery({
+    queryKey: menuKeys.items(venueId),
+    queryFn: () => menuService.listItems(),
+    enabled: !!venueId,
+  });
 
-  const refresh = useCallback(async () => {
-    const [its, cats, moves] = await Promise.all([
-      menuService.listItems(),
-      menuService.listCategories(true),
-      menuService.listMovements(),
-    ]);
-    setItems(its);
-    setCategories(cats);
-    setMovements(moves);
-  }, []);
+  const { data: categories = [] } = useQuery({
+    queryKey: menuKeys.categories(venueId),
+    queryFn: () => menuService.listCategories(true),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: movements = [] } = useQuery({
+    queryKey: inventoryKeys.movements(venueId),
+    queryFn: () => menuService.listMovements(),
+    enabled: !!venueId,
+  });
+
+  const invalidateItems = () => queryClient.invalidateQueries({ queryKey: menuKeys.items(venueId) });
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: menuKeys.items(venueId) });
+    queryClient.invalidateQueries({ queryKey: inventoryKeys.all(venueId) });
+  };
+
+  const adjustMutation = useMutation({
+    mutationFn: async (data: { count: string; note: string }) => {
+      if (!adjusting) throw new Error("No item selected");
+      const count = parseInt(data.count) || 0;
+      await menuService.adjustInventory(adjusting.id, count, data.note.trim() || undefined);
+      return { count, name: adjusting.name };
+    },
+    onSuccess: ({ count, name }) => {
+      toast.success(`${name} set to ${count}`);
+      setAdjusting(null);
+      adjustForm.reset();
+      invalidateAll();
+    },
+    onError: () => toast.error("Could not adjust inventory"),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof zItemForm>) => {
+      if (formItem) {
+        await menuService.updateItem(formItem.id, {
+          name: data.name.trim(),
+          description: data.description,
+          categoryId: data.categoryId,
+          icon: data.icon as BottleIconKey,
+          price: data.price,
+        });
+        return `${data.name.trim()} updated`;
+      } else {
+        await menuService.createItem({
+          name: data.name.trim(),
+          description: data.description,
+          categoryId: data.categoryId,
+          icon: data.icon as BottleIconKey,
+          price: data.price,
+          inventory: Math.max(0, data.initialStock),
+          tags: [],
+          isAvailable: true,
+          isAlcoholic: true,
+          allergens: [],
+        });
+        return `${data.name.trim()} added to inventory`;
+      }
+    },
+    onSuccess: (message) => {
+      toast.success(message);
+      setFormOpen(false);
+      invalidateItems();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (item: MenuItem) => menuService.deleteItem(item.id),
+    onSuccess: (_, item) => {
+      toast.info(`${item.name} removed from inventory`);
+      invalidateItems();
+    },
+  });
+
+  const wasteMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof zWasteForm>) => {
+      if (!wasteItem) throw new Error("No item selected");
+      await purchasingService.recordWaste(wasteItem.id, parseInt(data.quantity) || 0, data.reason, "staff-amara");
+      return { quantity: data.quantity, name: wasteItem.name, reason: data.reason };
+    },
+    onSuccess: ({ quantity, name, reason }) => {
+      toast.info(`${quantity} × ${name} recorded as waste (${reason})`);
+      setWasteItem(null);
+      wasteForm.reset();
+      invalidateAll();
+    },
+    onError: () => toast.error("Could not record waste"),
+  });
+
+  const eightySixMutation = useMutation({
+    mutationFn: (item: MenuItem) =>
+      purchasingService.eightySixItem(item.id, "Manual 86 from inventory", "staff-amara"),
+    onSuccess: (_, item) => {
+      toast.info(`${item.name} marked as sold out`);
+      invalidateAll();
+    },
+    onError: () => toast.error("Could not mark as 86"),
+  });
 
   const visible = useMemo(() => {
     let result = items ?? [];
@@ -190,21 +285,7 @@ function InventoryPageContent() {
 
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
 
-  // ---------- Actions ----------
-
-  async function handleAdjust(data: { count: string; note: string }) {
-    if (!adjusting) return;
-    const count = parseInt(data.count) || 0;
-    await menuService.adjustInventory(
-      adjusting.id,
-      count,
-      data.note.trim() || undefined,
-    );
-    toast.success(`${adjusting.name} set to ${count}`);
-    setAdjusting(null);
-    adjustForm.reset();
-    await refresh();
-  }
+  // ---------- Dialog helpers ----------
 
   function openCreate() {
     setFormItem(null);
@@ -223,62 +304,6 @@ function InventoryPageContent() {
       initialStock: 0,
     });
     setFormOpen(true);
-  }
-
-  async function handleFormSave(data: { name: string; description: string; categoryId: string; icon: string; price: number; initialStock: number }) {
-    if (formItem) {
-      await menuService.updateItem(formItem.id, {
-        name: data.name.trim(),
-        description: data.description,
-        categoryId: data.categoryId,
-        icon: data.icon as BottleIconKey,
-        price: data.price,
-      });
-      toast.success(`${data.name.trim()} updated`);
-    } else {
-      await menuService.createItem({
-        name: data.name.trim(),
-        description: data.description,
-        categoryId: data.categoryId,
-        icon: data.icon as BottleIconKey,
-        price: data.price,
-        inventory: Math.max(0, data.initialStock),
-        tags: [],
-        isAvailable: true,
-        isAlcoholic: true,
-        allergens: [],
-      });
-      toast.success(`${data.name.trim()} added to inventory`);
-    }
-    setFormOpen(false);
-    await refresh();
-  }
-
-  async function handleDelete(item: MenuItem) {
-    await menuService.deleteItem(item.id);
-    toast.info(`${item.name} removed from inventory`);
-    await refresh();
-  }
-
-  async function handleWaste(data: { quantity: string; reason: string }) {
-    if (!wasteItem) return;
-    try {
-      await purchasingService.recordWaste(wasteItem.id, parseInt(data.quantity) || 0, data.reason, "staff-amara");
-      toast.info(`${data.quantity} × ${wasteItem.name} recorded as waste (${data.reason})`);
-    } catch { toast.error("Could not record waste"); }
-    finally {
-      setWasteItem(null);
-      wasteForm.reset();
-      await refresh();
-    }
-  }
-
-  async function handle86(item: MenuItem) {
-    try {
-      await purchasingService.eightySixItem(item.id, "Manual 86 from inventory", "staff-amara");
-      toast.info(`${item.name} marked as sold out`);
-    } catch { toast.error("Could not mark as 86"); }
-    finally { await refresh(); }
   }
 
   return (
@@ -301,7 +326,7 @@ function InventoryPageContent() {
         }
       />
 
-      {items === null ? (
+      {items === undefined ? (
         <ListSkeleton rows={6} rowHeight="h-20" />
       ) : (
         <>
@@ -404,7 +429,7 @@ function InventoryPageContent() {
                           <Trash2 className="size-4" /> Record waste
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handle86(item)}
+                          onClick={() => eightySixMutation.mutate(item)}
                         >
                           <AlertTriangle className="size-4" /> Mark 86'd
                         </DropdownMenuItem>
@@ -421,7 +446,7 @@ function InventoryPageContent() {
                           description="Removes it from inventory and the guest menu. Packages using it will show as out of stock."
                           confirmLabel="Delete"
                           destructive
-                          onConfirm={() => handleDelete(item)}
+                          onConfirm={() => deleteMutation.mutate(item)}
                         />
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -496,7 +521,7 @@ function InventoryPageContent() {
               stock; the difference is logged as an adjustment.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={adjustForm.handleSubmit(handleAdjust)} className="space-y-4">
+          <form onSubmit={adjustForm.handleSubmit((data) => adjustMutation.mutate(data))} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="adjust-count">Actual count</Label>
               <Input
@@ -517,12 +542,12 @@ function InventoryPageContent() {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setAdjusting(null)} disabled={busy}>
+              <Button type="button" variant="ghost" onClick={() => setAdjusting(null)} disabled={adjustMutation.isPending}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={busy}>
-                {busy && <Loader2 className="size-4 animate-spin" />}
-                {busy ? "Saving…" : "Save count"}
+              <Button type="submit" disabled={adjustMutation.isPending}>
+                {adjustMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                {adjustMutation.isPending ? "Saving…" : "Save count"}
               </Button>
             </DialogFooter>
           </form>
@@ -540,7 +565,7 @@ function InventoryPageContent() {
               </DialogDescription>
             )}
           </DialogHeader>
-          <form onSubmit={itemForm.handleSubmit(handleFormSave)} className="space-y-4">
+          <form onSubmit={itemForm.handleSubmit((data) => saveMutation.mutate(data))} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="item-name">Name</Label>
               <Input
@@ -623,12 +648,12 @@ function InventoryPageContent() {
               )}
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setFormOpen(false)} disabled={busy}>
+              <Button type="button" variant="ghost" onClick={() => setFormOpen(false)} disabled={saveMutation.isPending}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={busy}>
-                {busy && <Loader2 className="size-4 animate-spin" />}
-                {busy ? "Saving…" : formItem ? "Save changes" : "Add bottle"}
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                {saveMutation.isPending ? "Saving…" : formItem ? "Save changes" : "Add bottle"}
               </Button>
             </DialogFooter>
           </form>
@@ -644,7 +669,7 @@ function InventoryPageContent() {
               Logs a waste event — shown in the movement log and reported separately from variance.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={wasteForm.handleSubmit(handleWaste)} className="space-y-4">
+          <form onSubmit={wasteForm.handleSubmit((data) => wasteMutation.mutate(data))} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="waste-qty">Quantity wasted</Label>
               <Input
@@ -671,10 +696,10 @@ function InventoryPageContent() {
               {wasteForm.formState.errors.reason && <p className="text-xs text-destructive">{wasteForm.formState.errors.reason.message}</p>}
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setWasteItem(null)} disabled={busy}>Cancel</Button>
-              <Button type="submit" disabled={busy}>
-                {busy && <Loader2 className="size-4 animate-spin" />}
-                {busy ? "Saving…" : "Record waste"}
+              <Button type="button" variant="ghost" onClick={() => setWasteItem(null)} disabled={wasteMutation.isPending}>Cancel</Button>
+              <Button type="submit" disabled={wasteMutation.isPending}>
+                {wasteMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                {wasteMutation.isPending ? "Saving…" : "Record waste"}
               </Button>
             </DialogFooter>
           </form>

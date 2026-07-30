@@ -5,3 +5,7 @@ export const staffKeys = {
   messages: (venueId: string, channel?: string) =>
     channel ? (["staff", venueId, "messages", channel] as const) : (["staff", venueId, "messages"] as const),
 };
+
+export const timeKeys = {
+  all: (venueId: string) => ["time", venueId] as const,
+};

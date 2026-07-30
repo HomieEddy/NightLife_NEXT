@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Calculator, Check, UserCheck } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +18,10 @@ import { buildCommissionStatement } from "@/lib/workforce";
 import { formatDate, formatMoney } from "@/features/shared/format";
 import { canDo } from "@/features/shared/permissions";
 import { permissionService } from "@/features/platform/permission-service";
-import type { RolePermissions } from "@/features/shared/permissions";
-import type { CommissionRule, CommissionStatement, StaffMember } from "@/lib/types";
+import { commissionKeys, permissionsKeys } from "@/features/platform/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { useAuth } from "@/context/auth-context";
+import type { CommissionStatement } from "@/lib/types";
 
 const BASIS_LABELS: Record<string, string> = {
   "net-revenue": "Net revenue",
@@ -30,33 +33,48 @@ const BASIS_LABELS: Record<string, string> = {
 function CommissionContent() {
   const searchParams = useSearchParams();
   const staffFilter = searchParams.get("staff") ?? "";
-  const [rules, setRules] = useState<CommissionRule[]>([]);
-  const [statements, setStatements] = useState<CommissionStatement[]>([]);
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [ready, setReady] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
 
-  const refresh = useCallback(async () => {
-    const [rs, ss, s, perm, current] = await Promise.all([
-      commissionService.listRules(staffFilter || undefined),
-      commissionService.listStatements(staffFilter || undefined),
-      staffService.listStaff(),
-      permissionService.getRolePermissions("venue-1"),
-      staffService.getCurrentStaff(),
-    ]);
-    setRules(rs); setStatements(ss); setStaff(s); setPermissions(perm); setMe(current); setReady(true);
-  }, [staffFilter]);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: commissionKeys.all(venueId) });
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: rules } = useQuery({
+    queryKey: commissionKeys.rules(venueId, staffFilter || undefined),
+    queryFn: () => commissionService.listRules(staffFilter || undefined),
+    enabled: !!venueId,
+  });
+
+  const { data: statements = [] } = useQuery({
+    queryKey: commissionKeys.statements(venueId, staffFilter || undefined),
+    queryFn: () => commissionService.listStatements(staffFilter || undefined),
+    enabled: !!venueId,
+  });
+
+  const { data: staff = [] } = useQuery({
+    queryKey: staffKeys.list(venueId),
+    queryFn: () => staffService.listStaff(),
+    enabled: !!venueId,
+  });
+
+  const { data: permissions } = useQuery({
+    queryKey: permissionsKeys.role(venueId),
+    queryFn: () => permissionService.getRolePermissions("venue-1"),
+    enabled: !!venueId,
+  });
+
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
 
   const canApprove = me && permissions ? canDo(permissions, me.role, "commission:approve") : false;
   const promoterStaff = staff.filter((s) => s.role === "promoter");
 
-  async function generateStatement(staffId: string) {
-    setSaving(true);
-    try {
+  const generateMutation = useMutation({
+    mutationFn: async (staffId: string) => {
+      if (!rules) throw new Error("Rules not loaded");
       const staffMember = staff.find((s) => s.id === staffId);
       if (!staffMember?.commissionRuleId) {
         toast.error("No commission rule assigned to this promoter.");
@@ -72,24 +90,27 @@ function CommissionContent() {
       ];
       const stmt = buildCommissionStatement(rule, staffId, "venue-1", periodStart, periodEnd, items);
       await commissionService.saveStatement(stmt);
+    },
+    onSuccess: () => {
       toast.success("Statement generated");
-      await refresh();
-    } catch { toast.error("Could not generate"); }
-    finally { setSaving(false); }
-  }
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not generate"),
+  });
 
-  async function approve(stmt: CommissionStatement) {
-    if (!me) return;
-    setSaving(true);
-    try {
-      await commissionService.approveStatement(stmt.id, me.id);
+  const approveMutation = useMutation({
+    mutationFn: (stmt: CommissionStatement) => {
+      if (!me) throw new Error("Not authenticated");
+      return commissionService.approveStatement(stmt.id, me.id);
+    },
+    onSuccess: () => {
       toast.success("Commission statement approved");
-      await refresh();
-    } catch { toast.error("Could not approve"); }
-    finally { setSaving(false); }
-  }
+      invalidate();
+    },
+    onError: () => toast.error("Could not approve"),
+  });
 
-  if (!ready) return <ListSkeleton />;
+  if (rules === undefined) return <ListSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -120,11 +141,11 @@ function CommissionContent() {
                               <Badge variant="outline"><Check className="size-3 mr-1" /> Approved</Badge>
                             ) : (
                               <ConfirmDialog
-                                trigger={<Button size="sm" disabled={!canApprove || saving}>Approve</Button>}
+                                trigger={<Button size="sm" disabled={!canApprove || approveMutation.isPending}>Approve</Button>}
                                 title="Approve commission statement?"
                                 description={`${promoter.name} will see ${formatMoney(stmt.totalCents, "CAD")} in earnings. Writes an audit entry.`}
                                 confirmLabel="Approve"
-                                onConfirm={() => approve(stmt)}
+                                onConfirm={() => approveMutation.mutate(stmt)}
                               />
                             )}
                           </div>
@@ -134,7 +155,7 @@ function CommissionContent() {
                     ) : (
                       <p className="text-xs text-muted-foreground">No statements yet.</p>
                     )}
-                    <Button variant="outline" size="sm" className="w-full" onClick={() => generateStatement(promoter.id)} disabled={saving}>
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => generateMutation.mutate(promoter.id)} disabled={generateMutation.isPending}>
                       <Calculator className="size-3.5 mr-1" /> Generate statement
                     </Button>
                   </CardContent>

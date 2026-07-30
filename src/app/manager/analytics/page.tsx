@@ -2,7 +2,7 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, Boxes, CalendarCheck, CircleDollarSign,
@@ -22,13 +22,16 @@ import { HorizontalBar } from "@/components/shared/horizontal-bar";
 import { PageHeader } from "@/components/shared/page-header";
 import { RoleBadge } from "@/components/shared/role-badge";
 import {
-  aggregateWeekly, analyticsService, type HistoricalAnalytics,
+  aggregateWeekly, analyticsService,
 } from "@/features/analytics/analytics-service";
 import { formatMoney, formatPct } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import { REPORT_METRICS, type ReportMetric } from "@/lib/types";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { downloadCsv } from "@/features/shared/download-csv";
+import { analyticsKeys } from "@/features/analytics/query-keys";
+import { useAuth } from "@/context/auth-context";
 import {
   ComparisonTab, ForecastTab, PerHourTab, FunnelTab, TableTurnTab,
   SlaTab, CompVoidTab, PromoterPerformanceTab, IncidentPatternTab,
@@ -123,10 +126,11 @@ export default function ManagerAnalyticsPage() {
 }
 
 function AnalyticsPageContent() {
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
   const [preset, setPreset] = useState<string>("7");
   const [from, setFrom] = useState(isoDaysAgo(6));
   const [to, setTo] = useState(isoDaysAgo(0));
-  const [data, setData] = useState<HistoricalAnalytics | null>(null);
   const [exporting, setExporting] = useState(false);
   const [category, setCategory] = useState<CategoryId>(readSavedCategory);
   const [tab, setTab] = useState<string>(
@@ -134,14 +138,11 @@ function AnalyticsPageContent() {
   );
   const [showCompDetails, setShowCompDetails] = useState(false);
 
-  const load = useCallback(async (fromISO: string, toISO: string) => {
-    setData(null);
-    setData(await analyticsService.getHistorical(fromISO, toISO));
-  }, []);
-
-  useEffect(() => {
-    load(from, to);
-  }, [from, to, load]);
+  const { data } = useQuery({
+    queryKey: analyticsKeys.historical(venueId, from, to),
+    queryFn: () => analyticsService.getHistorical(from, to),
+    enabled: !!venueId,
+  });
 
   function applyPreset(id: string, days: number) {
     setPreset(id);
@@ -253,7 +254,7 @@ function AnalyticsPageContent() {
         </Button>
       </div>
 
-      {data === null ? (
+      {data === undefined ? (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
