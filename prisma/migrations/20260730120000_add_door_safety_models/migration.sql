@@ -7,6 +7,15 @@
 ALTER TABLE "venues" ADD COLUMN IF NOT EXISTS "evacuation_state" TEXT NOT NULL DEFAULT 'normal';
 ALTER TABLE "venues" ADD COLUMN IF NOT EXISTS "legal_drinking_age" INTEGER NOT NULL DEFAULT 18;
 
+-- VenueTable: hold/release/OOS lifecycle columns (plan 16 table lifecycle)
+ALTER TABLE "venue_tables" ADD COLUMN IF NOT EXISTS "hold_reason" TEXT;
+ALTER TABLE "venue_tables" ADD COLUMN IF NOT EXISTS "held_by" TEXT;
+ALTER TABLE "venue_tables" ADD COLUMN IF NOT EXISTS "held_until" TIMESTAMPTZ;
+
+-- GuestSession: host assignment columns (plan 17, WS-2)
+ALTER TABLE "guest_sessions" ADD COLUMN IF NOT EXISTS "host_staff_id" TEXT;
+ALTER TABLE "guest_sessions" ADD COLUMN IF NOT EXISTS "host_staff_name" TEXT;
+
 -- GuestProfile: identity enrichment columns
 ALTER TABLE "guest_profiles" ADD COLUMN IF NOT EXISTS "photo_url" TEXT;
 ALTER TABLE "guest_profiles" ADD COLUMN IF NOT EXISTS "preferences" JSONB;

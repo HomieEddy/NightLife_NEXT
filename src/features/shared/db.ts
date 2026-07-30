@@ -51,6 +51,7 @@ export function getDb(session: SessionContext) {
           "EventGuest",
           "ReportRun",
           "NotificationLog",
+          "IncidentNote",
         ];
         if (platformModels.includes(model)) return query(args);
 

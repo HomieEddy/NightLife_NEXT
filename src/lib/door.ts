@@ -75,7 +75,7 @@ export function dedupeCandidates(input: DedupeCandidate, profiles: GuestProfile[
 
   const nameMatches = profiles.filter((p) => {
     if (phoneIds.has(p.id) || emailIds.has(p.id)) return false;
-    if (p.firstName.toLowerCase() !== input.firstName.toLowerCase()) return false;
+    if ((p.firstName ?? "").toLowerCase() !== (input.firstName ?? "").toLowerCase()) return false;
     if ((p.lastName ?? "").toLowerCase() !== (input.lastName ?? "").toLowerCase()) return false;
     if (input.dobYear !== undefined && p.dobYear !== undefined && p.dobYear !== input.dobYear) return false;
     return true;
