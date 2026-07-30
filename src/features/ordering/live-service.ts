@@ -1,6 +1,6 @@
 "use client";
 
-import type { AdjustmentReason, GuestSession, MenuItem, Order, OrderRemake, OrderStatus, TabAdjustment, TabAdjustmentKind } from "@/lib/types";
+import type { AdjustmentReason, GuestSession, MenuItem, Order, OrderRemake, OrderStatus, TabAdjustment, TabAdjustmentKind, WalkoutRecord } from "@/lib/types";
 import type { CartLine } from "@/lib/types";
 import { toCents } from "@/features/shared/money";
 
@@ -128,9 +128,6 @@ export const liveOrdersService = {
     return api<Order>(`/api/orders/${encodeURIComponent(orderId)}/cancel`, { method: "PATCH" });
   },
 
-  // TODO(backend): plan 16 graduation — route handlers under /api/tab/* with
-  // Zod boundaries, server-side capability checks and the adjustment + stock
-  // movement written in one transaction with the item row locked (INV-O4).
   async listAdjustmentReasons(kind?: TabAdjustmentKind): Promise<AdjustmentReason[]> {
     const qs = kind ? `?kind=${encodeURIComponent(kind)}` : "";
     return api<AdjustmentReason[]>(`/api/tab/reasons${qs}`);
@@ -202,20 +199,32 @@ export const liveOrdersService = {
     return api("/api/inventory/availability", { method: "POST" });
   },
 
-  async rushOrder(_orderId: string, _staffName: string): Promise<Order | null> {
-    throw new Error("Not yet supported in the live build");
+  async rushOrder(orderId: string, staffName: string): Promise<Order | null> {
+    return api<Order>(`/api/orders/${encodeURIComponent(orderId)}/rush`, {
+      method: "PATCH",
+      body: JSON.stringify({ staffName }),
+    });
   },
 
-  async compEntireOrder(_orderId: string, _reasonCode: string, _staffId: string, _staffName: string): Promise<TabAdjustment> {
-    throw new Error("Not yet supported in the live build");
+  async compEntireOrder(orderId: string, reasonCode: string, staffId: string, staffName: string): Promise<TabAdjustment> {
+    return api<TabAdjustment>(`/api/orders/${encodeURIComponent(orderId)}/comp`, {
+      method: "PATCH",
+      body: JSON.stringify({ reasonCode, staffId, staffName }),
+    });
   },
 
-  async remakeOrder(_oldOrderId: string, _newOrderId: string, _reason: string, _staffId: string, _staffName: string): Promise<OrderRemake> {
-    throw new Error("Not yet supported in the live build");
+  async remakeOrder(oldOrderId: string, newOrderId: string, reason: string, staffId: string, staffName: string): Promise<OrderRemake> {
+    return api<OrderRemake>(`/api/orders/${encodeURIComponent(oldOrderId)}/remake`, {
+      method: "PATCH",
+      body: JSON.stringify({ newOrderId, reason, staffId, staffName }),
+    });
   },
 
-  async reportWalkout(): Promise<import("@/lib/types").WalkoutRecord> {
-    throw new Error("Not yet supported in the live build");
+  async reportWalkout(sessionId: string, description: string, staffId: string, staffName: string): Promise<WalkoutRecord> {
+    return api<WalkoutRecord>(`/api/tab/sessions/${encodeURIComponent(sessionId)}/walkout`, {
+      method: "POST",
+      body: JSON.stringify({ description, staffId, staffName }),
+    });
   },
 };
 import { liveFetch } from "@/features/shared/live-fetch";
