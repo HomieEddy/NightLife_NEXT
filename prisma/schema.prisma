@@ -1598,6 +1598,42 @@ model CommissionStatement {
   @@map("commission_statements")
 }
 
+// ── Staff table assignments & handoffs (plan 18) ─────────────────
+
+model StaffTableAssignment {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  staffId    String   @map("staff_id")
+  tableIds   String[] @map("table_ids")
+  zoneId     String   @map("zone_id")
+  shiftId    String?  @map("shift_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz
+
+  @@index([venueId, staffId])
+  @@map("staff_table_assignments")
+}
+
+model ShiftHandoff {
+  id                     String   @id @default(cuid())
+  venueId                String   @map("venue_id")
+  businessDate           String   @map("business_date")
+  fromStaffId            String   @map("from_staff_id")
+  fromStaffName          String   @map("from_staff_name")
+  toStaffId              String?  @map("to_staff_id")
+  toStaffName            String?  @map("to_staff_name")
+  openIncidents          String[] @default([]) @map("open_incidents")
+  vipNotes               String   @default("") @map("vip_notes")
+  inventoryAlerts        String   @default("") @map("inventory_alerts")
+  specialInstructions    String   @default("") @map("special_instructions")
+  generatedAt            DateTime @default(now()) @map("generated_at") @db.Timestamptz
+  acknowledgedByStaffId  String?  @map("acknowledged_by_staff_id")
+  acknowledgedByStaffName String? @map("acknowledged_by_staff_name")
+  acknowledgedAt         DateTime? @map("acknowledged_at") @db.Timestamptz
+
+  @@index([venueId, businessDate])
+  @@map("shift_handoffs")
+}
+
 // ── Cost, supply chain & profitability (plan 19) ───────────────────
 
 model Supplier {
