@@ -88,12 +88,10 @@ export const liveEventsService = {
     return res.json();
   },
 
-  // TODO(backend): event cancellation API route
   async cancelEvent(id: string, reason: string): Promise<VenueEvent | null> {
     return api<VenueEvent>(`/api/events/${encodeURIComponent(id)}/cancel`, { method: "POST", body: JSON.stringify({ reason }) });
   },
 
-  // TODO(backend): talent management API routes
   async listEventTalent(eventId: string): Promise<EventTalent[]> {
     return api<EventTalent[]>(`/api/events/${encodeURIComponent(eventId)}/talent`);
   },
@@ -122,7 +120,6 @@ export const liveEventsService = {
     return api<EventTalent>(`/api/event-talent/${encodeURIComponent(id)}/completed`, { method: "POST" });
   },
 
-  // TODO(backend): promoter quota API route
   async getQuotaUsage(promoterId: string, eventId: string): Promise<{ quota: number | null; used: number; remaining: number | null }> {
     return api(`/api/events/${encodeURIComponent(eventId)}/quota/${encodeURIComponent(promoterId)}`);
   },

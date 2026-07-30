@@ -193,6 +193,7 @@ model StaffProfile {
   tipPoolWeight   Float?   @default(1.0) @map("tip_pool_weight")
   employmentType  String?  @map("employment_type")
   commissionRuleId String? @map("commission_rule_id")
+  guestlistQuota   Int?    @map("guestlist_quota")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -809,6 +810,10 @@ model Reservation {
   cancellationPolicyNote String?   @map("cancellation_policy_note")
   seatingNumber   Int?             @map("seating_number")
   guestProfileId  String?          @map("guest_profile_id")
+  holdUntil       DateTime?         @map("hold_until") @db.Timestamptz
+  bumpedFromId    String?           @map("bumped_from_id")
+  bumpReason      String?           @map("bump_reason")
+  alternativeTableId String?        @map("alternative_table_id")
   createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -824,6 +829,7 @@ enum EventStatus {
   published
   live
   ended
+  cancelled
 }
 
 model VenueEvent {
@@ -837,6 +843,9 @@ model VenueEvent {
   capacity         Int
   status           EventStatus @default(draft)
   guestlistEnabled Boolean     @default(false) @map("guestlist_enabled")
+  ticketUrl        String?     @map("ticket_url")
+  cancellationReason String?   @map("cancellation_reason")
+  cancelledAt      DateTime?   @map("cancelled_at") @db.Timestamptz
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -848,17 +857,52 @@ model VenueEvent {
 }
 
 model EventGuest {
-  id        String   @id @default(cuid())
-  eventId   String   @map("event_id")
-  name      String
-  partySize Int      @map("party_size")
-  status    String   @default("invited")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id             String   @id @default(cuid())
+  eventId        String   @map("event_id")
+  name           String
+  partySize      Int      @map("party_size")
+  status         String   @default("invited")
+  guestProfileId String?  @map("guest_profile_id")
+  promoterId     String?  @map("promoter_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   event VenueEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
   @@map("event_guests")
+}
+
+/// RV-06: Dates the venue is closed or unavailable — blocks public reservations.
+model BlackoutDate {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  date      String   // YYYY-MM-DD
+  reason    String
+  zoneId    String?  @map("zone_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId, date])
+  @@map("blackout_dates")
+}
+
+/// EV-01: Artist/talent booked for a venue event.
+model EventTalent {
+  id          String   @id @default(cuid())
+  eventId     String   @map("event_id")
+  venueId     String   @map("venue_id")
+  name        String
+  role        String   // TalentRole: dj, mc, performer, host, dancer, musician, other
+  setTimes    Json     @default("[]") @map("set_times") // TalentSetTime[]
+  arrivalTime DateTime? @map("arrival_time") @db.Timestamptz
+  rider       String?
+  greenRoom   String?  @map("green_room")
+  status      String   @default("scheduled") // TalentStatus
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([eventId])
+  @@index([venueId])
+  @@map("event_talent")
 }
 
 /// Promotion status is derived from startsAt/endsAt — no stored status column.
