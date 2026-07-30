@@ -13,6 +13,10 @@ export const cashoutKeys = {
 
 export const purchasingKeys = {
   all: (venueId: string) => ["purchasing", venueId] as const,
+  suppliers: (venueId: string) => ["purchasing", venueId, "suppliers"] as const,
+  purchaseOrders: (venueId: string) => ["purchasing", venueId, "orders"] as const,
+  supplierItems: (venueId: string) => ["purchasing", venueId, "supplier-items"] as const,
+  stocktakes: (venueId: string) => ["purchasing", venueId, "stocktakes"] as const,
 };
 
 export const commissionKeys = {
@@ -28,4 +32,21 @@ export const tipsKeys = {
   rule: (venueId: string) => ["tips", venueId, "rule"] as const,
   distributions: (venueId: string) => ["tips", venueId, "distributions"] as const,
   entries: (venueId: string) => ["tips", venueId, "entries"] as const,
+};
+
+export const billingKeys = {
+  all: (venueId: string) => ["billing", venueId] as const,
+  subscription: (venueId: string) => ["billing", venueId, "subscription"] as const,
+  plans: (venueId: string) => ["billing", venueId, "plans"] as const,
+  invoices: (venueId: string) => ["billing", venueId, "invoices"] as const,
+};
+
+export const adminKeys = {
+  all: ["admin"] as const,
+  leads: ["admin", "leads"] as const,
+  lead: (id: string) => ["admin", "leads", id] as const,
+  tenants: ["admin", "tenants"] as const,
+  tenant: (id: string) => ["admin", "tenants", id] as const,
+  plans: ["admin", "plans"] as const,
+  telemetry: ["admin", "telemetry"] as const,
 };
