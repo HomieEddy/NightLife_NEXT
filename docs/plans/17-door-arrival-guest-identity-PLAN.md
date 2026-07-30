@@ -1,6 +1,9 @@
 # 17 — Door, Arrival, Guest Identity & Safety · PLAN
 
-**Status: not started — demo track first (AD-14).**
+**Status: demo track complete; live graduation pending (ROADMAP Phase 7, WS-2).**
+Door, waitlist, guest profiles, incidents, the ejection workflow and safety
+enforcement (S-01→S-04) all run in the demo build; four live-service modules are
+fully stubbed. This is the largest remaining graduation.
 
 Goal: the app currently begins when a guest is already sitting at a table with a
 QR code in front of them. This plan builds everything **before** that moment —
@@ -30,8 +33,9 @@ Preconditions: plan 08 (reservations/events), plan 13 (public reservations, PIN
 gate), plan 15 (floor-role matrix — security is a first-class role), plan 16
 (audit trail — refusals and ejections write to it).
 
-Closes: `docs/BUSINESS-LOGIC-GAP-REVIEW.md` §1 in full, §4 in full, §5 in full,
-and §7 except data-retention (plan 29).
+Closes: the door, guest-identity, incident-reporting and accountability gaps
+from the 2026-07-26 business logic review, except data retention (plan 35).
+The source review was absorbed into `docs/ROADMAP.md` on 2026-07-30.
 
 ## Reasoning
 
@@ -71,15 +75,15 @@ Interpretation choices (per AGENTS.md §1.4):
   are the reason a venue keeps its licence.
 - **Privacy minimums apply from the first PII-producing plan.** Guest profiles,
   incidents, and ID checks create personal information subject to Law 25/PIPEDA
-  before plan 29 ships. Minimum controls required in this plan: (1) no document
+  before plan 35 ships. Minimum controls required in this plan: (1) no document
   images or ID numbers stored — ID checks record year of birth and verification
   status only, per AD-17; (2) guest profiles are opt-in per AD-17 — anonymous QR
   sessions create no profile; (3) incident retention labels are set at creation
   time (incidents with `reportable: true` carry `retainUntil` far-future;
-  non-reportable incidents default to plan 29's standard retention); (4) all new
+  non-reportable incidents default to plan 35's standard retention); (4) all new
   tables carrying PII (`GuestProfile`, `Incident`, `Admission.idCheck`) are
   scoped to `venueId` and the tenant-isolation canary test extends to them.
-  Plan 29 adds the full retention enforcement, deletion paths, consent
+  Plan 35 adds the full retention enforcement, deletion paths, consent
   management, and breach register.
 
 ## Design choices
@@ -213,7 +217,7 @@ Interpretation choices (per AGENTS.md §1.4):
   authority name (e.g. "Régie des alcools, des courses et des jeux").
 - Overdue reportable incidents escalate: notification at 7 days before
   deadline, at deadline, and daily thereafter until `reportedToAuthorityAt`
-  is set. The compliance calendar (Plan 29's retention job scope) surfaces
+  is set. The compliance calendar (Plan 35's retention job scope) surfaces
   these alongside certification expiries.
 
 **S-03 — Emergency evacuation workflow:**
@@ -336,7 +340,7 @@ Live track (graduation):
 8. Route handlers + Zod; domain events `GuestAdmitted`, `GuestExited`,
    `OccupancyChanged`, `WaitlistChanged`, `IncidentReported`,
    `GuestCheckedIn` (already reserved in DDD §3), `ReservationSeated`.
-9. Retention: `GuestProfile` and `Incident` enter plan 29's retention schedule
+9. Retention: `GuestProfile` and `Incident` enter plan 35's retention schedule
    with explicit periods (incidents are kept longest — licence defence).
 
 ## Testing

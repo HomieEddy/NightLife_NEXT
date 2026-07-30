@@ -1,6 +1,7 @@
-# 24 — Database Operations & Backups · PLAN
+# 33 — Database Operations & Backups · PLAN
 
-**Status: not started.**
+**Status: not started — ROADMAP Phase 8.**
+**Renumbered 2026-07-30:** was plan 24; the old number is retired.
 
 Goal: make the staging/production Postgres (AD-2, AD-15) operationally
 trustworthy: automated backups with a **tested restore**, a least-privilege
@@ -27,8 +28,8 @@ instantiation against a small VPS Postgres exhausts connections under SSE
 load — plan 07's LISTEN connections count too).
 
 Scope note: this plan owns the database; app-level observability (slow
-*request* tracing, dashboards) is plan 23. Where they meet —
-`log_min_duration_statement` output — this plan turns it on, plan 23 routes
+*request* tracing, dashboards) is plan 32. Where they meet —
+`log_min_duration_statement` output — this plan turns it on, plan 32 routes
 it somewhere readable.
 
 ## Design choices

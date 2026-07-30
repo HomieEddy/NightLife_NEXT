@@ -1,6 +1,7 @@
 # 09c — Analytics Depth & Reporting Expansion · PLAN
 
-**Status: complete except scheduled email delivery** — same unshipped leg as
+**Status: complete.** Scheduled email delivery landed with plan 25. Original
+note: same unshipped leg as
 plan 09; metrics, saved reports and CSV landed. See ROADMAP parking lot.
 
 Goal: capture in-depth metrics for the domains plan 09 left uncovered —

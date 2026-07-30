@@ -1,20 +1,21 @@
-# 27 — i18n: Full French/English Support · PLAN
+# 34 — i18n: Full French/English Support · PLAN
 
-**Status: not started.**
+**Status: not started — ROADMAP Phase 8.**
+**Renumbered 2026-07-30:** was plan 27; the old number is retired.
 
 Goal: the entire app — guest, public/marketing, manager, staff, admin —
 operable in French and English, switched by a locale toggle sitting next to
 the existing dark-mode button in every shell, persisted per user. For a
 product selling to Quebec venues this is not a nicety: the Charter of the
 French Language (Bill 96) expects consumer-facing services in French, and
-plan 29's bilingual policy pages need an app that can actually render in the
+plan 35's bilingual policy pages need an app that can actually render in the
 policy's language. The guest ordering flow is where the legal and product
 pressure concentrates — a francophone guest scanning a QR must get French.
 
-Preconditions: none hard. Land before or alongside plan 29 (its `/privacy`
+Preconditions: none hard. Land before or alongside plan 35 (its `/privacy`
 and `/terms` render through this plan's locale plumbing); plans 25/26 gain
 localized templates here if they've shipped, or ship bilingual from birth if
-this lands first. Branch `feature/27-i18n`.
+this lands first. Branch `feature/34-i18n`.
 
 ## Reasoning
 
@@ -110,7 +111,7 @@ Each numbered step is a commit-sized workstream with the ladder run (§2.3):
    toasts in `src/components/shared/`, nav labels.
 3. Guest area sweep + French (+ venue `guestLocale` setting in manager
    settings, reservation locale capture, `?lang=` on `/r/[slug]`).
-4. Public/marketing + `/privacy`/`/terms` wiring (plan 29 rendezvous) +
+4. Public/marketing + `/privacy`/`/terms` wiring (plan 35 rendezvous) +
    login/invite pages.
 5. Manager area sweep + French.
 6. Staff area sweep + French.

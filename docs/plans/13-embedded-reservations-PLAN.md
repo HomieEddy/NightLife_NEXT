@@ -1,6 +1,7 @@
 # 13 — Embeddable Reservations & Reserved-Table QR Gate · PLAN
 
-**Status: demo track complete; live graduation pending** — public reservation
+**Status: demo track complete; live graduation pending (ROADMAP Phase 7, WS-3).**
+Original note: public reservation
 API routes + live selector branch; schema migration is already committed.
 
 Goal: venues get a shareable/embeddable public reservation page — a guest opens

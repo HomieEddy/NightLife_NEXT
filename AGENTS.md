@@ -15,10 +15,11 @@ once, then behave like the agent that built this repo.
 per feature, not per era (ARD AD-14):
 
 - **Demo track (the sandbox):** mock data + in-memory services in
-  `src/lib/mock-services/`, shipped forever as the public Live Demo. Every new
+`src/features/{domain}/mock-service.ts`, shipped forever as the public Live Demo. Every new
   feature **starts here**: sketch mock-first, iterate the UX in the preview,
-  keep its entry points behind `isDemoMode()`. The "Phase 1" rules below are
-  this track's rules — they never expire.
+  keep its entry points behind `isDemoMode()`. The "demo track" rules below are
+  this track's rules — they never expire, and they are unrelated to the
+  numbered *product* phases in `docs/ROADMAP.md`.
 - **Live track (the backend):** signals it exists: `prisma/`, `src/app/api/`
   route handlers, an auth library, `*.test.ts`. A feature moves here only by
   **graduating**: a `docs/plans/NN-name-PLAN.md`, a real implementation that
@@ -112,11 +113,13 @@ Rules that follow from it:
    `// TODO(backend): becomes an append-only stock_movements ledger table.`
    These comments are the real spec for the eventual API — write them like you
    mean them.
-3. **Business math lives in `src/lib/`, not in components.** Fees are computed
-   by `fees.ts` and consumed by both the guest cart and the orders service —
-   one formula, two callers. If a second caller for any calculation appears,
-   extract it the same way.
-4. **Cross-page navigation goes through `entity-links.ts` + `EntityChip`.**
+3. **Business math lives in the feature folder or `src/lib/`, never in
+   components.** Fees are computed by `src/features/ordering/fees.ts` and
+   consumed by both the guest cart and the orders service — one formula, two
+   callers. If a second caller for any calculation appears, extract it the same
+   way.
+4. **Cross-page navigation goes through `src/features/shared/entity-links.ts` +
+   `EntityChip`.**
    URLs live in one place. Target pages own reading their params
    (`useSearchParams` inside a `Suspense` boundary — always, or the build breaks).
 5. **State is module-level `let` inside services** — it resets on full page
@@ -124,21 +127,28 @@ Rules that follow from it:
    (don't "verify persistence" across a hard navigation; use client-side nav).
 6. **Demo-persistent flags** (like first-run onboarding) go in `localStorage`
    via a tiny helper in `src/lib/`, never sprinkled inline.
+7. **Client server-state is TanStack Query's job (ARD AD-24).** Reads are
+   `useQuery`, writes are `useMutation` + `invalidateQueries`. Keys come from
+   the domain's `query-keys.ts` builder — never an inline array literal at a
+   call site. Query sits *above* the selector: query functions call
+   `xService.*` from `services.ts`, so demo and live are unchanged. A page that
+   fetches in a `useEffect` is a pattern break.
 
 ## 4. Code quality
 
 1. **Match the neighborhood.** Before writing a page, mimic the canonical one:
-   `"use client"` → state → `refresh` via `useCallback` → `useEffect` →
-   handlers with `toast` feedback → skeleton / empty-state / list render.
-   Dialogs: local draft state, `openCreate`/`openEdit`, validation with
-   `toast.error`, `saving` spinner. If your page doesn't look like
-   `staff/page.tsx` grew a sibling, rewrite it.
+   `"use client"` → `useQuery` for reads → `useMutation` + `invalidateQueries`
+   for writes → handlers with `toast` feedback → skeleton (`isPending`) /
+   empty-state / list render. Forms are react-hook-form + Zod, never hand-rolled
+   state. Dialogs: `openCreate`/`openEdit`, validation via the resolver,
+   `saving` spinner. If your page doesn't look like `staff/page.tsx` grew a
+   sibling, rewrite it.
 2. **Comment constraints, not narration.** Good: `// won/lost are exits, not
    steps`, `// Nightclub week: render Thursday→Sunday first`. Bad: `// map over
    the zones`. Density in this repo is low; keep it that way.
 3. **No raw emoji, no raw hex colors.** Icons come from `lucide-react` or
    `BottleIcon`; colors are Tailwind tokens through maps like `ZONE_COLORS` /
-   `ZONE_SWATCH` in `src/lib/zone-colors.ts`.
+   `ZONE_SWATCH` in `src/features/shared/zone-colors.ts`.
 4. **Money and counts:** `formatMoney()` + `tabular-nums`, always. Round to
    cents at the service boundary (`Math.round(x * 100) / 100`), not in JSX.
  5. **Consequential actions use `ConfirmDialog` or undo toast by policy (plan 20).**
@@ -219,22 +229,22 @@ When reviewing (or before finishing your own diff), hunt in this order:
 
 ## 7. Testing philosophy
 
-**Phase 1 (prototype):** there is no UI test suite, deliberately — the mock
+**On the demo track:** there is no UI test suite, deliberately — the mock
 services *are* the fixtures and the preview browser is the harness. Unit tests
-exist where money/logic purity justifies them (`src/lib/*.test.ts`, the
-mock-service math), not for rendering.
+exist where money/logic purity justifies them (`src/lib/*.test.ts`,
+`src/features/*/*.test.ts`, the mock-service math), not for rendering.
 
 - **Behavioral verification replaces unit tests**: every feature must be
   driven end-to-end in the preview before it's "done" (see §5).
-- Keep logic **testable anyway**: pure functions in `src/lib/` (`fees.ts`,
-  `entity-links.ts`, the analytics generator) take inputs and return outputs —
-  these become the first test files without refactoring.
+- Keep logic **testable anyway**: pure functions (`ordering/fees.ts`,
+  `shared/entity-links.ts`, the analytics generator) take inputs and return
+  outputs — these become the first test files without refactoring.
 - Deterministic beats random: mock generators seed from stable hashes
   (see `analytics-service.ts`) so the same date range always renders the same
   chart. Never `Math.random()` in anything an assertion might read —
   `uid()` for identity is the sanctioned exception.
 
-**Phase 2 (backend):** the suite exists as soon as the first API route does.
+**On the live track:** the suite exists and grows with every route handler.
 Priorities, highest value first:
 
 1. **Money math and state machines get unit tests before anything else** —
@@ -242,7 +252,7 @@ Priorities, highest value first:
    inventory ledger balancing (`inventory === Σ movements.delta`). These are
    the functions where a silent bug costs real money.
 2. **Route handlers get integration tests** against a real in-process database
-   (PGlite via `src/server/test-pglite.ts`) — request in, DB rows + response out.
+   (PGlite via `src/features/shared/test-pglite.ts`) — request in, DB rows + response out.
    No Docker or external Postgres needed. Test the authorization boundary explicitly:
    a staff token must not reach manager endpoints; tenant A must never read tenant B's rows.
 3. **A handful of end-to-end flows** (Playwright): guest scan→order→delivery,
@@ -265,7 +275,7 @@ feature's plan names its required tests; don't invent a different set silently.
    Playwright for the E2E flows named in §7.3 and the plans. Commands: `npm run test`,
    `test:integration`, `test:e2e`.
 2. **Layout & naming:** tests live next to the code they test —
-   `src/server/pricing.ts` → `src/server/pricing.test.ts`;
+   `src/features/ordering/fees.ts` → `src/features/ordering/fees.test.ts`;
    `*.integration.test.ts` for DB-backed suites; `e2e/*.spec.ts` for Playwright.
    One behavior per test; the name states the rule, not the method:
    `("rejects a claim when another staff already holds the order")`, not
@@ -274,9 +284,10 @@ feature's plan names its required tests; don't invent a different set silently.
    ledgers, locks (the DDD `INV-*` list): write the failing test, then the code.
    For everything else, tests land in the same commit as the code — never a
    later "add tests" commit.
-4. **Fixtures come from mock data.** Seed suites from `src/lib/mock-data/*` via
-   shared helpers; if a test needs a shape mock data lacks, extend mock data (it
-   feeds the demo too) rather than inventing a parallel fixture.
+4. **Fixtures come from mock data.** Seed suites from
+   `src/features/{domain}/mock-data.ts` via shared helpers; if a test needs a
+   shape mock data lacks, extend mock data (it feeds the demo too) rather than
+   inventing a parallel fixture.
 5. **Determinism is non-negotiable:** fake timers for anything time-based
    (SLA ages, ETAs, night boundaries), fixed seeds for generated data, no
    `Math.random()`/`Date.now()` in assertions. A test that flakes gets fixed or
@@ -306,15 +317,21 @@ feature's plan names its required tests; don't invent a different set silently.
 
 ## 9. Product strategy & graduation playbook
 
-**The master roadmap is `docs/ROADMAP.md`** (re-aligned 2026-07-27). It
-organises all work into seven phases: Foundation → Core Ops → Business Logic
-Completion → Automation & Intelligence → Mobile (PWA + Push) → Production
-Readiness → CI/CD. Business logic completes before infrastructure automation.
+**The master roadmap is `docs/ROADMAP.md`** (re-aligned 2026-07-30). It
+organises all work into nine phases: Foundation → Core Ops → Business Logic
+Completion → Automation & Intelligence → Mobile (PWA + Push) → Foundation
+Modernization → **Live Graduation to MVP** → Production Readiness → CI/CD.
 
-**Strategy: Business Logic First.** Every operational gap from the comprehensive
-business logic audit must be addressed before CI/CD, deployment automation, or
-production hardening. The PWA is the primary staff delivery target; push
-notifications are a first-class feature, not an afterthought.
+**Where we are:** Phases 1–6 are done. The product is feature-complete *on the
+demo track*; roughly half the surface still throws `"Not yet supported"` in the
+live build. **Phase 7 closes that gap** and is the only thing between here and
+MVP. Read Phase 7's workstream table (WS-1…WS-8) before picking up backend work;
+`docs/PHASE-PROMPT.md` is the per-workstream kickoff template.
+
+**Strategy: Business Logic First.** Operational completeness comes before CI/CD,
+deployment automation, and production hardening. The PWA is the primary staff
+delivery target; push notifications are a first-class feature, not an
+afterthought.
 
 **The architecture is governed by `docs/ARD.md`** (PRD/ARD/DDD + per-feature
 plans) — where this section and docs/ disagree, docs/ wins and this file gets
@@ -543,8 +560,8 @@ makes it obsolete.
   only** — real Postgres behind each selector's live branch. Demo mode still
   resets on reload; that's the permanent sandbox behavior (AD-14), not a bug.
   Local live testing: `npm run dev:pglite` (PGlite in-process, fastest),
-  `npm run dev:stack` (compose stack: real Postgres 17 + both live/demo apps),
-  or connect to real Postgres at `DATABASE_URL` for external DBs.
+  the compose stack in `compose.yaml` (real Postgres 17 + both
+  live/demo apps), or connect to real Postgres at `DATABASE_URL` for external DBs.
 - Guest flow entry: **demo mode** — `/g/demo-table` → join → "Simulate host
   approval" (prototype control, demo-only) → menu. **Live mode** — QR URL is
   `/g/<tableId>.<sig>` (signed token); guest joins via API, sets httpOnly
@@ -559,5 +576,5 @@ makes it obsolete.
   **Live mode** uses SSE via `useLiveEvents` → `/api/live/{manager,staff,guest}`
   backed by Postgres `LISTEN/NOTIFY`. All pages use `useLiveEvents` — zero
   `setInterval(refresh` patterns remain. Floor coordination (broadcasts, last
-  call, show lock, chat) lives in `src/server/floor-core.ts` with domain events
-  published via `src/server/events.ts`.
+  call, show lock, chat) lives in `src/features/realtime/floor-core.ts` with
+  domain events published via `src/features/realtime/events.ts`.

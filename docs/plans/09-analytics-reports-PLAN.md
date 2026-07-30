@@ -1,6 +1,7 @@
 # 09 — Analytics & Report Engine · PLAN
 
-**Status: complete except scheduled email delivery** — cron handlers + Resend
+**Status: complete.** Scheduled email delivery landed with plan 25 (dispatch)
+and `/api/jobs/report-schedules`. Original note: cron handlers + Resend
 never landed (rollups, due-selection and `job_runs` exist); see ROADMAP
 parking lot.
 

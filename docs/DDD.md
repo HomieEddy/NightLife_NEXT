@@ -3,7 +3,10 @@
 **Status:** Living document. The domain language below is spoken by
 `src/lib/types.ts` and materialized in `prisma/schema.prisma`; this document
 organizes it into bounded contexts, aggregates and invariants.
-**Last updated:** 2026-07-27 — extended for Phases 2–5 of the re-aligned roadmap.
+**Last updated:** 2026-07-30. Every context and event below exists in
+`src/lib/types.ts` and the mock services; the "live" marker on the event lists
+records whether it is also published by the live build (`domain_events` +
+`NOTIFY`) or still demo-track only, pending ROADMAP Phase 7 graduation.
 
 Where the two drift, the schema wins and this file gets fixed (AGENTS.md §9.9).
 
@@ -53,23 +56,27 @@ Where the two drift, the schema wins and this file gets fixed (AGENTS.md §9.9).
 +----------------------------------------------------------------------------------+
 ```
 
-Contexts added by the re-aligned roadmap:
+Contexts that cross-cut the venue diagram above:
 
-- **Guest Identity & CRM** (Phase 2–3): profiles acquire preferences, celebrations,
-  linked profiles, staff notes, photo, RFM scoring, referral tracking, and
-  spend-by-category — graduating from "identity record" to "relationship hub."
-- **Notifications** (Phase 2): the `NotificationLog` and `NotificationPreferences`
+- **Guest Identity & CRM** — profiles carry preferences, celebrations, linked
+  profiles, staff notes, photo, value scoring, referral tracking, and
+  spend-by-category: an identity record grown into a relationship hub.
+  Demo track; live pending (Phase 7, WS-2).
+- **Notifications** — the `NotificationLog` and `NotificationPreferences`
   aggregates, plus the template registry and dispatcher (AD-22). Cross-cuts every
-  context — any domain event can trigger a notification.
-- **Compliance** (Phase 2–6): certification tracking, compliance calendar,
-  mandatory incident reporting, data retention, and the breach register.
-  Cross-cuts workforce, incidents, and guest identity.
-- **PWA Infrastructure** (Phase 5): `PushSubscription` and offline queue are
-  technical aggregates — they don't model the business domain but are first-class
-  architectural concerns.
-- **Rules Engine** (AD-21): the `RuleDefinition` aggregate plus the evaluator.
+  context: any domain event can trigger a notification. **Live.**
+- **Compliance** — certification tracking, compliance calendar, mandatory
+  incident reporting, data retention, and the breach register. Cross-cuts
+  workforce, incidents, and guest identity. Demo track; retention and the breach
+  register land with plan 35.
+- **PWA Infrastructure** — `PushSubscription` and the offline queue are technical
+  aggregates: they don't model the business domain but are first-class
+  architectural concerns. **Live.**
+- **Rules Engine** (AD-21) — the `RuleDefinition` aggregate plus the evaluator.
   Cross-cuts ordering (auto-gratuity, SLA), workforce (overtime, breaks),
-  venue config (capacity warnings), and inventory (par levels, pour cost).
+  venue config (capacity warnings), and inventory (par levels). Partially
+  realized: the automation engine implements the scheduled and event-driven
+  half; the rest is still inline per feature (see AD-21's status note).
 
 Multi-venue grouping remains deliberately absent (roadmap parking lot).
 
@@ -159,7 +166,7 @@ tests-first treatment.
   reorder quantity = max(par[today] - currentStock, 0).
 
 **BottlePackage** (root) — components reference items; pricing/availability
-quotes are *derived*. **Recipe** (Phase 4) — BOM linking a drink to component
+quotes are *derived*. **Recipe** (parked, see ROADMAP tier 3) — BOM linking a drink to component
 pour costs; pour cost = Σ(componentCost × pourQty) / sellPrice.
 
 **HappyHourRule** (root) — applies at order pricing time inside the order
@@ -380,14 +387,14 @@ billing only — no guest or venue payment processing (AD-12).
 
 ## 3. Domain events (the realtime vocabulary)
 
-### Published today
+### Published by the live build today
 
 `OrderPlaced, OrderStatusChanged, OrderClaimed, OrderReleased, GiftSent,
 SessionRequested, SessionApproved, SessionDenied, ClosureRequested, SessionClosed,
 HelpRequested, HelpStatusChanged, SoldOut, StockRestocked, BroadcastSent,
 LastCallStarted, LastCallEnded, ShowStarted, ShowFinished`
 
-### Phase 2 (plans 16–17, 25–26)
+### Tab, door, identity & safety — demo track; live pending (Phase 7, WS-1/WS-2)
 
 `TabAdjusted, SessionTransferred, SessionsMerged, SessionSplit, CashoutClosed,
 GuestAdmitted, GuestExited, GuestDenied, OccupancyChanged, OccupancyWarning,
@@ -396,7 +403,7 @@ ServiceRefused, ReservationSeated, GuestCheckedIn, GuestProfileCreated,
 GuestBanned, GuestWatchlisted, NotificationSent, NotificationFailed,
 EmergencyEvacuated, CertificationExpiring`
 
-### Phase 3 (plans 18–20, operational features)
+### Workforce, hospitality & operational features — demo track; live pending (Phase 7, WS-3/WS-4/WS-5)
 
 `ShiftPublished, ShiftSwapRequested, ShiftSwapApproved, ClockedIn, ClockedOut,
 BreakStarted, BreakEnded, ShiftNoShow, OvertimeWarning, LateArrivalFlagged,
@@ -407,19 +414,19 @@ WatchlistWarning, VipArrived, EjectionExecuted, OrderOverdue, OrderPriorityChang
 OrderEtaUpdated, BriefingPublished, IncidentActionAssigned, WitnessRecorded,
 CctvLinked, MandatoryReportDue`
 
-### Phase 4 (automations & intelligence)
+### Automations & intelligence — live
 
 `PourCostTargetBreached, VarianceThresholdExceeded, ParLevelLow,
 AutoSuggestedPo, VipTierUpgradeSuggested, DormantVipDetected,
 DuplicateReservationDetected, EventAutoEnded, StocktakeVarianceFlagged`
 
-### Phase 5 (PWA & push)
+### PWA & push — live
 
 `PushSubscribed, PushUnsubscribed, PushDelivered, PushClicked, PushFailed,
 NotificationPreferenceChanged, OfflineActionQueued, OfflineActionSynced,
 OfflineActionFailed, SwUpdateAvailable, SwUpdateApplied`
 
-### Phase 6 (compliance & hardening)
+### Compliance & hardening — pending plan 35 (Phase 8)
 
 `ComplianceDeadlineApproaching, ComplianceDeadlineOverdue, DataRetentionExecuted,
 DataDeletionCompleted, BreachRecorded, SecurityScanCompleted`
