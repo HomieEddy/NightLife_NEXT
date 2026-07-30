@@ -14,8 +14,6 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// TODO(backend): plan 16 graduation — /api/audit route handler, manager-only
-// (audit:read), reading the insert-only audit_entries table.
 export const liveAuditService = {
   async record(input: {
     actorStaffId: string;

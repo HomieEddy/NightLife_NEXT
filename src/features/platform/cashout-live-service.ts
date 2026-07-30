@@ -15,8 +15,6 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// TODO(backend): plan 16 graduation — /api/cashout route handlers; expected
-// totals computed server-side from the session ledger, not client-derived.
 export const liveCashoutService = {
   async listCashouts(staffId?: string): Promise<ShiftCashout[]> {
     const qs = staffId ? `?staffId=${encodeURIComponent(staffId)}` : "";

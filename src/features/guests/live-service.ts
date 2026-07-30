@@ -83,8 +83,6 @@ export const liveGuestsService = {
     });
   },
 
-  // TODO(backend): plan 16 graduation — SessionTransferred/SessionsMerged domain
-  // events (AD-6) so the host's session sheet updates live on the other device.
   async transferSession(
     sessionId: string,
     toTableId: string,
@@ -121,8 +119,11 @@ export const liveGuestsService = {
     throw new Error("Not yet supported in the live build");
   },
 
-  async splitBill(): Promise<SplitBillAssignment | null> {
-    throw new Error("Not yet supported in the live build");
+  async splitBill(sessionId: string, splits: { label: string; orderItemIds: string[] }[]): Promise<SplitBillAssignment | null> {
+    return api<SplitBillAssignment>(`/api/tab/sessions/${encodeURIComponent(sessionId)}/split`, {
+      method: "POST",
+      body: JSON.stringify({ splits }),
+    });
   },
 
   async createBarTab(): Promise<BarTab> {

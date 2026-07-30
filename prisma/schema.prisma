@@ -509,6 +509,9 @@ model Order {
   promotionId        String?     @map("promotion_id")
   promotionCode      String?     @map("promotion_code")
   promotionCents     Int         @default(0) @map("promotion_cents")
+  isRushed           Boolean     @default(false) @map("is_rushed")
+  rushedBy           String?     @map("rushed_by")
+  rushedAt           DateTime?   @map("rushed_at") @db.Timestamptz
 
   venue    Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
   session  GuestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
@@ -1030,6 +1033,37 @@ model ShiftCashout {
 
   @@index([venueId, businessDate])
   @@map("shift_cashouts")
+}
+
+// ── Order remakes & walkouts (plan 16) ──────────────────────────────
+
+model OrderRemake {
+  id                String   @id @default(cuid())
+  venueId           String   @map("venue_id")
+  oldOrderId        String   @map("old_order_id")
+  newOrderId        String   @map("new_order_id")
+  reason            String
+  remadeByStaffId   String   @map("remade_by_staff_id")
+  remadeByStaffName String   @map("remade_by_staff_name")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId])
+  @@index([oldOrderId])
+  @@map("order_remakes")
+}
+
+model WalkoutRecord {
+  id                  String   @id @default(cuid())
+  venueId             String   @map("venue_id")
+  sessionId           String   @map("session_id")
+  tableCode           String   @map("table_code")
+  description         String
+  reportedByStaffId   String   @map("reported_by_staff_id")
+  reportedByStaffName String   @map("reported_by_staff_name")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId])
+  @@map("walkout_records")
 }
 
 // ── Door, arrival & guest identity (plan 17) ───────────────────────
