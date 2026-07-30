@@ -230,6 +230,8 @@ model Venue {
   occupancyWarnRatio     Float    @default(0.9) @map("occupancy_warn_ratio")
   coatCheckEnabled       Boolean  @default(false) @map("coat_check_enabled")
   doorRequiresIdCheck    Boolean  @default(false) @map("door_requires_id_check")
+  legalDrinkingAge       Int      @default(18) @map("legal_drinking_age")
+  evacuationState        String   @default("normal") @map("evacuation_state")
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -253,8 +255,14 @@ model Venue {
   floorState     VenueFloorState?
   activeShow     ActiveShowLock?
   chatMessages   ChatMessage[]
-  nightlyRollups NightlyRollup[]
-  savedReports   SavedReport[]
+  nightlyRollups   NightlyRollup[]
+  savedReports     SavedReport[]
+  guests           GuestProfile[]
+  admissions       Admission[]
+  occupancyEvents  OccupancyEvent[]
+  waitlistEntries  WaitlistEntry[]
+  coatCheckTickets CoatCheckTicket[]
+  incidents        Incident[]
 
   @@map("venues")
 }
@@ -1085,10 +1093,18 @@ model GuestProfile {
   bannedByStaffId String?  @map("banned_by_staff_id")
   notes           String?
   marketingConsent Json    @default("{\"email\":false,\"sms\":false,\"capturedAt\":\"\",\"source\":\"\"}") @map("marketing_consent")
+  photoUrl         String?  @map("photo_url")
+  preferences      Json?    @map("preferences")
+  valueScore       Int?     @map("value_score")
+  watchlist        Json?    @map("watchlist")
+  staffNotes       Json?    @map("staff_notes")
+  linkedProfileIds String[] @default([]) @map("linked_profile_ids")
   lastVisitAt     DateTime? @map("last_visit_at") @db.Timestamptz
   visitCount      Int      @default(0) @map("visit_count")
   lifetimeNetCents Int     @default(0) @map("lifetime_net_cents")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId])
   @@index([venueId, status])
@@ -1126,7 +1142,12 @@ model Admission {
   admittedByStaffName String   @map("admitted_by_staff_name")
   admittedAt          DateTime @map("admitted_at") @db.Timestamptz
   exitedAt            DateTime? @map("exited_at") @db.Timestamptz
-  reEntryOfAdmissionId String?  @map("re_entry_of_admission_id")
+  exitType            String?  @map("exit_type")
+  reEntryOfAdmissionId String? @map("re_entry_of_admission_id")
+  wristband           Json?    @map("wristband")
+  groupAdmissionId    String?  @map("group_admission_id")
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, businessDate])
   @@map("admissions")
@@ -1140,6 +1161,8 @@ model OccupancyEvent {
   reason       String
   staffId      String   @map("staff_id")
   at           DateTime @map("at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, businessDate])
   @@map("occupancy_events")
@@ -1157,6 +1180,8 @@ model WaitlistEntry {
   joinedAt      DateTime @map("joined_at") @db.Timestamptz
   notifiedAt    DateTime? @map("notified_at") @db.Timestamptz
 
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
   @@index([venueId, status])
   @@map("waitlist_entries")
 }
@@ -1171,6 +1196,8 @@ model CoatCheckTicket {
   checkedInAt   DateTime @map("checked_in_at") @db.Timestamptz
   claimedAt     DateTime? @map("claimed_at") @db.Timestamptz
   staffId       String   @map("staff_id")
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, businessDate])
   @@map("coat_check_tickets")
@@ -1193,8 +1220,20 @@ model Incident {
   reportedByStaffId  String   @map("reported_by_staff_id")
   reportedByStaffName String  @map("reported_by_staff_name")
   status             String   @default("open")
+  locationDescription String? @map("location_description")
+  reportable         Boolean  @default(false)
+  regulatoryDeadline DateTime? @map("regulatory_deadline") @db.Timestamptz
+  regulatoryAuthority String? @map("regulatory_authority")
+  reportedToAuthorityAt DateTime? @map("reported_to_authority_at") @db.Timestamptz
+  escalationLevel    String?  @map("escalation_level")
+  witnesses          Json?    @map("witnesses")
+  cctvReference      String?  @map("cctv_reference")
+  medicalChecklist   Json?    @map("medical_checklist")
+  staffInjuryDetails Json?    @map("staff_injury_details")
 
   notes IncidentNote[]
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, businessDate])
   @@index([venueId, status])
@@ -1213,6 +1252,94 @@ model IncidentNote {
 
   @@index([incidentId])
   @@map("incident_notes")
+}
+
+// ── Door refusals (plan 17, DO-02) ─
+
+model DoorRefusal {
+  id                String   @id @default(cuid())
+  venueId           String   @map("venue_id")
+  businessDate      String   @map("business_date")
+  reason            String
+  description       String
+  partySize         Int      @map("party_size")
+  refusedByStaffId  String   @map("refused_by_staff_id")
+  refusedByStaffName String  @map("refused_by_staff_name")
+  timestamp         DateTime @map("timestamp") @db.Timestamptz
+
+  @@index([venueId, businessDate])
+  @@map("door_refusals")
+}
+
+// ── Coat check claims (plan 17, DO-10) ─
+
+model CoatCheckClaim {
+  id                 String   @id @default(cuid())
+  venueId            String   @map("venue_id")
+  claimType          String   @map("claim_type")
+  ticketId           String?  @map("ticket_id")
+  description        String
+  reportedByStaffName String  @map("reported_by_staff_name")
+  reportedAt         DateTime @map("reported_at") @db.Timestamptz
+  resolution         String?
+  resolvedAt         DateTime? @map("resolved_at") @db.Timestamptz
+  resolvedByStaffId  String?  @map("resolved_by_staff_id")
+
+  @@index([venueId])
+  @@map("coat_check_claims")
+}
+
+// ── Incident action items (plan 17, OE-32) ─
+
+model IncidentActionItem {
+  id                 String   @id @default(cuid())
+  venueId            String   @map("venue_id")
+  incidentId         String   @map("incident_id")
+  description        String
+  assignedToStaffId  String?  @map("assigned_to_staff_id")
+  status             String   @default("pending")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  completedAt        DateTime? @map("completed_at") @db.Timestamptz
+
+  @@index([venueId, incidentId])
+  @@map("incident_action_items")
+}
+
+// ── Incident quick-file templates (plan 17, SI-08) ─
+
+model IncidentTemplate {
+  id                  String  @id @default(cuid())
+  venueId             String  @map("venue_id")
+  label               String
+  type                String
+  severity            String
+  narrativeTemplate   String   @map("narrative_template")
+  actionsTakenTemplate String  @map("actions_taken_template")
+  isActive            Boolean  @default(true) @map("is_active")
+
+  @@index([venueId])
+  @@map("incident_templates")
+}
+
+// ── Staff certification tracking (plan 17, S-04) ─
+
+model Certification {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  staffId         String   @map("staff_id")
+  type            String
+  issuedAt        DateTime @map("issued_at") @db.Timestamptz
+  expiresAt       DateTime @map("expires_at") @db.Timestamptz
+  issuingBody     String?  @map("issuing_body")
+  referenceNumber String?  @map("reference_number")
+  documentUrl     String?  @map("document_url")
+  verifiedByStaffId String? @map("verified_by_staff_id")
+  verifiedAt      DateTime? @map("verified_at") @db.Timestamptz
+  status          String   @default("active")
+
+  @@index([venueId, staffId])
+  @@index([venueId, expiresAt])
+  @@map("certifications")
 }
 
 // ── Workforce: time clock, scheduling, tips & commissions (plan 18) ─
