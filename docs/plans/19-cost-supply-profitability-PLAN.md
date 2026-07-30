@@ -1,6 +1,8 @@
 # 19 — Cost, Supply Chain & Profitability · PLAN
 
-**Status: not started — demo track first (AD-14).**
+**Status: demo track complete; live graduation pending (ROADMAP Phase 7, WS-5).**
+Suppliers, purchase orders, stocktakes, waste and margin analytics run in the
+demo build; `purchasing-live-service.ts` is fully stubbed.
 
 Goal: the app knows what everything sells for and nothing about what it costs.
 This plan adds the **cost side** — suppliers, purchase orders with unit costs,
@@ -13,7 +15,9 @@ Preconditions: plan 04 (menu/inventory ledger, `INV-I1`), plan 09/09c (analytics
 + report engine), plan 16 (void adjustments write inventory movements — costing
 must account for them), plan 18 (labour cost — the other half of margin).
 
-Closes: `docs/BUSINESS-LOGIC-GAP-REVIEW.md` §6 in full and §8 in full.
+Closes: the supply-chain and profitability gaps from the 2026-07-26 business
+logic review. The source review was absorbed into `docs/ROADMAP.md` on
+2026-07-30.
 
 ## Reasoning
 

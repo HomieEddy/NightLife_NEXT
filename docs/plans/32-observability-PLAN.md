@@ -1,6 +1,7 @@
-# 23 — Observability: Logging, Errors, Health & Uptime · PLAN
+# 32 — Observability: Logging, Errors, Health & Uptime · PLAN
 
-**Status: not started.**
+**Status: not started — ROADMAP Phase 8.**
+**Renumbered 2026-07-30:** was plan 23; the old number is retired.
 
 Goal: when staging (then production) misbehaves at 1 a.m. on a Saturday —
 the app's peak hour by definition — someone finds out from an alert, not
@@ -19,7 +20,7 @@ a one-process app on one VPS serving its first venues, that's
 over-instrumentation — the failure modes that matter are: the app is down,
 the app is erroring, a request is slow, the DB is the reason. Those four
 are covered by health checks + uptime pings, error tracking, request-id'd
-JSON logs with durations, and plan 24's slow-query logging. A metrics
+JSON logs with durations, and plan 33's slow-query logging. A metrics
 timeseries stack is deferred with a named trigger: when tuning alert
 thresholds or capacity needs *trends* rather than *incidents*, deploy
 Grafana + Loki/Prometheus via Coolify then. This is the same YAGNI ladder
@@ -30,7 +31,7 @@ Tool choices favor boring and self-hostable per AD-15's cost logic:
 - **pino** for logging — the standard, fast, structured, redaction built in.
 - **Sentry** for errors — free tier is ample at this scale; deployment- and
   release-aware grouping is exactly the checklist's ask. (GlitchTip
-  self-hosted is the fallback if data-residency review in plan 29 objects
+  self-hosted is the fallback if data-residency review in plan 35 objects
   to Sentry's hosting; the SDK is API-compatible, so the choice is
   swappable and noted in SECURITY.md.)
 - **Uptime Kuma** self-hosted via Coolify one-click — external-ish ping

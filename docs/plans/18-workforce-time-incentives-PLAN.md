@@ -1,6 +1,8 @@
 # 18 — Workforce: Time Clock, Scheduling, Tips & Commissions · PLAN
 
-**Status: not started — demo track first (AD-14).**
+**Status: demo track complete; live graduation pending (ROADMAP Phase 7, WS-4).**
+Time clock, dated shifts, scheduling, tips and commissions run in the demo build;
+the time/tips/commission live services are fully stubbed.
 
 Goal: staff stop being a roster and become a **workforce with a cost and an
 income**. Three moves: (1) replace the `isOnShift` toggle with a real time clock
@@ -14,8 +16,9 @@ Preconditions: plan 09b (live staff identity — `User` + `Member` +
 `StaffProfile`), plan 14 (promoter attribution chain), plan 15 (capability
 matrix), plan 16 (tab ledger — tips-by-staff basis, audit trail, cash-out).
 
-Closes: `docs/BUSINESS-LOGIC-GAP-REVIEW.md` §3 in full, and the labour-cost half
-of §8.
+Closes: the staff-as-labour-cost gap from the 2026-07-26 business logic review,
+and the labour-cost half of profitability. The source review was absorbed into
+`docs/ROADMAP.md` on 2026-07-30.
 
 ## Reasoning
 

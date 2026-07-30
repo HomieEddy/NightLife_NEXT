@@ -1,6 +1,9 @@
 # PLAN 30 — Foundation Modernization
 
-**Status:** In Progress · **Created:** 2026-07-28
+**Status:** Complete · **Created:** 2026-07-28 · **Closed:** 2026-07-30
+**Follow-on:** TanStack Query adoption (PR #90) replaced every hand-rolled fetch
+loop with `useQuery`/`useMutation`; key builders live in
+`src/features/{domain}/query-keys.ts`.
 **Scope:** Architecture refactor + UI polish + UX optimization + animation parity
 **Phase:** Cross-cutting modernization (spans Phases 1–4 of the roadmap)
 
@@ -691,7 +694,6 @@ export type * from "@/features/ordering/types";
 
 - `docs/DDD.md` — add section mapping bounded contexts to `src/features/` directories
 - `AGENTS.md` — update architecture diagram to show `src/features/` structure
-- `docs/CHANGE_LOG.md` — append refactoring entry
 
 ---
 

@@ -1,6 +1,6 @@
 # 20 — Navigation & UX Overhaul · PLAN
 
-**Status: mostly complete — remaining: staff-scoped palette (plan 30 §6.3).**
+**Status: complete.** The staff-scoped command palette landed with plan 30 §6.3.
 
 Goal: the manager area has grown from a prototype's page list into an 18-item
 flat sidebar — and plans 16–19 add roughly ten more destinations. Before that
@@ -17,7 +17,8 @@ graduation of plans 16–19's UI so their new surfaces are added into the new
 IA rather than bolted onto the old one. If 16–19 sketch first, they add their
 nav entries to the grouped structure this plan defines.
 
-Closes: `docs/UX-REVIEW.md` findings 1–14 in full.
+Closes: all 14 findings of the 2026-07-26 UX review (absorbed into
+`docs/ROADMAP.md` on 2026-07-30).
 
 ## Reasoning
 

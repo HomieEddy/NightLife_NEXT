@@ -1,6 +1,8 @@
 # 14 — Promoters: Role, Mobile Panel & Attribution Analytics · PLAN
 
-**Status: not started — demo track first (AD-14).**
+**Status: demo track complete; live graduation pending (ROADMAP Phase 7, WS-3).**
+Promoter role, `PROMOTER_NAV` mobile panel, attribution analytics and commission
+statements all ship in the demo build.
 
 Goal: venues run on promoters — people whose job is to funnel guests into the
 club. Today the app can't name them. This plan adds `promoter` as a first-class

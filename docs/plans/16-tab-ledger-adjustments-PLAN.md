@@ -1,6 +1,8 @@
 # 16 — The Tab as a Financial Object: minimums, adjustments, transfers & cash-out · PLAN
 
-**Status: not started — demo track first (AD-14).**
+**Status: demo track complete; live graduation pending (ROADMAP Phase 7, WS-1).**
+Adjustments, minimum spend, transfer/merge/split, cash-out and the venue audit
+trail all run in the demo build; the live branch throws `Not yet supported`.
 
 Goal: a `GuestSession` stops being "a bag of orders you can sum" and becomes the
 venue's **tab** — a financial object with a commercial term (minimum spend), a
@@ -14,8 +16,10 @@ Preconditions: plan 05 (orders & fees, `INV-O2` money math), plan 06 (sessions),
 plan 09b (live staff identity — an adjustment must name a real person), plan 15
 (capability matrix — the new actions are rows in it).
 
-Closes: `docs/BUSINESS-LOGIC-GAP-REVIEW.md` §2 in full, §7's audit-log finding,
-and §3's tip-distribution *basis* (distribution itself is plan 18).
+Closes: the tab-as-financial-object and audit-log gaps from the 2026-07-26
+business logic review, plus the tip-distribution *basis* (distribution itself
+is plan 18). Both source reviews were absorbed into `docs/ROADMAP.md` on
+2026-07-30.
 
 ## Reasoning
 

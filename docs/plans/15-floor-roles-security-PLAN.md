@@ -1,6 +1,9 @@
 # 15 — Floor-Role Capability Matrix, Security Panel & Demo Personas · PLAN
 
-**Status: not started — demo track first (AD-14).**
+**Status: demo track complete; live graduation pending (ROADMAP Phase 7, WS-6).**
+The capability matrix and security panel run on the mock permission service; the
+live branch still reads the hardcoded default map and needs
+`venue_role_permissions` persistence.
 
 Goal: the `/staff` panel stops pretending every floor role is a runner. Three
 moves: (1) redefine the **runner** as the bartender/hostess assistant —

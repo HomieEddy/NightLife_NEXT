@@ -1,6 +1,7 @@
-# 29 — Compliance & Privacy (Law 25 / PIPEDA) · PLAN
+# 35 — Compliance & Privacy (Law 25 / PIPEDA) · PLAN
 
-**Status: not started.**
+**Status: not started — ROADMAP Phase 8.**
+**Renumbered 2026-07-30:** was plan 29; the old number is retired.
 
 Goal: make the product legally operable in Quebec: Law 25 and PIPEDA
 obligations mapped to concrete features and documents — published privacy
@@ -12,7 +13,7 @@ venue before it** — that's the gate this plan defines.
 Preconditions: plan 25 (the retention job rides the cron infra; breach
 notification uses the email channel). Legal-document *review* by an actual
 lawyer is recommended and explicitly outside what code review can approve.
-Branch `feature/29-compliance-privacy`.
+Branch `feature/35-compliance-privacy`.
 
 ## Reasoning
 
@@ -26,7 +27,7 @@ the foundation of everything else, and a first pass from the schema:
   Guests are the volume and the sensitivity: consumers, not businesses.
 - **Leads:** contact info from the public form (plan 10).
 - **Derived:** `NotificationLog` recipients (plan 25/26), auth event logs
-  (plan 23), backups (plan 24).
+  (plan 32), backups (plan 33).
 
 Law 25's teeth relevant at this scale: a designated privacy officer
 (published contact), transparency at collection (state purpose, no
@@ -66,7 +67,7 @@ banner would be cargo cult; documented in the policy instead).
   and rollups keep the numbers, lose the person — analytics, plan 09/09c,
   must survive anonymization by design: verify rollups don't join back to
   guest identity), stale leads purged, `NotificationLog` recipients
-  truncated after M days, auth logs per plan 23's retention. N/M values
+  truncated after M days, auth logs per plan 32's retention. N/M values
   proposed in the inventory, decided by the owner, recorded there.
 - **Deletion paths, two shapes:**
   - **Individual (staff user or guest request):** a documented DSAR
@@ -79,7 +80,7 @@ banner would be cargo cult; documented in the policy instead).
     confirm-dialog-gated tenant deletion that cascades the venue's data
     (schema already hangs everything off `venueId`), with a grace-period
     soft-disable first (export window for the venue), then hard delete
-    including a note that backups age out per plan 24's retention — stated
+    including a note that backups age out per plan 33's retention — stated
     honestly in the ToS.
 - **Breach procedure:** RUNBOOK.md §incident-response — contain, assess
   "risk of serious injury", CAI + affected-person notification templates,
@@ -126,7 +127,7 @@ banner would be cargo cult; documented in the policy instead).
   spot-checked pre/post).
 - No consent dark patterns: unchecked by default, no bundling of
   necessary-service consent with anything optional.
-- ToS honestly states backup-tail deletion timing (plan 24 retention).
+- ToS honestly states backup-tail deletion timing (plan 33 retention).
 
 ## Exit criteria
 

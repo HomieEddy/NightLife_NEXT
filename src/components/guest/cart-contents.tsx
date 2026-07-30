@@ -389,7 +389,8 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
         </p>
       )}
 
-      {/* TODO(backend): payment step (Stripe) goes here before submission. */}
+      {/* No payment step by design (ARD AD-12): the app computes what is owed
+          and never collects it. Guests settle with the venue. */}
       <ConfirmDialog
         title="Place this order?"
         description={`${formatMoney(total)} total including fees and tip — the bar starts on it right away.`}
