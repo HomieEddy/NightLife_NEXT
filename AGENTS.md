@@ -485,6 +485,14 @@ readable; they codify how this repo has actually been built.
    the branches don't diverge. Hotfixes are rare — most fixes go through the
    normal `dev` flow.
 
+   **Integration branches** (the one sanctioned exception to short-lived work
+   branches): a multi-week phase whose parts share a seam may run on a single
+   integration branch — workstream branches PR into it, and one release PR
+   closes the phase into `dev`. Currently in use: `feature/live-graduation`
+   for ROADMAP Phase 7 (see its "Phase 7 runs on an integration branch"
+   section). Don't reach for this pattern for ordinary feature work; the cost
+   is that staging sees nothing until the phase closes.
+
    **Rules:**
    - No direct pushes to `dev` or `master` — always via PR.
    - Every PR to `dev` must pass `tsc`, eslint, and the test suite.

@@ -409,8 +409,29 @@ plan 30 for staging/prod, cron fallback for local live dev).
   production + Vercel demo).
 - **Work branches:** branch from `dev`, merge back via PR, delete after merge.
 - **Plan-numbered features:** `feature/NN-shortname`.
-- **Phase 7 workstreams:** `feature/ws-N-shortname` (e.g. `feature/ws-1-tab-ledger`).
 - **Release PRs:** `dev` → `master` when stable and QA'd on staging. The PR
   description is the release summary.
-</content>
-</invoke>
+
+### Phase 7 runs on an integration branch
+
+Phase 7 is eight workstreams spanning weeks, which is longer than the
+short-lived work branch AGENTS.md §10.8 assumes. It runs on one integration
+branch instead:
+
+```
+feature/ws-1-tab-ledger ──PR──┐
+feature/ws-2-door-safety ─PR──┤
+feature/ws-3-hospitality ─PR──┼──► feature/live-graduation ──PR──► dev ──► master
+feature/ws-4-workforce ───PR──┤       (integration branch)      (staging)  (prod)
+… WS-5 … WS-8 ────────────PR──┘
+```
+
+- Each workstream branches from `feature/live-graduation` and PRs back into it.
+- Rebase a workstream branch onto the integration branch before opening its PR
+  if the two have diverged.
+- The integration branch never merges into `dev` mid-phase. One release PR
+  closes the phase, and its description is the Phase 7 exit-criteria checklist.
+- Consequence to accept: staging sees nothing until the phase closes. Verify
+  workstreams locally against `npm run dev:pglite`, not on staging.
+- The integration branch is deleted when the phase closes. This pattern is for
+  Phase 7 only — normal work goes straight to `dev` per AGENTS.md §10.8.
