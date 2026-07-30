@@ -37,7 +37,7 @@ export async function findTableByQrSlug(
       label: table.label,
       seats: table.seats,
       minimumSpend: table.minimumSpend,
-      status: table.status,
+      status: table.status === "out_of_service" ? "out-of-service" : table.status,
       qrSlug: qrToken,
       mapX: table.mapX ?? undefined,
       mapY: table.mapY ?? undefined,
