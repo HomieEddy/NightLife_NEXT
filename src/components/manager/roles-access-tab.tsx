@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, Lock, RotateCcw, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { permissionService } from "@/features/platform/permission-service";
+import { permissionsKeys } from "@/features/platform/query-keys";
 import {
   ACTION_META,
   DEFAULT_ROLE_PERMISSIONS,
@@ -76,18 +78,50 @@ export function RolesAccessTab({
   currentUserRole: StaffRole | null;
   venueId: string;
 }) {
-  const [saved, setSaved] = useState<RolePermissions | null>(null);
-  const [draft, setDraft] = useState<RolePermissions | null>(null);
+  const queryClient = useQueryClient();
   const [selectedRole, setSelectedRole] = useState<StaffRole>("host");
-  const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async () => {
-    const perms = await permissionService.getRolePermissions(venueId);
-    setSaved(perms);
-    setDraft(structuredClone(perms));
-  }, [venueId]);
+  const { data: saved } = useQuery({
+    queryKey: permissionsKeys.role(venueId),
+    queryFn: () => permissionService.getRolePermissions(venueId),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const [draft, setDraft] = useState<RolePermissions | null>(null);
+
+  // Sync draft from saved on first load
+  if (saved && !draft) {
+    setDraft(structuredClone(saved));
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: async (permissions: RolePermissions) => {
+      return permissionService.setRolePermissions(venueId, permissions);
+    },
+    onSuccess: (_, permissions) => {
+      setDraft(structuredClone(permissions));
+      queryClient.invalidateQueries({ queryKey: permissionsKeys.role(venueId) });
+      toast.success(`${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} permissions saved`);
+    },
+    onError: () => {
+      toast.error("Could not save permissions");
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async () => {
+      if (!draft || !saved) throw new Error("Not loaded");
+      const restored = { ...draft, [selectedRole]: [...DEFAULT_ROLE_PERMISSIONS[selectedRole]] };
+      return permissionService.setRolePermissions(venueId, restored);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: permissionsKeys.role(venueId) });
+      toast.success(`${selectedRole} permissions reset to defaults`);
+    },
+    onError: () => {
+      toast.error("Could not reset permissions");
+    },
+  });
 
   // Wait until we know who the user is before rendering anything.
   if (currentUserRole === null) {
@@ -120,32 +154,11 @@ export function RolesAccessTab({
 
   async function saveChanges() {
     if (!draft) return;
-    setSaving(true);
-    try {
-      await permissionService.setRolePermissions(venueId, draft);
-      setSaved(structuredClone(draft));
-      toast.success(`${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} permissions saved`);
-    } catch {
-      toast.error("Could not save permissions");
-    } finally {
-      setSaving(false);
-    }
+    saveMutation.mutate(draft);
   }
 
   async function restoreDefaults() {
-    if (!draft) return;
-    const restored = { ...draft, [selectedRole]: [...DEFAULT_ROLE_PERMISSIONS[selectedRole]] };
-    setSaving(true);
-    try {
-      await permissionService.setRolePermissions(venueId, restored);
-      setSaved(structuredClone(restored));
-      setDraft(restored);
-      toast.success(`${selectedRole} permissions reset to defaults`);
-    } catch {
-      toast.error("Could not reset permissions");
-    } finally {
-      setSaving(false);
-    }
+    restoreMutation.mutate();
   }
 
   return (
@@ -217,7 +230,7 @@ export function RolesAccessTab({
                           checked={checked}
                           onCheckedChange={() => toggle(action)}
                           aria-label={meta.label}
-                          disabled={saving}
+                          disabled={saveMutation.isPending}
                         />
                       </div>
                     );
@@ -231,7 +244,7 @@ export function RolesAccessTab({
           <div className="flex items-center justify-between border-t pt-4">
             <ConfirmDialog
               trigger={
-                <Button variant="ghost" size="sm" disabled={saving}>
+                <Button variant="ghost" size="sm" disabled={saveMutation.isPending}>
                   <RotateCcw className="size-3.5" />
                   Restore defaults
                 </Button>
@@ -243,8 +256,8 @@ export function RolesAccessTab({
             />
             <ConfirmDialog
               trigger={
-                <Button size="sm" disabled={!dirty || saving}>
-                  {saving ? "Saving…" : "Save changes"}
+                <Button size="sm" disabled={!dirty || saveMutation.isPending}>
+                  {saveMutation.isPending ? "Saving…" : "Save changes"}
                 </Button>
               }
               title={`Update ${selectedRole} permissions?`}
