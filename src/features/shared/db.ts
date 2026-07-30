@@ -52,6 +52,8 @@ export function getDb(session: SessionContext) {
           "ReportRun",
           "NotificationLog",
           "IncidentNote",
+          // Purchasing: scoped via parent Supplier, not own venueId.
+          "SupplierItem",
         ];
         if (platformModels.includes(model)) return query(args);
 

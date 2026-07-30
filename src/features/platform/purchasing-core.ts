@@ -416,7 +416,7 @@ function poRowToDTO(r: Row): PurchaseOrder {
     status: r.status as PurchaseOrderStatus,
     expectedAt: r.expected_at ? toISO(r.expected_at) : undefined,
     submittedAt: r.submitted_at ? toISO(r.submitted_at) : undefined,
-    submittedByStaffId: r.submitted_by_staff_id,
+    submittedByStaffId: (r.submittedByStaffId ?? r.submitted_by_staff_id) as string | undefined,
     lines: lines.map((l: Row) => ({
       id: l.id, menuItemId: l.menuItemId ?? l.menu_item_id,
       qtyOrdered: l.qtyOrdered ?? l.qty_ordered,
