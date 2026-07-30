@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowRight, CalendarCheck, CircleDollarSign, Clock, PartyPopper, Receipt, Table2,
   Tag, Timer, Users,
 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,89 +31,132 @@ import { waitlistService } from "@/features/door/waitlist-service";
 import { computeAttentionItems } from "@/lib/pulse";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { formatMoney, formatPct } from "@/features/shared/format";
+import { analyticsKeys } from "@/features/analytics/query-keys";
+import { ordersKeys } from "@/features/ordering/query-keys";
+import { venueKeys } from "@/features/venue/query-keys";
 import type { AnalyticsSummary, AttentionItem, Order } from "@/lib/types";
 
 export default function ManagerDashboardPage() {
   const { user } = useAuth();
-  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
-  const [orders, setOrders] = useState<Order[] | null>(null);
-  const [venue, setVenue] = useState({ name: "Velvet Montréal", currency: "CAD" });
-  const [attentionItems, setAttentionItems] = useState<AttentionItem[] | null>(null);
-  const [lastCallActive, setLastCallActive] = useState(false);
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    analyticsService.getSummary().then(setSummary);
-    ordersService.listOrders().then((all) => setOrders(all.slice(0, 4)));
-    venueService.getVenue().then((v) => setVenue({ name: v.name, currency: v.currency }));
-  }, []);
+  const { data: summary } = useQuery({
+    queryKey: analyticsKeys.summary(venueId),
+    queryFn: () => analyticsService.getSummary(),
+    enabled: !!venueId,
+  });
 
-  const refreshPulse = useCallback(async () => {
-    const [liveOrders, helpRequests, tables, zones, venue, lastCall, sessions, adjustments, occupancy, waitlistEntries, openIncidents] = await Promise.all([
-      ordersService.listOrders(),
-      guestsService.listHelpRequests(),
-      venueService.listTables(),
-      venueService.listZones(),
-      venueService.getVenue(),
-      pulseService.getLastCallState(),
-      guestsService.listSessions("approved"),
-      ordersService.listAllAdjustments(),
-      doorService.getOccupancy(),
-      waitlistService.listEntries("waiting"),
-      incidentService.listIncidents({ status: "open" }),
-    ]);
-    setAttentionItems(
-      computeAttentionItems(
+  const { data: orders } = useQuery({
+    queryKey: ordersKeys.all(venueId),
+    queryFn: () => ordersService.listOrders(),
+    enabled: !!venueId,
+  });
+
+  const { data: venue } = useQuery({
+    queryKey: venueKeys.single(venueId),
+    queryFn: () => venueService.getVenue(),
+    enabled: !!venueId,
+  });
+
+  const { data: pulseData, refetch: refetchPulse } = useQuery({
+    queryKey: analyticsKeys.pulse(venueId),
+    queryFn: async () => {
+      const [
         liveOrders,
         helpRequests,
         tables,
         zones,
-        venue.slaThresholds,
-        lastCall.active,
-        venue.lastCallAutoFlagTables,
+        v,
+        lastCall,
         sessions,
         adjustments,
-        venue.minimumSpendWarningRatio,
+        occupancy,
+        waitlistEntries,
+        openIncidents,
+      ] = await Promise.all([
+        ordersService.listOrders(),
+        guestsService.listHelpRequests(),
+        venueService.listTables(),
+        venueService.listZones(),
+        venueService.getVenue(),
+        pulseService.getLastCallState(),
+        guestsService.listSessions("approved"),
+        ordersService.listAllAdjustments(),
+        doorService.getOccupancy(),
+        waitlistService.listEntries("waiting"),
+        incidentService.listIncidents({ status: "open" }),
+      ]);
+      const items = computeAttentionItems(
+        liveOrders,
+        helpRequests,
+        tables,
+        zones,
+        v.slaThresholds,
+        lastCall.active,
+        v.lastCallAutoFlagTables,
+        sessions,
+        adjustments,
+        v.minimumSpendWarningRatio,
         {
           occupancy: occupancy.current,
           legalCapacity: occupancy.legalCapacity,
-          occupancyWarnRatio: venue.occupancyWarnRatio,
+          occupancyWarnRatio: v.occupancyWarnRatio,
           waitlistEntries,
           openIncidents,
         },
-      ),
-    );
-    setLastCallActive(lastCall.active);
-  }, []);
+      );
+      return { attentionItems: items, lastCallActive: lastCall.active };
+    },
+    enabled: !!venueId,
+    staleTime: 0,
+  });
 
-  const refreshPulseRef = useRef(refreshPulse);
-  refreshPulseRef.current = refreshPulse;
+  const attentionItems = pulseData?.attentionItems ?? null;
+  const lastCallActive = pulseData?.lastCallActive ?? false;
 
-  useEffect(() => { refreshPulse(); }, [refreshPulse]);
+  const refreshPulseRef = useRef(refetchPulse);
+  refreshPulseRef.current = refetchPulse;
 
   useLiveEvents({
     scope: "manager",
-    onEvent: () => refreshPulseRef.current(),
+    onEvent: () => { refreshPulseRef.current(); },
     fallbackMs: 8000,
-    fallbackRefresh: () => refreshPulseRef.current(),
+    fallbackRefresh: () => { refreshPulseRef.current(); },
   });
 
   const managerName = user?.name ?? "Manager";
 
-  async function sendBroadcast(message: string) {
-    await pulseService.sendBroadcast(message, managerName);
-    await refreshPulse();
-  }
+  const invalidatePulse = () => {
+    queryClient.invalidateQueries({ queryKey: analyticsKeys.pulse(venueId) });
+  };
 
-  async function toggleLastCall() {
-    if (lastCallActive) await pulseService.endLastCall();
-    else await pulseService.startLastCall(managerName);
-    await refreshPulse();
-  }
+  const broadcastMutation = useMutation({
+    mutationFn: async (message: string) => {
+      await pulseService.sendBroadcast(message, managerName);
+    },
+    onSuccess: () => invalidatePulse(),
+  });
+
+  const lastCallMutation = useMutation({
+    mutationFn: async () => {
+      if (lastCallActive) {
+        await pulseService.endLastCall();
+      } else {
+        await pulseService.startLastCall(managerName);
+      }
+    },
+    onSuccess: () => invalidatePulse(),
+  });
+
+  const recentOrders = orders?.slice(0, 4) ?? null;
+  const venueName = venue?.name ?? "Velvet Montréal";
+  const currency = venue?.currency ?? "CAD";
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Tonight at ${venue.name}`}
+        title={`Tonight at ${venueName}`}
         description={`${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} · Doors 22:00 — live operations overview`}
         actions={
           <Button variant="outline" size="sm" asChild>
@@ -138,19 +182,19 @@ export default function ManagerDashboardPage() {
         </TabsList>
 
         <TabsContent value="tonight" className="space-y-6 pt-4">
-          <TonightTab summary={summary} orders={orders} currency={venue.currency} />
+          <TonightTab summary={summary ?? null} orders={recentOrders} currency={currency} />
         </TabsContent>
 
         <TabsContent value="snapshot" className="space-y-6 pt-4">
-          <SnapshotTab summary={summary} currency={venue.currency} />
+          <SnapshotTab summary={summary ?? null} currency={currency} />
         </TabsContent>
 
         <TabsContent value="pulse" className="pt-4">
           <PulseTab
             items={attentionItems}
             lastCallActive={lastCallActive}
-            onSendBroadcast={sendBroadcast}
-            onToggleLastCall={toggleLastCall}
+            onSendBroadcast={async (message: string) => { broadcastMutation.mutate(message); }}
+            onToggleLastCall={async () => { lastCallMutation.mutate(); }}
           />
         </TabsContent>
       </Tabs>

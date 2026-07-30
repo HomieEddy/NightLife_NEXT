@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle, Bot, Boxes, CalendarCheck, CalendarDays, CircleDollarSign,
   Clock, FileText, Gauge, Megaphone, PartyPopper, Play,
   Receipt, RefreshCw, Shield, ShoppingCart, UserCheck, Users, Wine, Zap,
 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -14,9 +14,11 @@ import { FeatureGate } from "@/components/shared/feature-gate";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { automationService } from "@/features/automation/services";
-import type { AutomationRule, AutomationCode, AutomationExecution } from "@/lib/types";
+import { automationKeys } from "@/features/automation/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { toast } from "sonner";
 import { cn } from "@/features/shared/utils";
+import type { AutomationCode, AutomationRule } from "@/lib/types";
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   reservations: <CalendarCheck className="size-4" />,
@@ -53,39 +55,45 @@ export default function ManagerAutomationsPage() {
 }
 
 function AutomationsPageContent() {
-  const [rules, setRules] = useState<AutomationRule[] | null>(null);
-  const [executions, setExecutions] = useState<AutomationExecution[] | null>(null);
-  const [triggeringId, setTriggeringId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
 
-  const refresh = useCallback(async () => {
-    const [r, e] = await Promise.all([
-      automationService.listRules(),
-      automationService.listExecutions(50),
-    ]);
-    setRules(r);
-    setExecutions(e);
-  }, []);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: automationKeys.rules(venueId) });
+    queryClient.invalidateQueries({ queryKey: automationKeys.executions(venueId) });
+  };
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: rules } = useQuery({
+    queryKey: automationKeys.rules(venueId),
+    queryFn: () => automationService.listRules(),
+    enabled: !!venueId,
+  });
 
-  async function toggleRule(ruleId: string, current: boolean) {
-    const updated = await automationService.setEnabled(ruleId, !current);
-    setRules((prev) => prev?.map((r) => (r.id === ruleId ? updated : r)) ?? null);
-    toast.success(updated.enabled ? "Automation enabled" : "Automation disabled");
-  }
+  const { data: executions } = useQuery({
+    queryKey: automationKeys.executions(venueId),
+    queryFn: () => automationService.listExecutions(50),
+    enabled: !!venueId,
+  });
 
-  async function triggerRule(ruleId: string) {
-    setTriggeringId(ruleId);
-    try {
-      const execution = await automationService.triggerRule(ruleId);
-      setExecutions((prev) => prev ? [execution, ...prev] : [execution]);
+  const toggleMutation = useMutation({
+    mutationFn: ({ ruleId, current }: { ruleId: string; current: boolean }) =>
+      automationService.setEnabled(ruleId, !current),
+    onSuccess: (updated) => {
+      toast.success(updated.enabled ? "Automation enabled" : "Automation disabled");
+      queryClient.invalidateQueries({ queryKey: automationKeys.rules(venueId) });
+    },
+    onError: () => toast.error("Could not update rule"),
+  });
+
+  const triggerMutation = useMutation({
+    mutationFn: (rule: AutomationRule) => automationService.triggerRule(rule.id),
+    onSuccess: () => {
       toast.success("Automation triggered — log entry added");
-    } catch {
-      toast.error("Trigger failed");
-    } finally {
-      setTriggeringId(null);
-    }
-  }
+      queryClient.invalidateQueries({ queryKey: automationKeys.executions(venueId) });
+    },
+    onError: () => toast.error("Trigger failed"),
+  });
 
   if (!rules || !executions) {
     return (
@@ -100,7 +108,6 @@ function AutomationsPageContent() {
     );
   }
 
-  // Group rules by category
   const groups = new Map<string, AutomationRule[]>();
   for (const r of rules) {
     const list = groups.get(r.category) ?? [];
@@ -116,7 +123,6 @@ function AutomationsPageContent() {
         breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Automations" }]}
       />
 
-      {/* Summary bar */}
       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <Zap className="size-4 text-primary" />
@@ -126,12 +132,11 @@ function AutomationsPageContent() {
           <Bot className="size-4" />
           {executions.length} executions
         </span>
-        <Button variant="ghost" size="sm" onClick={refresh}>
+        <Button variant="ghost" size="sm" onClick={invalidate}>
           <RefreshCw className="size-3.5" /> Refresh
         </Button>
       </div>
 
-      {/* Rules by category */}
       {Array.from(groups.entries()).map(([category, categoryRules]) => (
         <div key={category} className="space-y-3">
           <h3 className="flex items-center gap-2 text-sm font-semibold capitalize text-muted-foreground">
@@ -154,13 +159,13 @@ function AutomationsPageContent() {
                     </div>
                     <Switch
                       checked={rule.enabled}
-                      onCheckedChange={() => toggleRule(rule.id, rule.enabled)}
+                      onCheckedChange={() => toggleMutation.mutate({ ruleId: rule.id, current: rule.enabled })}
+                      disabled={toggleMutation.isPending && toggleMutation.variables?.ruleId === rule.id}
                       aria-label={`${rule.enabled ? "Disable" : "Enable"} ${rule.label}`}
                     />
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {/* Config display */}
                   {Object.keys(rule.config).length > 0 && (
                     <div className="flex flex-wrap gap-2 text-xs">
                       {Object.entries(rule.config).map(([key, value]) => (
@@ -170,7 +175,6 @@ function AutomationsPageContent() {
                       ))}
                     </div>
                   )}
-                  {/* Last triggered + simulate button */}
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>
                       {rule.lastTriggeredAt
@@ -181,11 +185,13 @@ function AutomationsPageContent() {
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs"
-                      disabled={triggeringId === rule.id}
-                      onClick={() => triggerRule(rule.id)}
+                      disabled={triggerMutation.isPending && triggerMutation.variables?.id === rule.id}
+                      onClick={() => triggerMutation.mutate(rule)}
                     >
                       <Play className="size-3" />
-                      {triggeringId === rule.id ? "Running..." : "Trigger now"}
+                      {triggerMutation.isPending && triggerMutation.variables?.id === rule.id
+                        ? "Running..."
+                        : "Trigger now"}
                     </Button>
                   </div>
                 </CardContent>
@@ -195,7 +201,6 @@ function AutomationsPageContent() {
         </div>
       ))}
 
-      {/* Execution log */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Execution log</CardTitle>

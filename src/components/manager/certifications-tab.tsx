@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pencil, Plus, ShieldOff, SlidersHorizontal } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Pencil, Plus, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,7 +18,9 @@ import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { certificationService } from "@/features/workforce/certification-service";
 import { staffService } from "@/features/workforce/staff-service";
-import { CERTIFICATION_TYPE_LABELS, type Certification, type CertificationType, type StaffMember } from "@/lib/types";
+import { certificationKeys, staffKeys } from "@/features/workforce/query-keys";
+import { useAuth } from "@/context/auth-context";
+import { CERTIFICATION_TYPE_LABELS, type Certification, type CertificationType } from "@/lib/types";
 import { z } from "zod";
 
 type CertificationTypeEntry = [CertificationType, string];
@@ -35,11 +38,11 @@ type CreateValues = z.infer<typeof zCertCreate>;
 const EMPTY_CREATE: CreateValues = { staffId: "", certType: "smart-serve", issuedAt: new Date().toISOString().slice(0, 10), expiresAt: "", issuingBody: "", refNumber: "" };
 
 export function CertificationsTab() {
-  const [certs, setCerts] = useState<Certification[] | null>(null);
-  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Certification | null>(null);
-  const [busy, setBusy] = useState(false);
 
   // Filters
   const [typeFilter, setTypeFilter] = useState("all");
@@ -55,16 +58,90 @@ export function CertificationsTab() {
   const [editIssuingBody, setEditIssuingBody] = useState("");
   const [editRefNumber, setEditRefNumber] = useState("");
 
-  const refresh = useCallback(async () => {
-    const [c, s] = await Promise.all([
-      certificationService.listCertifications(),
-      staffService.listStaff(),
-    ]);
-    setCerts(c);
-    setStaffList(s);
-  }, []);
+  const { data: certs } = useQuery({
+    queryKey: certificationKeys.all(venueId),
+    queryFn: () => certificationService.listCertifications(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: staffList = [] } = useQuery({
+    queryKey: staffKeys.list(venueId),
+    queryFn: () => staffService.listStaff(),
+    enabled: !!venueId,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: certificationKeys.all(venueId) });
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async (data: CreateValues) => {
+      const me = await staffService.getCurrentStaff();
+      return certificationService.createCertification({
+        staffId: data.staffId,
+        type: data.certType as CertificationType,
+        issuedAt: new Date(data.issuedAt + "T00:00:00").toISOString(),
+        expiresAt: new Date(data.expiresAt + "T00:00:00").toISOString(),
+        issuingBody: data.issuingBody.trim() || undefined,
+        referenceNumber: data.refNumber.trim() || undefined,
+        createdByStaffId: me.id,
+        createdByStaffName: me.name,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Certification added");
+      setShowCreate(false);
+      resetCreate(EMPTY_CREATE);
+      invalidate();
+    },
+    onError: () => {
+      toast.error("Could not add certification");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editing || !editExpiresAt) throw new Error("Missing data");
+      return certificationService.updateCertification(editing.id, {
+        expiresAt: new Date(editExpiresAt + "T00:00:00").toISOString(),
+        issuingBody: editIssuingBody.trim() || undefined,
+        referenceNumber: editRefNumber.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Certification updated");
+      setEditing(null);
+      setEditExpiresAt("");
+      setEditIssuingBody("");
+      setEditRefNumber("");
+      invalidate();
+    },
+    onError: () => {
+      toast.error("Could not update certification");
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: async (certId: string) => {
+      const me = await staffService.getCurrentStaff();
+      return certificationService.revokeCertification(certId, me.id, me.name);
+    },
+    onSuccess: () => {
+      toast.success("Certification revoked");
+      invalidate();
+    },
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: async (certId: string) => {
+      const me = await staffService.getCurrentStaff();
+      return certificationService.verifyCertification(certId, me.id, me.name);
+    },
+    onSuccess: () => {
+      toast.success("Certification verified");
+      invalidate();
+    },
+  });
 
   const staffName = (id: string) => staffList.find((s) => s.id === id)?.name ?? id;
 
@@ -100,60 +177,11 @@ export function CertificationsTab() {
   }
 
   const onCreateCert = hsCreate(async (data) => {
-    setBusy(true);
-    try {
-      const me = await staffService.getCurrentStaff();
-      await certificationService.createCertification({
-        staffId: data.staffId,
-        type: data.certType as CertificationType,
-        issuedAt: new Date(data.issuedAt + "T00:00:00").toISOString(),
-        expiresAt: new Date(data.expiresAt + "T00:00:00").toISOString(),
-        issuingBody: data.issuingBody.trim() || undefined,
-        referenceNumber: data.refNumber.trim() || undefined,
-        createdByStaffId: me.id,
-        createdByStaffName: me.name,
-      });
-      toast.success("Certification added");
-      cancelCreate();
-      await refresh();
-    } catch {
-      toast.error("Could not add certification");
-    } finally {
-      setBusy(false);
-    }
+    createMutation.mutate(data);
   });
 
   async function saveEdit() {
-    if (!editing || !editExpiresAt) return;
-    setBusy(true);
-    try {
-      await certificationService.updateCertification(editing.id, {
-        expiresAt: new Date(editExpiresAt + "T00:00:00").toISOString(),
-        issuingBody: editIssuingBody.trim() || undefined,
-        referenceNumber: editRefNumber.trim() || undefined,
-      });
-      toast.success("Certification updated");
-      cancelEdit();
-      await refresh();
-    } catch {
-      toast.error("Could not update certification");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function revokeCert(certId: string) {
-    const me = await staffService.getCurrentStaff();
-    await certificationService.revokeCertification(certId, me.id, me.name);
-    toast.success("Certification revoked");
-    await refresh();
-  }
-
-  async function verifyCert(certId: string) {
-    const me = await staffService.getCurrentStaff();
-    await certificationService.verifyCertification(certId, me.id, me.name);
-    toast.success("Certification verified");
-    await refresh();
+    updateMutation.mutate();
   }
 
   return (
@@ -253,7 +281,7 @@ export function CertificationsTab() {
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" type="button" className="h-9 flex-1" onClick={cancelCreate}>Cancel</Button>
-              <Button type="submit" className="h-9 flex-1" disabled={subCreate || busy}>
+              <Button type="submit" className="h-9 flex-1" disabled={subCreate || createMutation.isPending}>
                 Save certification
               </Button>
             </div>
@@ -287,7 +315,7 @@ export function CertificationsTab() {
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" type="button" className="h-9 flex-1" onClick={cancelEdit}>Cancel</Button>
-              <Button className="h-9 flex-1" disabled={!editExpiresAt || busy} onClick={saveEdit}>
+              <Button className="h-9 flex-1" disabled={!editExpiresAt || updateMutation.isPending} onClick={saveEdit}>
                 Save changes
               </Button>
             </div>
@@ -295,7 +323,7 @@ export function CertificationsTab() {
         </Card>
       )}
 
-      {certs === null ? (
+      {certs === undefined ? (
         <ListSkeleton rows={3} rowHeight="h-14" />
       ) : visible.length === 0 ? (
         <EmptyState icon={ShieldOff} title="No certifications match" description="Add a certification for a staff member to start tracking." />
@@ -333,7 +361,7 @@ export function CertificationsTab() {
                         title="Verify this certification?"
                         description="Records that you've checked this document and updates the verified-at timestamp."
                         confirmLabel="Verify"
-                        onConfirm={() => verifyCert(cert.id)}
+                        onConfirm={() => verifyMutation.mutate(cert.id)}
                       />
                       <ConfirmDialog
                         trigger={<Button size="sm" variant="outline" className="h-8 text-xs text-red-600" aria-label="Revoke">Revoke</Button>}
@@ -341,7 +369,7 @@ export function CertificationsTab() {
                         description={`This permanently revokes ${staffName(cert.staffId)}'s ${CERTIFICATION_TYPE_LABELS[cert.type]}.`}
                         confirmLabel="Revoke"
                         destructive
-                        onConfirm={() => revokeCert(cert.id)}
+                        onConfirm={() => revokeMutation.mutate(cert.id)}
                       />
                     </>
                   )}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, Pencil, Plus, Search, ShieldOff, SlidersHorizontal, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@/components/ui/badge";
@@ -21,9 +22,14 @@ import { PageHeader } from "@/components/shared/page-header";
 import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { guestService } from "@/features/sessions/services";
+import { profilesKeys } from "@/features/sessions/query-keys";
 import { formatMoney, formatDate } from "@/features/shared/format";
+import { useAuth } from "@/context/auth-context";
 import { zGuestInput } from "@/lib/form-schemas";
 import type { GuestProfile, GuestTag, GuestVipTier } from "@/lib/types";
+import type { z } from "zod";
+
+type FormValues = z.infer<typeof zGuestInput>;
 
 const VIP_OPTIONS: { value: GuestVipTier; label: string }[] = [
   { value: "none", label: "None" }, { value: "regular", label: "Regular" }, { value: "vip", label: "VIP" }, { value: "host-list", label: "Host list" },
@@ -31,7 +37,9 @@ const VIP_OPTIONS: { value: GuestVipTier; label: string }[] = [
 const TAG_OPTIONS: GuestTag[] = ["regular", "industry", "influencer", "birthday", "allergy-noted", "high-spender"];
 
 export default function ManagerGuestsPage() {
-  const [profiles, setProfiles] = useState<GuestProfile[] | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<GuestProfile | null>(null);
@@ -52,14 +60,78 @@ export default function ManagerGuestsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GuestProfile | null>(null);
 
-  const { register, handleSubmit, reset: formReset, setValue, watch, formState: { errors, isSubmitting: saving } } = useForm({
+  const { register, handleSubmit, reset: formReset, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(zGuestInput),
     defaultValues: { firstName: "", lastName: "", phone: "", email: "", vipTier: "none" as GuestVipTier, tags: [] as GuestTag[], notes: "", photoUrl: "", preferredDrink: "", dietary: "", allergies: "", celebrationDate: "", watchlistReason: "", marketingEmail: false, marketingSms: false },
   });
   const tags = watch("tags") ?? [];
 
-  const refresh = useCallback(async () => { setProfiles(await guestService.listProfiles()); }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: profilesKeys.all(venueId) });
+
+  const { data: profiles } = useQuery({
+    queryKey: profilesKeys.all(venueId),
+    queryFn: () => guestService.listProfiles(),
+    enabled: !!venueId,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const prefs = data.preferredDrink || data.dietary || data.allergies || data.celebrationDate
+        ? { preferredDrink: data.preferredDrink || undefined, dietary: data.dietary || undefined, allergies: data.allergies || undefined, celebrationDate: data.celebrationDate || undefined }
+        : undefined;
+      if (editing) {
+        await guestService.updateProfile(editing.id, {
+          firstName: data.firstName.trim(), lastName: data.lastName.trim() || undefined,
+          phone: data.phone.trim() || undefined, email: data.email?.trim().toLowerCase() || undefined,
+          dobYear: data.dobYear, tags: data.tags as GuestTag[], vipTier: data.vipTier,
+          notes: data.notes.trim() || undefined, photoUrl: data.photoUrl.trim() || undefined, preferences: prefs,
+        }, "manager", "Manager");
+        return `Updated ${data.firstName}`;
+      } else {
+        await guestService.createProfile({
+          firstName: data.firstName.trim(), lastName: data.lastName.trim() || undefined,
+          phone: data.phone.trim() || undefined, email: data.email?.trim().toLowerCase() || undefined,
+          dobYear: data.dobYear, tags: data.tags as GuestTag[], vipTier: data.vipTier,
+          notes: data.notes.trim() || undefined, marketingConsent: { email: data.marketingEmail, sms: data.marketingSms },
+          source: "manager", photoUrl: data.photoUrl.trim() || undefined, preferences: prefs,
+        });
+        return `Created profile for ${data.firstName}`;
+      }
+    },
+    onSuccess: (message) => {
+      toast.success(message);
+      setDialogOpen(false);
+      invalidate();
+    },
+    onError: () => toast.error("Could not save profile"),
+  });
+
+  const banMutation = useMutation({
+    mutationFn: (profile: GuestProfile) =>
+      guestService.setBanStatus(profile.id, { banned: profile.status !== "banned", reason: banReason || undefined }, "manager", "Manager"),
+    onSuccess: (_, profile) => {
+      toast.success(profile.status === "banned" ? `Lifted ban on ${profile.displayName}` : `Banned ${profile.displayName}`);
+      setBanReason("");
+      invalidate();
+    },
+    onError: () => toast.error("Could not update ban status"),
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: () => {
+      if (!selected || !mergeTargetId) throw new Error("Select a target");
+      return guestService.mergeProfiles(selected.id, mergeTargetId, "manager", "Manager");
+    },
+    onSuccess: (merged) => {
+      toast.success(`Merged into ${merged?.displayName}`);
+      setSelected(null);
+      setMergeTargetId("");
+      invalidate();
+    },
+    onError: () => toast.error("Could not merge"),
+  });
+
+  const onSave = handleSubmit((data) => saveMutation.mutate(data));
 
   const visible = useMemo(() => {
     let list = profiles ?? [];
@@ -75,7 +147,6 @@ export default function ManagerGuestsPage() {
     const vMin = parseInt(visitsMin); const vMax = parseInt(visitsMax);
     if (!isNaN(vMin)) list = list.filter((p) => p.visitCount >= vMin);
     if (!isNaN(vMax)) list = list.filter((p) => p.visitCount <= vMax);
-    // Sort
     if (sortBy === "name") list = [...list].sort((a, b) => a.displayName.localeCompare(b.displayName));
     else if (sortBy === "visits") list = [...list].sort((a, b) => b.visitCount - a.visitCount);
     else if (sortBy === "lifetime") list = [...list].sort((a, b) => b.lifetimeNetCents - a.lifetimeNetCents);
@@ -88,7 +159,6 @@ export default function ManagerGuestsPage() {
   useEffect(() => { reset(); }, [query, statusFilter, vipFilter, tagFilter, spendMin, spendMax, visitsMin, visitsMax, sortBy, reset]);
 
   const filterCount = [vipFilter !== "all", tagFilter !== "all", spendMin || spendMax, visitsMin || visitsMax].filter(Boolean).length;
-
   const mergeCandidates = (profiles ?? []).filter((p) => p.id !== selected?.id);
 
   function openCreate() {
@@ -111,47 +181,6 @@ export default function ManagerGuestsPage() {
       watchlistReason: profile.watchlist?.reason ?? "",
     });
     setDialogOpen(true);
-  }
-
-  async function saveProfile(data: ReturnType<typeof reset> extends (v: infer V) => any ? never : any) {
-  }
-  const onSave = handleSubmit(async (data) => {
-    const prefs = data.preferredDrink || data.dietary || data.allergies || data.celebrationDate ? { preferredDrink: data.preferredDrink || undefined, dietary: data.dietary || undefined, allergies: data.allergies || undefined, celebrationDate: data.celebrationDate || undefined } : undefined;
-    try {
-      if (editing) {
-        await guestService.updateProfile(editing.id, {
-          firstName: data.firstName.trim(), lastName: data.lastName.trim() || undefined, phone: data.phone.trim() || undefined, email: data.email?.trim().toLowerCase() || undefined, dobYear: data.dobYear, tags: data.tags as GuestTag[], vipTier: data.vipTier, notes: data.notes.trim() || undefined,
-          photoUrl: data.photoUrl.trim() || undefined,
-          preferences: prefs,
-        }, "manager", "Manager");
-        toast.success(`Updated ${data.firstName}`);
-      } else {
-        await guestService.createProfile({
-          firstName: data.firstName.trim(), lastName: data.lastName.trim() || undefined, phone: data.phone.trim() || undefined, email: data.email?.trim().toLowerCase() || undefined, dobYear: data.dobYear, tags: data.tags as GuestTag[], vipTier: data.vipTier, notes: data.notes.trim() || undefined, marketingConsent: { email: data.marketingEmail, sms: data.marketingSms }, source: "manager",
-          photoUrl: data.photoUrl.trim() || undefined,
-          preferences: prefs,
-        });
-        toast.success(`Created profile for ${data.firstName}`);
-      }
-      setDialogOpen(false);
-      await refresh();
-    } catch { toast.error("Could not save profile"); }
-  });
-
-  async function toggleBan(profile: GuestProfile) {
-    try {
-      await guestService.setBanStatus(profile.id, { banned: profile.status !== "banned", reason: banReason || undefined }, "manager", "Manager");
-      toast.success(profile.status === "banned" ? `Lifted ban on ${profile.displayName}` : `Banned ${profile.displayName}`);
-      setBanReason(""); await refresh();
-    } catch { toast.error("Could not update ban status"); }
-  }
-
-  async function mergeInto() {
-    if (!selected || !mergeTargetId) return; try {
-      const merged = await guestService.mergeProfiles(selected.id, mergeTargetId, "manager", "Manager");
-      toast.success(`Merged into ${merged?.displayName}`);
-      setSelected(null); setMergeTargetId(""); await refresh();
-    } catch { toast.error("Could not merge"); }
   }
 
   function toggleTag(tag: GuestTag) {
@@ -218,7 +247,7 @@ export default function ManagerGuestsPage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-        {profiles === null ? <ListSkeleton rows={5} rowHeight="h-16" /> : visible.length === 0 ? <EmptyState icon={UserPlus} title="No guests match" description="Profiles are created from reservations, guestlists and door ID checks." /> : (
+        {profiles === undefined ? <ListSkeleton rows={5} rowHeight="h-16" /> : visible.length === 0 ? <EmptyState icon={UserPlus} title="No guests match" description="Profiles are created from reservations, guestlists and door ID checks." /> : (
           <>
           <Card><CardContent className="divide-y p-0">
             {sliced.map((profile) => (
@@ -259,13 +288,13 @@ export default function ManagerGuestsPage() {
                 <div className="space-y-2 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
                   <p className="flex items-center gap-1.5 text-sm font-medium text-red-600 dark:text-red-400"><ShieldOff className="size-4" /> Banned</p>
                   <p className="text-sm text-muted-foreground">{selected.banReason}</p>
-                  <ConfirmDialog trigger={<Button variant="outline" className="w-full">Lift ban</Button>} title={`Lift ${selected.displayName}'s ban?`} description="They will be admittable at the door again immediately." confirmLabel="Lift ban" onConfirm={() => toggleBan(selected)} />
+                  <ConfirmDialog trigger={<Button variant="outline" className="w-full">Lift ban</Button>} title={`Lift ${selected.displayName}'s ban?`} description="They will be admittable at the door again immediately." confirmLabel="Lift ban" onConfirm={() => banMutation.mutate(selected)} />
                 </div>
               ) : (
                 <div className="space-y-2 border-t pt-3">
                   <Label htmlFor="ban-reason">Ban reason</Label>
                   <Textarea id="ban-reason" value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder="Why is this guest being banned?" rows={2} />
-                  <ConfirmDialog trigger={<Button variant="destructive" className="w-full" disabled={!banReason.trim()}>Ban this guest</Button>} title={`Ban ${selected.displayName}?`} description="They'll be refused at the door on sight." confirmLabel="Ban guest" destructive onConfirm={() => toggleBan(selected)} />
+                  <ConfirmDialog trigger={<Button variant="destructive" className="w-full" disabled={!banReason.trim()}>Ban this guest</Button>} title={`Ban ${selected.displayName}?`} description="They'll be refused at the door on sight." confirmLabel="Ban guest" destructive onConfirm={() => banMutation.mutate(selected)} />
                 </div>
               )}
               <div className="space-y-2 border-t pt-3">
@@ -274,7 +303,7 @@ export default function ManagerGuestsPage() {
                   <SelectTrigger id="merge-target" className="w-full"><SelectValue placeholder="Choose surviving profile" /></SelectTrigger>
                   <SelectContent>{mergeCandidates.map((p) => <SelectItem key={p.id} value={p.id}>{p.displayName}</SelectItem>)}</SelectContent>
                 </Select>
-                <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={!mergeTargetId}>Merge duplicate</Button>} title="Merge these profiles?" description={`${selected.displayName}'s history folds into the other. Cannot be undone.`} confirmLabel="Merge" onConfirm={mergeInto} />
+                <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={!mergeTargetId}>Merge duplicate</Button>} title="Merge these profiles?" description={`${selected.displayName}'s history folds into the other. Cannot be undone.`} confirmLabel="Merge" onConfirm={() => mergeMutation.mutate()} />
               </div>
             </CardContent>
           </Card>
@@ -325,7 +354,7 @@ export default function ManagerGuestsPage() {
             )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={saving}>{editing ? "Save changes" : "Create"}</Button>
+              <Button type="submit" disabled={saveMutation.isPending}>{editing ? "Save changes" : "Create"}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

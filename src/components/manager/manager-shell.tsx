@@ -13,6 +13,7 @@ import {
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { RequireAuth } from "@/components/shared/require-auth";
 import { isManagerOnboarded } from "@/lib/onboarding";
@@ -27,6 +28,8 @@ import { PulseTab } from "@/components/manager/pulse-tab";
 import { cn } from "@/features/shared/utils";
 import { isDemoMode } from "@/features/shared/app-mode";
 import { venueService } from "@/features/venue/services";
+import { venueKeys } from "@/features/venue/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { useAttention } from "@/lib/attention-provider";
 import { useFocusOnNavigate } from "@/lib/use-focus-on-navigate";
 import { useEntitlements } from "@/lib/use-entitlements";
@@ -44,7 +47,8 @@ import {
 export function ManagerShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [venueName, setVenueName] = useState<string | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
   const { hasFeature } = useEntitlements();
   useFocusOnNavigate();
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -168,9 +172,14 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [router]);
 
-  useEffect(() => {
-    venueService.getVenue().then((v) => setVenueName(v.name));
-  }, []);
+  const { data: venue } = useQuery({
+    queryKey: venueKeys.single(venueId),
+    queryFn: () => venueService.getVenue(),
+    enabled: !!venueId,
+  });
+
+  const venueName = venue?.name ?? null;
+
   const onOnboarding = pathname.startsWith("/manager/onboarding");
 
   useEffect(() => {

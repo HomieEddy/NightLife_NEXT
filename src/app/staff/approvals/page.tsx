@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, UserCheck, Users, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,82 +18,100 @@ import { reservationService } from "@/features/hospitality/reservation-service";
 import { staffService } from "@/features/workforce/staff-service";
 import { canDo } from "@/features/shared/permissions";
 import { permissionService } from "@/features/platform/permission-service";
-import type { RolePermissions } from "@/features/shared/permissions";
+import { sessionsKeys } from "@/features/guests/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { permissionsKeys, } from "@/features/platform/query-keys";
+import { reservationsKeys } from "@/features/hospitality/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { timeAgo } from "@/features/shared/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { GuestSession, SettlementMethod, StaffMember } from "@/lib/types";
 
 export default function StaffApprovalsPage() {
-  const [sessions, setSessions] = useState<GuestSession[] | null>(null);
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+
   const [closing, setClosing] = useState<GuestSession | null>(null);
   const [settlementMethod, setSettlementMethod] = useState<SettlementMethod | "">("");
 
-  const refresh = useCallback(async () => {
-    const [allSessions, currentStaff, perms] = await Promise.all([
-      guestsService.listSessions(),
-      staffService.getCurrentStaff(),
-      permissionService.getRolePermissions("venue-1"),
-    ]);
-    setMe(currentStaff);
-    setPermissions(perms);
-    if (currentStaff.role === "promoter") {
-      const myRes = await reservationService.listMyReservations(currentStaff.id);
-      const myTableIds = new Set(myRes.map((r) => r.tableId).filter(Boolean));
-      setSessions(allSessions.filter((s) => s.promoterId === currentStaff.id || myTableIds.has(s.tableId)));
-    } else {
-      setSessions(allSessions);
-    }
-  }, []);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: sessionsKeys.all(venueId) });
 
-  const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: permissions } = useQuery({
+    queryKey: permissionsKeys.role(venueId),
+    queryFn: () => permissionService.getRolePermissions("venue-1"),
+    enabled: !!venueId,
+  });
+
+  const { data: allSessions, isLoading } = useQuery({
+    queryKey: sessionsKeys.all(venueId),
+    queryFn: () => guestsService.listSessions(),
+    enabled: !!venueId,
+  });
+
+  // Promoters also need their own reservations to filter sessions by table
+  const { data: myReservations } = useQuery({
+    queryKey: reservationsKeys.mine(venueId, me?.id ?? ""),
+    queryFn: () => reservationService.listMyReservations(me!.id),
+    enabled: !!venueId && me?.role === "promoter" && !!me,
+  });
 
   useLiveEvents({
     scope: "staff",
-    onEvent: () => refreshRef.current(),
+    onEvent: invalidate,
     fallbackMs: 8000,
-    fallbackRefresh: () => refreshRef.current(),
+    fallbackRefresh: invalidate,
   });
 
-  async function decide(session: GuestSession, status: "approved" | "denied") {
-    setBusyId(session.id);
-    try {
-      await guestsService.setSessionStatus(session.id, status);
-      toast[status === "approved" ? "success" : "info"](`${session.displayName} at ${session.tableCode} ${status}`);
-      await refresh();
-    } catch (error) {
+  const decideMutation = useMutation({
+    mutationFn: ({ session, status }: { session: GuestSession; status: "approved" | "denied" }) =>
+      guestsService.setSessionStatus(session.id, status),
+    onSuccess: (_, { session, status }) => {
+      toast[status === "approved" ? "success" : "info"](
+        `${session.displayName} at ${session.tableCode} ${status}`,
+      );
+      invalidate();
+    },
+    onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not update the guest session.");
-    } finally {
-      setBusyId(null);
-    }
-  }
+    },
+  });
 
-  async function approveClosure() {
-    if (!closing || !settlementMethod) return;
-    const session = closing;
-    setBusyId(session.id);
-    try {
-      await guestsService.setSessionStatus(session.id, "closed", settlementMethod);
+  const closeMutation = useMutation({
+    mutationFn: ({ session, method }: { session: GuestSession; method: SettlementMethod }) =>
+      guestsService.setSessionStatus(session.id, "closed", method),
+    onSuccess: (_, { session }) => {
       toast.success(`Tab closed for ${session.displayName} at ${session.tableCode}`);
       setClosing(null);
       setSettlementMethod("");
-      await refresh();
-    } catch (error) {
+      invalidate();
+    },
+    onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not close the tab.");
-    } finally {
-      setBusyId(null);
-    }
-  }
+    },
+  });
 
-  const allSessions = sessions ?? [];
-  const pending = allSessions.filter((s) => s.status === "pending");
-  const closures = allSessions.filter((s) => s.status === "closure-requested");
-  const recent = allSessions
+  // Filter sessions for promoters
+  const sessions = (() => {
+    if (!allSessions) return null;
+    if (me?.role === "promoter" && myReservations) {
+      const myTableIds = new Set(myReservations.map((r) => r.tableId).filter(Boolean));
+      return allSessions.filter(
+        (s) => s.promoterId === me.id || myTableIds.has(s.tableId),
+      );
+    }
+    return allSessions;
+  })();
+
+  const pending = (sessions ?? []).filter((s) => s.status === "pending");
+  const closures = (sessions ?? []).filter((s) => s.status === "closure-requested");
+  const recent = (sessions ?? [])
     .filter((s) => !["pending", "closure-requested"].includes(s.status))
     .slice(0, 6);
 
@@ -108,11 +127,15 @@ export default function StaffApprovalsPage() {
     );
   }
 
+  const busyId =
+    (decideMutation.isPending ? decideMutation.variables?.session.id : null) ??
+    (closeMutation.isPending ? closeMutation.variables?.session.id : null);
+
   return (
     <div className="animate-fade-in space-y-5 p-4">
       <h1 className="text-display text-xl">Guest approvals</h1>
 
-      {sessions === null ? (
+      {isLoading && !sessions ? (
         <ListSkeleton rows={3} rowHeight="h-28" />
       ) : (
         <>
@@ -142,36 +165,36 @@ export default function StaffApprovalsPage() {
                         {timeAgo(session.createdAt)}
                       </span>
                     </div>
-                    {me?.role !== "promoter" && (
-                    <div className="flex gap-2">
-                      <ConfirmDialog
-                        trigger={
-                          <Button className="h-11 flex-1" disabled={busyId === session.id}>
-                            <Check className="size-4" /> Approve
-                          </Button>
-                        }
-                        title={`Approve ${session.displayName}?`}
-                        description={`Party of ${session.partySize} at ${session.tableCode} — they can start ordering immediately.`}
-                        confirmLabel="Approve table"
-                        onConfirm={() => decide(session, "approved")}
-                      />
-                      <ConfirmDialog
-                        trigger={
-                          <Button
-                            variant="outline"
-                            className="h-11 flex-1 text-red-600 dark:text-red-400"
-                            disabled={busyId === session.id}
-                          >
-                            <X className="size-4" /> Deny
-                          </Button>
-                        }
-                        title={`Deny ${session.displayName}?`}
-                        description={`They'll be asked to see the host at ${session.tableCode}.`}
-                        confirmLabel="Deny"
-                        destructive
-                        onConfirm={() => decide(session, "denied")}
-                      />
-                    </div>
+                    {(me as StaffMember | undefined)?.role !== "promoter" && (
+                      <div className="flex gap-2">
+                        <ConfirmDialog
+                          trigger={
+                            <Button className="h-11 flex-1" disabled={busyId === session.id}>
+                              <Check className="size-4" /> Approve
+                            </Button>
+                          }
+                          title={`Approve ${session.displayName}?`}
+                          description={`Party of ${session.partySize} at ${session.tableCode} — they can start ordering immediately.`}
+                          confirmLabel="Approve table"
+                          onConfirm={() => decideMutation.mutate({ session, status: "approved" })}
+                        />
+                        <ConfirmDialog
+                          trigger={
+                            <Button
+                              variant="outline"
+                              className="h-11 flex-1 text-red-600 dark:text-red-400"
+                              disabled={busyId === session.id}
+                            >
+                              <X className="size-4" /> Deny
+                            </Button>
+                          }
+                          title={`Deny ${session.displayName}?`}
+                          description={`They'll be asked to see the host at ${session.tableCode}.`}
+                          confirmLabel="Deny"
+                          destructive
+                          onConfirm={() => decideMutation.mutate({ session, status: "denied" })}
+                        />
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -252,8 +275,13 @@ export default function StaffApprovalsPage() {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setClosing(null)} disabled={busyId === closing?.id}>Cancel</Button>
-            <Button onClick={approveClosure} disabled={!settlementMethod || busyId === closing?.id}>Record & close tab</Button>
+            <Button variant="ghost" onClick={() => setClosing(null)} disabled={closeMutation.isPending}>Cancel</Button>
+            <Button
+              onClick={() => closing && settlementMethod && closeMutation.mutate({ session: closing, method: settlementMethod as SettlementMethod })}
+              disabled={!settlementMethod || closeMutation.isPending}
+            >
+              Record & close tab
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

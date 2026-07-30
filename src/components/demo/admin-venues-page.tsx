@@ -2,8 +2,9 @@
 
 // Plan 10 graduates this demo-only surface.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Ban, Building2, CircleDollarSign, MoreVertical, Play, Rocket, Search, Trash2,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { adminService } from "@/features/platform/admin-service";
+import { adminKeys } from "@/features/platform/query-keys";
 import { adminTenantHref } from "@/features/shared/entity-links";
 import { formatDate, formatMoney } from "@/features/shared/format";
 import type { Tenant, TenantPlan, TenantStatus } from "@/lib/types";
@@ -37,18 +39,20 @@ const PLANS: TenantPlan[] = ["starter", "pro", "enterprise"];
 const STATUSES: TenantStatus[] = ["active", "trial", "suspended"];
 
 export default function AdminVenuesPage() {
-  const [tenants, setTenants] = useState<Tenant[] | null>(null);
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [planFilter, setPlanFilter] = useState<"all" | TenantPlan>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | TenantStatus>("all");
+  const [pendingPlan, setPendingPlan] = useState<{ tenant: Tenant; plan: TenantPlan } | null>(null);
 
-  const refresh = useCallback(async () => {
-    setTenants(await adminService.listTenants());
-  }, []);
+  const { data: tenants } = useQuery({
+    queryKey: adminKeys.tenants,
+    queryFn: () => adminService.listTenants(),
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: adminKeys.tenants });
+  };
 
   const visible = useMemo(() => {
     return (tenants ?? []).filter((t) => {
@@ -72,30 +76,32 @@ export default function AdminVenuesPage() {
     };
   }, [tenants]);
 
-  const [pendingPlan, setPendingPlan] = useState<{ tenant: Tenant; plan: TenantPlan } | null>(null);
-  const [applyingPlan, setApplyingPlan] = useState(false);
+  const planMutation = useMutation({
+    mutationFn: ({ tenant, plan }: { tenant: Tenant; plan: TenantPlan }) =>
+      adminService.updateTenant(tenant.id, { plan }),
+    onSuccess: (_, { tenant, plan }) => {
+      toast.success(`${tenant.venueName} moved to ${plan}`);
+      setPendingPlan(null);
+      invalidate();
+    },
+  });
 
-  async function confirmPlanChange() {
-    if (!pendingPlan) return;
-    setApplyingPlan(true);
-    await adminService.updateTenant(pendingPlan.tenant.id, { plan: pendingPlan.plan });
-    toast.success(`${pendingPlan.tenant.venueName} moved to ${pendingPlan.plan}`);
-    setApplyingPlan(false);
-    setPendingPlan(null);
-    await refresh();
-  }
+  const statusMutation = useMutation({
+    mutationFn: ({ tenant, status }: { tenant: Tenant; status: TenantStatus }) =>
+      adminService.updateTenant(tenant.id, { status }),
+    onSuccess: (_, { tenant, status }) => {
+      toast.success(`${tenant.venueName} is now ${status}`);
+      invalidate();
+    },
+  });
 
-  async function setStatus(tenant: Tenant, status: TenantStatus) {
-    await adminService.updateTenant(tenant.id, { status });
-    toast.success(`${tenant.venueName} is now ${status}`);
-    await refresh();
-  }
-
-  async function remove(tenant: Tenant) {
-    await adminService.deleteTenant(tenant.id);
-    toast.info(`${tenant.venueName} deleted`);
-    await refresh();
-  }
+  const deleteMutation = useMutation({
+    mutationFn: (tenant: Tenant) => adminService.deleteTenant(tenant.id),
+    onSuccess: (_, tenant) => {
+      toast.info(`${tenant.venueName} deleted`);
+      invalidate();
+    },
+  });
 
   return (
     <div className="space-y-5">
@@ -158,7 +164,7 @@ export default function AdminVenuesPage() {
         </Select>
       </div>
 
-      {tenants === null ? (
+      {tenants === undefined ? (
         <ListSkeleton rows={5} rowHeight="h-14" />
       ) : visible.length === 0 ? (
         <EmptyState icon={Building2} title="No tenants match" />
@@ -236,7 +242,7 @@ export default function AdminVenuesPage() {
                             title={`Reactivate ${tenant.venueName}?`}
                             description="Billing resumes and their staff regain access immediately."
                             confirmLabel="Reactivate"
-                            onConfirm={() => setStatus(tenant, "active")}
+                            onConfirm={() => statusMutation.mutate({ tenant, status: "active" })}
                           />
                         ) : (
                           <ConfirmDialog
@@ -249,7 +255,7 @@ export default function AdminVenuesPage() {
                             description="All venue panels are locked and billing pauses until reactivated."
                             confirmLabel="Suspend tenant"
                             destructive
-                            onConfirm={() => setStatus(tenant, "suspended")}
+                            onConfirm={() => statusMutation.mutate({ tenant, status: "suspended" })}
                           />
                         )}
                         {tenant.status === "trial" && (
@@ -262,7 +268,7 @@ export default function AdminVenuesPage() {
                             title={`Activate ${tenant.venueName}?`}
                             description={`Ends the trial and starts billing on the ${tenant.plan} plan.`}
                             confirmLabel="Start billing"
-                            onConfirm={() => setStatus(tenant, "active")}
+                            onConfirm={() => statusMutation.mutate({ tenant, status: "active" })}
                           />
                         )}
                         <ConfirmDialog
@@ -278,7 +284,7 @@ export default function AdminVenuesPage() {
                           description="Removes the tenant and all venue data. This cannot be undone."
                           confirmLabel="Delete permanently"
                           destructive
-                          onConfirm={() => remove(tenant)}
+                          onConfirm={() => deleteMutation.mutate(tenant)}
                         />
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -302,11 +308,11 @@ export default function AdminVenuesPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setPendingPlan(null)} disabled={applyingPlan}>
+            <Button variant="ghost" onClick={() => setPendingPlan(null)} disabled={planMutation.isPending}>
               Cancel
             </Button>
-            <Button onClick={confirmPlanChange} disabled={applyingPlan}>
-              {applyingPlan ? "Applying…" : "Change plan"}
+            <Button onClick={() => pendingPlan && planMutation.mutate(pendingPlan)} disabled={planMutation.isPending}>
+              {planMutation.isPending ? "Applying…" : "Change plan"}
             </Button>
           </DialogFooter>
         </DialogContent>

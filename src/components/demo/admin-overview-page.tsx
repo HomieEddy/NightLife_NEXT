@@ -2,8 +2,8 @@
 
 // Plan 10 graduates this demo-only surface.
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity, ArrowRight, Building2, CircleDollarSign, ExternalLink, Filter, Receipt, Table2, TrendingUp, Users,
 } from "lucide-react";
@@ -14,24 +14,29 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { adminService } from "@/features/platform/admin-service";
+import { adminKeys } from "@/features/platform/query-keys";
 import { formatMoney, timeAgo } from "@/features/shared/format";
 import type { Lead, TelemetryLink, Tenant } from "@/lib/types";
 
 export default function AdminOverviewPage() {
-  const [leads, setLeads] = useState<Lead[] | null>(null);
-  const [tenants, setTenants] = useState<Tenant[] | null>(null);
-  const [telemetry, setTelemetry] = useState<TelemetryLink[]>([]);
+  const { data: leads } = useQuery({
+    queryKey: adminKeys.leads,
+    queryFn: () => adminService.listLeads(),
+  });
 
-  useEffect(() => {
-    adminService.listLeads().then(setLeads);
-    adminService.listTenants().then(setTenants);
-    adminService.listTelemetryLinks().then(setTelemetry);
-  }, []);
+  const { data: tenants } = useQuery({
+    queryKey: adminKeys.tenants,
+    queryFn: () => adminService.listTenants(),
+  });
+
+  const { data: telemetry = [] } = useQuery({
+    queryKey: adminKeys.telemetry,
+    queryFn: () => adminService.listTelemetryLinks(),
+  });
 
   const mrr = (tenants ?? []).reduce((sum, t) => sum + t.mrr, 0);
   const activeTenants = (tenants ?? []).filter((t) => t.status === "active").length;
   const openLeads = (leads ?? []).filter((l) => !["won", "lost"].includes(l.status)).length;
-  // Operational counts only — INV-P2: never tenants' sales amounts.
   const ops = (tenants ?? []).reduce(
     (acc, t) => ({
       orders: acc.orders + t.metrics.orderCount30d,
@@ -48,7 +53,7 @@ export default function AdminOverviewPage() {
 
       {telemetry.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          {telemetry.map((link) => (
+          {telemetry.map((link: TelemetryLink) => (
             <a
               key={link.id}
               href={link.url}
@@ -63,7 +68,7 @@ export default function AdminOverviewPage() {
         </div>
       )}
 
-      {leads === null || tenants === null ? (
+      {leads === undefined || tenants === undefined ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-32 rounded-xl" />
@@ -97,7 +102,7 @@ export default function AdminOverviewPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-2">
-            {(leads ?? []).slice(0, 4).map((lead) => (
+            {(leads ?? []).slice(0, 4).map((lead: Lead) => (
               <div key={lead.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="text-sm font-medium">{lead.venueName}</p>
@@ -121,7 +126,7 @@ export default function AdminOverviewPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-2">
-            {(tenants ?? []).slice(0, 4).map((tenant) => (
+            {(tenants ?? []).slice(0, 4).map((tenant: Tenant) => (
               <div key={tenant.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="text-sm font-medium">{tenant.venueName}</p>

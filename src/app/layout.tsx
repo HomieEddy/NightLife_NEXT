@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/context/auth-context";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { AppModeBanner } from "@/components/shared/app-mode-banner";
 import "./globals.css";
 
@@ -65,7 +66,9 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <AppModeBanner />
           <TooltipProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <QueryProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </QueryProvider>
           </TooltipProvider>
           <Toaster position="top-center" richColors />
         </ThemeProvider>

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { CalendarPlus, Loader2, X, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,11 +22,13 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { staffService } from "@/features/workforce/staff-service";
 import { timeService } from "@/features/workforce/time-service";
+import { staffKeys, timeKeys } from "@/features/workforce/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { generateWeekFromTemplates } from "@/lib/workforce";
 import { zShiftInput } from "@/lib/form-schemas";
 import { cn } from "@/features/shared/utils";
 import type { DateRangeValue } from "@/components/shared/date-range-picker";
-import type { StaffMember, StaffShift, Shift, Zone } from "@/lib/types";
+import type { StaffMember, StaffShift, Zone } from "@/lib/types";
 import type { z } from "zod";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -47,7 +50,6 @@ function getDaysInRange(range?: DateRangeValue): Set<number> | null {
   const start = range.from ? new Date(range.from + "T00:00:00") : new Date(0);
   const end = range.to ? new Date(range.to + "T23:59:59") : new Date("2100-01-01");
   const cursor = new Date(start);
-  // Collect unique days-of-week within range (cap at 7 iterations for safety)
   for (let i = 0; i < 7 && cursor <= end; i++) {
     days.add(cursor.getDay());
     cursor.setDate(cursor.getDate() + 1);
@@ -57,24 +59,82 @@ function getDaysInRange(range?: DateRangeValue): Set<number> | null {
 
 /** Weekly recurring schedule: shifts grouped by night, add/remove per staff. */
 export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[]; zones: Zone[]; dateRange?: DateRangeValue }) {
-  const [shifts, setShifts] = useState<StaffShift[] | null>(null);
-  const [publishedShifts, setPublishedShifts] = useState<Shift[]>([]);
-  const [publishing, setPublishing] = useState(false);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(zShiftInput),
     defaultValues: EMPTY_VALUES,
   });
 
-  const refresh = useCallback(async () => {
-    setShifts(await staffService.listShifts());
-    setPublishedShifts(await timeService.listShifts());
-  }, []);
+  const { data: shifts } = useQuery({
+    queryKey: staffKeys.shifts(venueId),
+    queryFn: () => staffService.listShifts(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: publishedShifts = [] } = useQuery({
+    queryKey: timeKeys.allShifts(venueId),
+    queryFn: () => timeService.listShifts(),
+    enabled: !!venueId,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: staffKeys.shifts(venueId) });
+    queryClient.invalidateQueries({ queryKey: timeKeys.allShifts(venueId) });
+  };
+
+  const addMutation = useMutation({
+    mutationFn: (data: FormValues) => {
+      const day = data.dayOfWeek[0];
+      return staffService.addShift({
+        staffId: data.staffId,
+        dayOfWeek: day,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        zoneId: data.zoneId === "none" ? null : data.zoneId,
+      });
+    },
+    onSuccess: (_, data) => {
+      const day = data.dayOfWeek[0];
+      setDialogOpen(false);
+      toast.success(`${staffName(data.staffId)} scheduled for ${DAY_LABELS[day]}`);
+      invalidate();
+    },
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: async () => {
+      const templates = await staffService.listShifts();
+      const shiftTemplates = templates.map((t) => ({ ...t, venueId: "venue-1", active: true }));
+      const allStaff = staff;
+      const monday = new Date();
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+      const weekStart = monday.toISOString().slice(0, 10);
+      const generated = generateWeekFromTemplates(shiftTemplates, allStaff, weekStart, "venue-1");
+      return timeService.publishShifts(generated);
+    },
+    onSuccess: () => {
+      const monday = new Date();
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+      const weekStart = monday.toISOString().slice(0, 10);
+      toast.success(`Shifts published for the week of ${weekStart}`);
+      invalidate();
+    },
+    onError: () => {
+      toast.error("Could not publish week");
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (shift: StaffShift) => staffService.removeShift(shift.id),
+    onSuccess: (_, shift) => {
+      toast.info(`${staffName(shift.staffId)} unscheduled from ${DAY_LABELS[shift.dayOfWeek]}`);
+      invalidate();
+    },
+  });
 
   const staffName = (id: string) => staff.find((s) => s.id === id)?.name ?? "—";
   const staffRole = (id: string) => staff.find((s) => s.id === id)?.role;
@@ -93,45 +153,16 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
   }
 
   const onSave = handleSubmit(async (data) => {
-    const day = data.dayOfWeek[0];
-    await staffService.addShift({
-      staffId: data.staffId,
-      dayOfWeek: day,
-      startTime: data.startTime,
-      endTime: data.endTime,
-      zoneId: data.zoneId === "none" ? null : data.zoneId,
-    });
-    setDialogOpen(false);
-    toast.success(`${staffName(data.staffId)} scheduled for ${DAY_LABELS[day]}`);
-    await refresh();
+    addMutation.mutate(data);
   });
 
   async function publishWeek() {
-    setPublishing(true);
-    try {
-      const templates = await staffService.listShifts();
-      const shiftTemplates = templates.map((t) => ({ ...t, venueId: "venue-1", active: true }));
-      const allStaff = staff;
-      const monday = new Date();
-      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-      const weekStart = monday.toISOString().slice(0, 10);
-      const generated = generateWeekFromTemplates(shiftTemplates, allStaff, weekStart, "venue-1");
-      await timeService.publishShifts(generated);
-      toast.success(`${generated.length} shifts published for the week of ${weekStart}`);
-      await refresh();
-    } catch { toast.error("Could not publish week"); }
-    finally { setPublishing(false); }
-  }
-
-  async function remove(shift: StaffShift) {
-    await staffService.removeShift(shift.id);
-    toast.info(`${staffName(shift.staffId)} unscheduled from ${DAY_LABELS[shift.dayOfWeek]}`);
-    await refresh();
+    publishMutation.mutate();
   }
 
   const activeDays = getDaysInRange(dateRange);
 
-  if (shifts === null) return <ListSkeleton rows={4} rowHeight="h-28" />;
+  if (shifts === undefined) return <ListSkeleton rows={4} rowHeight="h-28" />;
 
   const filteredDays = activeDays ? DAY_ORDER.filter((d) => activeDays.has(d)) : DAY_ORDER;
 
@@ -139,7 +170,7 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
         <ConfirmDialog
-          trigger={<Button disabled={publishing}><Send className="size-4 mr-1" /> Publish next week</Button>}
+          trigger={<Button disabled={publishMutation.isPending}><Send className="size-4 mr-1" /> Publish next week</Button>}
           title="Generate & publish next week?"
           description="Converts the recurring schedule below into dated shifts that staff can see and swap."
           confirmLabel="Publish"
@@ -225,7 +256,7 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
                             description={`Removes their ${DAY_LABELS[shift.dayOfWeek]} ${shift.startTime}–${shift.endTime} shift.`}
                             confirmLabel="Remove shift"
                             destructive
-                            onConfirm={() => remove(shift)}
+                            onConfirm={() => removeMutation.mutate(shift)}
                           />
                         </li>
                       );
@@ -317,9 +348,9 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
             <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-              {isSubmitting ? "Saving…" : "Add shift"}
+            <Button type="submit" disabled={addMutation.isPending}>
+              {addMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+              {addMutation.isPending ? "Saving…" : "Add shift"}
             </Button>
           </DialogFooter>
           </form>

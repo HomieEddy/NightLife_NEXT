@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -24,6 +25,7 @@ import { useLiveEvents } from "@/lib/use-live-events";
 import { analyticsService } from "@/features/analytics/analytics-service";
 import { guestsService } from "@/features/guests/services";
 import { ordersService, ORDER_FLOW } from "@/features/ordering/services";
+import { guestOrderKeys } from "@/features/ordering/query-keys";
 import { estimateEtaMinutes, formatEta } from "@/features/shared/eta";
 import { formatMoney } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
@@ -88,93 +90,92 @@ function OrderTracker({ order }: { order: Order }) {
 
 export default function GuestOrdersPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { guestName, sessionId, closureStatus, setClosureStatus } = useGuest();
-  const [orders, setOrders] = useState<Order[] | null>(null);
-  const [advancing, setAdvancing] = useState(false);
-  const [requestingClosure, setRequestingClosure] = useState(false);
-  const [approvingClosure, setApprovingClosure] = useState(false);
-  const [avgFulfillmentMinutes, setAvgFulfillmentMinutes] = useState(8);
 
-  useEffect(() => {
-    if (isDemoMode()) {
-      analyticsService.getSummary().then((s) => setAvgFulfillmentMinutes(s.avgFulfillmentMinutes));
+  const { data: summary } = useQuery({
+    queryKey: ["analytics-summary"] as const,
+    queryFn: () => analyticsService.getSummary(),
+    enabled: isDemoMode(),
+  });
+  const avgFulfillmentMinutes = summary?.avgFulfillmentMinutes ?? 8;
+
+  const { data: orders = [], isPending: ordersLoading } = useQuery({
+    queryKey: guestOrderKeys.list(guestName ?? ""),
+    queryFn: async () => {
+      if (!guestName) return [] as Order[];
+      const result = await ordersService.listGuestOrders(guestName);
+      // While waiting for the host to close the tab, watch the session status.
+      if (closureStatus === "requested" && sessionId) {
+        const session = await guestsService.getSession(sessionId);
+        if (session?.status === "closed") setClosureStatus("closed");
+      }
+      return result;
+    },
+    enabled: !!guestName,
+  });
+
+  // SSE + polling integration: invalidate query on events
+  const invalidate = useCallback(() => {
+    if (guestName) {
+      queryClient.invalidateQueries({ queryKey: guestOrderKeys.list(guestName) });
     }
-  }, []);
-
-  const refresh = useCallback(async () => {
-    if (!guestName) {
-      setOrders([]);
-      return;
-    }
-    const result = await ordersService.listGuestOrders(guestName);
-    setOrders(result);
-    // While waiting for the host to close the tab, watch the session status.
-    if (closureStatus === "requested" && sessionId) {
-      const session = await guestsService.getSession(sessionId);
-      if (session?.status === "closed") setClosureStatus("closed");
-    }
-  }, [guestName, closureStatus, sessionId, setClosureStatus]);
-
-  const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
-
-  useEffect(() => { refresh(); }, [refresh]);
+  }, [guestName, queryClient]);
 
   useLiveEvents({
     scope: "guest",
     sessionId: sessionId ?? undefined,
-    onEvent: () => refreshRef.current(),
+    onEvent: () => invalidate(),
     fallbackMs: 5000,
-    fallbackRefresh: () => refreshRef.current(),
+    fallbackRefresh: () => invalidate(),
   });
 
   useEffect(() => {
     if (closureStatus === "closed") router.push("/guest/receipt");
   }, [closureStatus, router]);
 
-  async function requestClosure() {
-    if (!sessionId) return;
-    setRequestingClosure(true);
-    try {
+  const requestClosureMutation = useMutation({
+    mutationFn: async () => {
+      if (!sessionId) throw new Error("No session");
       await guestsService.requestClosure(sessionId);
+    },
+    onSuccess: () => {
       setClosureStatus("requested");
       toast.success("Closure requested — your host will confirm shortly.");
-    } catch (error) {
+    },
+    onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not request tab closure");
-    } finally {
-      setRequestingClosure(false);
-    }
-  }
+    },
+  });
 
-  async function simulateClosureApproval() {
-    if (!sessionId) return;
-    setApprovingClosure(true);
-    try {
+  const simulateApproveMutation = useMutation({
+    mutationFn: async () => {
+      if (!sessionId) throw new Error("No session");
       await guestsService.setSessionStatus(sessionId, "closed");
+    },
+    onSuccess: () => {
       setClosureStatus("closed");
-    } catch (error) {
+    },
+    onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not close the demo session");
-    } finally {
-      setApprovingClosure(false);
-    }
-  }
+    },
+  });
 
-  async function simulateProgress() {
-    if (!orders) return;
-    const active = orders.find((o) => !["delivered", "cancelled"].includes(o.status));
-    if (!active) return;
-    setAdvancing(true);
-    try {
+  const simulateProgressMutation = useMutation({
+    mutationFn: async () => {
+      const active = orders.find((o) => !["delivered", "cancelled"].includes(o.status));
+      if (!active) throw new Error("No active order");
       await ordersService.advanceOrder(active.id);
-      await refresh();
-    } catch (error) {
+    },
+    onSuccess: () => {
+      invalidate();
+    },
+    onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not advance the demo order");
-    } finally {
-      setAdvancing(false);
-    }
-  }
+    },
+  });
 
-  if (orders === null) {
+  if (ordersLoading) {
     return (
       <div className="p-4">
         <ListSkeleton rows={2} rowHeight="h-40" />
@@ -184,7 +185,6 @@ export default function GuestOrdersPage() {
 
   const hasActive = orders.some((o) => !["delivered", "cancelled"].includes(o.status));
   const delivered = orders.filter((o) => o.status === "delivered");
-  // Tab can be closed only when there's something to pay for and nothing in flight.
   const canRequestClosure =
     delivered.length > 0 && !hasActive && sessionId !== null && closureStatus === "none";
 
@@ -192,7 +192,7 @@ export default function GuestOrdersPage() {
     <div className="space-y-4 p-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-display text-xl">Your orders</h1>
-        {hasActive && <DemoOrderProgressControl busy={advancing} onProgress={simulateProgress} />}
+        {hasActive && <DemoOrderProgressControl busy={simulateProgressMutation.isPending} onProgress={() => simulateProgressMutation.mutate()} />}
       </div>
 
       {orders.length === 0 ? (
@@ -280,11 +280,11 @@ export default function GuestOrdersPage() {
             <Button
               size="lg"
               className="h-12 w-full glow-primary"
-              onClick={requestClosure}
-              disabled={requestingClosure}
+              onClick={() => requestClosureMutation.mutate()}
+              disabled={requestClosureMutation.isPending}
             >
-              {requestingClosure && <Loader2 className="size-4 animate-spin" />}
-              {requestingClosure ? "Requesting…" : "Request to close my tab"}
+              {requestClosureMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+              {requestClosureMutation.isPending ? "Requesting…" : "Request to close my tab"}
             </Button>
           </CardContent>
         </Card>
@@ -303,7 +303,7 @@ export default function GuestOrdersPage() {
                 appears here.
               </p>
             </div>
-            <DemoClosureApprovalControl busy={approvingClosure} onApprove={simulateClosureApproval} />
+            <DemoClosureApprovalControl busy={simulateApproveMutation.isPending} onApprove={() => simulateApproveMutation.mutate()} />
           </CardContent>
         </Card>
       )}

@@ -6,6 +6,7 @@ import {
   ArrowLeft, ArrowRight, Building2, Check, Loader2, Map, Martini, PartyPopper, Plus, Trash2, UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,10 @@ import { PageHeader } from "@/components/shared/page-header";
 import { menuService } from "@/features/menu/services";
 import { staffService } from "@/features/workforce/staff-service";
 import { venueService } from "@/features/venue/services";
+import { venueKeys } from "@/features/venue/query-keys";
+import { menuKeys } from "@/features/menu/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { setManagerOnboarded } from "@/lib/onboarding";
 import { ZONE_SWATCH } from "@/features/shared/zone-colors";
 import { cn } from "@/features/shared/utils";
@@ -37,17 +42,18 @@ interface ZoneDraft {
   id: string;
   name: string;
   color: string;
-  tableCount: number; // informational — tables are managed on their own page
+  tableCount: number;
 }
 
 export default function ManagerOnboardingPage() {
   const router = useRouter();
-  const [loaded, setLoaded] = useState(false);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
   const [step, setStep] = useState(0);
   const [launching, setLaunching] = useState(false);
 
-  // Step 1 — venue (prefilled)
-  const [venue, setVenue] = useState<Venue | null>(null);
+  // Step 1 — venue (prefilled from query)
+  const [venueDraft, setVenueDraft] = useState<Venue | null>(null);
 
   // Step 2 — floor (prefilled)
   const [zones, setZones] = useState<ZoneDraft[]>([]);
@@ -60,38 +66,62 @@ export default function ManagerOnboardingPage() {
   const [me, setMe] = useState<Pick<StaffMember, "name" | "email"> | null>(null);
   const [managerId, setManagerId] = useState<string | null>(null);
 
+  const { data: venue } = useQuery({
+    queryKey: venueKeys.single(venueId),
+    queryFn: () => venueService.getVenue(),
+    enabled: !!venueId,
+  });
+
+  const { data: zoneList = [] } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const { data: tables = [] } = useQuery({
+    queryKey: venueKeys.tables(venueId),
+    queryFn: () => venueService.listTables(),
+    enabled: !!venueId,
+  });
+
+  const { data: catList = [] } = useQuery({
+    queryKey: menuKeys.categories(venueId),
+    queryFn: () => menuService.listCategories(true),
+    enabled: !!venueId,
+  });
+
+  const { data: staffList = [] } = useQuery({
+    queryKey: staffKeys.list(venueId),
+    queryFn: () => staffService.listStaff(),
+    enabled: !!venueId,
+  });
+
+  // Initialise drafts when all data lands
+  const loaded = venue && zoneList.length > 0 && catList.length > 0 && staffList.length > 0;
   useEffect(() => {
-    Promise.all([
-      venueService.getVenue(),
-      venueService.listZones(),
-      venueService.listTables(),
-      menuService.listCategories(true),
-      staffService.listStaff(),
-    ]).then(([venueData, zoneList, tables, catList, staff]) => {
-      setVenue(venueData);
-      setFees(venueData.serviceFees);
-      setZones(
-        zoneList.map((zone: Zone) => ({
-          id: zone.id,
-          name: zone.name,
-          color: zone.color,
-          tableCount: tables.filter((t: VenueTable) => t.zoneId === zone.id).length,
-        })),
-      );
-      setCategories(catList);
-      const manager = staff.find((s) => s.role === "manager");
-      if (manager) {
-        setMe({ name: manager.name, email: manager.email });
-        setManagerId(manager.id);
-      }
-      setLoaded(true);
-    });
-  }, []);
+    if (!loaded || venueDraft) return;
+    setVenueDraft(venue);
+    setFees(venue.serviceFees);
+    setZones(
+      zoneList.map((zone: Zone) => ({
+        id: zone.id,
+        name: zone.name,
+        color: zone.color,
+        tableCount: tables.filter((t: VenueTable) => t.zoneId === zone.id).length,
+      })),
+    );
+    setCategories(catList);
+    const manager = staffList.find((s) => s.role === "manager");
+    if (manager) {
+      setMe({ name: manager.name, email: manager.email });
+      setManagerId(manager.id);
+    }
+  }, [loaded, venue, zoneList, tables, catList, staffList, venueDraft]);
 
   const stepValid = useMemo(() => {
     switch (step) {
       case 0:
-        return !!venue && venue.name.trim().length > 0 && venue.city.trim().length > 0;
+        return !!venueDraft && venueDraft.name.trim().length > 0 && venueDraft.city.trim().length > 0;
       case 1:
         return zones.length > 0 && zones.every((z) => z.name.trim());
       case 2:
@@ -101,7 +131,7 @@ export default function ManagerOnboardingPage() {
       default:
         return false;
     }
-  }, [step, venue, zones, categories, me]);
+  }, [step, venueDraft, zones, categories, me]);
 
   function patchZone(id: string, patch: Partial<ZoneDraft>) {
     setZones((prev) => prev.map((z) => (z.id === id ? { ...z, ...patch } : z)));
@@ -114,16 +144,16 @@ export default function ManagerOnboardingPage() {
   }
 
   async function launch() {
-    if (!venue || !me) return;
+    if (!venueDraft || !me) return;
     setLaunching(true);
     // Apply every edit back to the live venue config.
     await venueService.updateVenue({
-      name: venue.name.trim(),
-      city: venue.city.trim(),
-      address: venue.address.trim(),
-      timezone: venue.timezone,
+      name: venueDraft.name.trim(),
+      city: venueDraft.city.trim(),
+      address: venueDraft.address.trim(),
+      timezone: venueDraft.timezone,
       serviceFees: fees.filter((f) => f.name.trim() && f.value > 0),
-      autoApproveGuests: venue.autoApproveGuests,
+      autoApproveGuests: venueDraft.autoApproveGuests,
     });
     for (const zone of zones) {
       await venueService.updateZone(zone.id, { name: zone.name.trim(), color: zone.color });
@@ -141,7 +171,7 @@ export default function ManagerOnboardingPage() {
     }
     setManagerOnboarded(true);
     setLaunching(false);
-    toast.success(`${venue.name} is set up — welcome to your dashboard!`, {
+    toast.success(`${venueDraft.name} is set up — welcome to your dashboard!`, {
       icon: <PartyPopper className="size-4" />,
     });
     router.replace("/manager");
@@ -152,7 +182,7 @@ export default function ManagerOnboardingPage() {
     router.replace("/manager");
   }
 
-  if (!loaded || !venue) {
+  if (!loaded || !venueDraft) {
     return (
       <div className="mx-auto max-w-3xl space-y-4">
         <PageHeader title="Welcome to NightLifeNext" description="Loading your venue…" />
@@ -164,7 +194,7 @@ export default function ManagerOnboardingPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
-        title={`Welcome, let's set up ${venue.name}`}
+        title={`Welcome, let's set up ${venueDraft.name}`}
         description="Everything is prefilled from your signup — review, tweak and launch."
         actions={
           <Button variant="ghost" size="sm" onClick={skip}>
@@ -205,16 +235,16 @@ export default function ManagerOnboardingPage() {
                   <Label htmlFor="mb-name">Venue name *</Label>
                   <Input
                     id="mb-name"
-                    value={venue.name}
-                    onChange={(e) => setVenue({ ...venue, name: e.target.value })}
+                    value={venueDraft.name}
+                    onChange={(e) => setVenueDraft({ ...venueDraft, name: e.target.value })}
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="mb-city">City *</Label>
                   <Input
                     id="mb-city"
-                    value={venue.city}
-                    onChange={(e) => setVenue({ ...venue, city: e.target.value })}
+                    value={venueDraft.city}
+                    onChange={(e) => setVenueDraft({ ...venueDraft, city: e.target.value })}
                   />
                 </div>
               </div>
@@ -222,16 +252,16 @@ export default function ManagerOnboardingPage() {
                 <Label htmlFor="mb-address">Address</Label>
                 <Input
                   id="mb-address"
-                  value={venue.address}
-                  onChange={(e) => setVenue({ ...venue, address: e.target.value })}
+                  value={venueDraft.address}
+                  onChange={(e) => setVenueDraft({ ...venueDraft, address: e.target.value })}
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Timezone</Label>
                   <Select
-                    value={venue.timezone}
-                    onValueChange={(timezone) => setVenue({ ...venue, timezone })}
+                    value={venueDraft.timezone}
+                    onValueChange={(timezone) => setVenueDraft({ ...venueDraft, timezone })}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />
@@ -247,7 +277,7 @@ export default function ManagerOnboardingPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Currency</Label>
-                  <Input value={venue.currency} disabled />
+                  <Input value={venueDraft.currency} disabled />
                   <p className="text-xs text-muted-foreground">Set by your subscription contract.</p>
                 </div>
               </div>
@@ -259,8 +289,8 @@ export default function ManagerOnboardingPage() {
                   </p>
                 </div>
                 <Switch
-                  checked={venue.autoApproveGuests}
-                  onCheckedChange={(autoApproveGuests) => setVenue({ ...venue, autoApproveGuests })}
+                  checked={venueDraft.autoApproveGuests}
+                  onCheckedChange={(autoApproveGuests) => setVenueDraft({ ...venueDraft, autoApproveGuests })}
                 />
               </div>
             </>
@@ -439,9 +469,9 @@ export default function ManagerOnboardingPage() {
                 <p className="font-medium">Review</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                   <p className="text-muted-foreground">Venue</p>
-                  <p>{venue.name} · {venue.city}</p>
+                  <p>{venueDraft.name} · {venueDraft.city}</p>
                   <p className="text-muted-foreground">Locale</p>
-                  <p>{venue.timezone} · {venue.currency}</p>
+                  <p>{venueDraft.timezone} · {venueDraft.currency}</p>
                   <p className="text-muted-foreground">Floor</p>
                   <p>
                     {zones.length} zones · {zones.reduce((s, z) => s + z.tableCount, 0)} tables
@@ -458,7 +488,7 @@ export default function ManagerOnboardingPage() {
                           .join(" + ")}
                   </p>
                   <p className="text-muted-foreground">Guests</p>
-                  <p>{venue.autoApproveGuests ? "Auto-approved on scan" : "Host approves each table"}</p>
+                  <p>{venueDraft.autoApproveGuests ? "Auto-approved on scan" : "Host approves each table"}</p>
                 </div>
               </div>
             </>

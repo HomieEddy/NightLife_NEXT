@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Wallet, ShieldOff } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,13 @@ import { permissionService } from "@/features/platform/permission-service";
 import { canDo } from "@/features/shared/permissions";
 import { businessDateFor, computeCashoutVariance, emptyMethodTotals } from "@/lib/tab";
 import { formatMoney } from "@/features/shared/format";
-import type { SettlementMethod, ShiftCashout, StaffMember } from "@/lib/types";
+import { useAuth } from "@/context/auth-context";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { permissionsKeys, cashoutKeys } from "@/features/platform/query-keys";
+import { venueKeys } from "@/features/venue/query-keys";
+import { sessionsKeys } from "@/features/guests/query-keys";
+import { ordersKeys } from "@/features/ordering/query-keys";
+import type { SettlementMethod, ShiftCashout } from "@/lib/types";
 
 const METHODS: { id: SettlementMethod; label: string }[] = [
   { id: "terminal", label: "Terminal" },
@@ -29,66 +36,102 @@ const METHODS: { id: SettlementMethod; label: string }[] = [
 ];
 
 export default function CashoutPage() {
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [canClose, setCanClose] = useState(false);
-  const [nightEndHour, setNightEndHour] = useState(10);
-  const [businessDate, setBusinessDate] = useState("");
-  const [loaded, setLoaded] = useState(false);
-  const [expected, setExpected] = useState<Record<SettlementMethod, number>>(emptyMethodTotals());
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+
   const [counted, setCounted] = useState<Record<SettlementMethod, number>>(emptyMethodTotals());
-  const [history, setHistory] = useState<ShiftCashout[] | null>(null);
   const [note, setNote] = useState("");
-  const [closing, setClosing] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const [currentStaff, permissions, venue, sessionList, orderList, adjustmentList, cashouts] = await Promise.all([
-      staffService.getCurrentStaff(),
-      permissionService.getRolePermissions("venue-1"),
-      venueService.getVenueSnapshot(),
-      guestsService.listSessions(),
-      ordersService.listOrders(),
-      ordersService.listAllAdjustments(),
-      cashoutService.listCashouts(),
-    ]);
-    setMe(currentStaff);
-    setCanClose(canDo(permissions, currentStaff.role, "cashout:close"));
-    setNightEndHour(venue.nightEndHour);
-    const today = businessDateFor(new Date().toISOString(), venue.nightEndHour);
-    setBusinessDate(today);
-    setHistory(cashouts);
-    const preview = await cashoutService.previewExpected(today, venue.nightEndHour, sessionList, orderList, adjustmentList);
-    setExpected(preview);
-    setLoaded(true);
-  }, []);
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: permissions } = useQuery({
+    queryKey: permissionsKeys.role(venueId),
+    queryFn: () => permissionService.getRolePermissions("venue-1"),
+    enabled: !!venueId,
+  });
 
-  const variance = useMemo(() => computeCashoutVariance(expected, counted), [expected, counted]);
-  const totalExpected = expected.terminal + expected.cash + expected.house;
+  const { data: venue } = useQuery({
+    queryKey: venueKeys.snapshot(venueId),
+    queryFn: () => venueService.getVenueSnapshot(),
+    enabled: !!venueId,
+  });
+
+  const { data: sessions = [] } = useQuery({
+    queryKey: sessionsKeys.all(venueId),
+    queryFn: () => guestsService.listSessions(),
+    enabled: !!venueId,
+  });
+
+  const { data: orders = [] } = useQuery({
+    queryKey: ordersKeys.all(venueId),
+    queryFn: () => ordersService.listOrders(),
+    enabled: !!venueId,
+  });
+
+  const { data: adjustments = [] } = useQuery({
+    queryKey: ordersKeys.adjustments(venueId),
+    queryFn: () => ordersService.listAllAdjustments(),
+    enabled: !!venueId,
+  });
+
+  const { data: history = [] } = useQuery({
+    queryKey: cashoutKeys.all(venueId),
+    queryFn: () => cashoutService.listCashouts(),
+    enabled: !!venueId,
+  });
+
+  const nightEndHour = venue?.nightEndHour ?? 10;
+  const businessDate = venue ? businessDateFor(new Date().toISOString(), venue.nightEndHour) : "";
+
+  const { data: expected } = useQuery({
+    queryKey: cashoutKeys.preview(venueId),
+    queryFn: () =>
+      cashoutService.previewExpected(businessDate, nightEndHour, sessions, orders, adjustments),
+    enabled: !!venueId && !!venue && sessions.length >= 0 && orders.length >= 0,
+  });
+
+  const canClose = me && permissions ? canDo(permissions, me.role, "cashout:close") : false;
+
+  const expectedByMethod = expected ?? emptyMethodTotals();
+  const variance = useMemo(
+    () => computeCashoutVariance(expectedByMethod, counted),
+    [expectedByMethod, counted],
+  );
+  const totalExpected = expectedByMethod.terminal + expectedByMethod.cash + expectedByMethod.house;
   const totalCounted = counted.terminal + counted.cash + counted.house;
 
-  async function closeCashout() {
-    if (!me) return;
-    setClosing(true);
-    try {
-      await cashoutService.closeCashout({
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: cashoutKeys.all(venueId) });
+    queryClient.invalidateQueries({ queryKey: cashoutKeys.preview(venueId) });
+  };
+
+  const closeMutation = useMutation({
+    mutationFn: async () => {
+      if (!me) throw new Error("Not authenticated");
+      return cashoutService.closeCashout({
         businessDate,
-        expectedByMethod: expected,
+        expectedByMethod,
         countedByMethod: counted,
         note: note || undefined,
         closedByStaffId: me.id,
         closedByStaffName: me.name,
       });
+    },
+    onSuccess: () => {
       toast.success(`Cash-out closed for ${businessDate} — variance ${formatMoney(variance / 100)}`);
       setCounted(emptyMethodTotals());
       setNote("");
-      await refresh();
-    } catch (error) {
+      invalidate();
+    },
+    onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not close the cash-out");
-    } finally {
-      setClosing(false);
-    }
-  }
+    },
+  });
 
   if (me && !canClose) {
     return (
@@ -104,6 +147,8 @@ export default function CashoutPage() {
       </div>
     );
   }
+
+  const loaded = me !== undefined && venue !== undefined && history !== undefined;
 
   return (
     <div className="space-y-5">
@@ -129,7 +174,7 @@ export default function CashoutPage() {
                   <div key={m.id} className="space-y-1.5 rounded-lg border p-3">
                     <p className="text-xs text-muted-foreground">{m.label}</p>
                     <p className="text-sm text-muted-foreground">
-                      Expected <span className="font-semibold tabular-nums text-foreground">{formatMoney(expected[m.id] / 100)}</span>
+                      Expected <span className="font-semibold tabular-nums text-foreground">{formatMoney(expectedByMethod[m.id] / 100)}</span>
                     </p>
                     <Label htmlFor={`counted-${m.id}`} className="text-xs">Counted</Label>
                     <Input
@@ -171,11 +216,11 @@ export default function CashoutPage() {
               </div>
 
               <ConfirmDialog
-                trigger={<Button disabled={closing || !me}>{closing ? "Closing…" : "Close cash-out"}</Button>}
+                trigger={<Button disabled={closeMutation.isPending || !me}>{closeMutation.isPending ? "Closing…" : "Close cash-out"}</Button>}
                 title={`Close cash-out for ${businessDate}?`}
                 description={`Variance ${formatMoney(variance / 100)} across ${METHODS.length} methods. This is recorded on the audit trail and can't be edited afterward.`}
                 confirmLabel="Close cash-out"
-                onConfirm={closeCashout}
+                onConfirm={() => closeMutation.mutate()}
               />
             </>
           )}
@@ -187,13 +232,13 @@ export default function CashoutPage() {
           <CardTitle className="text-base">History</CardTitle>
         </CardHeader>
         <CardContent>
-          {history === null ? (
+          {history === undefined ? (
             <ListSkeleton rows={2} rowHeight="h-12" />
           ) : history.length === 0 ? (
             <EmptyState icon={Wallet} title="No cash-outs yet" description="Closed reconciliations appear here." />
           ) : (
             <ul className="divide-y">
-              {history.map((c) => (
+              {history.map((c: ShiftCashout) => (
                 <li key={c.id} className="flex items-center justify-between gap-3 py-3 text-sm">
                   <div>
                     <p className="font-medium">{c.businessDate}{c.staffId ? " · own drawer" : " · venue-wide"}</p>

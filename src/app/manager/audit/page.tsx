@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecks, ShieldOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,29 +17,42 @@ import { auditService } from "@/features/platform/audit-service";
 import { staffService } from "@/features/workforce/staff-service";
 import { permissionService } from "@/features/platform/permission-service";
 import { canDo } from "@/features/shared/permissions";
+import { auditKeys } from "@/features/platform/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { permissionsKeys } from "@/features/platform/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { formatDate, formatTime } from "@/features/shared/format";
-import type { AuditEntry, StaffMember } from "@/lib/types";
 
 export default function AuditTrailPage() {
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [canRead, setCanRead] = useState(false);
-  const [entries, setEntries] = useState<AuditEntry[] | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [actorFilter, setActorFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
   const [query, setQuery] = useState("");
 
-  const refresh = useCallback(async () => {
-    const [currentStaff, permissions] = await Promise.all([
-      staffService.getCurrentStaff(),
-      permissionService.getRolePermissions("venue-1"),
-    ]);
-    setMe(currentStaff);
-    const allowed = canDo(permissions, currentStaff.role, "audit:read");
-    setCanRead(allowed);
-    if (allowed) setEntries(await auditService.listEntries());
-  }, []);
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: permissions } = useQuery({
+    queryKey: permissionsKeys.role(venueId),
+    queryFn: () => permissionService.getRolePermissions("venue-1"),
+    enabled: !!venueId,
+  });
+
+  const canRead = !!(me && permissions && canDo(permissions, me.role, "audit:read"));
+
+  const { data: entries } = useQuery({
+    queryKey: auditKeys.all(venueId),
+    queryFn: () => auditService.listEntries(),
+    enabled: !!venueId && canRead,
+  });
+
+  // Silence unused-variable warning — queryClient kept for future invalidation
+  void queryClient;
 
   const actors = useMemo(
     () => Array.from(new Set((entries ?? []).map((e) => e.actorName))).sort(),
@@ -60,7 +74,7 @@ export default function AuditTrailPage() {
 
   useEffect(() => { reset(); }, [query, actorFilter, actionFilter, reset]);
 
-  if (me && !canRead) {
+  if (me && permissions && !canRead) {
     return (
       <div className="space-y-5">
         <PageHeader title="Audit trail" description="Every sensitive action, by whom and why." />
@@ -105,30 +119,30 @@ export default function AuditTrailPage() {
         </CardContent>
       </Card>
 
-      {entries === null ? (
+      {entries === undefined ? (
         <ListSkeleton rows={5} rowHeight="h-16" />
       ) : visible.length === 0 ? (
         <EmptyState icon={ListChecks} title="No entries match" description="Sensitive actions will appear here as they happen." />
       ) : (
         <>
-        <Card>
-          <CardContent className="divide-y p-0">
-            {sliced.map((entry) => (
-              <div key={entry.id} className="flex items-start justify-between gap-3 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{entry.summary}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {entry.actorName} · {entry.action} · {entry.targetType} {entry.targetId}
+          <Card>
+            <CardContent className="divide-y p-0">
+              {sliced.map((entry) => (
+                <div key={entry.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{entry.summary}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.actorName} · {entry.action} · {entry.targetType} {entry.targetId}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-right text-xs text-muted-foreground">
+                    {formatDate(entry.createdAt)}<br />{formatTime(entry.createdAt)}
                   </p>
                 </div>
-                <p className="shrink-0 text-right text-xs text-muted-foreground">
-                  {formatDate(entry.createdAt)}<br />{formatTime(entry.createdAt)}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-        <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
+              ))}
+            </CardContent>
+          </Card>
+          <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
         </>
       )}
     </div>

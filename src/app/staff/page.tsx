@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   AlertOctagon, AlertTriangle, ArrowRight, CalendarCheck, CalendarDays, Clock,
@@ -21,6 +21,13 @@ import { reservationService } from "@/features/hospitality/reservation-service";
 import { showQueueService } from "@/features/realtime/show-queue-service";
 import { staffService } from "@/features/workforce/staff-service";
 import { venueService } from "@/features/venue/services";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { ordersKeys } from "@/features/ordering/query-keys";
+import { sessionsKeys, helpRequestKeys } from "@/features/guests/query-keys";
+import { venueKeys } from "@/features/venue/query-keys";
+import { menuKeys } from "@/features/menu/query-keys";
+import { showQueueKeys } from "@/features/realtime/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { formatMoney, timeAgo } from "@/features/shared/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { ActiveShow, ChatMessage, Order, Reservation, SoldOutEvent, StaffMember, StaffShift, Zone } from "@/lib/types";
@@ -175,98 +182,147 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
 // ---------- Main home ----------
 
 export default function StaffHomePage() {
-  const [counts, setCounts] = useState<QueueCounts | null>(null);
-  const [promoStats, setPromoStats] = useState<PromoterStats | null>(null);
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [soldOut, setSoldOut] = useState<SoldOutEvent[]>([]);
-  const [activeShow, setActiveShow] = useState<ActiveShow | null>(null);
-  // Security-specific state
-  const [securityRequestCount, setSecurityRequestCount] = useState(0);
-  const [todayShifts, setTodayShifts] = useState<StaffShift[]>([]);
-  const [securityBroadcasts, setSecurityBroadcasts] = useState<ChatMessage[]>([]);
-  const [occupancy, setOccupancy] = useState<{ current: number; legalCapacity: number } | null>(null);
-  const [openIncidentCount, setOpenIncidentCount] = useState(0);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    Promise.all([
-      ordersService.listOrders(),
-      guestsService.listSessions("pending"),
-      guestsService.listHelpRequests(),
-      staffService.getCurrentStaff(),
-      venueService.listZones(),
-    ]).then(async ([orders, pendingSessions, help, currentStaff, zoneList]) => {
-      setCounts({
-        pendingOrders: orders.filter((o) => o.status === "pending").length,
-        activeOrders: orders.filter((o) =>
-          ["accepted", "preparing", "ready"].includes(o.status),
-        ).length,
-        pendingApprovals: pendingSessions.length,
-        openHelp: help.filter((h) => h.status !== "resolved").length,
-      });
-      setMe(currentStaff);
-      setZones(zoneList);
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
 
-      if (currentStaff.role === "promoter") {
-        const [myRes, allSessions, allOrders] = await Promise.all([
-          reservationService.listMyReservations(currentStaff.id),
-          guestsService.listSessions(),
-          ordersService.listOrders(),
-        ]);
-        setPromoStats(computePromoterStats(myRes, allSessions, allOrders, currentStaff.id));
-      }
+  const { data: orders } = useQuery({
+    queryKey: ordersKeys.all(venueId),
+    queryFn: () => ordersService.listOrders(),
+    enabled: !!venueId,
+  });
 
-      if (currentStaff.role === "security") {
-        const today = new Date().getDay();
-        const [allShifts, secMsgs, occ, openIncidents] = await Promise.all([
-          staffService.listShifts(),
-          staffService.listMessages("security"),
-          doorService.getOccupancy(),
-          incidentService.listIncidents({ status: "open" }),
-        ]);
-        setSecurityRequestCount(help.filter((h) => h.type === "security" && h.status !== "resolved").length);
-        setTodayShifts(allShifts.filter((s) => s.staffId === currentStaff.id && s.dayOfWeek === today));
-        setSecurityBroadcasts(secMsgs.slice(-3).reverse());
-        setOccupancy({ current: occ.current, legalCapacity: occ.legalCapacity });
-        setOpenIncidentCount(openIncidents.length);
-      }
-    });
-  }, []);
+  const { data: pendingSessions } = useQuery({
+    queryKey: sessionsKeys.byStatus(venueId, "pending"),
+    queryFn: () => guestsService.listSessions("pending"),
+    enabled: !!venueId,
+  });
 
-  const refreshExtras = useCallback(() => {
-    menuService.listSoldOutEvents().then(setSoldOut);
-    showQueueService.getActiveShow().then(setActiveShow);
-  }, []);
+  const { data: helpRequests } = useQuery({
+    queryKey: helpRequestKeys.all(venueId),
+    queryFn: () => guestsService.listHelpRequests(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => { refreshExtras(); }, [refreshExtras]);
+  const { data: zones } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
 
-  const refreshExtrasRef = useRef(refreshExtras);
-  refreshExtrasRef.current = refreshExtras;
+  const { data: soldOut } = useQuery({
+    queryKey: menuKeys.soldOut(venueId),
+    queryFn: () => menuService.listSoldOutEvents(),
+    enabled: !!venueId,
+  });
+
+  const { data: activeShow } = useQuery({
+    queryKey: showQueueKeys.active(venueId),
+    queryFn: () => showQueueService.getActiveShow(),
+    enabled: !!venueId,
+  });
+
+  // Security-specific queries
+  const isSecurity = me?.role === "security";
+
+  const { data: allShifts } = useQuery({
+    queryKey: staffKeys.shifts(venueId),
+    queryFn: () => staffService.listShifts(),
+    enabled: !!venueId && isSecurity,
+  });
+
+  const { data: securityMessages } = useQuery({
+    queryKey: staffKeys.messages(venueId, "security"),
+    queryFn: () => staffService.listMessages("security"),
+    enabled: !!venueId && isSecurity,
+  });
+
+  const { data: occupancy } = useQuery({
+    queryKey: ["door", venueId, "occupancy"],
+    queryFn: () => doorService.getOccupancy(),
+    enabled: !!venueId && isSecurity,
+  });
+
+  const { data: openIncidents } = useQuery({
+    queryKey: ["incidents", venueId, "open"],
+    queryFn: () => incidentService.listIncidents({ status: "open" }),
+    enabled: !!venueId && isSecurity,
+  });
+
+  // Promoter-specific queries
+  const isPromoter = me?.role === "promoter";
+
+  const { data: myReservations } = useQuery({
+    queryKey: ["reservations", venueId, "mine", me?.id ?? ""],
+    queryFn: () => reservationService.listMyReservations(me!.id),
+    enabled: !!venueId && isPromoter && !!me,
+  });
+
+  const { data: allSessions } = useQuery({
+    queryKey: sessionsKeys.all(venueId),
+    queryFn: () => guestsService.listSessions(),
+    enabled: !!venueId && isPromoter,
+  });
+
+  const invalidateExtras = () => {
+    queryClient.invalidateQueries({ queryKey: menuKeys.soldOut(venueId) });
+    queryClient.invalidateQueries({ queryKey: showQueueKeys.active(venueId) });
+    queryClient.invalidateQueries({ queryKey: ordersKeys.all(venueId) });
+    queryClient.invalidateQueries({ queryKey: helpRequestKeys.all(venueId) });
+  };
 
   useLiveEvents({
     scope: "staff",
-    onEvent: () => refreshExtrasRef.current(),
+    onEvent: invalidateExtras,
     fallbackMs: 8000,
-    fallbackRefresh: () => refreshExtrasRef.current(),
+    fallbackRefresh: invalidateExtras,
   });
 
-  const myZones = me
-    ? zones.filter((z) => me.assignedZoneIds.includes(z.id)).map((z) => z.name)
+  const myZones = me && zones
+    ? zones.filter((z) => me.assignedZoneIds.includes(z.id)).map((z: Zone) => z.name)
     : [];
 
-  const isPromoter = me?.role === "promoter";
-  const isSecurity = me?.role === "security";
   const isRunner = me?.role === "runner";
+
+  const counts: QueueCounts | null = orders && pendingSessions && helpRequests
+    ? {
+        pendingOrders: orders.filter((o) => o.status === "pending").length,
+        activeOrders: orders.filter((o) => ["accepted", "preparing", "ready"].includes(o.status)).length,
+        pendingApprovals: pendingSessions.length,
+        openHelp: helpRequests.filter((h) => h.status !== "resolved").length,
+      }
+    : null;
+
+  const promoStats: PromoterStats | null =
+    isPromoter && me && myReservations && allSessions && orders
+      ? computePromoterStats(myReservations, allSessions, orders, me.id)
+      : null;
+
+  const today = new Date().getDay();
+  const todayShifts = allShifts && me
+    ? allShifts.filter((s) => s.staffId === me.id && s.dayOfWeek === today)
+    : [];
+  const securityBroadcasts = securityMessages ? securityMessages.slice(-3).reverse() : [];
+  const openSecurityCount = helpRequests
+    ? helpRequests.filter((h) => h.type === "security" && h.status !== "resolved").length
+    : 0;
+  const openIncidentCount = openIncidents?.length ?? 0;
 
   // Security home delegates to its own component once data is ready.
   if (isSecurity && me && counts !== null) {
     return (
       <SecurityHome
         me={me}
-        openSecurityCount={securityRequestCount}
+        openSecurityCount={openSecurityCount}
         todayShifts={todayShifts}
         securityBroadcasts={securityBroadcasts}
-        occupancy={occupancy}
+        occupancy={occupancy ?? null}
         openIncidentCount={openIncidentCount}
       />
     );
@@ -393,14 +449,14 @@ export default function StaffHomePage() {
         </Card>
       )}
 
-      {soldOut.length > 0 && (
+      {soldOut && soldOut.length > 0 && (
         <Card className="border-red-500/30 py-4">
           <CardContent className="space-y-2 px-4">
             <p className="flex items-center gap-1.5 text-sm font-medium">
               <AlertOctagon className="size-4 text-red-600 dark:text-red-400" /> 86&apos;d tonight
             </p>
             <ul className="space-y-1">
-              {soldOut.slice(0, 5).map((event) => (
+              {(soldOut as SoldOutEvent[]).slice(0, 5).map((event) => (
                 <li key={event.id} className="flex items-center justify-between text-sm">
                   <span className="truncate">{event.itemName}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">{timeAgo(event.at)}</span>

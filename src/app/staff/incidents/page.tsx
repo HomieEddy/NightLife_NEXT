@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ListChecks, Plus, ShieldOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -23,10 +24,13 @@ import { incidentService } from "@/features/safety/services";
 import { permissionService } from "@/features/platform/permission-service";
 import { staffService } from "@/features/workforce/staff-service";
 import { canDo } from "@/features/shared/permissions";
-import type { RolePermissions } from "@/features/shared/permissions";
+import { incidentsKeys } from "@/features/safety/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { permissionsKeys } from "@/features/platform/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { timeAgo } from "@/features/shared/format";
 import { zIncidentReportInput } from "@/lib/form-schemas";
-import type { Incident, IncidentSeverity, IncidentType, StaffMember } from "@/lib/types";
+import type { Incident, IncidentSeverity, IncidentType } from "@/lib/types";
 import type { z } from "zod";
 
 const TYPE_LABELS: Record<IncidentType, string> = {
@@ -48,46 +52,49 @@ const SEVERITY_TONE: Record<IncidentSeverity, string> = {
 };
 
 export default function StaffIncidentsPage() {
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
-  const [incidents, setIncidents] = useState<Incident[] | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [reporting, setReporting] = useState(false);
 
   type FormValues = z.infer<typeof zIncidentReportInput>;
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(zIncidentReportInput),
     defaultValues: { type: "other" as const, severity: "low" as const, narrative: "", actionsTaken: "", policeInvolved: false, reportable: false },
   });
   const type = watch("type");
   const severity = watch("severity");
-  // OE-29/30: escalation + witness + CCTV
   const [escalationLevel, setEscalationLevel] = useState<0 | 1 | 2 | 3>(0);
   const [witnesses, setWitnesses] = useState<{ name: string; contact: string; statement: string }[]>([]);
   const [wName, setWName] = useState("");
   const [wContact, setWContact] = useState("");
   const [wStatement, setWStatement] = useState("");
   const [cctvCamera, setCctvCamera] = useState("");
-  // OE-31: medical checklist
   const [ambulanceCalled, setAmbulanceCalled] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const [currentStaff, perms] = await Promise.all([
-      staffService.getCurrentStaff(),
-      permissionService.getRolePermissions("venue-1"),
-    ]);
-    setMe(currentStaff);
-    setPermissions(perms);
-    const readAll = canDo(perms, currentStaff.role, "incident:read-all");
-    const list = await incidentService.listIncidents(readAll ? undefined : { reportedByStaffId: currentStaff.id });
-    setIncidents(list);
-  }, []);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: incidentsKeys.all(venueId) });
 
-  const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
+
+  const { data: permissions } = useQuery({
+    queryKey: permissionsKeys.role(venueId),
+    queryFn: () => permissionService.getRolePermissions("venue-1"),
+    enabled: !!venueId,
+  });
+
+  const readAll = !!(me && permissions && canDo(permissions, me.role, "incident:read-all"));
+
+  const { data: incidents, isLoading } = useQuery({
+    queryKey: incidentsKeys.all(venueId),
+    queryFn: () => incidentService.listIncidents(readAll ? undefined : { reportedByStaffId: me!.id }),
+    enabled: !!venueId && !!me && !!permissions,
+  });
 
   const canReport = !!(me && permissions && canDo(permissions, me.role, "incident:create"));
-  const readAll = !!(me && permissions && canDo(permissions, me.role, "incident:read-all"));
 
   const { sliced, hasMore, loadMore } = useInfiniteSlice(incidents ?? [], 10);
 
@@ -99,10 +106,10 @@ export default function StaffIncidentsPage() {
     setAmbulanceCalled(false);
   }
 
-  const onSubmitReport = handleSubmit(async (data) => {
-    if (!me) return;
-    try {
-      await incidentService.reportIncident({
+  const reportMutation = useMutation({
+    mutationFn: (data: FormValues) => {
+      if (!me) throw new Error("Not authenticated");
+      return incidentService.reportIncident({
         type: data.type,
         severity: data.severity,
         involvedStaffIds: [me.id],
@@ -117,14 +124,19 @@ export default function StaffIncidentsPage() {
         cctvReference: cctvCamera ? [{ camera: cctvCamera, timestamp: new Date().toISOString() }] : undefined,
         medicalChecklist: ambulanceCalled ? { ambulanceCalled: true, reportFiled: true } : undefined,
       });
+    },
+    onSuccess: () => {
       toast.success("Incident filed");
       resetForm();
       setReporting(false);
-      await refresh();
-    } catch {
+      invalidate();
+    },
+    onError: () => {
       toast.error("Could not file the incident");
-    }
+    },
   });
+
+  const onSubmitReport = handleSubmit((data) => reportMutation.mutate(data));
 
   if (me && permissions && !canReport && !readAll) {
     return (
@@ -253,7 +265,7 @@ export default function StaffIncidentsPage() {
                   <Button
                     type="button"
                     className="h-12 flex-1 text-base"
-                    disabled={isSubmitting}
+                    disabled={reportMutation.isPending}
                   >
                     Submit
                   </Button>
@@ -269,9 +281,9 @@ export default function StaffIncidentsPage() {
         </Card>
       )}
 
-      {incidents === null ? (
+      {isLoading && !incidents ? (
         <ListSkeleton rows={3} rowHeight="h-20" />
-      ) : incidents.length === 0 ? (
+      ) : (incidents ?? []).length === 0 ? (
         <EmptyState icon={ListChecks} title="No incidents" description="Incidents filed by your team appear here for review." />
       ) : (
         <div className="stagger-children space-y-2">
