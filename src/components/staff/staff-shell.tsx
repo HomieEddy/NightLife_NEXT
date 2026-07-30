@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -14,12 +15,14 @@ import { BroadcastBanner } from "@/components/staff/broadcast-banner";
 import { CommandPalette } from "@/components/shared/command-palette";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { staffService } from "@/features/workforce/staff-service";
+import { staffKeys } from "@/features/workforce/query-keys";
 import { venueService } from "@/features/venue/services";
+import { venueKeys } from "@/features/venue/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { useEntitlements } from "@/lib/use-entitlements";
 import { getStaffNav } from "@/features/shared/role-capabilities";
 import { isNavActive } from "@/features/shared/navigation";
 import { cn } from "@/features/shared/utils";
-import type { StaffMember } from "@/lib/types";
 
 /**
  * Staff panel shell — mobile-first, high contrast for low-light use.
@@ -27,16 +30,25 @@ import type { StaffMember } from "@/lib/types";
  */
 export function StaffShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [venueName, setVenueName] = useState<string | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const { hasFeature } = useEntitlements();
 
-  useEffect(() => {
-    staffService.getCurrentStaff().then(setMe);
-    venueService.getVenue().then((v) => setVenueName(v.name));
-  }, []);
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
+
+  const { data: venue } = useQuery({
+    queryKey: venueKeys.single(venueId),
+    queryFn: () => venueService.getVenue(),
+    enabled: !!venueId,
+  });
+
+  const venueName = venue?.name ?? null;
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {

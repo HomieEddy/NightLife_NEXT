@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeftRight, CalendarDays, CalendarOff, Clock } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +16,10 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { staffService } from "@/features/workforce/staff-service";
 import { timeService } from "@/features/workforce/time-service";
 import { venueService } from "@/features/venue/services";
-import type { Shift, StaffMember, Zone, TimeOffRequest, ShiftSwapRequest } from "@/lib/types";
-
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+import { staffKeys, timeKeys } from "@/features/workforce/query-keys";
+import { venueKeys } from "@/features/venue/query-keys";
+import { useAuth } from "@/context/auth-context";
+import type { Shift } from "@/lib/types";
 
 function shiftTime(s: Shift): string {
   if (!s.scheduledStart) return "—";
@@ -27,11 +29,9 @@ function shiftTime(s: Shift): string {
 }
 
 export default function StaffSchedulePage() {
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [shifts, setShifts] = useState<Shift[] | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [swapRequests, setSwapRequests] = useState<ShiftSwapRequest[]>([]);
-  const [timeOffRequests, setTimeOffRequests] = useState<TimeOffRequest[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
 
   // Time-off dialog
   const [toOpen, setToOpen] = useState(false);
@@ -39,22 +39,75 @@ export default function StaffSchedulePage() {
   const [toEnd, setToEnd] = useState("");
   const [toReason, setToReason] = useState("");
 
-  const refresh = async () => {
-    if (!me) return;
-    const [s, z, swaps, tos] = await Promise.all([
-      timeService.listShifts(me.id),
-      venueService.listZones(),
-      timeService.listSwapRequests(),
-      timeService.listTimeOffRequests(me.id),
-    ]);
-    setShifts(s); setZones(z); setSwapRequests(swaps); setTimeOffRequests(tos);
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
+
+  const { data: zones = [] } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const { data: shifts } = useQuery({
+    queryKey: timeKeys.shifts(venueId, me?.id ?? ""),
+    queryFn: () => timeService.listShifts(me!.id),
+    enabled: !!venueId && !!me?.id,
+  });
+
+  const { data: swapRequests = [] } = useQuery({
+    queryKey: timeKeys.swaps(venueId),
+    queryFn: () => timeService.listSwapRequests(),
+    enabled: !!venueId,
+  });
+
+  const { data: timeOffRequests = [] } = useQuery({
+    queryKey: timeKeys.timeOff(venueId, me?.id ?? ""),
+    queryFn: () => timeService.listTimeOffRequests(me!.id),
+    enabled: !!venueId && !!me?.id,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: timeKeys.all(venueId) });
   };
 
-  useEffect(() => {
-    staffService.getCurrentStaff().then((current) => { setMe(current); });
-  }, []);
+  const requestSwapMutation = useMutation({
+    mutationFn: (shift: Shift) =>
+      timeService.requestSwap({ venueId: shift.venueId, shiftId: shift.id, requestedByStaffId: me!.id, status: "open" }),
+    onSuccess: () => {
+      toast.success("Swap requested — others with the same role can claim it.");
+      invalidate();
+    },
+  });
 
-  useEffect(() => { if (me) refresh(); }, [me]);
+  const claimSwapMutation = useMutation({
+    mutationFn: (swapId: string) => timeService.claimSwap(swapId, me!.id),
+    onSuccess: () => {
+      toast.success("Swap claimed — manager will approve.");
+      invalidate();
+    },
+  });
+
+  const timeOffMutation = useMutation({
+    mutationFn: async () => {
+      await timeService.requestTimeOff({
+        venueId: "venue-1", staffId: me!.id, startDate: toStart, endDate: toEnd, reason: toReason,
+      });
+    },
+    onSuccess: () => {
+      setToOpen(false); setToStart(""); setToEnd(""); setToReason("");
+      toast.success("Time off requested.");
+      invalidate();
+    },
+    onError: () => toast.error("Pick start and end dates."),
+  });
+
+  function handleRequestTimeOff() {
+    if (!toStart || !toEnd) { toast.error("Pick start and end dates."); return; }
+    timeOffMutation.mutate();
+  }
 
   const zoneName = (id: string | null) => id ? zones.find((z) => z.id === id)?.name ?? "—" : "—";
   const STATUS_STYLES: Record<string, string> = {
@@ -62,30 +115,6 @@ export default function StaffSchedulePage() {
     "in-progress": "bg-amber-500/10 text-amber-600", completed: "bg-muted text-muted-foreground",
     cancelled: "bg-red-500/10 text-red-600", "no-show": "bg-red-500/10 text-red-600",
   };
-
-  async function requestSwap(shift: Shift) {
-    await timeService.requestSwap({
-      venueId: shift.venueId, shiftId: shift.id, requestedByStaffId: me!.id, status: "open",
-    });
-    toast.success("Swap requested — others with the same role can claim it.");
-    await refresh();
-  }
-
-  async function claimSwap(swap: ShiftSwapRequest) {
-    await timeService.claimSwap(swap.id, me!.id);
-    toast.success("Swap claimed — manager will approve.");
-    await refresh();
-  }
-
-  async function requestTimeOff() {
-    if (!toStart || !toEnd) { toast.error("Pick start and end dates."); return; }
-    await timeService.requestTimeOff({
-      venueId: "venue-1", staffId: me!.id, startDate: toStart, endDate: toEnd, reason: toReason,
-    });
-    setToOpen(false); setToStart(""); setToEnd(""); setToReason("");
-    toast.success("Time off requested.");
-    await refresh();
-  }
 
   const publishedShifts = (shifts ?? []).filter((s) => s.status !== "cancelled");
 
@@ -105,7 +134,7 @@ export default function StaffSchedulePage() {
         </div>
       </div>
 
-      {shifts === null ? (
+      {shifts === undefined ? (
         <ListSkeleton rows={3} rowHeight="h-20" />
       ) : publishedShifts.length === 0 ? (
         <EmptyState
@@ -133,7 +162,7 @@ export default function StaffSchedulePage() {
                       title={`Swap ${new Date(shift.businessDate).toLocaleDateString("en-CA", { weekday: "short" })} shift?`}
                       description="Your shift will be posted for same-role staff to claim."
                       confirmLabel="Offer swap"
-                      onConfirm={() => requestSwap(shift)}
+                      onConfirm={() => requestSwapMutation.mutate(shift)}
                     />
                   </div>
                 </div>
@@ -149,7 +178,7 @@ export default function StaffSchedulePage() {
                 <Card key={s.id} className="py-3 mb-2">
                   <CardContent className="flex items-center justify-between px-4">
                     <p className="text-sm">Shift swap open — claim to take this shift</p>
-                    <Button size="sm" onClick={() => claimSwap(s)}>Claim</Button>
+                    <Button size="sm" onClick={() => claimSwapMutation.mutate(s.id)}>Claim</Button>
                   </CardContent>
                 </Card>
               ))}
@@ -192,7 +221,7 @@ export default function StaffSchedulePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setToOpen(false)}>Cancel</Button>
-            <Button onClick={requestTimeOff}>Request</Button>
+            <Button onClick={handleRequestTimeOff}>Request</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
