@@ -13,7 +13,10 @@ const zAssign = z.object({
 
 async function livePOST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { getDb, getRawPrisma } = await import("@/features/shared/db");
+  const { getCurrentStaff } = await import("@/features/workforce/staff-core");
+  const { getRolePermissions } = await import("@/features/platform/permission-core");
+  const { canDo } = await import("@/features/shared/permissions");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -24,6 +27,13 @@ async function livePOST(request: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const { venueId } = sessionToDbContext(auth.session);
   const db = getDb({ venueId });
+
+  const staff = await getCurrentStaff(getRawPrisma(), venueId, auth.session.user.id);
+  if (!staff) return NextResponse.json({ error: "Staff profile not found" }, { status: 403 });
+  const permissions = await getRolePermissions(db);
+  if (!canDo(permissions, staff.role, "session:approve")) {
+    return NextResponse.json({ error: `Role ${staff.role} cannot approve sessions` }, { status: 403 });
+  }
 
   const session = await db.guestSession.findFirst({ where: { id, venueId } });
   if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
@@ -37,7 +47,10 @@ async function livePOST(request: NextRequest, { params }: { params: Promise<{ id
 
 async function liveDELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { getDb, getRawPrisma } = await import("@/features/shared/db");
+  const { getCurrentStaff } = await import("@/features/workforce/staff-core");
+  const { getRolePermissions } = await import("@/features/platform/permission-core");
+  const { canDo } = await import("@/features/shared/permissions");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -45,6 +58,13 @@ async function liveDELETE(_request: NextRequest, { params }: { params: Promise<{
   const { id } = await params;
   const { venueId } = sessionToDbContext(auth.session);
   const db = getDb({ venueId });
+
+  const staff = await getCurrentStaff(getRawPrisma(), venueId, auth.session.user.id);
+  if (!staff) return NextResponse.json({ error: "Staff profile not found" }, { status: 403 });
+  const permissions = await getRolePermissions(db);
+  if (!canDo(permissions, staff.role, "session:deny")) {
+    return NextResponse.json({ error: `Role ${staff.role} cannot deny sessions` }, { status: 403 });
+  }
 
   const session = await db.guestSession.findFirst({ where: { id, venueId } });
   if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
