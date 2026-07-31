@@ -1,7 +1,9 @@
-import type { PrismaClient } from "@prisma/client";
+import type { getDb } from "@/features/shared/db";
 import { DEFAULT_ROLE_PERMISSIONS } from "@/features/shared/permissions";
 import type { RolePermissions, StaffAction } from "@/features/shared/permissions";
 import type { StaffRole } from "@/lib/types";
+
+type ScopedDb = ReturnType<typeof getDb>;
 
 // ---------- Pure helpers (unit-testable without a DB) ----------
 
@@ -47,7 +49,7 @@ function arraysEqual(a: string[], b: string[]): boolean {
  * DEFAULT_ROLE_PERMISSIONS. The db extension scopes to the caller's venueId.
  */
 export async function getRolePermissions(
-  db: PrismaClient,
+  db: ScopedDb,
 ): Promise<RolePermissions> {
   const rows = await db.venueRolePermissions.findMany({
     select: { role: true, actions: true },
@@ -61,7 +63,7 @@ export async function getRolePermissions(
  * Returns the before/after state so callers can write an audit entry.
  */
 export async function setRolePermissions(
-  db: PrismaClient,
+  db: ScopedDb,
   permissions: RolePermissions,
 ): Promise<{ previous: RolePermissions; next: RolePermissions }> {
   const previous = await getRolePermissions(db);
@@ -72,11 +74,11 @@ export async function setRolePermissions(
     await tx.venueRolePermissions.deleteMany();
     // Insert fresh deltas (extension adds venueId to createMany data).
     if (deltas.length > 0) {
-      // The db extension injects venueId into every createMany data item
-      // automatically (see db.ts tenant-scoping middleware).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // The db extension injects venueId at runtime (see db.ts tenant-scoping
+      // middleware). The explicit cast bridges the compile-time gap.
+      type CreateInput = { role: StaffRole; actions: string[]; venueId: string };
       await tx.venueRolePermissions.createMany({
-        data: deltas.map((d) => ({ role: d.role, actions: d.actions })) as any,
+        data: deltas.map((d) => ({ role: d.role, actions: d.actions })) as unknown as CreateInput[],
       });
     }
     return deltas;
@@ -91,7 +93,7 @@ export async function setRolePermissions(
  * Returns the before/after state for audit logging.
  */
 export async function resetRolePermissions(
-  db: PrismaClient,
+  db: ScopedDb,
 ): Promise<{ previous: RolePermissions; next: RolePermissions }> {
   const previous = await getRolePermissions(db);
   await db.venueRolePermissions.deleteMany();
