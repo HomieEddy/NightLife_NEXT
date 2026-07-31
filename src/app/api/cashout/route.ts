@@ -24,20 +24,18 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { closeCashout } = await import("@/features/tab/core");
   const { getVenue } = await import("@/features/venue/core");
   const { zCloseCashout } = await import("@/features/tab/schemas");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "cashout:close");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zCloseCashout.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const venue = await getVenue(db, venueId);
   const nightEndHour = venue?.nightEndHour ?? 6;
 
