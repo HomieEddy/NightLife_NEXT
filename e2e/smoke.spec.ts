@@ -76,14 +76,15 @@ test("live mode hides demo and ungraduated surfaces", async ({ page }) => {
   await expect(page.getByText("Welcome to the demo")).toHaveCount(0);
   await expect(page.getByText(/Simulate|Demo only/)).toHaveCount(0);
 
+  // The tour is demo-only; /admin, /lead and /manager/subscription are real
+  // live surfaces (plan 10) and must NOT 404 here — they gate on a session.
   const demoResponse = await page.goto("/demo");
   expect(demoResponse?.status()).toBe(404);
-  const adminResponse = await page.goto("/admin");
-  expect(adminResponse?.status()).toBe(404);
-  const leadResponse = await page.goto("/lead");
-  expect(leadResponse?.status()).toBe(404);
-  const billingResponse = await page.goto("/manager/subscription");
-  expect(billingResponse?.status()).toBe(404);
+
+  for (const route of ["/admin", "/lead", "/manager/subscription"]) {
+    const response = await page.goto(route);
+    expect(response?.status(), `${route} should be served in live mode`).not.toBe(404);
+  }
 });
 
 test("live mode guards role and guest areas against direct URL entry", async ({ page }) => {
@@ -108,10 +109,17 @@ test("live pricing distinguishes trial, starter, and pro", async ({ page }) => {
   await expect(page.getByText("3 days of full access")).toBeVisible();
   await expect(page.getByText("Starter", { exact: true })).toBeVisible();
   await expect(page.getByText("$0.99")).toBeVisible();
-  await expect(page.getByText("Team Chat", { exact: true })).toBeVisible();
-  await expect(page.getByText("Floor Map", { exact: true })).toBeVisible();
+  // Labels come from FEATURE_CATALOG — match it exactly, not a paraphrase.
+  await expect(page.getByText("Team chat", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Floor map", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Pro", { exact: true })).toBeVisible();
   await expect(page.getByText("$1.99")).toBeVisible();
-  const proCard = page.locator('[data-slot="card"]').filter({ hasText: "Pro" });
-  await expect(proCard.getByText("Every NightLifeNext feature", { exact: true })).toBeVisible();
+  // Every card lists the whole catalogue, so the tiers are distinguished by
+  // their CTA and by which one carries the highlight badge.
+  await expect(page.getByRole("link", { name: "Choose Starter" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Choose Pro" })).toBeVisible();
+  const proCard = page.locator('[data-slot="card"]').filter({
+    has: page.getByRole("link", { name: "Choose Pro" }),
+  });
+  await expect(proCard.getByText("Best value", { exact: true })).toBeVisible();
 });
