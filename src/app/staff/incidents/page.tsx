@@ -21,12 +21,10 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { incidentService } from "@/features/safety/services";
-import { permissionService } from "@/features/platform/permission-service";
+import { usePermissions } from "@/features/platform/use-permissions";
 import { staffService } from "@/features/workforce/staff-service";
-import { canDo } from "@/features/shared/permissions";
 import { incidentsKeys } from "@/features/safety/query-keys";
 import { staffKeys } from "@/features/workforce/query-keys";
-import { permissionsKeys } from "@/features/platform/query-keys";
 import { useAuth } from "@/context/auth-context";
 import { timeAgo } from "@/features/shared/format";
 import { zIncidentReportInput } from "@/lib/form-schemas";
@@ -80,21 +78,17 @@ export default function StaffIncidentsPage() {
     enabled: !!venueId,
   });
 
-  const { data: permissions } = useQuery({
-    queryKey: permissionsKeys.role(venueId),
-    queryFn: () => permissionService.getRolePermissions("venue-1"),
-    enabled: !!venueId,
-  });
+  const { can, isLoading: permsLoading } = usePermissions();
 
-  const readAll = !!(me && permissions && canDo(permissions, me.role, "incident:read-all"));
+  const readAll = can("incident:read-all");
 
   const { data: incidents, isLoading } = useQuery({
     queryKey: incidentsKeys.all(venueId),
     queryFn: () => incidentService.listIncidents(readAll ? undefined : { reportedByStaffId: me!.id }),
-    enabled: !!venueId && !!me && !!permissions,
+    enabled: !!venueId && !!me && !permsLoading,
   });
 
-  const canReport = !!(me && permissions && canDo(permissions, me.role, "incident:create"));
+  const canReport = can("incident:create");
 
   const { sliced, hasMore, loadMore } = useInfiniteSlice(incidents ?? [], 10);
 
@@ -138,7 +132,7 @@ export default function StaffIncidentsPage() {
 
   const onSubmitReport = handleSubmit((data) => reportMutation.mutate(data));
 
-  if (me && permissions && !canReport && !readAll) {
+  if (!permsLoading && !canReport && !readAll) {
     return (
       <div className="p-4">
         <EmptyState

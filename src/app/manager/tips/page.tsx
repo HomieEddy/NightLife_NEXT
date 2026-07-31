@@ -24,9 +24,8 @@ import { timeService } from "@/features/workforce/time-service";
 import { staffService } from "@/features/workforce/staff-service";
 import { computeTipDistribution } from "@/lib/workforce";
 import { formatMoney } from "@/features/shared/format";
-import { canDo } from "@/features/shared/permissions";
-import { permissionService } from "@/features/platform/permission-service";
-import { tipsKeys, permissionsKeys } from "@/features/platform/query-keys";
+import { usePermissions } from "@/features/platform/use-permissions";
+import { tipsKeys } from "@/features/platform/query-keys";
 import { staffKeys, timeKeys } from "@/features/workforce/query-keys";
 import { useAuth } from "@/context/auth-context";
 import { zTipPoolRuleInput } from "@/lib/form-schemas";
@@ -79,19 +78,14 @@ export default function ManagerTipsPage() {
     enabled: !!venueId,
   });
 
-  const { data: permissions } = useQuery({
-    queryKey: permissionsKeys.role(venueId),
-    queryFn: () => permissionService.getRolePermissions("venue-1"),
-    enabled: !!venueId,
-  });
-
   const { data: me } = useQuery({
     queryKey: staffKeys.me(venueId),
     queryFn: () => staffService.getCurrentStaff(),
     enabled: !!venueId,
   });
 
-  const canClose = me && permissions ? canDo(permissions, me.role, "tips:close-distribution") : false;
+  const { can } = usePermissions();
+  const canClose = can("tips:close-distribution");
 
   const { sliced, hasMore, loadMore } = useInfiniteSlice(distributions ?? [], 10);
 
