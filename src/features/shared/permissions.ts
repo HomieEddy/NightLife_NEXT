@@ -390,7 +390,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
  * Serialisable capability record — suitable for DB storage and API transport.
  * Use arrays (not Sets) so values round-trip through JSON without loss.
  *
- * TODO(backend): backed by a venue_role_permissions table.
+ * Backed by the venue_role_permissions table.
  * Each row stores (venueId, role, actions[]) and is merged over DEFAULT_ROLE_PERMISSIONS
  * so tenants only need to record the delta from the defaults.
  */

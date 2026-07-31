@@ -1,25 +1,33 @@
-import { DEFAULT_ROLE_PERMISSIONS } from "@/features/shared/permissions";
+"use client";
+
+import { liveFetch } from "@/features/shared/live-fetch";
 import type { RolePermissions } from "@/features/shared/permissions";
 
-/**
- * Live permission service — reads per-venue role overrides from the database.
- *
- * TODO(backend): replace body with Prisma queries against venue_role_permissions.
- * Schema: (id, venueId, role, actions String[]) — one row per role that differs from defaults.
- * Merge strategy: start from DEFAULT_ROLE_PERMISSIONS, apply any stored rows on top.
- * Cache the result per-request (or per-session) to avoid N+1 on every canDo call.
- */
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await liveFetch(path, {
+    ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(body.error ?? `Request to ${path} failed (${res.status})`);
+  }
+  return res.json() as Promise<T>;
+}
+
 export const livePermissionService = {
   async getRolePermissions(_venueId: string): Promise<RolePermissions> {
-    // Stub: returns defaults until the venue_role_permissions table is implemented.
-    return structuredClone(DEFAULT_ROLE_PERMISSIONS);
+    return api<RolePermissions>("/api/permissions");
   },
 
-  async setRolePermissions(_venueId: string, _permissions: RolePermissions): Promise<void> {
-    throw new Error("setRolePermissions not yet implemented for the live track.");
+  async setRolePermissions(_venueId: string, permissions: RolePermissions): Promise<void> {
+    await api<RolePermissions>("/api/permissions", {
+      method: "PUT",
+      body: JSON.stringify(permissions),
+    });
   },
 
   async resetRolePermissions(_venueId: string): Promise<void> {
-    throw new Error("resetRolePermissions not yet implemented for the live track.");
+    await api<RolePermissions>("/api/permissions", { method: "DELETE" });
   },
 };
