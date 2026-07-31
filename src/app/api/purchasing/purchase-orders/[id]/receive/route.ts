@@ -7,20 +7,18 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { receivePurchaseOrder, detectPriceChanges } = await import("@/features/platform/purchasing-core");
   const { zReceiveLines } = await import("@/features/platform/purchasing-schemas");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "purchasing:receive");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zReceiveLines.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
   const { id } = await params;
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
 
   // Detect price changes before receiving
   const po = await db.purchaseOrder.findUnique({ where: { id } });

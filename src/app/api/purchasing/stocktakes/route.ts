@@ -20,19 +20,17 @@ async function liveGET(_request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { saveStocktake } = await import("@/features/platform/purchasing-core");
   const { zStocktake } = await import("@/features/platform/purchasing-schemas");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "stocktake:count");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zStocktake.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const stocktake = await saveStocktake(db, { ...parsed.data, venueId });
   return NextResponse.json(stocktake, { status: 201 });
 }

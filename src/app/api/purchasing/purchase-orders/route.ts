@@ -21,19 +21,17 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { savePurchaseOrder } = await import("@/features/platform/purchasing-core");
   const { zPurchaseOrder } = await import("@/features/platform/purchasing-schemas");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "purchasing:draft");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zPurchaseOrder.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const order = await savePurchaseOrder(db, { ...parsed.data, venueId });
   return NextResponse.json(order, { status: 201 });
 }
