@@ -225,6 +225,36 @@ describe("analytics & reports integration (plan 09)", () => {
     expect(historical.topItems[0].name).toBe("Grey Goose");
   });
 
+  // ── Pour cost and margin ──────────────────────────────────────────
+
+  it("computes pourCostPercent and grossMarginPercent in rollup and summary", async () => {
+    const db = getDb(sessionA);
+    // Set avgCostCents so COGS is computed: 5 items sold × 3500 cents = 17500 cents cost
+    await rawClient.menuItem.update({ where: { id: itemId }, data: { avgCostCents: 3500 } });
+
+    const night = nightForDate("2026-07-14", UTC_NIGHT);
+    const rollup = await computeRollup(db, venueA, night);
+
+    expect(rollup.totalCostCents).toBeGreaterThan(0);
+    // 5 items (3+2) × 3500 = 17500
+    expect(rollup.totalCostCents).toBe(17500);
+
+    // Upsert and read back
+    await upsertRollup(rawClient, venueA, "2026-07-14", rollup);
+    const stored = await rawClient.nightlyRollup.findUnique({
+      where: { venueId_nightDate: { venueId: venueA, nightDate: "2026-07-14" } },
+    });
+    expect(stored?.totalCostCents).toBe(17500);
+
+    // getHistoricalForVenue should aggregate and compute
+    const historical = await getHistoricalForVenue(db, "2026-07-14", "2026-07-14");
+    expect(historical.pourCostPercent).toBeGreaterThan(0);
+    expect(historical.grossMarginPercent).toBeGreaterThan(0);
+    // pour cost = 17500 / totalRevenue — verify it's a sane percentage
+    expect(historical.pourCostPercent).toBeLessThan(100);
+    expect(historical.grossMarginPercent).toBeGreaterThan(0);
+  });
+
   // ── Tenant isolation on rollups ────────────────────────────────────
 
   it("rollups are tenant-isolated", async () => {
