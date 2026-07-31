@@ -6,36 +6,39 @@ function demoHandler() {
 }
 
 async function liveGET(_request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requireStaffContext } = await import("@/features/platform/permission-guard");
+  const { canDo } = await import("@/features/shared/permissions");
   const { listIncidents } = await import("@/features/safety/core");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requireStaffContext("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { db, staff, permissions } = auth;
 
   const { searchParams } = new URL(_request.url);
   const filter: Record<string, unknown> = {};
   if (searchParams.get("type")) filter.type = searchParams.get("type");
   if (searchParams.get("severity")) filter.severity = searchParams.get("severity");
   if (searchParams.get("status")) filter.status = searchParams.get("status");
-  if (searchParams.get("reportedByStaffId")) filter.reportedByStaffId = searchParams.get("reportedByStaffId");
+  // Without incident:read-all a caller may only see incidents they reported —
+  // force the scope server-side rather than trusting the query param.
+  if (canDo(permissions, staff.role, "incident:read-all")) {
+    if (searchParams.get("reportedByStaffId")) filter.reportedByStaffId = searchParams.get("reportedByStaffId");
+  } else {
+    filter.reportedByStaffId = staff.id;
+  }
 
   const incidents = await listIncidents(db, Object.keys(filter).length ? filter : undefined);
   return NextResponse.json(incidents);
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { reportIncident } = await import("@/features/safety/core");
   const { zReportIncident } = await import("@/features/safety/schemas");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "incident:create");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
 
   const body = await request.json();
   const parsed = zReportIncident.safeParse(body);

@@ -9,20 +9,18 @@ async function livePOST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { setBanStatus } = await import("@/features/guests/core");
   const { zSetBanStatus } = await import("@/features/guests/schemas");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "guest:ban");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zSetBanStatus.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
   const { id } = await params;
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const profile = await setBanStatus(
     db,
     venueId,
