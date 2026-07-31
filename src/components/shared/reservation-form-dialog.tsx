@@ -123,7 +123,7 @@ export function ReservationFormDialog({
   const [saving, setSaving] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm({
-    resolver: zodResolver(zReservationForm) as any,
+    resolver: zodResolver(zReservationForm) as unknown as ReturnType<typeof zodResolver>,
     defaultValues: ZFORM_EMPTY,
   });
 
@@ -137,7 +137,6 @@ export function ReservationFormDialog({
       guestService.findCandidates({ firstName, lastName: rest.join(" ") || undefined }).then(setCandidates);
     }, 300);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.guestName, open, draft.guestProfileId]);
 
   const onSubmit = handleSubmit(async () => {

@@ -516,7 +516,7 @@ export interface Order {
   promotionId?: string;
   promotionCode?: string;
   promotionCents?: number;
-  // TODO(backend): becomes a real column — happy-hour attribution snapshot.
+  /** Happy-hour rule + discount applied at order time — persisted snapshot. */
   happyHourRuleId?: string;
   happyHourCents?: number;
   /** RV-05: Computed priority score (zone weight × minimum spend × session age × order type). Higher = fulfill first. */

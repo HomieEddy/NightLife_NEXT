@@ -4,6 +4,7 @@
  */
 import type { getDb } from "@/features/shared/db";
 import type { Venue, VenueTable, Zone, TableStatus as VenueTableStatus } from "@/lib/types";
+import type { TableStatus as PrismaTableStatus } from "@prisma/client";
 import type { zTableInput, zTablePatch, zVenuePatch, zZoneInput, zZonePatch } from "@/features/venue/schemas";
 import type { z } from "zod";
 import { buildTableUrl } from "@/features/shared/table-token";
@@ -253,7 +254,7 @@ export async function setTableStatus(
   tableId: string,
   status: VenueTableStatus,
 ): Promise<VenueTable | null> {
-  const row = await db.venueTable.update({ where: { id: tableId }, data: { status: status as any } }).catch(() => null);
+  const row = await db.venueTable.update({ where: { id: tableId }, data: { status: status as unknown as PrismaTableStatus } }).catch(() => null);
   return row ? toTable(row) : null;
 }
 

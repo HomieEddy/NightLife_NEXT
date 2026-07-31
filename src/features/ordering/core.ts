@@ -411,6 +411,8 @@ export async function submitOrder(
           promotionId: promoRow?.id ?? null,
           promotionCode: promoRow?.code ?? null,
           promotionCents: pricing.promotionCents,
+          happyHourRuleId: pricing.happyHourRuleId ?? null,
+          happyHourCents: pricing.discountCents,
           status: "pending",
           items: {
             create: resolvedLines.map((line) => {

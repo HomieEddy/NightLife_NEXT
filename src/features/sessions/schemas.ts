@@ -8,7 +8,7 @@ export const zCreateSession = z.object({
   partySize: z.number().int().positive(),
 });
 
-const SESSION_STATUSES = ["pending", "approved", "denied", "closure-requested", "closed"] as const;
+const SESSION_STATUSES = ["pending", "approved", "denied", "closure-requested", "closed", "merged"] as const;
 
 export const zSetSessionStatus = z.object({
   status: z.enum(SESSION_STATUSES),
