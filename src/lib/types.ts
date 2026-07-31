@@ -1044,7 +1044,6 @@ export interface Reservation {
   guestEmail?: string;
   guestPhone?: string;
   reservationPin?: string;
-  // TODO(backend): FK to staff_profiles; set when a promoter creates the reservation or assigned by manager
   promoterId?: string;
   /** Bottle-service term negotiated at booking time — makes BottlePackage reachable pre-seating. */
   packageId?: string;
@@ -1103,7 +1102,6 @@ export interface VenueEvent {
   capacity: number;
   status: EventStatus;
   guestlistEnabled: boolean;
-  // TODO(backend): stored as nullable text column; validated as URL by the API layer.
   ticketUrl?: string;
   /** EV-03: Reason for cancellation — set when status moves to 'cancelled'. */
   cancellationReason?: string;

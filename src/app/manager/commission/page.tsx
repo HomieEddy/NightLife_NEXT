@@ -82,7 +82,7 @@ function CommissionContent() {
         { sourceId: "r-1", sourceType: "reservation" as const, basisCents: 12000, earnedCents: 1200 },
         { sourceId: "r-2", sourceType: "reservation" as const, basisCents: 8000, earnedCents: 800 },
       ];
-      const stmt = buildCommissionStatement(rule, staffId, "venue-1", periodStart, periodEnd, items);
+      const stmt = buildCommissionStatement(rule, staffId, venueId, periodStart, periodEnd, items);
       await commissionService.saveStatement(stmt);
     },
     onSuccess: () => {
