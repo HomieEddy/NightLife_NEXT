@@ -141,3 +141,35 @@ export const zAcknowledgeHandoff = z.object({
   staffId: z.string().min(1),
   staffName: z.string().min(1),
 });
+
+// ── Certification schemas (S-04, plan 17) ──────────────────────────
+
+const zCertificationType = z.enum([
+  "smart-serve",
+  "first-aid",
+  "security-guard",
+  "food-handler",
+  "crowd-manager",
+]);
+
+export const zCreateCertification = z.object({
+  staffId: z.string().min(1),
+  type: zCertificationType,
+  issuedAt: z.string().min(1),
+  expiresAt: z.string().min(1),
+  issuingBody: z.string().optional(),
+  referenceNumber: z.string().optional(),
+  createdByStaffId: z.string().min(1),
+  createdByStaffName: z.string().min(1),
+});
+
+export const zUpdateCertification = z.object({
+  expiresAt: z.string().min(1).optional(),
+  issuingBody: z.string().optional(),
+  referenceNumber: z.string().optional(),
+});
+
+export const zCertificationAction = z.object({
+  staffId: z.string().min(1),
+  staffName: z.string().min(1),
+});
