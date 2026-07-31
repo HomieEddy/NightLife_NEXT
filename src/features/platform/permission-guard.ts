@@ -1,4 +1,3 @@
-import { cache } from "react";
 import type { StaffMember } from "@/lib/types";
 import { getDb, getRawPrisma, type ScopedDb } from "@/features/shared/db";
 import { getCurrentStaff } from "@/features/workforce/staff-core";
@@ -46,20 +45,15 @@ export function isDenied(
   return "error" in result;
 }
 
-// Request-scoped memoization: a handler that resolves context and later re-reads
-// staff/permissions pays for one lookup. No-ops safely outside a request scope.
-const loadStaff = cache((venueId: string, userId: string) =>
-  getCurrentStaff(getRawPrisma(), venueId, userId),
-);
-const loadPermissions = cache((_venueId: string, db: ScopedDb) =>
-  getRolePermissions(db),
-);
-
 /**
  * Resolves the full staff context after the area gate, without checking a
  * specific action. Use for handlers whose decision needs the resource row first
  * (ownership/zone-scoped actions): call canDo(permissions, staff.role, action,
  * { actor, resource }) yourself once you've loaded the row.
+ *
+ * One call performs exactly two reads (the staff row + the permission overrides)
+ * — the same the copy-pasted preamble did, now in one place. A handler that
+ * guards once (the common case) pays for them once.
  */
 export async function requireStaffContext(
   area: "manager" | "staff",
@@ -69,10 +63,10 @@ export async function requireStaffContext(
 
   const { venueId } = sessionToDbContext(auth.session);
   const db = getDb({ venueId });
-  const staff = await loadStaff(venueId, auth.session.user.id);
+  const staff = await getCurrentStaff(getRawPrisma(), venueId, auth.session.user.id);
   if (!staff) return { status: 403, error: "Staff profile not found" };
 
-  const permissions = await loadPermissions(venueId, db);
+  const permissions = await getRolePermissions(db);
   return {
     session: auth.session,
     venueId,

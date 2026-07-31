@@ -89,6 +89,10 @@ describe("purchasing route auth gates (plan 19)", () => {
   });
 
   // ── POST /api/purchasing/stocktakes/[id]/commit ───────────────────
+  // This route now gates on requirePermission("staff", "stocktake:commit") —
+  // the area gate is "staff" and the real authority is the stocktake:commit
+  // action check inside the guard. The 401/403 area cases still short-circuit
+  // before any DB access, so this mock-based suite covers them.
 
   describe("POST /api/purchasing/stocktakes/:id/commit", () => {
     it("returns 401 when unauthenticated", async () => {
@@ -102,7 +106,7 @@ describe("purchasing route auth gates (plan 19)", () => {
       expect(body.error).toBe("Not authenticated");
     });
 
-    it("returns 403 when caller lacks manager role", async () => {
+    it("returns 403 when caller is outside the staff area", async () => {
       mockRequireApiArea.mockResolvedValue({ status: 403, error: "Forbidden" });
 
       const { POST } = await import("@/app/api/purchasing/stocktakes/[id]/commit/route");
@@ -113,13 +117,13 @@ describe("purchasing route auth gates (plan 19)", () => {
       expect(body.error).toBe("Forbidden");
     });
 
-    it("calls requireApiArea with 'manager'", async () => {
+    it("gates on the staff area (action authority is stocktake:commit)", async () => {
       mockRequireApiArea.mockResolvedValue({ status: 401, error: "Not authenticated" });
 
       const { POST } = await import("@/app/api/purchasing/stocktakes/[id]/commit/route");
       await POST(mockRequest(), { params: Promise.resolve({ id: "st-1" }) });
 
-      expect(mockRequireApiArea).toHaveBeenCalledWith("manager");
+      expect(mockRequireApiArea).toHaveBeenCalledWith("staff");
     });
   });
 

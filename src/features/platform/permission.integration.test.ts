@@ -192,10 +192,11 @@ describe("permission persistence (WS-6)", () => {
       expect(canDo(permissions, "host", "session:deny")).toBe(true);
     });
 
-    it("grants all actions to manager regardless of overrides", async () => {
+    it("stores manager overrides — the API is permissive, only the UI locks manager", async () => {
       await resetRolePermissions(dbA);
-      // Manager is always full access — but permissions can be overridden.
-      // The UI locks manager editing, but the API allows it.
+      // Manager is NOT force-granted at this layer: setRolePermissions will
+      // happily strip manager actions. The manager lock lives in RolesAccessTab
+      // (UI), not in canDo/the store — this test pins that real behaviour.
       const modified = structuredClone(DEFAULT_ROLE_PERMISSIONS);
       modified.manager = ["order:claim"]; // Strip everything but claim.
       await setRolePermissions(dbA, modified);
