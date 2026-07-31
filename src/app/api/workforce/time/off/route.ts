@@ -20,19 +20,17 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { requestTimeOff } = await import("@/features/workforce/time-core");
   const { zTimeOffRequest } = await import("@/features/workforce/workforce-schemas");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "schedule:request-time-off");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zTimeOffRequest.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { db } = auth;
   return NextResponse.json(await requestTimeOff(db, parsed.data), { status: 201 });
 }
 
