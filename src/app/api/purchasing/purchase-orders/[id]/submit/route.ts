@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
+import { publish } from "@/features/realtime/events";
 
 function demoHandler() {
   return NextResponse.json({ error: "Purchasing routes are disabled in demo mode" }, { status: 404 });
@@ -18,6 +19,13 @@ async function livePOST(request: NextRequest, { params }: { params: Promise<{ id
   const db = getDb({ venueId });
   const staffId = auth.session.user.id;
   const order = await submitPurchaseOrder(db, id, staffId);
+
+  publish({
+    type: "PurchaseOrderSubmitted",
+    venueId,
+    payload: { purchaseOrderId: id, code: order.code, supplierId: order.supplierId, submittedByStaffId: staffId },
+  }).catch(() => {});
+
   return NextResponse.json(order);
 }
 
