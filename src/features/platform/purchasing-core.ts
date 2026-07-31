@@ -668,5 +668,26 @@ export async function saveInventoryChecklist(db: ScopedDb, cl: InventoryChecklis
   return cl;
 }
 
+// ── Event run sheets (OE-19) ─────────────────────────────────────────
+
+export async function getEventRunSheet(db: ScopedDb, eventId: string): Promise<{ eventId: string; entries: Row[] }> {
+  const row = await db.eventRunSheet.findUnique({ where: { eventId } });
+  return { eventId, entries: (row as Row)?.entries ?? [] };
+}
+
+export async function saveEventRunSheet(
+  db: ScopedDb,
+  venueId: string,
+  eventId: string,
+  entries: Row[],
+): Promise<void> {
+  const existing = await db.eventRunSheet.findUnique({ where: { eventId } });
+  if (existing) {
+    await db.eventRunSheet.update({ where: { eventId }, data: { entries: entries as Row } });
+  } else {
+    await db.eventRunSheet.create({ data: { venueId, eventId, entries: entries as Row } } as Row);
+  }
+}
+
 // Re-export unused import to suppress warning
 export type { Supplier, SupplierItem, PurchaseOrder, Stocktake, EightySixEntry, EventCost, InventoryChecklist };

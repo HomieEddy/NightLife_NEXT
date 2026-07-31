@@ -8,6 +8,7 @@ import {
   listStocktakes, saveStocktake, commitStocktake, listEightySixEntries, eightySixItem,
   recordWaste, listProfitTargets, saveProfitTarget,
   listEventCosts, saveEventCost, listInventoryChecklists, saveInventoryChecklist,
+  getEventRunSheet, saveEventRunSheet,
 } from "@/features/platform/purchasing-core";
 import { expectTenantIsolation } from "@/features/shared/test-helpers";
 
@@ -387,5 +388,39 @@ describe("purchasing integration (plan 19)", () => {
     const post = await listInventoryChecklists(db, "post-service");
     expect(pre.every((c) => c.type === "pre-service")).toBe(true);
     expect(post.every((c) => c.type === "post-service")).toBe(true);
+  });
+
+  // ── Event run sheets ─────────────────────────────────────────────
+
+  it("creates and retrieves an event run sheet", async () => {
+    const db = getDb(sessionA);
+    const entries = [
+      { time: "21:00", label: "Doors open", description: "Security at all posts" },
+      { time: "22:00", label: "Headliner", description: "DJ set starts" },
+    ];
+    await saveEventRunSheet(db, venueA, "evt-rs-test", entries);
+    const sheet = await getEventRunSheet(db, "evt-rs-test");
+    expect(sheet.eventId).toBe("evt-rs-test");
+    expect(sheet.entries).toHaveLength(2);
+    expect(sheet.entries[0].label).toBe("Doors open");
+  });
+
+  it("returns empty entries for unknown event", async () => {
+    const db = getDb(sessionA);
+    const sheet = await getEventRunSheet(db, "nonexistent");
+    expect(sheet.eventId).toBe("nonexistent");
+    expect(sheet.entries).toEqual([]);
+  });
+
+  it("updates an existing run sheet (upsert)", async () => {
+    const db = getDb(sessionA);
+    const entries = [{ time: "20:00", label: "Setup", description: "" }];
+    await saveEventRunSheet(db, venueA, "evt-rs-upsert", entries);
+
+    const updated = [{ time: "20:30", label: "Setup delayed" }];
+    await saveEventRunSheet(db, venueA, "evt-rs-upsert", updated);
+    const sheet = await getEventRunSheet(db, "evt-rs-upsert");
+    expect(sheet.entries).toHaveLength(1);
+    expect(sheet.entries[0].label).toBe("Setup delayed");
   });
 });

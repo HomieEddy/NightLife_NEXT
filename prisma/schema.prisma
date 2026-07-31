@@ -1747,6 +1747,19 @@ model EventCost {
   @@map("event_costs")
 }
 
+/// Plan 19: Event run sheet — timeline entries for a night's event (OE-19).
+model EventRunSheet {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  eventId   String   @map("event_id") @unique
+  entries   Json     @default("[]")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([venueId])
+  @@map("event_run_sheets")
+}
+
 /// Plan 19: Checklist template — venue-scoped, reusable (VM-05).
 model ChecklistTemplate {
   id      String  @id @default(cuid())

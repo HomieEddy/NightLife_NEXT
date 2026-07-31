@@ -121,30 +121,14 @@ export const livePurchasingService: typeof mockPurchasingService = {
 
   // ── Event run sheet ───────────────────────────────────────────
   async listEventRunSheet(eventId) {
-    const res = await liveFetch(`/api/purchasing/event-run-sheet?eventId=${encodeURIComponent(eventId)}`);
-    if (res.status === 501) {
-      throw new Error("Event run sheets not yet supported in the live build — no EventRun model in schema");
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(body.error ?? "Event run sheet fetch failed");
-    }
-    return res.json();
+    return api(`/api/purchasing/event-run-sheet?eventId=${encodeURIComponent(eventId)}`);
   },
 
   async saveEventRunSheet(eventId, entries) {
-    const res = await liveFetch("/api/purchasing/event-run-sheet", {
+    await apiNoBody("/api/purchasing/event-run-sheet", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ eventId, entries }),
     });
-    if (res.status === 501) {
-      throw new Error("Event run sheets not yet supported in the live build — no EventRun model in schema");
-    }
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(body.error ?? "Event run sheet save failed");
-    }
   },
 
   // ── Supplier performance ──────────────────────────────────────
