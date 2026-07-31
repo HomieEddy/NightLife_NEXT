@@ -40,7 +40,11 @@ async function livePUT(request: NextRequest) {
 
   const { previous, next } = await setRolePermissions(db, parsed.data as RolePermissions);
 
-  // Write audit entry for the change.
+  // The audit entry is written after (not inside) setRolePermissions' own
+  // transaction on purpose: keeping actor identity out of permission-core keeps
+  // that module pure and DB-only, and the permission rows are the authoritative
+  // change — a rare failed audit insert should surface as a 500, not roll back a
+  // saved permission set. Compute the changed roles from the returned diff.
   const changedRoles = Object.keys(next).filter(
     (r) => JSON.stringify(previous[r as keyof typeof previous]) !== JSON.stringify(next[r as keyof typeof next]),
   );

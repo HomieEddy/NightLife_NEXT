@@ -123,6 +123,20 @@ export function RolesAccessTab({
     },
   });
 
+  // Venue-wide reset: drops every stored override (DELETE /api/permissions),
+  // reverting all roles to app defaults in one audited action.
+  const resetAllMutation = useMutation({
+    mutationFn: async () => permissionService.resetRolePermissions(venueId),
+    onSuccess: () => {
+      setDraft(null); // re-sync from the refetched defaults
+      queryClient.invalidateQueries({ queryKey: permissionsKeys.role(venueId) });
+      toast.success("All role permissions reset to defaults");
+    },
+    onError: () => {
+      toast.error("Could not reset permissions");
+    },
+  });
+
   // Wait until we know who the user is before rendering anything.
   if (currentUserRole === null) {
     return <ListSkeleton rows={6} rowHeight="h-14" />;
@@ -163,24 +177,38 @@ export function RolesAccessTab({
 
   return (
     <div className="space-y-5">
-      {/* Role selector */}
-      <div className="flex flex-wrap gap-1.5">
-        {ASSIGNABLE_ROLES.map((role) => (
-          <button
-            key={role}
-            type="button"
-            onClick={() => setSelectedRole(role)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium capitalize transition-colors",
-              selectedRole === role
-                ? "border-primary bg-primary/15 text-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {role === LOCKED_ROLE && <Lock className="size-3" />}
-            {role}
-          </button>
-        ))}
+      {/* Role selector + venue-wide reset */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {ASSIGNABLE_ROLES.map((role) => (
+            <button
+              key={role}
+              type="button"
+              onClick={() => setSelectedRole(role)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium capitalize transition-colors",
+                selectedRole === role
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {role === LOCKED_ROLE && <Lock className="size-3" />}
+              {role}
+            </button>
+          ))}
+        </div>
+        <ConfirmDialog
+          trigger={
+            <Button variant="ghost" size="sm" disabled={resetAllMutation.isPending}>
+              <RotateCcw className="size-3.5" />
+              Reset all roles
+            </Button>
+          }
+          title="Reset all role permissions?"
+          description="Every role reverts to the app defaults and all stored overrides are cleared for this venue. This is recorded in the audit trail and cannot be undone."
+          confirmLabel="Reset all roles"
+          onConfirm={() => resetAllMutation.mutate()}
+        />
       </div>
 
       {/* Manager locked notice */}
