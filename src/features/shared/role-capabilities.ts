@@ -16,8 +16,10 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-// StaffAction type lives in permissions.ts (re-exported here for convenience).
-export type { StaffAction } from "./permissions";
+// StaffAction type + help-scope logic live in permissions.ts (the pure authz
+// module); re-exported here for existing consumers.
+export type { StaffAction, HelpScope } from "./permissions";
+export { getHelpScope } from "./permissions";
 
 // ---------- Staff-panel nav per floor role ----------
 
@@ -109,27 +111,6 @@ const STAFF_NAV: Record<StaffRole, StaffNavItem[]> = {
 
 export function getStaffNav(role: StaffRole): StaffNavItem[] {
   return STAFF_NAV[role];
-}
-
-// ---------- Help-request scope per floor role ----------
-
-/** Which help requests a role can see and respond to. */
-export type HelpScope =
-  | "all"             // manager, host — see every request
-  | "assigned-zones"  // bartender, runner — requests in their assignedZoneIds (security type excluded for runner)
-  | "security-only";  // security — only security-type requests
-
-const HELP_SCOPE: Record<StaffRole, HelpScope> = {
-  manager: "all",
-  host: "all",
-  bartender: "assigned-zones",
-  runner: "assigned-zones",
-  security: "security-only",
-  promoter: "all", // promoters don't have help:respond but see context
-};
-
-export function getHelpScope(role: StaffRole): HelpScope {
-  return HELP_SCOPE[role];
 }
 
 // ---------- Chat channel pinning per floor role ----------
