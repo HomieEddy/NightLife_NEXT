@@ -15,7 +15,7 @@ import { mockNotificationService } from "@/features/shared/notification-mock-ser
 
 let profiles: GuestProfile[] = clone(mockGuestProfiles);
 let links: GuestLink[] = clone(mockGuestLinks);
-let referrals: GuestReferral[] = [];
+const referrals: GuestReferral[] = [];
 
 function displayNameFor(firstName: string, lastName?: string): string {
   return `${firstName}${lastName ? ` ${lastName}` : ""}`.trim();

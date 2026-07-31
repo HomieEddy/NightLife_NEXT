@@ -4,6 +4,7 @@ import {
   prismaStatus,
   tableStatusFor,
 } from "@/features/hospitality/reservation-core";
+import type { ReservationStatus } from "@/lib/types";
 
 // ── normalizeStatus / prismaStatus ──────────────────────────────────
 
@@ -67,6 +68,6 @@ describe("tableStatusFor", () => {
   });
 
   it("returns null for unknown status", () => {
-    expect(tableStatusFor("unknown" as any)).toBeNull();
+    expect(tableStatusFor("unknown" as unknown as ReservationStatus)).toBeNull();
   });
 });

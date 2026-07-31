@@ -175,11 +175,11 @@ function MenuContent() {
   // Package mutations
   const savePackageMutation = useMutation({
     mutationFn: async (draft: PackageDraft) => {
-      const payload = { ...draft, price: draft.priceCents / 100 } as any;
+      const payload = { ...draft, price: draft.priceCents / 100 } as unknown as Omit<BottlePackage, "id">;
       if (editingPackage) {
-        return menuService.updatePackage(editingPackage.id, payload as any);
+        return menuService.updatePackage(editingPackage.id, payload);
       } else {
-        return menuService.createPackage({ venueId: "venue-1", ...payload } as any);
+        return menuService.createPackage({ ...payload, venueId: "venue-1" });
       }
     },
     onSuccess: (_, draft) => {
