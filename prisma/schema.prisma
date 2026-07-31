@@ -1511,7 +1511,12 @@ model TimeEntry {
   editReason      String?  @map("edit_reason")
   minutesWorked   Int?     @map("minutes_worked")
 
-  @@unique([venueId, staffId, clockInAt])
+  // No uniqueness on (venueId, staffId, clockInAt): INV-W3's append-only edit
+  // creates a new row with the same clockInAt as the row it supersedes, so a
+  // constraint here would 409 the most common manager edit (correcting
+  // clockOutAt/minutesWorked without touching clockInAt). "At most one open
+  // entry per staff member" (INV-W1) is enforced in clockIn() at the
+  // application layer, not by a DB constraint on this column.
   @@index([venueId, staffId])
   @@map("time_entries")
 }
