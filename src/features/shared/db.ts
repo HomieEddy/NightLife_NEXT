@@ -91,6 +91,9 @@ export function getDb(session: SessionContext) {
   });
 }
 
+/** The venueId-scoped Prisma client returned by getDb. */
+export type ScopedDb = ReturnType<typeof getDb>;
+
 /**
  * Unscoped client for platform-admin operations (tenants, billing, leads).
  * Import restricted to src/server/platform/ by ESLint rule.

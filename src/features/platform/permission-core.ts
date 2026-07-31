@@ -1,9 +1,7 @@
-import type { getDb } from "@/features/shared/db";
+import type { ScopedDb } from "@/features/shared/db";
 import { DEFAULT_ROLE_PERMISSIONS } from "@/features/shared/permissions";
 import type { RolePermissions, StaffAction } from "@/features/shared/permissions";
 import type { StaffRole } from "@/lib/types";
-
-type ScopedDb = ReturnType<typeof getDb>;
 
 // ---------- Pure helpers (unit-testable without a DB) ----------
 
