@@ -526,6 +526,8 @@ model Order {
   isRushed           Boolean     @default(false) @map("is_rushed")
   rushedBy           String?     @map("rushed_by")
   rushedAt           DateTime?   @map("rushed_at") @db.Timestamptz
+  happyHourRuleId    String?     @map("happy_hour_rule_id")
+  happyHourCents     Int         @default(0) @map("happy_hour_cents")
 
   venue    Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
   session  GuestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
@@ -580,6 +582,7 @@ enum GuestSessionStatus {
   denied
   closure_requested @map("closure-requested")
   closed
+  merged
 }
 
 enum SettlementMethod {

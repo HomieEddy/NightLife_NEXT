@@ -64,6 +64,7 @@ export interface FeeLineResult {
 export interface PricingResult {
   subtotalCents: number;
   discountCents: number;
+  happyHourRuleId?: string;
   promotionCents: number;
   discountedSubtotalCents: number;
   feeLines: FeeLineResult[];
@@ -106,23 +107,27 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
   // 2. Happy-hour discount: for each line, find the best matching rule
   const activeRules = happyHourRules.filter((r) => isInHappyHourWindow(r, now));
   let discountCents = 0;
+  let happyHourRuleId: string | undefined;
 
   if (activeRules.length > 0) {
     for (const line of lines) {
       const lineTotal = pricingLineTotal(line);
 
       let bestPct = 0;
+      let bestRuleId: string | undefined;
       for (const rule of activeRules) {
         const applies =
           rule.appliesToCategoryIds.length === 0 ||
           rule.appliesToCategoryIds.includes(line.categoryId);
         if (applies && rule.discountPct > bestPct) {
           bestPct = rule.discountPct;
+          bestRuleId = rule.id;
         }
       }
 
       if (bestPct > 0) {
         discountCents += Math.round(lineTotal * bestPct / 100);
+        happyHourRuleId = bestRuleId;
       }
     }
   }
@@ -193,6 +198,7 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
   return {
     subtotalCents,
     discountCents,
+    happyHourRuleId,
     promotionCents,
     discountedSubtotalCents,
     feeLines,
