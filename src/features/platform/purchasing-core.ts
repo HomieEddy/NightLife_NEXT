@@ -10,8 +10,8 @@ import type {
   EightySixEntry,
   EventCost,
   InventoryChecklist,
+  PriceChange,
 } from "@/lib/types";
-import { Prisma } from "@prisma/client";
 
 type ScopedDb = ReturnType<typeof getDb>;
 
@@ -381,10 +381,11 @@ export async function listSupplierItems(db: ScopedDb, supplierId?: string): Prom
   const where = supplierId ? { supplierId } : {};
   const rows = await db.supplierItem.findMany({ where });
   return rows.map((r: Row) => ({
-    id: r.id, supplierId: r.supplier_id, menuItemId: r.menu_item_id,
-    supplierSku: r.supplier_sku, caseSize: r.case_size,
-    caseCostCents: r.case_cost_cents, unitCostCents: r.unit_cost_cents,
-    lastPriceChangeAt: r.last_price_change_at?.toISOString(), preferred: r.preferred,
+    id: r.id, supplierId: r.supplierId, menuItemId: r.menuItemId,
+    supplierSku: r.supplierSku, caseSize: r.caseSize,
+    caseCostCents: r.caseCostCents, unitCostCents: r.unitCostCents,
+    lastPriceChangeAt: r.lastPriceChangeAt instanceof Date ? r.lastPriceChangeAt.toISOString() : (typeof r.lastPriceChangeAt === "string" ? r.lastPriceChangeAt : undefined),
+    preferred: r.preferred,
   }));
 }
 
@@ -488,6 +489,14 @@ export async function receivePurchaseOrder(
       await db.stockMovement.create({
         data: { menuItemId: line.menuItemId, itemName: item.name, type: "restock", delta: received, unitCostCents: line.unitCostCents, purchaseOrderId: poId, note: `Received PO ${po.code}` },
       } as Row);
+      // Track price changes on the supplier item
+      const si = await db.supplierItem.findFirst({ where: { supplierId: po.supplierId, menuItemId: line.menuItemId } });
+      if (si && (si as Row).unitCostCents !== line.unitCostCents) {
+        await db.supplierItem.update({
+          where: { id: si.id },
+          data: { unitCostCents: line.unitCostCents, lastPriceChangeAt: new Date() },
+        } as Row);
+      }
     }
   }
   const newStatus = poStatusAfterReceive(poLines);
@@ -495,6 +504,39 @@ export async function receivePurchaseOrder(
   const updated = await db.purchaseOrder.findUnique({ where: { id: poId } });
   assertRow(updated);
   return poRowToDTO(updated);
+}
+
+/**
+ * Compare received unit costs against the last known price from the supplier item.
+ * Returns any changes exceeding the threshold (default 15%).
+ */
+export async function detectPriceChanges(
+  db: ScopedDb,
+  supplierId: string,
+  lines: { menuItemId: string; unitCostCents: number }[],
+  thresholdPercent = 15,
+): Promise<PriceChange[]> {
+  const changes: PriceChange[] = [];
+  for (const line of lines) {
+    const si = await db.supplierItem.findFirst({
+      where: { supplierId, menuItemId: line.menuItemId },
+    });
+    const prevCost = (si as Row)?.unitCostCents as number | undefined;
+    if (!prevCost || prevCost === 0) continue;
+    if (prevCost === line.unitCostCents) continue;
+    const changePercent = Math.round(((line.unitCostCents - prevCost) / prevCost) * 100);
+    if (Math.abs(changePercent) > thresholdPercent) {
+      const item = await db.menuItem.findUnique({ where: { id: line.menuItemId } });
+      changes.push({
+        menuItemId: line.menuItemId,
+        itemName: (item as Row)?.name ?? line.menuItemId,
+        previousUnitCostCents: prevCost,
+        newUnitCostCents: line.unitCostCents,
+        changePercent,
+      });
+    }
+  }
+  return changes;
 }
 
 // ── Stocktakes ───────────────────────────────────────────────────────

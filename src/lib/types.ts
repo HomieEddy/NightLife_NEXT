@@ -1628,6 +1628,14 @@ export interface SupplierItem {
 
 export type PurchaseOrderStatus = "draft" | "submitted" | "partially-received" | "received" | "cancelled";
 
+export interface PriceChange {
+  menuItemId: string;
+  itemName: string;
+  previousUnitCostCents: number;
+  newUnitCostCents: number;
+  changePercent: number; // signed, e.g. +20 = 20% increase
+}
+
 export interface PurchaseOrderLine {
   id: string;
   menuItemId: string;

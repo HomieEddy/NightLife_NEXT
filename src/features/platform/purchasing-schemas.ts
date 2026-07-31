@@ -63,6 +63,7 @@ export const zReceiveLines = z.object({
       qtyReceived: z.number().int().positive(),
     }),
   ),
+  acknowledgePriceChanges: z.boolean().optional(),
 });
 
 // ── Stocktake ────────────────────────────────────────────────────────

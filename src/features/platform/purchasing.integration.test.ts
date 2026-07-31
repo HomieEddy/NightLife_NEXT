@@ -8,7 +8,7 @@ import {
   listStocktakes, saveStocktake, commitStocktake, listEightySixEntries, eightySixItem,
   recordWaste, listProfitTargets, saveProfitTarget,
   listEventCosts, saveEventCost, listInventoryChecklists, saveInventoryChecklist,
-  getEventRunSheet, saveEventRunSheet,
+  getEventRunSheet, saveEventRunSheet, detectPriceChanges,
 } from "@/features/platform/purchasing-core";
 import { expectTenantIsolation } from "@/features/shared/test-helpers";
 
@@ -422,5 +422,102 @@ describe("purchasing integration (plan 19)", () => {
     const sheet = await getEventRunSheet(db, "evt-rs-upsert");
     expect(sheet.entries).toHaveLength(1);
     expect(sheet.entries[0].label).toBe("Setup delayed");
+  });
+
+  // ── Price-change detection ───────────────────────────────────────
+
+  it("detects no price change when cost matches supplier item", async () => {
+    const db = getDb(sessionA);
+    const menuItemId = "mi-pc-match";
+    await rawClient.menuItem.create({ data: makeMenuItem(menuItemId, "Match Item", { priceCents: 1000, unitOfMeasure: "each" }) });
+    await saveSupplierItem(db, {
+      id: "si-pc-match", supplierId: "sup-crud", menuItemId,
+      supplierSku: "SKU-MATCH", caseSize: 12, caseCostCents: 48000, unitCostCents: 4000,
+      lastPriceChangeAt: "2026-06-01T00:00:00.000Z", preferred: true,
+    });
+
+    const changes = await detectPriceChanges(db, "sup-crud", [
+      { menuItemId, unitCostCents: 4000 },
+    ]);
+    expect(changes).toHaveLength(0);
+  });
+
+  it("detects price change when cost exceeds threshold", async () => {
+    const db = getDb(sessionA);
+    const menuItemId = "mi-pc-up";
+    await rawClient.menuItem.create({ data: makeMenuItem(menuItemId, "Up Item", { priceCents: 1200, unitOfMeasure: "bottle", servingSize: 750 }) });
+    await saveSupplierItem(db, {
+      id: "si-pc-up", supplierId: "sup-crud", menuItemId,
+      supplierSku: "SKU-UP", caseSize: 12, caseCostCents: 48000, unitCostCents: 4000,
+      lastPriceChangeAt: "2026-06-01T00:00:00.000Z", preferred: true,
+    });
+
+    const changes = await detectPriceChanges(db, "sup-crud", [
+      { menuItemId, unitCostCents: 5000 },
+    ]);
+    expect(changes).toHaveLength(1);
+    expect(changes[0].menuItemId).toBe(menuItemId);
+    expect(changes[0].previousUnitCostCents).toBe(4000);
+    expect(changes[0].newUnitCostCents).toBe(5000);
+    expect(changes[0].changePercent).toBe(25);
+  });
+
+  it("detects price decrease exceeding threshold", async () => {
+    const db = getDb(sessionA);
+    const menuItemId = "mi-pc-down";
+    await rawClient.menuItem.create({ data: makeMenuItem(menuItemId, "Down Item", { priceCents: 800, unitOfMeasure: "can" }) });
+    await saveSupplierItem(db, {
+      id: "si-pc-down", supplierId: "sup-crud", menuItemId,
+      supplierSku: "SKU-DOWN", caseSize: 24, caseCostCents: 48000, unitCostCents: 4000,
+      lastPriceChangeAt: "2026-06-01T00:00:00.000Z", preferred: true,
+    });
+
+    const changes = await detectPriceChanges(db, "sup-crud", [
+      { menuItemId, unitCostCents: 3000 },
+    ]);
+    expect(changes).toHaveLength(1);
+    expect(changes[0].changePercent).toBe(-25);
+  });
+
+  it("ignores small changes within threshold", async () => {
+    const db = getDb(sessionA);
+    const menuItemId = "mi-pc-tiny";
+    await rawClient.menuItem.create({ data: makeMenuItem(menuItemId, "Tiny Change", { priceCents: 500, unitOfMeasure: "each" }) });
+    await saveSupplierItem(db, {
+      id: "si-pc-tiny", supplierId: "sup-crud", menuItemId,
+      supplierSku: "SKU-TINY", caseSize: 1, caseCostCents: 4000, unitCostCents: 4000,
+      preferred: true,
+    });
+
+    const changes = await detectPriceChanges(db, "sup-crud", [
+      { menuItemId, unitCostCents: 4500 }, // 12.5% — within default 15%
+    ]);
+    expect(changes).toHaveLength(0);
+  });
+
+  it("updates supplier item unit cost on receive when price changes", async () => {
+    const db = getDb(sessionA);
+    const menuItemId = "mi-si-update";
+    await rawClient.menuItem.create({ data: makeMenuItem(menuItemId, "SI Update", { priceCents: 1500, inventory: 3, unitOfMeasure: "bottle", servingSize: 750 }) });
+    await saveSupplierItem(db, {
+      id: "si-pc-recv", supplierId: "sup-crud", menuItemId,
+      supplierSku: "SKU-RECV", caseSize: 12, caseCostCents: 36000, unitCostCents: 3000,
+      lastPriceChangeAt: "2026-05-01T00:00:00.000Z", preferred: true,
+    });
+
+    await savePurchaseOrder(db, {
+      id: "po-si-update", venueId: venueA, supplierId: "sup-crud", code: "PO-SI-UPDATE",
+      status: "draft", expectedAt: "2026-08-01T10:00:00.000Z",
+      lines: [{ id: "pol-si", menuItemId, qtyOrdered: 5, qtyReceived: 0, unitCostCents: 3800, lineTotalCents: 19000 }],
+      subtotalCents: 19000, notes: "",
+    });
+    await submitPurchaseOrder(db, "po-si-update", "stf-1");
+    await receivePurchaseOrder(db, "po-si-update", [{ lineId: "pol-si", qtyReceived: 5 }]);
+
+    // Supplier item should reflect the new price
+    const items = await listSupplierItems(db, "sup-crud");
+    const si = items.find((s) => s.id === "si-pc-recv");
+    expect(si?.unitCostCents).toBe(3800);
+    expect(si?.lastPriceChangeAt).toBeDefined();
   });
 });
