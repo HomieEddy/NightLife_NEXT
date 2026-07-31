@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { staffService } from "@/features/workforce/staff-service";
+import { useAuth } from "@/context/auth-context";
 import { cn } from "@/features/shared/utils";
 import { zStaffInput } from "@/lib/form-schemas";
 import { ASSIGNABLE_ROLES, type StaffMember, type Zone } from "@/lib/types";
@@ -37,6 +38,8 @@ export function StaffEditDialog({
   zones: Zone[];
   onDone: () => void;
 }) {
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(zStaffInput),
     defaultValues: EMPTY_VALUES,
@@ -85,7 +88,7 @@ export function StaffEditDialog({
         toast.success(`${base.name} updated`);
       } else {
         await staffService.addStaff({
-          venueId: "venue-1",
+          venueId,
           ...base,
           accountStatus: "invited",
           isOnShift: false,

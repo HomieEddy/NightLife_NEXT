@@ -68,6 +68,9 @@ function toItem(row: {
   tags: string[];
   isAvailable: boolean;
   inventory: number;
+  isAlcoholic: boolean;
+  abv: number | null;
+  allergens: string[];
 }): MenuItem {
   return {
     id: row.id,
@@ -79,10 +82,9 @@ function toItem(row: {
     tags: row.tags as MenuItem["tags"],
     isAvailable: row.isAvailable,
     inventory: row.inventory,
-    // TODO(backend): plan 17 graduation — add isAlcoholic/abv/allergens columns;
-    // responsible-service drink counting is demo-track only until then.
-    isAlcoholic: false,
-    allergens: [],
+    isAlcoholic: row.isAlcoholic,
+    abv: row.abv ?? undefined,
+    allergens: row.allergens,
   };
 }
 
@@ -274,6 +276,9 @@ export async function createItem(
         tags: input.tags,
         isAvailable: input.isAvailable ?? true,
         inventory: initialStock,
+        isAlcoholic: input.isAlcoholic ?? false,
+        abv: input.abv ?? null,
+        allergens: input.allergens ?? [],
       },
     });
     if (initialStock > 0) {
@@ -309,6 +314,9 @@ export async function updateItem(
   if (patch.priceCents !== undefined) data.priceCents = patch.priceCents;
   if (patch.icon !== undefined) data.icon = patch.icon;
   if (patch.tags !== undefined) data.tags = patch.tags;
+  if (patch.isAlcoholic !== undefined) data.isAlcoholic = patch.isAlcoholic;
+  if (patch.abv !== undefined) data.abv = patch.abv;
+  if (patch.allergens !== undefined) data.allergens = patch.allergens;
 
   if (patch.isAvailable !== undefined) {
     data.isAvailable = patch.isAvailable;

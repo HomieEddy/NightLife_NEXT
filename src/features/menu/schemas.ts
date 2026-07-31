@@ -42,6 +42,11 @@ export const zItemInput = z.object({
   tags: z.array(z.string()),
   isAvailable: z.boolean().optional(),
   inventory: z.number().int().nonnegative().optional(),
+  // Responsible service (plan 17): drives the alcoholic drink counter, so it
+  // is a property of the item, not a display hint.
+  isAlcoholic: z.boolean().optional(),
+  abv: z.number().nonnegative().max(100).optional(),
+  allergens: z.array(z.string()).optional(),
 });
 
 export const zItemPatch = z.object({
@@ -52,6 +57,9 @@ export const zItemPatch = z.object({
   icon: z.string().min(1).optional(),
   tags: z.array(z.string()).optional(),
   isAvailable: z.boolean().optional(),
+  isAlcoholic: z.boolean().optional(),
+  abv: z.number().nonnegative().max(100).nullable().optional(),
+  allergens: z.array(z.string()).optional(),
 });
 
 // ── Inventory ──────────────────────────────────────────────────────────

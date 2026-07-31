@@ -93,7 +93,7 @@ export default function ManagerTipsPage() {
     mutationFn: (data: FormValues) => {
       const r: TipPoolRule = {
         id: rule?.id ?? "tip-rule-1",
-        venueId: "venue-1",
+        venueId: venueId,
         name: data.name.trim(),
         basis: data.basis as TipPoolRule["basis"],
         includeRoles: data.includeRoles as StaffRole[],
@@ -118,7 +118,7 @@ export default function ManagerTipsPage() {
       const lines = computeTipDistribution(rule, pool, staff, entries);
       const d: TipDistribution = {
         id: `td-${selectedDate}`,
-        venueId: "venue-1",
+        venueId: venueId,
         businessDate: selectedDate,
         ruleId: rule.id,
         poolCents: pool,

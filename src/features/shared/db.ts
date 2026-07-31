@@ -54,6 +54,8 @@ export function getDb(session: SessionContext) {
           "IncidentNote",
           // Purchasing: scoped via parent Supplier, not own venueId.
           "SupplierItem",
+          // Pulse (WS-2): scoped via parent AttentionItem, not own venueId.
+          "AttentionAcknowledgment",
         ];
         if (platformModels.includes(model)) return query(args);
 

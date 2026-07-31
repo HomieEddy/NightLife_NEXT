@@ -1,0 +1,12 @@
+-- Drop uq_time_entries_venue_staff_clock (WS-4 bugfix)
+--
+-- editTimeEntry (INV-W3) creates a new row with the same clockInAt as the row
+-- it supersedes whenever the edit doesn't change clockInAt itself — the common
+-- case, correcting clockOutAt or minutesWorked. That collided with this
+-- constraint and made every such manager edit fail with a unique violation.
+--
+-- "At most one open entry per staff member" (INV-W1) is already enforced in
+-- clockIn() at the application layer (a findFirst on clockOutAt: null before
+-- insert), so this DB-level constraint was redundant with app logic on the
+-- success path and actively wrong on the edit path.
+ALTER TABLE "time_entries" DROP CONSTRAINT "uq_time_entries_venue_staff_clock";
