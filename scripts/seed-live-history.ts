@@ -266,6 +266,7 @@ async function main() {
     const night = nightForDate(nightLabel, nightConfig);
     const isWeekend = d.getDay() === 5 || d.getDay() === 6; // Fri/Sat
     const sessionsTonight = isWeekend ? randInt(10, 20) : randInt(5, 12);
+    const nightSessionIds: string[] = [];
 
     for (let si = 0; si < sessionsTonight; si++) {
       const table = pick(tables);
@@ -292,6 +293,7 @@ async function main() {
         },
       });
       totalSessions++;
+      nightSessionIds.push(session.id);
 
       const ordersInSession = randInt(1, 3);
       for (let oi = 0; oi < ordersInSession; oi++) {
@@ -435,6 +437,20 @@ async function main() {
           },
         });
         totalHelpRequests++;
+      }
+    }
+
+    // ── Walkout records (~5% chance per night with sessions) ──
+    if (rand() < 0.05 && nightSessionIds.length > 0) {
+      const ws = (await raw.guestSession.findUnique({ where: { id: pick(nightSessionIds) } }))!;
+      await db.walkoutRecord.upsert({ where: { id: `hist-wo-${nightLabel}` }, update: {}, create: { venueId, sessionId: ws.id, tableCode: ws.tableCode, description: pick(["Party left without paying — $320 tab", "Group exited through back door during last call", "Single guest unattended at bar"]), reportedByStaffId: pick(deliveryStaff.map((s) => s.userId)), reportedByStaffName: pick(deliveryStaff).name } });
+    }
+
+    // ── Order remakes (~3% chance per night) ──
+    if (rand() < 0.03 && nightSessionIds.length > 0) {
+      const remOrders = await raw.order.findMany({ where: { venueId, sessionId: pick(nightSessionIds) }, take: 1, orderBy: { placedAt: "desc" } });
+      for (const ro of remOrders) {
+        await db.orderRemake.upsert({ where: { id: `hist-remake-${nightLabel}` }, update: {}, create: { venueId, oldOrderId: ro.id, newOrderId: `remade-${ro.id}`, reason: pick(["Wrong items delivered", "Guest changed order", "Kitchen error — bottle wrong size"]), remadeByStaffId: pick(deliveryStaff.map((s) => s.userId)), remadeByStaffName: pick(deliveryStaff).name } });
       }
     }
 

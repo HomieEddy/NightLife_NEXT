@@ -11,7 +11,13 @@
  *
  * Deterministic: seeded PRNG, all dates relative to runtime. Idempotent re-runs
  * produce identical output for the same seed.
+ *
+ * Fee math routes through src/features/ordering/fees.ts so seeded orders
+ * match what the live app computes — no drift between seed data and runtime.
  */
+
+import { computeFeeLines, computeServiceFee } from "@/features/ordering/fees";
+import type { Venue } from "@/lib/types";
 
 // ── Seeded PRNG (same LCG as seed-staging.ts) ──────────────────────────
 
@@ -140,6 +146,8 @@ export const CORPUS_VENUE = {
     helpCriticalMinutes: 8,
   },
   floorMap: { width: 16, height: 9 },
+  publicSlug: "velvet",
+  autoGratuityRules: [] as { minPartySize: number; ratePct: number }[],
 } as const;
 
 /** Open day names for quick lookup. */
@@ -1099,8 +1107,15 @@ export function generateNightActivity(nightDate: Date): NightActivity {
       const placedAt = hourInNight(Math.min(placedHour, closeTime > openTime ? closeTime - 1 : openTime + 3));
       const { items, subtotal: subtotalCents } = generateOrderItems(sessionId, sessionOrderIdx);
 
-      const feeTotal = totalFeeCents(subtotalCents);
-      const feeBreakdown = computeFeeBreakdown(subtotalCents, CORPUS_VENUE.serviceFees);
+      // Fee math routes through the real ordering/fees.ts so seeded orders
+      // match what the live app computes — no drift between seed data and runtime.
+      const subtotalDollars = subtotalCents / 100;
+      const feeTotal = Math.round(computeServiceFee(subtotalDollars, CORPUS_VENUE as unknown as Venue) * 100);
+      const feeLines = computeFeeLines(subtotalDollars, CORPUS_VENUE as unknown as Venue);
+      const feeBreakdown = feeLines.map((l) => ({
+        fee: { id: l.fee.id, name: l.fee.name, type: l.fee.type, value: l.fee.value },
+        amount: Math.round(l.amount * 100),
+      }));
       const tipPct = pick([15, 15, 20, 20, 25]); // weighted toward 15-20
       const tipCents = Math.round(subtotalCents * tipPct / 100);
       const totalCents = subtotalCents + feeTotal + tipCents;

@@ -404,6 +404,156 @@ async function main() {
   }
   console.log(`${mockHappyHourRules.length} happy hour rules seeded`);
 
+  // ── Second tenant: Le Cercle (for multi-tenant admin/isolation demo) ──
+  const tenant2 = await prisma.tenant.upsert({
+    where: { slug: "le-cercle" },
+    update: {},
+    create: { name: "Le Cercle", slug: "le-cercle", plan: "pro", status: "active" },
+  });
+  console.log(`Tenant: ${tenant2.name} (${tenant2.id})`);
+
+  const celeste = await seedUser("Celeste Moreau", "celeste@lecercle.mtl");
+  console.log(`User: Celeste Moreau (${celeste.user.id})`);
+
+  const org2 = await prisma.organization.findUnique({ where: { slug: "le-cercle" } })
+    ?? await seedAuth.api.createOrganization({
+      headers: new Headers({ authorization: `Bearer ${celeste.token}` }),
+      body: { name: "Le Cercle Montréal", slug: "le-cercle" },
+    });
+  console.log(`Organization: Le Cercle Montréal (${org2.id})`);
+
+  await prisma.staffProfile.upsert({
+    where: { userId: celeste.user.id },
+    update: { role: "manager" },
+    create: {
+      userId: celeste.user.id,
+      role: "manager",
+      phone: "+1 514 555 0199",
+      avatarInitials: "CM",
+      assignedZoneIds: [],
+      isOnShift: true,
+      hourlyRateCents: 2200,
+      tipPoolWeight: 1.0,
+      employmentType: "salaried",
+    },
+  });
+
+  await prisma.venue.upsert({
+    where: { id: org2.id },
+    update: {},
+    create: {
+      id: org2.id,
+      address: "378 Rue Saint-Paul Ouest",
+      city: "Montréal",
+      timezone: "America/Montreal",
+      currency: "CAD",
+      openingHours: [
+        { day: "Friday", open: "22:00", close: "06:00" },
+        { day: "Saturday", open: "22:00", close: "06:00" },
+      ] as unknown as Prisma.InputJsonValue,
+      serviceFees: [
+        { id: "fee-service", name: "Service", type: "percentage", value: 5 },
+        { id: "fee-tps", name: "TPS", type: "percentage", value: 5 },
+        { id: "fee-tvq", name: "TVQ", type: "percentage", value: 9.975 },
+      ] as unknown as Prisma.InputJsonValue,
+      floorMap: { width: 16, height: 9 } as unknown as Prisma.InputJsonValue,
+      autoApproveGuests: false,
+      logoInitials: "LC",
+      slaThresholds: { orderWarnMinutes: 8, orderCriticalMinutes: 15, helpWarnMinutes: 5, helpCriticalMinutes: 10 } as unknown as Prisma.InputJsonValue,
+      lastCallAutoFlagTables: true,
+      tipPresets: [15, 18, 20] as unknown as Prisma.InputJsonValue,
+      defaultTipPct: 18,
+      nightStartHour: 20,
+      nightEndHour: 8,
+      compThresholdCents: 5000,
+      minimumSpendWarningRatio: 0.3,
+      legalCapacity: 250,
+      occupancyWarnRatio: 0.85,
+      coatCheckEnabled: false,
+      doorRequiresIdCheck: true,
+    },
+  });
+  console.log("Le Cercle venue config seeded (weekends only, 250-capacity supper-club)");
+
+  // Seed a few tables for the second venue so the admin venue view has substance
+  const cercleZones = [
+    { id: "lc-main", name: "Main Room", description: "Intimate dance floor", color: "red" },
+    { id: "lc-lounge", name: "Lounge", description: "Leather banquettes", color: "amber" },
+  ];
+  for (const z of cercleZones) {
+    await prisma.zone.upsert({
+      where: { id: z.id },
+      update: {},
+      create: { id: z.id, venueId: org2.id, name: z.name, description: z.description, color: z.color },
+    });
+  }
+  for (let ti = 1; ti <= 10; ti++) {
+    const zid = ti <= 5 ? "lc-main" : "lc-lounge";
+    const tid = `lc-t${ti}`;
+    await prisma.venueTable.upsert({
+      where: { id: tid },
+      update: {},
+      create: {
+        id: tid, venueId: org2.id, zoneId: zid,
+        code: `LC-${String(ti).padStart(2, "0")}`,
+        label: `${zid === "lc-main" ? "Main" : "Lounge"} ${ti}`,
+        seats: zid === "lc-main" ? 6 : 10,
+        minimumSpend: zid === "lc-lounge" ? 400 : 0,
+        status: "open" as any,
+        qrSlug: `le-cercle-table-${ti}`,
+      },
+    });
+  }
+  console.log("Le Cercle: 2 zones, 10 tables seeded");
+
+  // ── Platform leads (pipeline for /admin/leads) ──
+  const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000);
+  const leads = [
+    { id: "lead-1", venueName: "Le Kung Fu", contactName: "Alexandre Dubois", email: "alex@lekungfu.ca", phone: "+1 514 555 1001", city: "Montréal", status: "new", source: "landing-page", dealValue: 2988, notes: "400-cap venue, wants QR ordering for VIP only.", createdAt: daysAgo(1), activity: [{ text: "Submitted demo request via landing page", at: daysAgo(1) }] },
+    { id: "lead-2", venueName: "La Voûte", contactName: "Jade Okafor", email: "jade@lavoute.ca", phone: "+1 438 555 2002", city: "Montréal", status: "contacted", source: "referral", dealValue: 2988, notes: "Referred by Velvet Room. Interested in runner zone routing.", createdAt: daysAgo(3), activity: [{ text: "Referral intro from Velvet Room owner", at: daysAgo(3) }, { text: "Intro call done — sending pricing deck", at: daysAgo(2) }] },
+    { id: "lead-3", venueName: "Bar Ste-Catherine", contactName: "Émilie Garcia", email: "emilie@barstecatherine.ca", phone: "+1 514 555 3003", city: "Montréal", status: "demo", source: "landing-page", dealValue: 4200, notes: "Rooftop venue, terrace-heavy layout.", createdAt: daysAgo(6), activity: [{ text: "Landing page signup", at: daysAgo(6) }, { text: "Qualification call — 21 tables, 3 zones", at: daysAgo(4) }, { text: "Demo booked for Friday 15:00", at: daysAgo(1) }] },
+    { id: "lead-4", venueName: "Le Rouge", contactName: "Pierre Dubois", email: "pierre@lerouge.ca", phone: "+1 450 555 4004", city: "Laval", status: "negotiating", source: "event", dealValue: 10788, notes: "Wants enterprise plan with multi-floor zones. Legal reviewing MSA.", createdAt: daysAgo(12), activity: [{ text: "Met at NightTech Expo Paris", at: daysAgo(12) }, { text: "On-site walkthrough of both floors", at: daysAgo(8) }, { text: "Sent enterprise MSA to legal", at: daysAgo(3) }] },
+    { id: "lead-5", venueName: "Jardin Neon", contactName: "Lisa Chen", email: "lisa@jardinneon.ca", phone: "+1 514 555 5005", city: "Montréal", status: "won", source: "outbound", dealValue: 1788, notes: "Signed! Provisioning scheduled.", createdAt: daysAgo(18), activity: [{ text: "Cold outreach — replied same day", at: daysAgo(18) }, { text: "Demo + trial started", at: daysAgo(10) }, { text: "Contract signed — starter annual", at: daysAgo(4) }] },
+    { id: "lead-6", venueName: "Plage Pulse", contactName: "Nikos Papadopoulos", email: "nikos@plagepulse.ca", phone: "+1 514 555 6006", city: "Montréal", status: "lost", source: "landing-page", dealValue: 2988, notes: "Went with competitor on pricing. Revisit next season.", createdAt: daysAgo(25), activity: [{ text: "Landing page signup", at: daysAgo(25) }, { text: "Demo done — price sensitivity flagged", at: daysAgo(20) }, { text: "Lost to competitor. Re-engage in April.", at: daysAgo(15) }] },
+  ];
+  for (const lead of leads) {
+    await prisma.lead.upsert({ where: { id: lead.id }, update: {}, create: { id: lead.id, venueName: lead.venueName, contactName: lead.contactName, email: lead.email, phone: lead.phone, city: lead.city, status: lead.status, source: lead.source, dealValue: lead.dealValue, notes: lead.notes, createdAt: lead.createdAt } });
+    for (const act of lead.activity) {
+      await prisma.leadActivity.upsert({ where: { id: `${lead.id}-${act.text.slice(0, 20).replace(/\s/g, "-").toLowerCase()}` }, update: {}, create: { leadId: lead.id, text: act.text, createdAt: act.at } });
+    }
+  }
+  console.log(`${leads.length} leads with activity seeded`);
+
+  // ── VIP tier benefits (for LUXE Noir) ──
+  const vipBenefits = [
+    { tier: "vip", benefit: "Priority bottle-service presentation", category: "bottle-service", sortOrder: 1 },
+    { tier: "vip", benefit: "Dedicated VIP host for the night", category: "service", sortOrder: 2 },
+    { tier: "vip", benefit: "Guaranteed VIP-section table", category: "reservation", sortOrder: 3 },
+    { tier: "vip", benefit: "Skip-the-line entry for you and your party", category: "admission", sortOrder: 4 },
+    { tier: "host-list", benefit: "Priority reservation access", category: "reservation", sortOrder: 1 },
+    { tier: "host-list", benefit: "Expedited check-in at the door", category: "admission", sortOrder: 2 },
+    { tier: "regular", benefit: "Birthday celebration acknowledgment", category: "service", sortOrder: 1 },
+    { tier: "regular", benefit: "Standard bottle presentation", category: "bottle-service", sortOrder: 2 },
+  ];
+  for (let vi = 0; vi < vipBenefits.length; vi++) {
+    const vb = vipBenefits[vi];
+    await prisma.vipTierBenefit.upsert({ where: { id: `luxe-vtb-${vi}` }, update: {}, create: { id: `luxe-vtb-${vi}`, venueId: org.id, tier: vb.tier, benefit: vb.benefit, category: vb.category, sortOrder: vb.sortOrder, active: true } });
+    await prisma.vipTierBenefit.upsert({ where: { id: `cercle-vtb-${vi}` }, update: {}, create: { id: `cercle-vtb-${vi}`, venueId: org2.id, tier: vb.tier, benefit: vb.benefit, category: vb.category, sortOrder: vb.sortOrder, active: true } });
+  }
+  console.log(`${vipBenefits.length * 2} VIP tier benefits seeded`);
+
+  // ── Telemetry links (platform-level, no venueId) ──
+  const telLinks = [
+    { id: "tel-1", name: "Sentry — errors", url: "https://sentry.io/organizations/nightlifenext", category: "monitoring" },
+    { id: "tel-2", name: "Grafana — API dashboards", url: "https://grafana.nightlifenext.app", category: "monitoring" },
+    { id: "tel-3", name: "Better Stack — logs", url: "https://logs.betterstack.com", category: "logs" },
+    { id: "tel-4", name: "Vercel — deployments", url: "https://vercel.com/nightlifenext", category: "infra" },
+  ];
+  for (const tel of telLinks) {
+    await prisma.telemetryLink.upsert({ where: { id: tel.id }, update: {}, create: tel });
+  }
+  console.log(`${telLinks.length} telemetry links seeded`);
+
   console.log(`\nDemo password for all users: ${DEMO_PASSWORD}`);
 
   await prisma.$disconnect();
