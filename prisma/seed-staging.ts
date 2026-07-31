@@ -15,21 +15,11 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { toCents } from "../src/features/shared/money";
 import { getDb, getRawPrisma } from "../src/features/shared/db";
 import { ensureMapPositions } from "../src/features/venue/core";
-
-const DEMO_PASSWORD = "demo1234";
-
-// ── Deterministic seeded PRNG ──────────────────────────────────────
-let _seed = 42;
-function rand(): number {
-  _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
-  return _seed / 0x7fffffff;
-}
-function randInt(min: number, max: number): number {
-  return Math.floor(rand() * (max - min + 1)) + min;
-}
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(rand() * arr.length)];
-}
+import {
+  rand, randInt, pick, seededPin, DEMO_PASSWORD,
+  CORPUS_GUEST_FIRST_NAMES, CORPUS_GUEST_LAST_NAMES,
+  CORPUS_HELP_TYPES, CORPUS_SETTLEMENT_METHODS,
+} from "../src/lib/seed-corpus";
 
 // ── Tenant definitions ─────────────────────────────────────────────
 
@@ -136,17 +126,6 @@ const MENU_ITEMS = [
   { suffix: "hendricks", cat: "gin", name: "Hendrick's", price: 210, inv: 14, isAlcoholic: true, abv: 41.4 },
   { suffix: "monkey", cat: "gin", name: "Monkey 47", price: 250, inv: 10, isAlcoholic: true, abv: 47 },
 ];
-
-const GUEST_FIRST_NAMES = ["Alex", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Quinn", "Avery", "Blake", "Charlie", "Dana", "Emery", "Finley", "Harper", "Jamie", "Kai", "Logan", "Noel", "Reese", "Sage"];
-const GUEST_LAST_NAMES = ["Smith", "Patel", "Kim", "Nguyen", "Dubois", "Moreau", "Peterson", "Okafor", "Santos", "Yamamoto"];
-const HELP_TYPES = ["call-waiter", "refill-ice", "clean-table", "security", "bill"] as const;
-const SETTLEMENT_METHODS = ["terminal", "cash", "house"] as const;
-
-function seededPin(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
-  return String(Math.abs(hash) % 1000000).padStart(6, "0");
-}
 
 // ── Main ────────────────────────────────────────────────────────────
 
@@ -304,7 +283,7 @@ async function main() {
         const gc = Math.floor(ev.capacity * (0.3 + rand() * 0.5));
         for (let gi = 0; gi < gc; gi++) {
           const gStatus = status === "ended" ? pick(["confirmed", "confirmed", "checked_in", "checked_in", "no_show"]) : pick(["invited", "invited", "confirmed", "confirmed"]);
-          await prisma.eventGuest.upsert({ where: { id: `${eid}-g-${gi}` }, update: {}, create: { id: `${eid}-g-${gi}`, eventId: eid, name: `${pick(GUEST_FIRST_NAMES)} ${pick(GUEST_LAST_NAMES)}`, partySize: randInt(1, 4), status: gStatus } });
+          await prisma.eventGuest.upsert({ where: { id: `${eid}-g-${gi}` }, update: {}, create: { id: `${eid}-g-${gi}`, eventId: eid, name: `${pick(CORPUS_GUEST_FIRST_NAMES)} ${pick(CORPUS_GUEST_LAST_NAMES)}`, partySize: randInt(1, 4), status: gStatus } });
         }
       }
 
@@ -332,7 +311,7 @@ async function main() {
     // ── Guest profiles (15 per tenant) ──
     const guestProfiles: { id: string; displayName: string; firstName: string; vipTier: string; tags: string[]; visitCount: number; lifetimeNetCents: number }[] = [];
     for (let gi = 0; gi < 15; gi++) {
-      const fn = GUEST_FIRST_NAMES[gi % GUEST_FIRST_NAMES.length]; const ln = GUEST_LAST_NAMES[gi % GUEST_LAST_NAMES.length];
+      const fn = CORPUS_GUEST_FIRST_NAMES[gi % CORPUS_GUEST_FIRST_NAMES.length]; const ln = CORPUS_GUEST_LAST_NAMES[gi % CORPUS_GUEST_LAST_NAMES.length];
       const gid = `${slug}-gp-${gi}`; const visits = randInt(0, 20); const lifetime = visits * randInt(8000, 120000);
       const vipTier = lifetime > 500000 ? "vip" : lifetime > 100000 ? "regular" : visits > 5 ? "regular" : "none";
       const tags: string[] = [];
@@ -450,7 +429,7 @@ async function main() {
       for (let wi = 0; wi < randInt(1, 3); wi++) {
         const wlId = `${slug}-wl-${nightStr}-${wi}`; const wlTime = new Date(d); wlTime.setHours(22 + randInt(0, 3), randInt(0, 59));
         const status = isWeekend ? pick(["waiting", "waiting", "notified", "seated"]) : pick(["notified", "seated", "waiting"]);
-        await prisma.waitlistEntry.upsert({ where: { id: wlId }, update: {}, create: { id: wlId, venueId: org.id, name: `${pick(GUEST_FIRST_NAMES)} ${pick(GUEST_LAST_NAMES)}`, partySize: randInt(1, 6), phone: rand() < 0.4 ? `+1 555 ${String(orderSeq).padStart(4, "0")}` : null, quotedMinutes: randInt(15, 45), status, joinedAt: wlTime, notifiedAt: status !== "waiting" ? new Date(wlTime.getTime() + randInt(15, 60) * 60000) : null } });
+        await prisma.waitlistEntry.upsert({ where: { id: wlId }, update: {}, create: { id: wlId, venueId: org.id, name: `${pick(CORPUS_GUEST_FIRST_NAMES)} ${pick(CORPUS_GUEST_LAST_NAMES)}`, partySize: randInt(1, 6), phone: rand() < 0.4 ? `+1 555 ${String(orderSeq).padStart(4, "0")}` : null, quotedMinutes: randInt(15, 45), status, joinedAt: wlTime, notifiedAt: status !== "waiting" ? new Date(wlTime.getTime() + randInt(15, 60) * 60000) : null } });
       }
 
       // ── Shifts for tonight ──
@@ -484,7 +463,7 @@ async function main() {
       const categorySales: Record<string, { categoryName: string; unitsSold: number }> = {};
 
       for (let si = 0; si < sessionsTonight; si++) {
-        const table = pick(allTables); const fn = pick(GUEST_FIRST_NAMES); const partySize = randInt(2, 6);
+        const table = pick(allTables); const fn = pick(CORPUS_GUEST_FIRST_NAMES); const partySize = randInt(2, 6);
         const arriveHr = 22 + randInt(0, 3);
         const sStart = new Date(d); sStart.setHours(arriveHr, randInt(0, 59), 0, 0);
         const sEnd = new Date(sStart); sEnd.setHours(sEnd.getHours() + randInt(1, 3));
@@ -495,7 +474,7 @@ async function main() {
         const gp = rand() < 0.3 ? pick(guestProfiles) : null;
         const promoter = staffUsers.find((s) => s.role === "promoter" && rand() < 0.6);
 
-        await prisma.guestSession.upsert({ where: { id: seId }, update: {}, create: { id: seId, venueId: org.id, tableId: table.id, tableCode: table.code, zoneName: table.zoneName, displayName: fn, partySize, status: sessionStatus as any, settlementMethod: sessionStatus === "closed" ? pick([...SETTLEMENT_METHODS]) : null, settledExternallyAt: sessionStatus === "closed" ? sEnd : null, minimumSpendCents: table.code.includes("VIP") || table.code.includes("PRIV") ? randInt(50000, 200000) : null, promoterId: promoter?.userId, guestProfileId: gp?.id, createdAt: sStart } });
+        await prisma.guestSession.upsert({ where: { id: seId }, update: {}, create: { id: seId, venueId: org.id, tableId: table.id, tableCode: table.code, zoneName: table.zoneName, displayName: fn, partySize, status: sessionStatus as any, settlementMethod: sessionStatus === "closed" ? pick([...CORPUS_SETTLEMENT_METHODS]) : null, settledExternallyAt: sessionStatus === "closed" ? sEnd : null, minimumSpendCents: table.code.includes("VIP") || table.code.includes("PRIV") ? randInt(50000, 200000) : null, promoterId: promoter?.userId, guestProfileId: gp?.id, createdAt: sStart } });
         totalSessions++;
         if (gp) await prisma.guestLink.upsert({ where: { id: `${seId}-gl` }, update: {}, create: { id: `${seId}-gl`, venueId: org.id, guestProfileId: gp.id, sessionId: seId } });
 
@@ -531,7 +510,7 @@ async function main() {
         }
         if (rand() < 0.3) {
           const hrId = `${slug}-hr-${nightStr}-${si}`;
-          await prisma.helpRequest.upsert({ where: { id: hrId }, update: {}, create: { id: hrId, venueId: org.id, sessionId: seId, tableCode: table.code, zoneName: table.zoneName, guestName: fn, type: pick([...HELP_TYPES]), status: "resolved", createdAt: sStart } });
+          await prisma.helpRequest.upsert({ where: { id: hrId }, update: {}, create: { id: hrId, venueId: org.id, sessionId: seId, tableCode: table.code, zoneName: table.zoneName, guestName: fn, type: pick([...CORPUS_HELP_TYPES]), status: "resolved", createdAt: sStart } });
           totalHelpRequests++;
         }
       }
@@ -567,7 +546,7 @@ async function main() {
         const status = pick([ReservationStatus.completed, ReservationStatus.completed, ReservationStatus.completed, ReservationStatus.no_show, ReservationStatus.confirmed]);
         const table = rand() < 0.7 ? pick(allTables) : null;
         const gp = rand() < 0.4 ? pick(guestProfiles) : null;
-        await prisma.reservation.upsert({ where: { id: rid }, update: {}, create: { id: rid, venueId: org.id, guestName: gp?.displayName ?? `${pick(GUEST_FIRST_NAMES)} party`, partySize: randInt(4, 12), startsAt: rTime, status, zoneId: table?.zoneId ?? pick(zoneIds), tableId: table?.id ?? null, source: isPublic ? "public" : "manager", channel, guestEmail: isPublic ? `${pick(GUEST_FIRST_NAMES).toLowerCase()}@example.com` : null, guestPhone: rand() < 0.3 ? `+1 555 ${String(ri).padStart(4, "0")}` : null, reservationPin: status === "confirmed" ? seededPin(rid) : null, guestProfileId: gp?.id, expectedDurationMinutes: randInt(120, 240), seatingNumber: rand() < 0.3 ? (pick([1, 2]) as number) : null, createdAt: rTime } });
+        await prisma.reservation.upsert({ where: { id: rid }, update: {}, create: { id: rid, venueId: org.id, guestName: gp?.displayName ?? `${pick(CORPUS_GUEST_FIRST_NAMES)} party`, partySize: randInt(4, 12), startsAt: rTime, status, zoneId: table?.zoneId ?? pick(zoneIds), tableId: table?.id ?? null, source: isPublic ? "public" : "manager", channel, guestEmail: isPublic ? `${pick(CORPUS_GUEST_FIRST_NAMES).toLowerCase()}@example.com` : null, guestPhone: rand() < 0.3 ? `+1 555 ${String(ri).padStart(4, "0")}` : null, reservationPin: status === "confirmed" ? seededPin(rid) : null, guestProfileId: gp?.id, expectedDurationMinutes: randInt(120, 240), seatingNumber: rand() < 0.3 ? (pick([1, 2]) as number) : null, createdAt: rTime } });
         totalReservations++;
         if (gp) await prisma.guestLink.upsert({ where: { id: `${rid}-gl` }, update: {}, create: { id: `${rid}-gl`, venueId: org.id, guestProfileId: gp.id, reservationId: rid } });
       }

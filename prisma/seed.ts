@@ -13,8 +13,7 @@ import {
 import { toCents } from "../src/features/shared/money";
 import { getDb, getRawPrisma } from "../src/features/shared/db";
 import { ensureMapPositions } from "../src/features/venue/core";
-
-const DEMO_PASSWORD = "demo1234";
+import { CORPUS_ROSTER, PLATFORM_ADMIN, DEMO_PASSWORD } from "../src/lib/seed-corpus";
 
 /**
  * Bartenders only work the bar, hosts only work VIP, runners float
@@ -23,6 +22,8 @@ const DEMO_PASSWORD = "demo1234";
 function zoneIdsForRole(role: StaffRole): string[] {
   if (role === "bartender") return ["zone-bar"];
   if (role === "host") return ["zone-vip"];
+  if (role === "security") return [];   // security floats — no fixed zone
+  if (role === "promoter") return [];   // promoter floats — no fixed zone
   return [];
 }
 
@@ -77,32 +78,36 @@ async function main() {
   const nina = await seedUser("Nina Kovač", "nina@velvetmtl.club");
   console.log(`User: Nina Kovač (${nina.user.id})`);
 
-  // Floor roster beyond the manager — 2 bartenders, 3 runners (incl. Nina), 3 hosts.
-  // `nights` are the venue's open weekdays this person is scheduled (0=Sun..6=Sat) —
-  // staggered so every open night has bar/VIP/runner coverage without everyone
-  // working every night.
-  const floorRoster: { name: string; email: string; role: StaffRole; initials: string; phone: string; nights: number[] }[] = [
-    { name: "Sofia Moreau", email: "sofia@velvetmtl.club", role: "bartender", initials: "SM", phone: "+33 6 11 22 33 44", nights: [4, 5, 6] },
-    { name: "Theo Andersson", email: "theo@velvetmtl.club", role: "bartender", initials: "TA", phone: "+33 6 22 33 44 55", nights: [5, 6] },
-    { name: "Karim Haddad", email: "karim@velvetmtl.club", role: "runner", initials: "KH", phone: "+33 6 33 44 55 66", nights: [5, 6] },
-    { name: "Maya Petrov", email: "maya@velvetmtl.club", role: "runner", initials: "MP", phone: "+33 6 44 55 66 77", nights: [4, 5] },
-    { name: "Lucas Bergeron", email: "lucas@velvetmtl.club", role: "host", initials: "LB", phone: "+33 6 55 66 77 88", nights: [4, 5] },
-    { name: "Emma Wallace", email: "emma@velvetmtl.club", role: "host", initials: "EW", phone: "+33 6 66 77 88 99", nights: [5, 6] },
-    { name: "Chloé Fontaine", email: "chloe@velvetmtl.club", role: "host", initials: "CF", phone: "+33 6 77 88 99 00", nights: [4, 6] },
-  ];
-  const floorStaff: { userId: string; def: (typeof floorRoster)[number] }[] = [];
-  for (const def of floorRoster) {
-    const result = await seedUser(def.name, def.email);
-    floorStaff.push({ userId: result.user.id, def });
-    console.log(`User: ${def.name} (${result.user.id})`);
+  // Floor roster from canonical seed corpus — excludes manager (Amara, seeded above)
+  // and runner (Nina, also seeded above). Remaining: bartenders, runners, hosts, security.
+  const floorRoster = CORPUS_ROSTER.filter(
+    (m) => m.id !== "st-amara" && m.id !== "st-nina"
+  ).map((m) => ({
+    id: m.id,
+    name: m.name,
+    email: m.email,
+    role: m.role as StaffRole,
+    initials: m.initials,
+    phone: m.phone,
+    nights: m.nights,
+    hourlyRateCents: m.hourlyRateCents,
+    tipPoolWeight: m.tipPoolWeight,
+    employmentType: m.employmentType,
+    assignedZoneIds: m.assignedZoneIds,
+  }));
+  const floorStaff: { userId: string; staff: (typeof floorRoster)[number] }[] = [];
+  for (const staff of floorRoster) {
+    const result = await seedUser(staff.name, staff.email);
+    floorStaff.push({ userId: result.user.id, staff });
+    console.log(`User: ${staff.name} (${result.user.id})`);
   }
 
-  const adminUser = await seedUser("Platform Admin", "admin@nightlifext.com");
+  const adminUser = await seedUser(PLATFORM_ADMIN.name, PLATFORM_ADMIN.email);
   await prisma.user.update({
     where: { id: adminUser.user.id },
     data: { isPlatformAdmin: true, role: "admin" },
   });
-  console.log(`User: Platform Admin (${adminUser.user.id}) [isPlatformAdmin]`);
+  console.log(`User: ${PLATFORM_ADMIN.name} (${adminUser.user.id}) [isPlatformAdmin]`);
 
   // ── Organization (= venue) ────────────────────────────────────────
   const org = await prisma.organization.findUnique({ where: { slug: "velvet-mtl" } })
@@ -173,22 +178,22 @@ async function main() {
   for (const s of floorStaff) {
     await prisma.staffProfile.upsert({
       where: { userId: s.userId },
-      update: { role: s.def.role, assignedZoneIds: zoneIdsForRole(s.def.role) },
+      update: { role: s.staff.role, assignedZoneIds: zoneIdsForRole(s.staff.role) },
       create: {
         userId: s.userId,
-        role: s.def.role,
-        phone: s.def.phone,
-        avatarInitials: s.def.initials,
-        assignedZoneIds: zoneIdsForRole(s.def.role),
+        role: s.staff.role,
+        phone: s.staff.phone,
+        avatarInitials: s.staff.initials,
+        assignedZoneIds: zoneIdsForRole(s.staff.role),
         isOnShift: true,
-        hourlyRateCents: s.def.role === "bartender" ? 2200 : s.def.role === "host" ? 2000 : 1800,
-        tipPoolWeight: 1.0,
-        employmentType: "hourly",
+        hourlyRateCents: s.staff.hourlyRateCents,
+        tipPoolWeight: s.staff.tipPoolWeight,
+        employmentType: s.staff.employmentType,
       },
     });
   }
 
-  console.log(`Staff profiles seeded: 1 manager, 2 bartenders, 3 runners, 3 hosts`);
+  console.log(`Staff profiles seeded: 1 manager, 2 bartenders, 3 runners, 3 hosts, 1 security`);
 
   // ── Venue config (1:1 with the organization) ──────────────────────
   await prisma.venue.upsert({
@@ -270,7 +275,7 @@ async function main() {
   const shiftPlans: { userId: string; role: StaffRole; nights: number[] }[] = [
     { userId: amara.user.id, role: "manager", nights: [4, 5, 6] },
     { userId: nina.user.id, role: "runner", nights: [4, 5, 6] },
-    ...floorStaff.map((s) => ({ userId: s.userId, role: s.def.role, nights: s.def.nights })),
+    ...floorStaff.map((s) => ({ userId: s.userId, role: s.staff.role, nights: s.staff.nights })),
   ];
   // Regenerated fresh each run — old ids (e.g. from a previous roster shape) would
   // otherwise linger as stale duplicate shifts.
