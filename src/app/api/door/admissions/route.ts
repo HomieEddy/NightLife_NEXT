@@ -22,15 +22,13 @@ async function liveGET(_request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { createAdmission } = await import("@/features/door/core");
   const { zAdmit } = await import("@/features/door/schemas");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "door:admit");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
 
   const body = await request.json();
   const parsed = zAdmit.safeParse(body);

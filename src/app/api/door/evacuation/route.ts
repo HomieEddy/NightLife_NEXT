@@ -20,20 +20,19 @@ async function liveGET(_request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { evacuate } = await import("@/features/door/core");
   const { zEvacuate } = await import("@/features/door/schemas");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "emergency:evacuate");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const { venueId } = sessionToDbContext(auth.session);
+  const { venueId, db } = auth;
 
   const parsed = zEvacuate.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
   try {
-    const result = await evacuate(getDb({ venueId }), venueId, parsed.data.staffId, parsed.data.staffName);
+    const result = await evacuate(db, venueId, parsed.data.staffId, parsed.data.staffName);
     return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 403 });
