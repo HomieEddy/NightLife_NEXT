@@ -322,10 +322,12 @@ organises all work into nine phases: Foundation → Core Ops → Business Logic
 Completion → Automation & Intelligence → Mobile (PWA + Push) → Foundation
 Modernization → **Live Graduation to MVP** → Production Readiness → CI/CD.
 
-**Where we are:** Phases 1–6 are done. The product is feature-complete *on the
-demo track*; roughly half the surface still throws `"Not yet supported"` in the
-live build. **Phase 7 closes that gap** and is the only thing between here and
-MVP. Read Phase 7's workstream table (WS-1…WS-8) before picking up backend work;
+**Where we are:** Phases 1–7 are done (Phase 7 closed 2026-07-31 —
+`docs/PHASE-7-AUDIT.md`). Every feature works in **both** builds: all 29 service
+selectors resolve to a real live implementation against Postgres, and the demo
+sandbox still runs the same workflows on mocks. **Phase 8 (production
+readiness) is current** — plans 31–35. Note that plans 34 (French UI) and 35
+(Law 25 / PIPEDA) are legal requirements for the Quebec market, not polish.
 `docs/PHASE-PROMPT.md` is the per-workstream kickoff template.
 
 **Strategy: Business Logic First.** Operational completeness comes before CI/CD,
@@ -550,6 +552,21 @@ makes it obsolete.
   trigger on a role's page. Finding a service method with no UI to invoke it is
   the same class of gap as the safety features that shipped half-finished — this
   appendix entry is the tripwire.
+- A new Prisma model needs a migration in the same commit — `npx tsc --noEmit`
+  and `npx prisma generate` both succeed against a model with zero migrations,
+  because the generated client only needs the schema, never a real table. Five
+  models (`SessionNote`, `BarTab`, `VipTierBenefit`, `AttentionItem`,
+  `AttentionAcknowledgment`) shipped this way and threw "table does not exist"
+  on first live use — caught only by writing an integration test against a real
+  in-process Postgres (`createTestDb()`), not by any static check. If a model
+  has no `CREATE TABLE` anywhere under `prisma/migrations/*/migration.sql`,
+  it doesn't exist outside your local `db push`.
+- `getDb()`'s tenant-scoping extension (`src/features/shared/db.ts`) injects
+  `venueId` into every operation on every model, except the ones on its
+  `platformModels` list. A model scoped through a parent FK instead of its own
+  `venueId` column (`IncidentNote`, `SupplierItem`, `AttentionAcknowledgment`)
+  must be added to that list or every `create` on it throws "Unknown argument
+  `venueId`." Check this the moment a new child/join table is added.
 
 - `useSearchParams` **must** sit under `<Suspense>` — wrap the page content in
   a `*Content` component; the default export renders the boundary.
@@ -577,7 +594,12 @@ makes it obsolete.
   are gated behind `isDemoMode()` and never render in the live build.
   `QR_TOKEN_SECRET` env var is required in live mode (distinct from
   `AUTH_SECRET`). A table with an active confirmed reservation is gated behind
-  its 6-digit reservation PIN (plan 13 — demo track only until it graduates).
+  its 6-digit reservation PIN (plan 13). The two routes behind that gate
+  (`/api/public/reservations/table/[tableId]/{active,pin}`) are genuinely
+  public — they resolve the tenant from the table row, redact the PIN and the
+  booker's contact details, and rate-limit guessing. Never add an area guard to
+  a route the QR landing calls: the guest has no session yet, and a 401 there
+  surfaces to them as "Table not found".
   The manager area gates on first run: clear
   `localStorage["nlx-manager-onboarded"]` to see onboarding.
 - Realtime (plan 07): **demo mode** uses fallback polling only (no SSE server).
