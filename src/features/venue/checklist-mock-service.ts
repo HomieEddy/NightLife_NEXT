@@ -2,9 +2,6 @@
  * mockChecklistService — opening/closing checklist management (VM-05).
  * Templates define what needs to be checked; runs track a specific night's
  * execution. Required items must be checked before a run can complete.
- *
- * TODO(backend): templates are venue-scoped rows; runs are append-only per
- * business date. Completing a run writes an AuditEntry.
  */
 import type {
   ChecklistRun,

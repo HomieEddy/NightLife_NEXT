@@ -30,7 +30,12 @@ export type DomainEventType =
   | "SessionsMerged"
   | "CashoutClosed"
   | "OrdersReassigned"
-  | "WalkoutReported";
+  | "WalkoutReported"
+  | "PurchaseOrderSubmitted"
+  | "StockReceived"
+  | "StocktakeCommitted"
+  | "WasteRecorded"
+  | "TargetBreached";
 
 export interface DomainEvent {
   type: DomainEventType;
