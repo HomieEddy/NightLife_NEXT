@@ -810,6 +810,8 @@ export interface AnalyticsSummary {
   inventoryDepth?: InventoryDepthAnalytics;
   promoters?: PromoterAnalytics;
   adjustments?: AdjustmentAnalytics;
+  pourCostPercent?: number;
+  grossMarginPercent?: number;
 }
 
 export interface HistoricalAnalytics {
@@ -819,6 +821,8 @@ export interface HistoricalAnalytics {
   totalRevenue: number;
   totalOrders: number;
   avgOrderValue: number;
+  pourCostPercent: number;
+  grossMarginPercent: number;
   bestNight: RevenuePoint;
   series: RevenuePoint[];
   revenueByZone: { zoneId: string; zoneName: string; revenue: number }[];

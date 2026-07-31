@@ -216,6 +216,13 @@ export async function getSummaryForVenue(
   const reservationAnalytics = computeReservationAnalytics(reservations);
   const orderFunnel = computeOrderFunnelAnalytics(allOrders);
 
+  const pourCostPercent = tonightStats.revenueCents > 0
+    ? Math.round((tonightStats.totalCostCents / tonightStats.revenueCents) * 1000) / 10
+    : 0;
+  const grossMarginPercent = tonightStats.revenueCents > 0
+    ? Math.round(((tonightStats.revenueCents - tonightStats.totalCostCents) / tonightStats.revenueCents) * 1000) / 10
+    : 0;
+
   return {
     revenueTonight,
     revenueDeltaPct: delta(tonightStats.revenueCents, lastNightStats.revenueCents),
@@ -241,6 +248,8 @@ export async function getSummaryForVenue(
     sessions: sessionAnalytics,
     reservations: reservationAnalytics,
     orderFunnel,
+    pourCostPercent,
+    grossMarginPercent,
   };
 }
 
@@ -251,6 +260,7 @@ type StaffPerfInternal = StaffPerformancePoint & { shiftHours: number };
 interface NightStats {
   revenueCents: number;
   orderCount: number;
+  totalCostCents: number;
   avgFulfillmentMinutes: number;
   orderEta: OrderEtaMetrics;
   orderEtaRaw: { acceptCount: number; acceptTotal: number; prepCount: number; prepTotal: number; totalCount: number; totalTotal: number };
@@ -462,9 +472,24 @@ async function queryNightStats(db: ScopedDb, venueId: string, night: NightBounda
     ([categoryId, c]) => ({ categoryId, categoryName: c.categoryName, unitsSold: c.unitsSold, unitsInStock: c.unitsInStock }),
   );
 
+  // Compute COGS: Σ(item.quantity × avgCostCents) per sold item
+  let totalCostCents = 0;
+  const menuItemIds = [...new Set(orders.flatMap((o) => o.items.map((i) => i.menuItemId)))];
+  if (menuItemIds.length > 0) {
+    const menuItems = await db.menuItem.findMany({ where: { id: { in: menuItemIds } }, select: { id: true, avgCostCents: true } });
+    const costMap = new Map(menuItems.map((m) => [m.id, m.avgCostCents]));
+    for (const order of orders) {
+      for (const item of order.items) {
+        const cost = costMap.get(item.menuItemId);
+        if (cost) totalCostCents += item.quantity * cost;
+      }
+    }
+  }
+
   return {
     revenueCents,
     orderCount,
+    totalCostCents,
     avgFulfillmentMinutes,
     orderEta,
     orderEtaRaw: { acceptCount: etaAcceptCount, acceptTotal: etaAcceptTotal, prepCount: etaPrepCount, prepTotal: etaPrepTotal, totalCount: etaTotalCount, totalTotal: etaTotalTotal },
@@ -482,6 +507,7 @@ export interface RollupData {
   revenueCents: number;
   orderCount: number;
   avgOrderCents: number;
+  totalCostCents: number;
   byZone: { v: number; zones: { zoneId: string; zoneName: string; revenueCents: number; orderCount: number }[] };
   topItems: { v: number; items: { name: string; count: number; revenueCents: number; categoryId?: string }[] };
   staffPerformance: { v: number; staff: { staffId: string; name: string; role: string; ordersDelivered: number; avgDeliveryMinutes: number; revenueServedCents: number; helpResolved: number; avgHelpMinutes?: number; avgAcceptMinutes?: number; shiftHours: number }[]; eta?: { acceptCount: number; acceptTotal: number; prepCount: number; prepTotal: number; totalCount: number; totalTotal: number } };
@@ -517,6 +543,7 @@ export async function computeRollup(
     avgOrderCents: stats.orderCount > 0
       ? Math.round(stats.revenueCents / stats.orderCount)
       : 0,
+    totalCostCents: stats.totalCostCents,
     byZone: {
       v: 1,
       zones: stats.revenueByZone.map((z) => ({
@@ -579,6 +606,7 @@ export async function upsertRollup(
       revenueCents: data.revenueCents,
       orderCount: data.orderCount,
       avgOrderCents: data.avgOrderCents,
+      totalCostCents: data.totalCostCents,
       byZone: data.byZone as object,
       topItems: data.topItems as object,
       staffPerformance: data.staffPerformance as object,
@@ -588,6 +616,7 @@ export async function upsertRollup(
       revenueCents: data.revenueCents,
       orderCount: data.orderCount,
       avgOrderCents: data.avgOrderCents,
+      totalCostCents: data.totalCostCents,
       byZone: data.byZone as object,
       topItems: data.topItems as object,
       staffPerformance: data.staffPerformance as object,
@@ -617,6 +646,13 @@ export async function getHistoricalForVenue(
 
   const totalRevenue = rollups.reduce((s, r) => s + fromCents(r.revenueCents), 0);
   const totalOrders = rollups.reduce((s, r) => s + r.orderCount, 0);
+  const totalCostCents = rollups.reduce((s, r) => s + (r.totalCostCents ?? 0), 0);
+  const pourCostPercent = totalRevenue > 0
+    ? Math.round((totalCostCents / totalRevenue) * 10) / 10
+    : 0;
+  const grossMarginPercent = totalRevenue > 0
+    ? Math.round(((totalRevenue - totalCostCents / 100) / totalRevenue) * 1000) / 10
+    : 0;
   const bestNight = series.length > 0
     ? series.reduce((best, p) => (p.revenue > best.revenue ? p : best), series[0])
     : { label: "", revenue: 0, orders: 0 };
@@ -789,6 +825,8 @@ export async function getHistoricalForVenue(
     totalRevenue,
     totalOrders,
     avgOrderValue: totalOrders > 0 ? Math.round((totalRevenue / totalOrders) * 100) / 100 : 0,
+    pourCostPercent,
+    grossMarginPercent,
     bestNight,
     series,
     revenueByZone: [...zoneMap.entries()].map(([zoneId, z]) => ({

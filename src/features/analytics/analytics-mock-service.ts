@@ -152,6 +152,8 @@ export const mockAnalyticsService = {
       totalRevenue,
       totalOrders,
       avgOrderValue: Math.round((totalRevenue / totalOrders) * 100) / 100,
+      pourCostPercent: 28.5,
+      grossMarginPercent: 71.5,
       bestNight,
       series,
       revenueByZone: mockAnalytics.revenueByZone.map((z) => ({
