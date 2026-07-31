@@ -83,7 +83,7 @@ reach staff.
 |------|---------|--------------|
 | 13 | Embedded reservations & reserved-table QR gate (PIN gating, public booking page) | Demo · live pending (WS-3) |
 | 14 | Promoters: role, mobile panel & attribution analytics | Demo · live pending (WS-3) |
-| 15 | Floor-role capability matrix & security panel | Demo · live pending (WS-6) |
+| 15 | Floor-role capability matrix & security panel | Demo · **live (WS-6)** — server-enforced permissions, nav derived from the matrix |
 | 16 | Tab ledger: comp/void/discount with reason codes, minimum spend, transfer/merge/split, shift cash-out, audit trail | Demo · live pending (WS-1) |
 | 17 | Door surface, guest profiles, incidents, ejection, safety enforcement | Demo · live pending (WS-2) |
 | 25 | Notification dispatch core (Resend email, React Email templates, `NotificationLog`, BullMQ/cron) | **Live** |
@@ -214,7 +214,7 @@ in what order. Update the plan file in the same PR if you depart from it.
 | **WS-3** | **Hospitality completion.** Public reservation API routes (plan 13 graduation), `markNoShow` (remove the `reservation-core.ts` guard — the Prisma enum already has the value), blackout dates, bump/upgrade, late-arrival grace, event guest status PATCH, event cancellation, talent management, promoter guestlist quota, public events route, promoter attribution filter. | 13, 14, 08 | `hospitality/reservation-live-service.ts`, `hospitality/events-live-service.ts`, `hospitality/events-mock-service.ts` | Med |
 | **WS-4** | **Workforce & incentives.** Time tracking (~15 methods: clock in/out, breaks, dated shifts, time off, swaps), tip pool rules and distributions, commission rules and statements, table assignments, shift handoffs, and the shift-reminder scheduled job. New routes under `/api/workforce/*`. | 18 | `workforce/time-live-service.ts`, `workforce/tips-live-service.ts`, `workforce/commission-live-service.ts`, `workforce/staff-live-service.ts` | Med |
 | **WS-5** | **Cost, supply & profitability.** The purchasing module (~18 methods: suppliers, POs with unit costs, stocktakes with variance, 86-board, waste, profit targets, event costs, pre-/post-service checklists) and checklist graduation (templates as venue-scoped rows, runs append-only per business date). New routes under `/api/purchasing/*`. | 19 | `platform/purchasing-live-service.ts`, `venue/checklist-mock-service.ts` | Med |
-| **WS-6** | **Role permissions persistence.** `getRolePermissions` from a new `venue_role_permissions` table rather than the hardcoded default map, plus `setRolePermissions` and `resetRolePermissions` with an audit entry per change. | 15 | `platform/permission-live-service.ts`, `shared/permissions.ts` | Med |
+| **WS-6** | **Role permissions — persistence + enforcement (shipped).** `venue_role_permissions` table + delta persistence with an audit entry per change; plus the enforcement half: a `requirePermission()`/`requireStaffContext()` server guard adopted across ~47 route handlers (each `StaffAction` gated at the `"staff"` area with the action as authority), scoped `canDo(perms, role, action, ctx)` for ownership/zone actions, a fail-closed `usePermissions()` hook + `<Can>` replacing the hardcoded `"venue-1"` in 10 pages, and `getStaffNav` derived from the live matrix so nav can't drift. Reservations (dual manager/promoter authority) and config CRUD stay area-only. | 15 | `platform/permission-guard.ts`, `platform/permission-live-service.ts`, `shared/permissions.ts`, `platform/use-permissions.ts` | Med |
 | **WS-7** | **Notification residue.** Reservation PIN delivery via email/SMS on confirm, and the `venueName` fix in `/api/reservations/[id]/status` (fetch the org name instead of passing `venueId` as the name). | 25, 26 | `hospitality/reservation-mock-service.ts`, `app/api/reservations/[id]/status/route.ts` | Low |
 | **WS-8** | **Schema & type alignment.** `promoterId` FK on Reservation, nullable `photoUrl` column, `"merged"` added to the Prisma `SessionStatus` enum, `isAlcoholic`/`abv`/`allergens` columns on MenuItem, `reservationPin` stamped at seat time, `happyHourSnapshot` attribution column, and replacing the hardcoded `VENUE_ID = "venue-1"` in `app/manager/staff/page.tsx` with the session's venueId. | — (cross-cutting) | `lib/types.ts`, `features/sessions/core.ts`, `features/menu/core.ts` | Low |
 
@@ -312,7 +312,7 @@ realignment so that all *remaining* work is numbered in ROADMAP order.
 | 01–12 | Foundation through platform admin & local dev | 1 | Live |
 | 13 | Embedded reservations & QR gate | 2 | Demo · WS-3 |
 | 14 | Promoters | 2 | Demo · WS-3 |
-| 15 | Floor-role capability matrix & security panel | 2 | Demo · WS-6 |
+| 15 | Floor-role capability matrix & security panel | 2 | Demo · **live (WS-6 shipped)** |
 | 16 | Tab ledger & adjustments | 2 | Demo · WS-1 |
 | 17 | Door, arrival, guest identity & safety | 2 | Demo · WS-2 |
 | 18 | Workforce: time, incentives | 3 | Demo · WS-4 |

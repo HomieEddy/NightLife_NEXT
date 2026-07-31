@@ -10,15 +10,13 @@ async function liveGET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { getProfile } = await import("@/features/guests/core");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "guest:read-profile");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { db } = auth;
 
   const { id } = await params;
   const profile = await getProfile(db, id);
@@ -30,20 +28,18 @@ async function livePATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { updateProfile } = await import("@/features/guests/core");
   const { zUpdateProfile } = await import("@/features/guests/schemas");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "guest:edit-profile");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zUpdateProfile.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
   const { id } = await params;
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const profile = await updateProfile(
     db,
     venueId,

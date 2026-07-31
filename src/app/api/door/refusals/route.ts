@@ -23,19 +23,18 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { recordRefusal } = await import("@/features/door/core");
   const { zRecordRefusal } = await import("@/features/door/schemas");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "service:refuse");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zRecordRefusal.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const refusal = await recordRefusal(getDb({ venueId }), venueId, parsed.data);
+  const { venueId, db } = auth;
+  const refusal = await recordRefusal(db, venueId, parsed.data);
   return NextResponse.json(refusal, { status: 201 });
 }
 

@@ -24,20 +24,18 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { doorService } from "@/features/door/services";
 import { guestService } from "@/features/sessions/services";
-import { permissionService } from "@/features/platform/permission-service";
+import { usePermissions } from "@/features/platform/use-permissions";
 import { reservationService } from "@/features/hospitality/reservation-service";
 import { staffService } from "@/features/workforce/staff-service";
 import { venueService } from "@/features/venue/services";
 import { waitlistService } from "@/features/door/waitlist-service";
 import type { WaitlistEntryWithPosition } from "@/features/door/waitlist-service";
-import { canDo } from "@/features/shared/permissions";
 import { isBanned, occupancyRatio } from "@/lib/door";
 import { formatMoney, timeAgo } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import { doorKeys, waitlistKeys } from "@/features/door/query-keys";
 import { staffKeys } from "@/features/workforce/query-keys";
 import { venueKeys } from "@/features/venue/query-keys";
-import { permissionsKeys } from "@/features/platform/query-keys";
 import { useAuth } from "@/context/auth-context";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type {
@@ -125,11 +123,7 @@ export default function StaffDoorPage() {
     enabled: !!venueId,
   });
 
-  const { data: permissions } = useQuery({
-    queryKey: permissionsKeys.role(venueId),
-    queryFn: () => permissionService.getRolePermissions("venue-1"),
-    enabled: !!venueId,
-  });
+  const { can, isLoading: permsLoading } = usePermissions();
 
   const { data: venue } = useQuery({
     queryKey: venueKeys.single(venueId),
@@ -182,13 +176,13 @@ export default function StaffDoorPage() {
 
   // --- Permission flags ---
 
-  const canAdmit = !!(me && permissions && canDo(permissions, me.role, "door:admit"));
-  const canCount = !!(me && permissions && canDo(permissions, me.role, "door:count"));
-  const canOverrideBan = !!(me && permissions && canDo(permissions, me.role, "door:admit-banned-override"));
-  const canManageWaitlist = !!(me && permissions && canDo(permissions, me.role, "waitlist:manage"));
-  const canEvacuate = !!(me && permissions && canDo(permissions, me.role, "emergency:evacuate"));
-  const canResume = !!(me && permissions && canDo(permissions, me.role, "emergency:resume"));
-  const canOverrideCapacity = !!(me && permissions && canDo(permissions, me.role, "door:admit-capacity-override"));
+  const canAdmit = can("door:admit");
+  const canCount = can("door:count");
+  const canOverrideBan = can("door:admit-banned-override");
+  const canManageWaitlist = can("waitlist:manage");
+  const canEvacuate = can("emergency:evacuate");
+  const canResume = can("emergency:resume");
+  const canOverrideCapacity = can("door:admit-capacity-override");
 
   // --- Search (on-demand, not cached) ---
 
@@ -446,7 +440,7 @@ export default function StaffDoorPage() {
     evacuateMutation.isPending ||
     resumeEvacuationMutation.isPending;
 
-  if (me && permissions && !canCount && !canAdmit) {
+  if (!permsLoading && !canCount && !canAdmit) {
     return (
       <div className="p-4">
         <EmptyState

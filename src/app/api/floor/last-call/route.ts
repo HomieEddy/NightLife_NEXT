@@ -21,15 +21,13 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { startLastCall, endLastCall } = await import("@/features/realtime/floor-core");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "lastcall:start");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const body = await request.json();
   const action = body.action as "start" | "end";
 

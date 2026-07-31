@@ -8,128 +8,69 @@ import {
   CalendarCheck,
   CalendarDays,
   PartyPopper,
-  Shield,
   DoorOpen,
   AlertTriangle,
   DollarSign,
   BellRing,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import {
+  canDo,
+  DEFAULT_ROLE_PERMISSIONS,
+  type StaffAction,
+  type RolePermissions,
+} from "./permissions";
 
-// StaffAction type lives in permissions.ts (re-exported here for convenience).
-export type { StaffAction } from "./permissions";
+// StaffAction type + help-scope logic live in permissions.ts (the pure authz
+// module); re-exported here for existing consumers.
+export type { StaffAction, HelpScope } from "./permissions";
+export { getHelpScope } from "./permissions";
 
-// ---------- Staff-panel nav per floor role ----------
+// ---------- Staff-panel nav ----------
 
 export interface StaffNavItem {
   href: string;
   label: string;
   icon: LucideIcon;
   feature?: FeatureKey;
+  /**
+   * Hidden unless the role holds this action in the live RolePermissions.
+   * Undefined ⇒ always shown. This is the single seam that keeps nav and
+   * permissions from drifting: revoke the action in the role editor and the
+   * nav entry disappears (plan 15 — one capability matrix feeds nav and API).
+   */
+  requiredAction?: StaffAction;
 }
 
-const SCHEDULE_ITEM: StaffNavItem = { href: "/staff/schedule", label: "Schedule", icon: CalendarDays };
-
-const TIPS_ITEM: StaffNavItem = { href: "/staff/tips", label: "Tips", icon: DollarSign };
-
-const BASE_NAV: StaffNavItem[] = [
+// One ordered list; per-role nav is this filtered by live permissions. The
+// first four surviving items become the bottom-nav; the rest go under "More".
+const ALL_NAV: StaffNavItem[] = [
   { href: "/staff", label: "Home", icon: Home },
-  { href: "/staff/orders", label: "Orders", icon: Receipt },
-  { href: "/staff/approvals", label: "Approvals", icon: UserCheck },
-  { href: "/staff/help", label: "Help", icon: LifeBuoy },
-  { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
-  TIPS_ITEM,
-  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
-];
-
-/** Runner: fulfillment only — no session approvals. */
-const RUNNER_NAV: StaffNavItem[] = [
-  { href: "/staff", label: "Home", icon: Home },
-  { href: "/staff/orders", label: "Orders", icon: Receipt },
-  { href: "/staff/help", label: "Help", icon: LifeBuoy },
-  SCHEDULE_ITEM,
-  TIPS_ITEM,
+  { href: "/staff/orders", label: "Orders", icon: Receipt, requiredAction: "order:claim" },
+  { href: "/staff/approvals", label: "Approvals", icon: UserCheck, requiredAction: "session:approve" },
+  { href: "/staff/door", label: "Door", icon: DoorOpen, feature: "door", requiredAction: "door:admit" },
+  { href: "/staff/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents", requiredAction: "incident:read-all" },
+  { href: "/staff/reservations", label: "Reservations", icon: CalendarCheck, requiredAction: "reservation:create-own" },
+  { href: "/staff/events", label: "Events", icon: PartyPopper, requiredAction: "reservation:create-own" },
+  { href: "/staff/help", label: "Help", icon: LifeBuoy, requiredAction: "help:respond" },
+  { href: "/staff/schedule", label: "Schedule", icon: CalendarDays },
+  { href: "/staff/tips", label: "Tips", icon: DollarSign },
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
   { href: "/staff/notifications", label: "Notifications", icon: BellRing },
 ];
 
-/** Security: door + trouble + hours + radio — no orders or approvals. */
-const SECURITY_NAV: StaffNavItem[] = [
-  { href: "/staff", label: "Home", icon: Home },
-  { href: "/staff/door", label: "Door", icon: DoorOpen, feature: "door" },
-  { href: "/staff/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents" },
-  { href: "/staff/help", label: "Help", icon: Shield },
-  SCHEDULE_ITEM,
-  TIPS_ITEM,
-  { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
-  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
-];
-
-/** Host: floor role focused on approvals, not the door — that's Security's domain. */
-const HOST_NAV: StaffNavItem[] = [
-  { href: "/staff", label: "Home", icon: Home },
-  { href: "/staff/orders", label: "Orders", icon: Receipt },
-  { href: "/staff/approvals", label: "Approvals", icon: UserCheck },
-  { href: "/staff/help", label: "Help", icon: LifeBuoy },
-  SCHEDULE_ITEM,
-  TIPS_ITEM,
-  { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
-  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
-];
-
-const PROMOTER_NAV: StaffNavItem[] = [
-  { href: "/staff", label: "Home", icon: Home },
-  { href: "/staff/orders", label: "Orders", icon: Receipt },
-  { href: "/staff/approvals", label: "Approvals", icon: UserCheck },
-  { href: "/staff/events", label: "Events", icon: PartyPopper },
-  { href: "/staff/reservations", label: "Reservations", icon: CalendarCheck },
-  SCHEDULE_ITEM,
-  TIPS_ITEM,
-  { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
-  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
-];
-
-/** All non-runner, non-security, non-promoter floor roles. */
-const FLOOR_NAV: StaffNavItem[] = [
-  ...BASE_NAV.slice(0, -1), // Home · Orders · Approvals · Help
-  SCHEDULE_ITEM,
-  TIPS_ITEM,
-  { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
-  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
-];
-
-const STAFF_NAV: Record<StaffRole, StaffNavItem[]> = {
-  manager: FLOOR_NAV,
-  host: HOST_NAV,
-  bartender: FLOOR_NAV,
-  runner: RUNNER_NAV,
-  security: SECURITY_NAV,
-  promoter: PROMOTER_NAV,
-};
-
-export function getStaffNav(role: StaffRole): StaffNavItem[] {
-  return STAFF_NAV[role];
-}
-
-// ---------- Help-request scope per floor role ----------
-
-/** Which help requests a role can see and respond to. */
-export type HelpScope =
-  | "all"             // manager, host — see every request
-  | "assigned-zones"  // bartender, runner — requests in their assignedZoneIds (security type excluded for runner)
-  | "security-only";  // security — only security-type requests
-
-const HELP_SCOPE: Record<StaffRole, HelpScope> = {
-  manager: "all",
-  host: "all",
-  bartender: "assigned-zones",
-  runner: "assigned-zones",
-  security: "security-only",
-  promoter: "all", // promoters don't have help:respond but see context
-};
-
-export function getHelpScope(role: StaffRole): HelpScope {
-  return HELP_SCOPE[role];
+/**
+ * Nav for a role, gated by its live permissions. `permissions` defaults to the
+ * app defaults so callers that only need the shape (e.g. the command palette)
+ * can omit it; the shell passes the venue's live matrix so overrides apply.
+ */
+export function getStaffNav(
+  role: StaffRole,
+  permissions: RolePermissions = DEFAULT_ROLE_PERMISSIONS,
+): StaffNavItem[] {
+  return ALL_NAV.filter(
+    (item) => !item.requiredAction || canDo(permissions, role, item.requiredAction),
+  );
 }
 
 // ---------- Chat channel pinning per floor role ----------

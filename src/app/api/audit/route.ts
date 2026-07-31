@@ -6,15 +6,13 @@ function demoHandler() {
 }
 
 async function liveGET(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { listAuditEntries } = await import("@/features/tab/core");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "audit:read");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { db } = auth;
 
   const url = new URL(request.url);
   const filter = {

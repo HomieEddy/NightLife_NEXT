@@ -6,19 +6,18 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { sendGift } = await import("@/features/ordering/core");
   const { zSendGift } = await import("@/features/ordering/schemas");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "order:gift");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zSendGift.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
+
   const result = await sendGift(db, venueId, parsed.data);
 
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 409 });

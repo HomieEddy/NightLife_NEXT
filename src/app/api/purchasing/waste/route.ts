@@ -7,19 +7,17 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { recordWaste } = await import("@/features/platform/purchasing-core");
   const { zWaste } = await import("@/features/platform/purchasing-schemas");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "inventory:waste");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zWaste.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const entry = await recordWaste(db, parsed.data.itemId, parsed.data.quantity, parsed.data.reason, parsed.data.staffId);
 
   publish({

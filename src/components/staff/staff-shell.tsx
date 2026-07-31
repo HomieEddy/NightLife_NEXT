@@ -20,6 +20,7 @@ import { venueService } from "@/features/venue/services";
 import { venueKeys } from "@/features/venue/query-keys";
 import { useAuth } from "@/context/auth-context";
 import { useEntitlements } from "@/lib/use-entitlements";
+import { usePermissions } from "@/features/platform/use-permissions";
 import { getStaffNav } from "@/features/shared/role-capabilities";
 import { isNavActive } from "@/features/shared/navigation";
 import { cn } from "@/features/shared/utils";
@@ -35,6 +36,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const { hasFeature } = useEntitlements();
+  const { permissions } = usePermissions();
 
   const { data: me } = useQuery({
     queryKey: staffKeys.me(venueId),
@@ -63,7 +65,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  const allNavItems = getStaffNav(me?.role ?? "runner").filter(
+  const allNavItems = getStaffNav(me?.role ?? "runner", permissions).filter(
     (item) => !item.feature || hasFeature(item.feature),
   );
   const primaryItems: BottomNavItem[] = allNavItems.slice(0, 4);

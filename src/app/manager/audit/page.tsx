@@ -14,12 +14,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { auditService } from "@/features/platform/audit-service";
-import { staffService } from "@/features/workforce/staff-service";
-import { permissionService } from "@/features/platform/permission-service";
-import { canDo } from "@/features/shared/permissions";
+import { usePermissions } from "@/features/platform/use-permissions";
 import { auditKeys } from "@/features/platform/query-keys";
-import { staffKeys } from "@/features/workforce/query-keys";
-import { permissionsKeys } from "@/features/platform/query-keys";
 import { useAuth } from "@/context/auth-context";
 import { formatDate, formatTime } from "@/features/shared/format";
 
@@ -31,19 +27,8 @@ export default function AuditTrailPage() {
   const [actionFilter, setActionFilter] = useState("all");
   const [query, setQuery] = useState("");
 
-  const { data: me } = useQuery({
-    queryKey: staffKeys.me(venueId),
-    queryFn: () => staffService.getCurrentStaff(),
-    enabled: !!venueId,
-  });
-
-  const { data: permissions } = useQuery({
-    queryKey: permissionsKeys.role(venueId),
-    queryFn: () => permissionService.getRolePermissions("venue-1"),
-    enabled: !!venueId,
-  });
-
-  const canRead = !!(me && permissions && canDo(permissions, me.role, "audit:read"));
+  const { can, isLoading: permsLoading } = usePermissions();
+  const canRead = can("audit:read");
 
   const { data: entries } = useQuery({
     queryKey: auditKeys.all(venueId),
@@ -74,7 +59,7 @@ export default function AuditTrailPage() {
 
   useEffect(() => { reset(); }, [query, actorFilter, actionFilter, reset]);
 
-  if (me && permissions && !canRead) {
+  if (!permsLoading && !canRead) {
     return (
       <div className="space-y-5">
         <PageHeader title="Audit trail" description="Every sensitive action, by whom and why." />

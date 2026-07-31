@@ -7,16 +7,14 @@ function demoHandler() {
 }
 
 async function livePOST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { commitStocktake } = await import("@/features/platform/purchasing-core");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "stocktake:commit");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const { id } = await params;
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const stocktake = await commitStocktake(db, id);
 
   publish({

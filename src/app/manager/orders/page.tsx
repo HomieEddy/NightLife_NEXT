@@ -22,8 +22,7 @@ import { ordersService } from "@/features/ordering/services";
 import { staffService } from "@/features/workforce/staff-service";
 import { guestsService } from "@/features/guests/services";
 import { venueService } from "@/features/venue/services";
-import { permissionService } from "@/features/platform/permission-service";
-import { canDo } from "@/features/shared/permissions";
+import { usePermissions } from "@/features/platform/use-permissions";
 import { formatMoney } from "@/features/shared/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { SessionOverview } from "@/components/shared/session-overview";
@@ -33,7 +32,6 @@ import { venueKeys } from "@/features/venue/query-keys";
 import { staffKeys } from "@/features/workforce/query-keys";
 import { menuKeys } from "@/features/menu/query-keys";
 import { sessionsKeys } from "@/features/guests/query-keys";
-import { permissionsKeys } from "@/features/platform/query-keys";
 import { cn } from "@/features/shared/utils";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { DateRangePicker, getDefaultDateRange, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
@@ -116,11 +114,7 @@ export default function ManagerOrdersPage() {
     enabled: !!venueId,
   });
 
-  const { data: permissions } = useQuery({
-    queryKey: permissionsKeys.role(venueId),
-    queryFn: () => permissionService.getRolePermissions("venue-1"),
-    enabled: !!venueId,
-  });
+  const { can } = usePermissions();
 
   const { data: venueSnapshot } = useQuery({
     queryKey: venueKeys.snapshot(venueId),
@@ -397,8 +391,8 @@ export default function ManagerOrdersPage() {
             <>
             <div className="grid gap-3 md:grid-cols-2">
               {sliced.map((order: Order) => {
-                const availableKinds: TabAdjustmentKind[] = permissions && me
-                  ? (["void", "comp", "discount"] as const).filter((k) => canDo(permissions, me.role, `tab:${k}` as const))
+                const availableKinds: TabAdjustmentKind[] = me
+                  ? (["void", "comp", "discount"] as const).filter((k) => can(`tab:${k}` as const))
                   : [];
                 const canAdjust = !!order.sessionId && order.status !== "pending" && order.status !== "cancelled" && availableKinds.length > 0;
                 return (
@@ -443,13 +437,13 @@ export default function ManagerOrdersPage() {
               tables={tables}
               menuItems={items ?? []}
               minimumSpendWarningRatio={minimumSpendWarningRatio}
-              staffContext={me && permissions ? {
+              staffContext={me ? {
                 staffId: me.id,
                 staffName: me.name,
-                canTransfer: canDo(permissions, me.role, "tab:transfer"),
-                canMerge: canDo(permissions, me.role, "tab:merge"),
-                canRefuseService: canDo(permissions, me.role, "service:refuse"),
-                canEjectGuest: canDo(permissions, me.role, "service:refuse"),
+                canTransfer: can("tab:transfer"),
+                canMerge: can("tab:merge"),
+                canRefuseService: can("service:refuse"),
+                canEjectGuest: can("service:refuse"),
                 onChange: refreshAfterTabAction,
               } : undefined}
             />

@@ -1943,3 +1943,15 @@ model AttentionAcknowledgment {
   @@index([attentionItemId])
   @@map("attention_acknowledgments")
 }
+
+model VenueRolePermissions {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  role      StaffRole
+  actions   String[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([venueId, role])
+  @@map("venue_role_permissions")
+}

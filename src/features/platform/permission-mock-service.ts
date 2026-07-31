@@ -9,7 +9,7 @@ export const mockPermissionService = {
   /**
    * Returns the active permission matrix for the venue.
    * Demo: returns any in-memory override set by the manager, otherwise defaults.
-   * TODO(backend): query venue_role_permissions table, merge over DEFAULT_ROLE_PERMISSIONS.
+   * Live: queries venue_role_permissions table, merges over DEFAULT_ROLE_PERMISSIONS.
    */
   async getRolePermissions(venueId: string): Promise<RolePermissions> {
     await delay(0);
@@ -19,7 +19,7 @@ export const mockPermissionService = {
   /**
    * Saves a custom permission matrix for a venue.
    * Demo: in-memory only — resets on reload.
-   * TODO(backend): upsert into venue_role_permissions, invalidate the live selector's cache.
+   * Live: upserts deltas into venue_role_permissions, invalidates TanStack Query cache.
    */
   async setRolePermissions(venueId: string, permissions: RolePermissions): Promise<void> {
     await delay(80);

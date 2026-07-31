@@ -12,18 +12,16 @@ const zAssign = z.object({
 });
 
 async function livePOST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "session:approve");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zAssign.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
   const { id } = await params;
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
 
   const session = await db.guestSession.findFirst({ where: { id, venueId } });
   if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
@@ -36,15 +34,13 @@ async function livePOST(request: NextRequest, { params }: { params: Promise<{ id
 }
 
 async function liveDELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "session:deny");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const { id } = await params;
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
 
   const session = await db.guestSession.findFirst({ where: { id, venueId } });
   if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });

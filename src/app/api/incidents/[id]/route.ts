@@ -22,19 +22,24 @@ async function liveGET(_request: NextRequest, { params }: { params: Promise<{ id
 }
 
 async function livePATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requireStaffContext } = await import("@/features/platform/permission-guard");
+  const { canDo } = await import("@/features/shared/permissions");
   const { setIncidentStatus, markReportable } = await import("@/features/safety/core");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requireStaffContext("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db, staff, permissions } = auth;
 
   const { id } = await params;
   const body = await request.json();
 
   if (body.reportable !== undefined) {
+    if (!canDo(permissions, staff.role, "incident:mark-reportable")) {
+      return NextResponse.json(
+        { error: `Role ${staff.role} cannot mark incidents reportable` },
+        { status: 403 },
+      );
+    }
     const incident = await markReportable(db, venueId, id, {
       regulatoryDeadline: body.regulatoryDeadline,
       regulatoryAuthority: body.regulatoryAuthority,

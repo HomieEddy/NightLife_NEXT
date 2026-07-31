@@ -16,9 +16,8 @@ import { commissionService } from "@/features/workforce/commission-service";
 import { staffService } from "@/features/workforce/staff-service";
 import { buildCommissionStatement } from "@/lib/workforce";
 import { formatDate, formatMoney } from "@/features/shared/format";
-import { canDo } from "@/features/shared/permissions";
-import { permissionService } from "@/features/platform/permission-service";
-import { commissionKeys, permissionsKeys } from "@/features/platform/query-keys";
+import { usePermissions } from "@/features/platform/use-permissions";
+import { commissionKeys } from "@/features/platform/query-keys";
 import { staffKeys } from "@/features/workforce/query-keys";
 import { useAuth } from "@/context/auth-context";
 import type { CommissionStatement } from "@/lib/types";
@@ -57,19 +56,14 @@ function CommissionContent() {
     enabled: !!venueId,
   });
 
-  const { data: permissions } = useQuery({
-    queryKey: permissionsKeys.role(venueId),
-    queryFn: () => permissionService.getRolePermissions("venue-1"),
-    enabled: !!venueId,
-  });
-
   const { data: me } = useQuery({
     queryKey: staffKeys.me(venueId),
     queryFn: () => staffService.getCurrentStaff(),
     enabled: !!venueId,
   });
 
-  const canApprove = me && permissions ? canDo(permissions, me.role, "commission:approve") : false;
+  const { can } = usePermissions();
+  const canApprove = can("commission:approve");
   const promoterStaff = staff.filter((s) => s.role === "promoter");
 
   const generateMutation = useMutation({

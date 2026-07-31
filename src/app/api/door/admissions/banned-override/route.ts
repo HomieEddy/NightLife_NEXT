@@ -6,21 +6,20 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { createBannedOverride } = await import("@/features/door/core");
   const { zAdmitBannedOverride } = await import("@/features/door/schemas");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "door:admit-banned-override");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zAdmitBannedOverride.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
-  const { venueId } = sessionToDbContext(auth.session);
+  const { venueId, db } = auth;
 
   try {
-    const admission = await createBannedOverride(getDb({ venueId }), venueId, parsed.data);
+    const admission = await createBannedOverride(db, venueId, parsed.data);
     return NextResponse.json(admission, { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 403 });

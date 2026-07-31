@@ -18,14 +18,11 @@ import { guestsService } from "@/features/guests/services";
 import { showQueueService, orderNeedsShow } from "@/features/realtime/show-queue-service";
 import { staffService } from "@/features/workforce/staff-service";
 import { venueService } from "@/features/venue/services";
-import { canDo } from "@/features/shared/permissions";
-import { permissionService } from "@/features/platform/permission-service";
-import type { RolePermissions } from "@/features/shared/permissions";
+import { usePermissions } from "@/features/platform/use-permissions";
 import { ordersKeys } from "@/features/ordering/query-keys";
 import { staffKeys } from "@/features/workforce/query-keys";
 import { venueKeys } from "@/features/venue/query-keys";
 import { showQueueKeys } from "@/features/realtime/query-keys";
-import { permissionsKeys } from "@/features/platform/query-keys";
 import { sessionsKeys } from "@/features/guests/query-keys";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/features/shared/utils";
@@ -82,11 +79,7 @@ function StaffOrdersContent() {
     enabled: !!venueId,
   });
 
-  const { data: permissions } = useQuery({
-    queryKey: permissionsKeys.role(venueId),
-    queryFn: () => permissionService.getRolePermissions("venue-1"),
-    enabled: !!venueId,
-  });
+  const { can } = usePermissions();
 
   const { data: venue } = useQuery({
     queryKey: venueKeys.snapshot(venueId),
@@ -262,11 +255,11 @@ function StaffOrdersContent() {
         <div className="stagger-children space-y-3">
           {sliced.map((order) => {
             const label = ADVANCE_LABEL[order.status];
-            const canAccept = (me && permissions) ? canDo(permissions, me.role, "order:accept") : true;
+            const canAccept = can("order:accept");
             const isPending = order.status === "pending";
             const runnerHint = isPending && !canAccept ? RUNNER_HINT[order.status] : undefined;
-            const availableKinds: TabAdjustmentKind[] = permissions && me
-              ? (["void", "comp", "discount"] as const).filter((k) => canDo(permissions, me.role, `tab:${k}` as const))
+            const availableKinds: TabAdjustmentKind[] = me
+              ? (["void", "comp", "discount"] as const).filter((k) => can(`tab:${k}` as const))
               : [];
             const canAdjust = !isPromoter && !!order.sessionId && !isPending && order.status !== "cancelled" && availableKinds.length > 0;
             const adjustButton = canAdjust && me ? (
@@ -311,7 +304,7 @@ function StaffOrdersContent() {
                           >
                             Release
                           </button>
-                        ) : !order.claimedByStaffId && permissions && canDo(permissions, me?.role ?? "runner", "order:claim") ? (
+                        ) : !order.claimedByStaffId && can("order:claim") ? (
                           <button
                             type="button"
                             onClick={() => claimMutation.mutate(order)}
