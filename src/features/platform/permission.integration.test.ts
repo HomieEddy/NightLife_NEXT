@@ -9,7 +9,7 @@ import {
   mergePermissions,
   computeDeltas,
 } from "@/features/platform/permission-core";
-import { DEFAULT_ROLE_PERMISSIONS } from "@/features/shared/permissions";
+import { DEFAULT_ROLE_PERMISSIONS, canDo } from "@/features/shared/permissions";
 import { expectTenantIsolation } from "@/features/shared/test-helpers";
 
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {
@@ -146,6 +146,72 @@ describe("permission persistence (WS-6)", () => {
 
       // Clean up A.
       await resetRolePermissions(dbA);
+    });
+  });
+
+  describe("role enforcement (plan 15 §5)", () => {
+    it("grants order:claim to runner with default permissions", async () => {
+      // Reset to defaults first.
+      await resetRolePermissions(dbA);
+      const permissions = await getRolePermissions(dbA);
+      expect(canDo(permissions, "runner", "order:claim")).toBe(true);
+    });
+
+    it("denies order:claim to runner after permission is removed", async () => {
+      const modified = structuredClone(DEFAULT_ROLE_PERMISSIONS);
+      modified.runner = DEFAULT_ROLE_PERMISSIONS.runner.filter((a) => a !== "order:claim");
+      await setRolePermissions(dbA, modified);
+
+      const permissions = await getRolePermissions(dbA);
+      expect(canDo(permissions, "runner", "order:claim")).toBe(false);
+      // Runner still has release and transition.
+      expect(canDo(permissions, "runner", "order:release")).toBe(true);
+      expect(canDo(permissions, "runner", "order:transition")).toBe(true);
+
+      // Clean up.
+      await resetRolePermissions(dbA);
+    });
+
+    it("denies order:accept to runner (default behaviour)", async () => {
+      const permissions = await getRolePermissions(dbA);
+      expect(canDo(permissions, "runner", "order:accept")).toBe(false);
+    });
+
+    it("denies session:approve to bartender (default behaviour)", async () => {
+      const permissions = await getRolePermissions(dbA);
+      expect(canDo(permissions, "bartender", "session:approve")).toBe(false);
+    });
+
+    it("denies order:gift to runner (default behaviour)", async () => {
+      const permissions = await getRolePermissions(dbA);
+      expect(canDo(permissions, "runner", "order:gift")).toBe(false);
+    });
+
+    it("grants session:deny to host (default behaviour)", async () => {
+      const permissions = await getRolePermissions(dbA);
+      expect(canDo(permissions, "host", "session:deny")).toBe(true);
+    });
+
+    it("grants all actions to manager regardless of overrides", async () => {
+      await resetRolePermissions(dbA);
+      // Manager is always full access — but permissions can be overridden.
+      // The UI locks manager editing, but the API allows it.
+      const modified = structuredClone(DEFAULT_ROLE_PERMISSIONS);
+      modified.manager = ["order:claim"]; // Strip everything but claim.
+      await setRolePermissions(dbA, modified);
+
+      const permissions = await getRolePermissions(dbA);
+      expect(canDo(permissions, "manager", "order:claim")).toBe(true);
+      expect(canDo(permissions, "manager", "order:gift")).toBe(false);
+      // The UI (RolesAccessTab) enforces manager lock — the API is permissive
+      // so a future tenant admin tool could still customize manager actions.
+
+      await resetRolePermissions(dbA);
+    });
+
+    it("returns false for unknown actions", async () => {
+      const permissions = await getRolePermissions(dbA);
+      expect(canDo(permissions, "runner", "nonexistent:action" as never)).toBe(false);
     });
   });
 });
