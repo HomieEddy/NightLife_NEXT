@@ -28,6 +28,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { adminService } from "@/features/platform/admin-service";
 import { adminKeys } from "@/features/platform/query-keys";
 import { formatMoney, timeAgo } from "@/features/shared/format";
@@ -221,27 +222,25 @@ export default function AdminLeadsPage() {
               className="flex justify-between border-t pt-1.5"
               onClick={(e) => e.stopPropagation()}
             >
-              <Button
+              <TooltipIconButton
                 variant="ghost"
-                size="icon"
                 className="size-6"
-                aria-label="Move back"
+                tooltip="Move back"
                 disabled={lead.status === "new"}
                 onClick={() => moveStage(lead, -1)}
               >
                 <ChevronLeft className="size-3.5" />
-              </Button>
+              </TooltipIconButton>
               <span className="text-[10px] text-muted-foreground">{timeAgo(lead.createdAt)}</span>
-              <Button
+              <TooltipIconButton
                 variant="ghost"
-                size="icon"
                 className="size-6"
-                aria-label="Move forward"
+                tooltip="Move forward"
                 disabled={lead.status === "negotiating"}
                 onClick={() => moveStage(lead, 1)}
               >
                 <ChevronRight className="size-3.5" />
-              </Button>
+              </TooltipIconButton>
             </div>
           )}
         </CardContent>
@@ -542,18 +541,17 @@ export default function AdminLeadsPage() {
                       onChange={(e) => setNote(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addNote()}
                     />
-                    <Button
-                      size="icon"
+                    <TooltipIconButton
                       onClick={addNote}
                       disabled={noteMutation.isPending || !note.trim()}
-                      aria-label="Add note"
+                      tooltip="Add note"
                     >
                       {noteMutation.isPending ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
                         <Send className="size-4" />
                       )}
-                    </Button>
+                    </TooltipIconButton>
                   </div>
                 </div>
               </div>

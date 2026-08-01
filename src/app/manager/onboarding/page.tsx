@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -426,15 +427,14 @@ export default function ManagerOnboardingPage() {
                         className="w-24 tabular-nums"
                         aria-label="Fee value"
                       />
-                      <Button
+                      <TooltipIconButton
                         variant="ghost"
-                        size="icon"
-                        aria-label="Remove fee"
+                        tooltip="Remove fee"
                         className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                         onClick={() => setFees(fees.filter((f) => f.id !== fee.id))}
                       >
                         <Trash2 className="size-4" />
-                      </Button>
+                      </TooltipIconButton>
                     </div>
                   ))}
                 </div>

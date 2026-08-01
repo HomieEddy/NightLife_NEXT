@@ -10,6 +10,7 @@ import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -338,14 +339,13 @@ function MenuContent() {
                             {item.isAvailable ? "Live" : "86'd"}
                           </span>
                         </div>
-                        <Button
+                        <TooltipIconButton
                           variant="ghost"
-                          size="icon"
                           onClick={() => { setEditing(item); itemForm.reset({ name: item.name, description: item.description, price: item.price, isAlcoholic: item.isAlcoholic, abv: item.abv, allergens: item.allergens.join(", ") }); }}
-                          aria-label="Edit item"
+                          tooltip="Edit item"
                         >
                           <Pencil className="size-4" />
-                        </Button>
+                        </TooltipIconButton>
                       </div>
                     }
                   />
@@ -436,17 +436,16 @@ function MenuContent() {
                             confirmLabel={pkg.isActive ? "Hide package" : "Publish"}
                             onConfirm={() => togglePackageMutation.mutate(pkg)}
                           />
-                          <Button
+                          <TooltipIconButton
                             variant="ghost"
-                            size="icon"
-                            aria-label="Edit package"
+                            tooltip="Edit package"
                             onClick={() => {
                               setEditingPackage(pkg);
                               setEditorOpen(true);
                             }}
                           >
                             <Pencil className="size-4" />
-                          </Button>
+                          </TooltipIconButton>
                           <ConfirmDialog
                             trigger={
                               <Button

@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
 import { NotificationPreferencesCard } from "@/components/shared/notification-preferences-card";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { venueService } from "@/features/venue/services";
 import { ordersService } from "@/features/ordering/services";
 import { venueKeys } from "@/features/venue/query-keys";
@@ -63,7 +64,7 @@ export default function ManagerSettingsPage() {
   if (draft === null) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Venue settings" />
+        <PageHeader title="Venue settings" description="Identity, service rules and guest-flow behavior." />
         <Skeleton className="h-80 rounded-xl" />
       </div>
     );
@@ -211,18 +212,17 @@ export default function ManagerSettingsPage() {
                     </select>
                   </div>
                   <div className="row-start-1 self-center justify-self-end sm:col-start-4 sm:row-start-auto sm:self-end">
-                    <Button
+                    <TooltipIconButton
                       type="button"
-                      size="icon"
                       variant="ghost"
-                      aria-label={`Remove ${slot.day} hours`}
+                      tooltip={`Remove ${slot.day} hours`}
                       onClick={() => setDraft({
                         ...draft,
                         openingHours: draft.openingHours.filter((_, slotIndex) => slotIndex !== index),
                       })}
                     >
                       <Trash2 className="size-4" />
-                    </Button>
+                    </TooltipIconButton>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor={`open-${index}`} className="text-xs">Open</Label>
@@ -368,11 +368,10 @@ export default function ManagerSettingsPage() {
                             {fee.type === "percentage" ? "%" : "$"}
                           </span>
                         </div>
-                        <Button
+                        <TooltipIconButton
                           variant="ghost"
-                          size="icon"
                           className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                          aria-label={`Remove ${fee.name || "fee"}`}
+                          tooltip={`Remove ${fee.name || "fee"}`}
                           onClick={() =>
                             setDraft({
                               ...draft,
@@ -381,7 +380,7 @@ export default function ManagerSettingsPage() {
                           }
                         >
                           <Trash2 className="size-4" />
-                        </Button>
+                        </TooltipIconButton>
                       </div>
                     );
                   })}
@@ -412,18 +411,17 @@ export default function ManagerSettingsPage() {
                         aria-label={`Tip preset ${index + 1}`}
                       />
                       <span className="text-xs text-muted-foreground">%</span>
-                      <Button
+                      <TooltipIconButton
                         variant="ghost"
-                        size="icon"
                         className="size-7 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                        aria-label={`Remove ${pct}% preset`}
+                        tooltip={`Remove ${pct}% preset`}
                         onClick={() => {
                           const next = draft.tipPresets.filter((_, i) => i !== index);
                           setDraft({ ...draft, tipPresets: next, defaultTipPct: next[0] ?? 0 });
                         }}
                       >
                         <Trash2 className="size-3.5" />
-                      </Button>
+                      </TooltipIconButton>
                     </div>
                   ))}
                   <Button

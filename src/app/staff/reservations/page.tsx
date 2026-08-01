@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck, CalendarDays, Check, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -229,7 +230,12 @@ function StaffReservationsContent() {
   return (
     <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-display text-xl">My Reservations</h1>
+        <div>
+          <h1 className="text-display text-xl">My Reservations</h1>
+          <p className="text-sm text-muted-foreground">
+            Tonight&apos;s bookings — who&apos;s coming, which table, what time, any special requests.
+          </p>
+        </div>
         {isPromoter && can("reservation:create-own") && (
           <Button size="sm" onClick={openCreate}>
             <Plus className="mr-1.5 size-4" /> New
@@ -238,7 +244,11 @@ function StaffReservationsContent() {
       </div>
 
       {grouped.length === 0 && (
-        <EmptyState icon={CalendarCheck} title="No reservations yet" />
+        <EmptyState
+          icon={CalendarCheck}
+          title="No reservations yet"
+          description="Bookings you create or are assigned to show up here, grouped by night."
+        />
       )}
 
       {grouped.map(([dateKey, items]) => (
@@ -286,9 +296,9 @@ function StaffReservationsContent() {
                       />
                     )}
                     {editable && (
-                      <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(res)} aria-label="Edit reservation">
+                      <TooltipIconButton variant="ghost" className="size-8" onClick={() => openEdit(res)} tooltip="Edit reservation">
                         <Pencil className="size-3.5" />
-                      </Button>
+                      </TooltipIconButton>
                     )}
                     {cancellable && (
                       <ConfirmDialog

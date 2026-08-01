@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -124,16 +125,15 @@ export function BulkRestockDialog({
                   </Badge>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  <Button
+                  <TooltipIconButton
                     variant="outline"
-                    size="icon"
                     className="size-7"
-                    aria-label="Decrease"
+                    tooltip="Decrease"
                     disabled={qty === 0}
                     onClick={() => bumpQty(item.id, -1)}
                   >
                     <Minus className="size-3.5" />
-                  </Button>
+                  </TooltipIconButton>
                   <Input
                     type="number"
                     min={0}
@@ -143,15 +143,14 @@ export function BulkRestockDialog({
                     className="h-7 w-14 px-1 text-center tabular-nums"
                     aria-label={`Quantity for ${item.name}`}
                   />
-                  <Button
+                  <TooltipIconButton
                     variant="outline"
-                    size="icon"
                     className="size-7"
-                    aria-label="Increase"
+                    tooltip="Increase"
                     onClick={() => bumpQty(item.id, 1)}
                   >
                     <Plus className="size-3.5" />
-                  </Button>
+                  </TooltipIconButton>
                 </div>
               </div>
             );

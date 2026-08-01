@@ -5,6 +5,7 @@ import { Inbox, ListFilter, RefreshCw, Search, X, Wallet } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -229,9 +230,9 @@ export default function ManagerOrdersPage() {
             : "Loading the feed…"
         }
         actions={
-          <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh">
+          <TooltipIconButton variant="ghost" onClick={refresh} tooltip="Refresh">
             <RefreshCw className="size-4" />
-          </Button>
+          </TooltipIconButton>
         }
       />
 

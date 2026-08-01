@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -213,10 +214,10 @@ export default function ManagerGuestsPage() {
             <SelectItem value="lastVisit">Last visit</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant={showFilters ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0" onClick={() => setShowFilters(!showFilters)} aria-label="More filters">
+        <TooltipIconButton variant={showFilters ? "secondary" : "outline"} className="h-9 w-9 shrink-0" onClick={() => setShowFilters(!showFilters)} tooltip="More filters">
           <SlidersHorizontal className="size-4" />
           {filterCount > 0 && <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground">{filterCount}</span>}
-        </Button>
+        </TooltipIconButton>
       </div>
         {showFilters && (
           <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-3 sm:grid-cols-4">
@@ -260,7 +261,7 @@ export default function ManagerGuestsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground">{profile.visitCount} visits · {formatMoney(profile.lifetimeNetCents / 100)} lifetime{profile.lastVisitAt && ` · ${formatDate(profile.lastVisitAt)}`}{profile.valueScore != null ? ` · Score ${profile.valueScore}` : ""}</p>
                 </button>
-                <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => openEdit(profile)} aria-label="Edit"><Pencil className="size-3.5" /></Button>
+                <TooltipIconButton variant="ghost" className="size-7 shrink-0" onClick={() => openEdit(profile)} tooltip="Edit"><Pencil className="size-3.5" /></TooltipIconButton>
               </div>
             ))}
           </CardContent></Card>
@@ -276,7 +277,7 @@ export default function ManagerGuestsPage() {
                   <p className="text-lg font-semibold">{selected.displayName}</p>
                   <p className="text-sm text-muted-foreground">{selected.phone}{selected.phone && selected.email && <><br /></>}{selected.email}</p>
                 </div>
-                <Button variant="ghost" size="icon" className="size-7" onClick={() => openEdit(selected)} aria-label="Edit"><Pencil className="size-3.5" /></Button>
+                <TooltipIconButton variant="ghost" className="size-7" onClick={() => openEdit(selected)} tooltip="Edit"><Pencil className="size-3.5" /></TooltipIconButton>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div><p className="text-xs text-muted-foreground">Visits</p><p className="font-medium tabular-nums">{selected.visitCount}</p></div>

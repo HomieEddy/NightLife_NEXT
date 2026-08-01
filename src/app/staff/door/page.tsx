@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -663,27 +664,25 @@ export default function StaffDoorPage() {
                       <div className="space-y-1.5">
                         <Label>Party size</Label>
                         <div className="flex items-center gap-2">
-                          <Button
+                          <TooltipIconButton
                             type="button"
                             variant="outline"
-                            size="icon"
                             className="size-11"
-                            aria-label="Decrease party size"
+                            tooltip="Decrease party size"
                             onClick={() => admitSet("partySize", Math.max(1, (admitWatch("partySize") ?? 1) - 1))}
                           >
                             <Minus className="size-4" />
-                          </Button>
+                          </TooltipIconButton>
                           <span className="w-8 text-center text-lg font-semibold tabular-nums">{admitWatch("partySize") ?? 1}</span>
-                          <Button
+                          <TooltipIconButton
                             type="button"
                             variant="outline"
-                            size="icon"
                             className="size-11"
-                            aria-label="Increase party size"
+                            tooltip="Increase party size"
                             onClick={() => admitSet("partySize", (admitWatch("partySize") ?? 1) + 1)}
                           >
                             <Plus className="size-4" />
-                          </Button>
+                          </TooltipIconButton>
                         </div>
                       </div>
                       <div className="space-y-1.5">
@@ -843,13 +842,13 @@ export default function StaffDoorPage() {
                     )}
                     <div className="flex items-center gap-2">
                       <Label className="w-20 shrink-0 text-xs">Party</Label>
-                      <Button type="button" variant="outline" size="icon" className="size-9" aria-label="Decrease party size" onClick={() => wlSet("partySize", Math.max(1, (wlWatch("partySize") ?? 2) - 1))}>
+                      <TooltipIconButton type="button" variant="outline" className="size-9" tooltip="Decrease party size" onClick={() => wlSet("partySize", Math.max(1, (wlWatch("partySize") ?? 2) - 1))}>
                         <Minus className="size-4" />
-                      </Button>
+                      </TooltipIconButton>
                       <span className="w-6 text-center tabular-nums">{wlWatch("partySize") ?? 2}</span>
-                      <Button type="button" variant="outline" size="icon" className="size-9" aria-label="Increase party size" onClick={() => wlSet("partySize", (wlWatch("partySize") ?? 2) + 1)}>
+                      <TooltipIconButton type="button" variant="outline" className="size-9" tooltip="Increase party size" onClick={() => wlSet("partySize", (wlWatch("partySize") ?? 2) + 1)}>
                         <Plus className="size-4" />
-                      </Button>
+                      </TooltipIconButton>
                     </div>
                     <div className="flex items-center gap-2">
                       <Label className="w-20 shrink-0 text-xs">Quote</Label>

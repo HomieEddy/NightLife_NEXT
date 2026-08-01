@@ -8,6 +8,7 @@ import { Inbox, Loader2, Lock, Map, QrCode, Receipt, Save, Users, X } from "luci
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -383,18 +384,17 @@ function FloorMapPageContent() {
                   </div>
                   <div className="flex items-center gap-1">
                     <StatusBadge status={selected.status} />
-                    <Button
+                    <TooltipIconButton
                       variant="ghost"
-                      size="icon"
                       className="size-7"
-                      aria-label="Close details"
+                      tooltip="Close details"
                       onClick={() => {
                         setSelectedId(null);
                         setTableOrders(null);
                       }}
                     >
                       <X className="size-3.5" />
-                    </Button>
+                    </TooltipIconButton>
                   </div>
                 </div>
 

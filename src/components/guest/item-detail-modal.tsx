@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { BottleIcon } from "@/components/shared/bottle-icon";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { formatMoney } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import { useGuest } from "@/context/guest-context";
@@ -167,25 +168,23 @@ export function ItemDetailModal({
                         </button>
                         {active && group.kind === "washer" && option.maxQuantity > 1 && (
                           <div className="ml-3 flex items-center gap-1 border-l pl-3">
-                            <Button
+                            <TooltipIconButton
+                              tooltip={`Decrease ${option.name}`}
                               variant="ghost"
-                              size="icon"
                               className="size-7"
                               onClick={() => changeOptionQuantity(group.id, option.id, Math.max(1, selectedQuantity - 1))}
-                              aria-label={`Decrease ${option.name}`}
                             >
                               <Minus className="size-3.5" />
-                            </Button>
+                            </TooltipIconButton>
                             <span className="w-5 text-center tabular-nums">{selectedQuantity}</span>
-                            <Button
+                            <TooltipIconButton
+                              tooltip={`Increase ${option.name}`}
                               variant="ghost"
-                              size="icon"
                               className="size-7"
                               onClick={() => changeOptionQuantity(group.id, option.id, Math.min(option.maxQuantity, selectedQuantity + 1))}
-                              aria-label={`Increase ${option.name}`}
                             >
                               <Plus className="size-3.5" />
-                            </Button>
+                            </TooltipIconButton>
                           </div>
                         )}
                       </div>
@@ -207,25 +206,23 @@ export function ItemDetailModal({
 
             <div className="flex items-center gap-3 border-t pt-4">
               <div className="flex items-center gap-1 rounded-lg border p-1">
-                <Button
+                <TooltipIconButton
+                  tooltip="Decrease quantity"
                   variant="ghost"
-                  size="icon"
                   className="size-9"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  aria-label="Decrease quantity"
                 >
                   <Minus className="size-4" />
-                </Button>
+                </TooltipIconButton>
                 <span key={quantity} className="w-8 text-center font-semibold tabular-nums animate-pop-in">{quantity}</span>
-                <Button
+                <TooltipIconButton
+                  tooltip="Increase quantity"
                   variant="ghost"
-                  size="icon"
                   className="size-9"
                   onClick={() => setQuantity((q) => Math.min(item.inventory, q + 1))}
-                  aria-label="Increase quantity"
                 >
                   <Plus className="size-4" />
-                </Button>
+                </TooltipIconButton>
               </div>
               <Button
                 ref={addBtnRef}

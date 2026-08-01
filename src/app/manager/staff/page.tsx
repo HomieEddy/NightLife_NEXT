@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -161,7 +162,7 @@ function StaffContent() {
             <EmptyState
               icon={Users}
               title={zoneFilter === "all" ? "No staff yet" : "No staff assigned to this zone"}
-              description={zoneFilter === "all" ? "Add your first team member to get started." : undefined}
+              description={zoneFilter === "all" ? "Add your first team member to get started." : "Assign staff to this zone, or switch the zone filter to see everyone."}
             />
           ) : (
             <>
@@ -234,17 +235,16 @@ function StaffContent() {
                               {member.isOnShift ? "On shift" : "Off"}
                             </span>
                           </div>
-                          <Button
+                          <TooltipIconButton
                             variant="ghost"
-                            size="icon"
-                            aria-label="Edit staff"
+                            tooltip="Edit staff"
                             onClick={() => {
                               setEditing(member);
                               setDialogOpen(true);
                             }}
                           >
                             <Pencil className="size-4" />
-                          </Button>
+                          </TooltipIconButton>
                           <ConfirmDialog
                             trigger={
                               <Button

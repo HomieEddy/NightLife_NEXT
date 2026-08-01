@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoOpenTableAction } from "@/components/shared/demo-links";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
 import { isDemoMode } from "@/features/shared/app-mode";
@@ -273,25 +274,23 @@ export default function QrEntryPage({
               <div className="space-y-1.5">
                 <Label>Party size</Label>
                 <div className="flex items-center justify-between rounded-lg border p-2">
-                  <Button
+                  <TooltipIconButton
+                    tooltip="Fewer people"
                     variant="outline"
-                    size="icon"
                     onClick={() => setPartySize((n) => Math.max(1, n - 1))}
-                    aria-label="Fewer people"
                   >
                     <Minus className="size-4" />
-                  </Button>
+                  </TooltipIconButton>
                   <span className="flex items-center gap-2 font-semibold tabular-nums">
                     <Users className="size-4 text-muted-foreground" /> {partySize}
                   </span>
-                  <Button
+                  <TooltipIconButton
+                    tooltip="More people"
                     variant="outline"
-                    size="icon"
                     onClick={() => setPartySize((n) => Math.min(result.table.seats, n + 1))}
-                    aria-label="More people"
                   >
                     <Plus className="size-4" />
-                  </Button>
+                  </TooltipIconButton>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   This table seats up to {result.table.seats}.

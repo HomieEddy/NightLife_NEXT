@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -150,9 +151,9 @@ function ZonesContent() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center">
-                      <Button variant="ghost" size="icon" aria-label="Edit zone" onClick={() => openEdit(zone)}>
+                      <TooltipIconButton variant="ghost" tooltip="Edit zone" onClick={() => openEdit(zone)}>
                         <Pencil className="size-4" />
-                      </Button>
+                      </TooltipIconButton>
                       <ConfirmDialog
                         trigger={
                           <Button

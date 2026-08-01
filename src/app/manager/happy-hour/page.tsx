@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -285,9 +286,9 @@ function HappyHourContent() {
                       confirmLabel={rule.isActive ? "Deactivate" : "Activate"}
                       onConfirm={() => toggleMutation.mutate(rule)}
                     />
-                    <Button variant="ghost" size="icon" aria-label="Edit rule" onClick={() => openEdit(rule)}>
+                    <TooltipIconButton variant="ghost" tooltip="Edit rule" onClick={() => openEdit(rule)}>
                       <Pencil className="size-4" />
-                    </Button>
+                    </TooltipIconButton>
                     <ConfirmDialog
                       trigger={
                         <Button

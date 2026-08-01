@@ -167,7 +167,11 @@ export default function AdminVenuesPage() {
       {tenants === undefined ? (
         <ListSkeleton rows={5} rowHeight="h-14" />
       ) : visible.length === 0 ? (
-        <EmptyState icon={Building2} title="No tenants match" />
+        <EmptyState
+          icon={Building2}
+          title="No tenants match"
+          description="Try a different search or status filter."
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border">
           <Table>

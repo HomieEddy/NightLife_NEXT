@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { PageHeader } from "@/components/shared/page-header";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { ClosureGate } from "@/components/guest/closure-gate";
 import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/features/menu/services";
@@ -142,27 +143,25 @@ export default function GuestGiftPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 rounded-md border">
-                  <Button
+                  <TooltipIconButton
+                    tooltip="Decrease"
                     variant="ghost"
-                    size="icon"
                     className="size-7"
                     onClick={() => updateLineQty(line.menuItem.id, line.quantity - 1)}
-                    aria-label="Decrease"
                   >
                     <Minus className="size-3" />
-                  </Button>
+                  </TooltipIconButton>
                   <span className="w-5 text-center text-sm font-medium tabular-nums">
                     {line.quantity}
                   </span>
-                  <Button
+                  <TooltipIconButton
+                    tooltip="Increase"
                     variant="ghost"
-                    size="icon"
                     className="size-7"
                     onClick={() => updateLineQty(line.menuItem.id, line.quantity + 1)}
-                    aria-label="Increase"
                   >
                     <Plus className="size-3" />
-                  </Button>
+                  </TooltipIconButton>
                 </div>
               </li>
             ))}

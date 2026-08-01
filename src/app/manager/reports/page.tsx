@@ -12,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -598,10 +599,9 @@ function ReportsPageContent() {
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end">
-                          <Button
+                          <TooltipIconButton
                             variant="ghost"
-                            size="icon"
-                            aria-label="View report"
+                            tooltip="View report"
                             disabled={runningId !== null}
                             onClick={() => view(report)}
                           >
@@ -610,24 +610,22 @@ function ReportsPageContent() {
                             ) : (
                               <Eye className="size-4" />
                             )}
-                          </Button>
-                          <Button
+                          </TooltipIconButton>
+                          <TooltipIconButton
                             variant="ghost"
-                            size="icon"
-                            aria-label="Download CSV"
+                            tooltip="Download CSV"
                             disabled={runningId !== null}
                             onClick={() => download(report)}
                           >
                             <Download className="size-4" />
-                          </Button>
-                          <Button
+                          </TooltipIconButton>
+                          <TooltipIconButton
                             variant="ghost"
-                            size="icon"
-                            aria-label="Edit report"
+                            tooltip="Edit report"
                             onClick={() => startEdit(report)}
                           >
                             <Pencil className="size-4" />
-                          </Button>
+                          </TooltipIconButton>
                           <ConfirmDialog
                             trigger={
                               <Button
