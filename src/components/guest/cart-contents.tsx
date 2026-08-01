@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { BottleIcon } from "@/components/shared/bottle-icon";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { AnimatedMoney } from "@/components/fx/animated-money";
 import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/features/menu/services";
@@ -196,27 +197,25 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
                 {line.note && <p className="text-xs italic text-muted-foreground">“{line.note}”</p>}
                 <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-1 rounded-md border">
-                    <Button
+                    <TooltipIconButton
+                      tooltip="Decrease"
                       variant="ghost"
-                      size="icon"
                       className="size-8"
                       onClick={() => updateQuantity(line.lineId, line.quantity - 1)}
-                      aria-label="Decrease"
                     >
                       <Minus className="size-3.5" />
-                    </Button>
+                    </TooltipIconButton>
                     <span key={line.quantity} className="w-6 text-center text-sm font-medium tabular-nums animate-pop-in">
                       {line.quantity}
                     </span>
-                    <Button
+                    <TooltipIconButton
+                      tooltip="Increase"
                       variant="ghost"
-                      size="icon"
                       className="size-8"
                       onClick={() => updateQuantity(line.lineId, line.quantity + 1)}
-                      aria-label="Increase"
                     >
                       <Plus className="size-3.5" />
-                    </Button>
+                    </TooltipIconButton>
                   </div>
                   <ConfirmDialog
                     trigger={
@@ -277,27 +276,25 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
         {customTip && (
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 rounded-md border">
-              <Button
+              <TooltipIconButton
+                tooltip="Decrease tip"
                 variant="ghost"
-                size="icon"
                 className="size-8"
                 onClick={() => setCustomTipPct((prev) => Math.max(0, prev - 1))}
-                aria-label="Decrease tip"
               >
                 <Minus className="size-3.5" />
-              </Button>
+              </TooltipIconButton>
               <span className="w-10 text-center text-sm font-semibold tabular-nums">
                 {customTipPct}%
               </span>
-              <Button
+              <TooltipIconButton
+                tooltip="Increase tip"
                 variant="ghost"
-                size="icon"
                 className="size-8"
                 onClick={() => setCustomTipPct((prev) => prev + 1)}
-                aria-label="Increase tip"
               >
                 <Plus className="size-3.5" />
-              </Button>
+              </TooltipIconButton>
             </div>
             <span className="text-sm text-muted-foreground tabular-nums">
               {formatMoney(tip)}
@@ -313,15 +310,14 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
             <Tag className="size-4 text-primary" />
             <span className="flex-1 text-sm font-medium">{appliedPromo.code}</span>
             <span className="text-sm text-primary tabular-nums">-{formatMoney(promoDiscount)}</span>
-            <Button
+            <TooltipIconButton
+              tooltip="Remove promo code"
               variant="ghost"
-              size="icon"
               className="size-6"
               onClick={() => setAppliedPromo(null)}
-              aria-label="Remove promo code"
             >
               <X className="size-3.5" />
-            </Button>
+            </TooltipIconButton>
           </div>
         ) : (
           <div className="flex gap-2">

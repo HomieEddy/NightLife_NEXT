@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoNewSessionAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { CountUp } from "@/components/fx/count-up";
 import { useGuest } from "@/context/guest-context";
 import { ordersService } from "@/features/ordering/services";
@@ -205,23 +206,21 @@ function SplitBill({ total }: { total: number }) {
             {mode === "even" ? (
               <>
                 <div className="flex items-center justify-center gap-4">
-                  <Button
+                  <TooltipIconButton
+                    tooltip="Fewer people"
                     variant="outline"
-                    size="icon"
                     onClick={() => setPeople((p) => Math.max(2, p - 1))}
-                    aria-label="Fewer people"
                   >
                     <Minus className="size-4" />
-                  </Button>
+                  </TooltipIconButton>
                   <span className="w-10 text-center text-2xl font-bold tabular-nums">{people}</span>
-                  <Button
+                  <TooltipIconButton
+                    tooltip="More people"
                     variant="outline"
-                    size="icon"
                     onClick={() => setPeople((p) => Math.min(8, p + 1))}
-                    aria-label="More people"
                   >
                     <Plus className="size-4" />
-                  </Button>
+                  </TooltipIconButton>
                 </div>
                 <p className="text-center text-xs text-muted-foreground">people splitting evenly</p>
                 <div className="rounded-lg bg-accent/50 p-3 text-center">
@@ -257,16 +256,15 @@ function SplitBill({ total }: { total: number }) {
                           aria-label="Amount"
                         />
                       </div>
-                      <Button
+                      <TooltipIconButton
+                        tooltip="Remove person"
                         variant="ghost"
-                        size="icon"
                         className="shrink-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                        aria-label="Remove person"
                         disabled={shares.length <= 2}
                         onClick={() => removeShare(share.id)}
                       >
                         <X className="size-4" />
-                      </Button>
+                      </TooltipIconButton>
                     </div>
                   ))}
                 </div>
