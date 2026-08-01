@@ -1,30 +1,17 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  Megaphone,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Reveal } from "@/components/fx/reveal";
 import { ClubLights } from "@/components/fx/club-lights";
+import { Spotlights } from "@/components/fx/spotlights";
 import { DemoQr } from "@/components/demo/demo-qr";
 import { DemoSidebar } from "@/components/demo/demo-sidebar";
-import { DemoFeatureBlock } from "@/components/demo/demo-feature-block";
-import {
-  DEMO_GROUPS,
-  HOUSE_RULES,
-  WALKTHROUGH,
-} from "./demo-guide-content";
-
-// ── Groups that should render their feature blocks ──
-const FEATURE_GROUPS = DEMO_GROUPS.filter(
-  (g) =>
-    g.features.length > 0 &&
-    g.id !== "getting-started" &&
-    g.id !== "getting-started-extra",
-);
+import { DemoTabProvider } from "@/components/demo/demo-tab-context";
+import { DemoTourTabs } from "@/components/demo/demo-tour-tabs";
+import { DemoQuickJumpPills } from "@/components/demo/demo-quick-jump-pills";
+import { DEMO_GROUPS, featureAnchorId, HOUSE_RULES } from "./demo-guide-content";
 
 // The "Getting started" group and its extra companion hold intro content
 const GETTING_STARTED = DEMO_GROUPS.find((g) => g.id === "getting-started");
@@ -33,21 +20,31 @@ const HOW_IT_WORKS = DEMO_GROUPS.find((g) => g.id === "how-it-works");
 
 export default function DemoTourPage() {
   return (
-    <div className="flex min-h-screen">
+    <DemoTabProvider>
+    <div className="relative flex min-h-screen">
+      {/* Fixed, full-viewport animated background — covers the whole page as
+          you scroll, so there's no seam where the effect used to end. */}
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background">
+        <ClubLights density={400} className="opacity-70" />
+      </div>
+
       <DemoSidebar />
 
       {/* ── Content column ── */}
-      <main className="min-w-0 flex-1">
-        <div className="mx-auto max-w-3xl px-4 pb-24 sm:px-6 lg:px-8">
+      <main className="min-w-0 flex-1 relative">
+        {/* Stage spotlights — full main-column width, not clipped to the
+            narrower hero text column, so beams can swing edge to edge. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[min(640px,100dvh)] overflow-hidden">
+          <Spotlights className="opacity-90" />
+        </div>
+        <div className="relative mx-auto max-w-3xl px-4 pb-24 sm:px-6 lg:px-8">
           {/* ══════════ Hero ══════════ */}
-          <section className="grain-overlay relative -mx-4 overflow-hidden px-4 py-16 text-center sm:-mx-6 sm:py-24 lg:-mx-8">
-            <ClubLights density={320} className="opacity-70" />
+          <section className="grain-overlay relative -mx-4 px-4 py-16 text-center sm:-mx-6 sm:py-24 lg:-mx-8">
             <div
               className="pointer-events-none absolute inset-0"
               aria-hidden="true"
               style={{
-                background:
-                  "radial-gradient(640px 340px at 50% 0%, oklch(from var(--gold) l c h / 16%), transparent), radial-gradient(ellipse at bottom, var(--background) 25%, transparent 65%)",
+                background: "radial-gradient(ellipse at bottom, var(--background) 25%, transparent 65%)",
               }}
             />
             <Reveal className="relative">
@@ -63,9 +60,8 @@ export default function DemoTourPage() {
                 <span className="text-outline">tour</span>
               </h1>
               <p className="text-voice mx-auto mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
-                Four surfaces, one nightclub. Manager runs the venue, staff works the floor, guests
-                order from the table, and admin runs the platform. Every feature linked straight into
-                the sandbox.
+                Three surfaces, one nightclub. Manager runs the venue, staff works the floor, guests
+                order from the table. Every feature linked straight into the sandbox.
               </p>
             </Reveal>
 
@@ -74,62 +70,9 @@ export default function DemoTourPage() {
               delay={0.1}
               className="relative mt-8 flex flex-wrap items-center justify-center gap-2"
             >
-              {FEATURE_GROUPS.map((group) => (
-                <a
-                  key={group.id}
-                  href={`#${group.id}`}
-                  className="flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:border-gold/60 hover:text-gold-deep dark:hover:text-gold"
-                >
-                  <group.icon className="size-3.5" />
-                  {group.label}
-                </a>
-              ))}
-              <a
-                href="#walkthrough"
-                className="flex items-center gap-1.5 rounded-full border border-gold/50 bg-gold/10 px-4 py-1.5 text-sm font-medium text-gold-deep transition-colors hover:bg-gold/20 dark:text-gold"
-              >
-                <Megaphone className="size-3.5" /> Walkthrough
-              </a>
+              <DemoQuickJumpPills />
             </Reveal>
             <hr className="rule-gold absolute inset-x-8 bottom-0" aria-hidden="true" />
-          </section>
-
-          {/* ══════════ Walkthrough (right after hero) ══════════ */}
-          <section id="walkthrough" className="mt-16 scroll-mt-24">
-            <Reveal>
-              <div className="flex items-center gap-3">
-                <div className="flex size-9 items-center justify-center rounded-xl border border-gold/30 bg-gold/10">
-                  <Megaphone className="size-4 text-gold-deep dark:text-gold" />
-                </div>
-                <div>
-                  <h2 className="text-display text-xl sm:text-2xl">The 5-minute walkthrough</h2>
-                  <p className="text-sm text-muted-foreground">
-                    The fastest way to feel the whole loop. Use in-app links between steps so
-                    the night doesn&apos;t reset.
-                  </p>
-                </div>
-              </div>
-            </Reveal>
-            <Reveal stagger={0.07} y={24} className="mt-5 space-y-3">
-              {WALKTHROUGH.map((item, i) => (
-                <Card key={item.step} className="bg-card/60 py-4 backdrop-blur">
-                  <CardContent className="flex flex-wrap items-center gap-4 px-5">
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">{item.step}</p>
-                      <p className="text-sm text-muted-foreground">{item.detail}</p>
-                    </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={item.href}>
-                        {item.linkLabel} <ArrowRight className="size-3.5" />
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </Reveal>
           </section>
 
           {/* ══════════ Getting started: four surfaces ══════════ */}
@@ -155,7 +98,8 @@ export default function DemoTourPage() {
                 {GETTING_STARTED.features.map((f) => (
                   <Card
                     key={f.title}
-                    className="bg-card/60 py-5 backdrop-blur sm:col-span-2"
+                    id={featureAnchorId(f)}
+                    className="scroll-mt-24 bg-card/60 py-5 backdrop-blur sm:col-span-2"
                   >
                     <CardContent className="flex flex-wrap items-center gap-5 px-5">
                       <DemoQr
@@ -184,7 +128,8 @@ export default function DemoTourPage() {
                 {GETTING_STARTED_EXTRA?.features.map((f) => (
                   <Card
                     key={f.title}
-                    className="group bg-card/60 py-5 backdrop-blur transition-colors hover:border-gold/40"
+                    id={featureAnchorId(f)}
+                    className="group scroll-mt-24 bg-card/60 py-5 backdrop-blur transition-colors hover:border-gold/40"
                   >
                     <CardContent className="px-5">
                       <div className="flex items-center gap-3">
@@ -210,27 +155,10 @@ export default function DemoTourPage() {
             </section>
           )}
 
-          {/* ══════════ Feature groups: Manager, Staff, Guest, Admin, Public ══════════ */}
-          {FEATURE_GROUPS.map((group) => (
-            <section key={group.id} id={group.id} className="mt-16 scroll-mt-24">
-              <Reveal>
-                <div className="flex items-center gap-3">
-                  <div className="flex size-9 items-center justify-center rounded-xl border border-gold/30 bg-gold/10">
-                    <group.icon className="size-4 text-gold-deep dark:text-gold" />
-                  </div>
-                  <div>
-                    <h2 className="text-display text-xl sm:text-2xl">{group.label}</h2>
-                    <p className="text-voice text-sm text-muted-foreground">{group.intro}</p>
-                  </div>
-                </div>
-              </Reveal>
-              <div className="mt-6 space-y-4">
-                {group.features.map((feature) => (
-                  <DemoFeatureBlock key={feature.title} feature={feature} />
-                ))}
-              </div>
-            </section>
-          ))}
+          {/* ══════════ Walkthrough / Manager / Staff / Guest / Public tabs ══════════ */}
+          <section id="tour-tabs" className="mt-16 scroll-mt-24">
+            <DemoTourTabs />
+          </section>
 
           {/* ══════════ How the demo works (house rules) ══════════ */}
           <section id="house-rules" className="mt-16 scroll-mt-24">
@@ -279,26 +207,9 @@ export default function DemoTourPage() {
             </Reveal>
           </section>
 
-          {/* ══════════ Lead CTA ══════════ */}
-          <section className="mt-20 scroll-mt-24">
-            <Reveal className="text-center">
-              <p className="text-voice text-base text-muted-foreground">
-                Like what you see? Tell us about your venue.
-              </p>
-              <Button
-                size="lg"
-                variant="foil"
-                className="foil-shimmer mt-4 h-12 px-7 glow-gold"
-                asChild
-              >
-                <Link href="/lead">
-                  Request a personalized demo <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-            </Reveal>
-          </section>
         </div>
       </main>
     </div>
+    </DemoTabProvider>
   );
 }

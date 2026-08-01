@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Menu, Search, X } from "lucide-react";
+import { ChevronDown, Menu, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { DEMO_GROUPS, type DemoFeature } from "./demo-guide-content";
+import { DEMO_GROUPS, featureAnchorId, type DemoFeature } from "./demo-guide-content";
+import { isDemoTabId, useDemoTab, type DemoTabId } from "./demo-tab-context";
 
 // ── Search helpers ─────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ function buildAnchorIds(): string[] {
       ids.push("walkthrough", "house-rules");
     }
     for (const f of g.features) {
-      ids.push(f.title.toLowerCase().replace(/\s+/g, "-"));
+      ids.push(featureAnchorId(f));
     }
     if (g.id === "how-it-works") {
       // Already covered above via getting-started, but ensure order
@@ -40,7 +41,12 @@ function buildAnchorIds(): string[] {
   return [...new Set(ids)];
 }
 
-function useScrollSpy(): string | null {
+/**
+ * Tracks scroll position to highlight the current nav item. Re-observes
+ * whenever `activeTab` changes — the tour tabs unmount inactive panels, so
+ * anchors inside them only exist in the DOM while their tab is showing.
+ */
+function useScrollSpy(activeTab: DemoTabId): string | null {
   const [active, setActive] = useState<string | null>(null);
   const ids = useMemo(() => buildAnchorIds(), []);
 
@@ -68,7 +74,7 @@ function useScrollSpy(): string | null {
       { rootMargin: "-80px 0px -60% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] },
     );
 
-    // Observe all anchors
+    // Observe all anchors currently mounted (i.e. in the active tab panel)
     const els: Element[] = [];
     for (const id of ids) {
       const el = document.getElementById(id);
@@ -81,7 +87,7 @@ function useScrollSpy(): string | null {
     return () => {
       for (const el of els) observer.unobserve(el);
     };
-  }, [ids]);
+  }, [ids, activeTab]);
 
   return active;
 }
@@ -108,6 +114,31 @@ function SidebarNav({
       }))
       .filter((g) => g.features.length > 0 || g.id === "getting-started" || g.id === "how-it-works");
   }, [query]);
+
+  // Accordion: groups with > 8 features start collapsed unless searching
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    if (query.trim()) return s; // searching: expand all
+    for (const g of DEMO_GROUPS) {
+      if (g.features.length > 8) s.add(g.id);
+    }
+    return s;
+  });
+
+  // Re-expand all when searching
+  const isSearching = query.trim().length > 0;
+  useEffect(() => {
+    if (isSearching) setCollapsed(new Set());
+  }, [isSearching]);
+
+  function toggle(id: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -136,52 +167,90 @@ function SidebarNav({
       {/* Nav groups */}
       <ScrollArea className="flex-1 px-3 pb-6">
         <nav className="mt-4 space-y-6" aria-label="Demo guide navigation">
-          {filtered.map((group) => (
-            <div key={group.id}>
-              <div className="mb-2 flex items-center gap-2 px-1">
-                <group.icon className="size-3.5 text-gold-deep dark:text-gold" />
-                <span className="label-luxe text-muted-foreground">{group.label}</span>
-              </div>
-              {group.id === "getting-started" && (
-                <>
-                  <SidebarNavItem href="#walkthrough" active={activeAnchor === "walkthrough"} onNav={onNav}>
-                    Five-minute walkthrough
-                  </SidebarNavItem>
-                  <SidebarNavItem href="#house-rules" active={activeAnchor === "house-rules"} onNav={onNav}>
-                    House rules
-                  </SidebarNavItem>
-                </>
-              )}
-              {group.features.map((f) => {
-                const anchor = f.title.toLowerCase().replace(/\s+/g, "-");
-                return (
-                  <SidebarNavItem
-                    key={f.title}
-                    href={`#${anchor}`}
-                    active={activeAnchor === anchor}
-                    onNav={onNav}
-                  >
-                    {f.title}
-                  </SidebarNavItem>
-                );
-              })}
-              {group.id === "how-it-works" && (
-                <>
-                  <SidebarNavItem href="#house-rules" active={activeAnchor === "house-rules"} onNav={onNav}>
-                    House rules
-                  </SidebarNavItem>
-                  <SidebarNavItem href="#walkthrough" active={activeAnchor === "walkthrough"} onNav={onNav}>
-                    Walkthrough
-                  </SidebarNavItem>
-                </>
-              )}
-              {group.features.length === 0 &&
-                group.id !== "getting-started" &&
-                group.id !== "how-it-works" && (
-                  <p className="px-1 text-xs text-muted-foreground/60">No matches</p>
+          {filtered.map((group) => {
+            const isCollapsed = collapsed.has(group.id);
+            const hasFeatures = group.features.length > 0;
+            const showToggle = hasFeatures && !isSearching;
+
+            return (
+              <div key={group.id}>
+                {/* Group header — clickable toggle when it has features */}
+                <button
+                  type="button"
+                  onClick={() => showToggle ? toggle(group.id) : undefined}
+                  className={`mb-2 flex w-full items-center gap-2 px-1 text-left ${showToggle ? "cursor-pointer" : ""}`}
+                  aria-expanded={showToggle ? !isCollapsed : undefined}
+                >
+                  <group.icon className="size-3.5 shrink-0 text-gold-deep dark:text-gold" />
+                  <span className="label-luxe flex-1 text-muted-foreground">{group.label}</span>
+                  {showToggle && (
+                    <ChevronDown
+                      className={`size-3 shrink-0 text-muted-foreground transition-transform ${isCollapsed ? "" : "rotate-180"}`}
+                    />
+                  )}
+                </button>
+                {group.id === "getting-started" && (
+                  <>
+                    <SidebarNavItem
+                      href="#walkthrough"
+                      anchorId="walkthrough"
+                      tabId="walkthrough"
+                      active={activeAnchor === "walkthrough"}
+                      onNav={onNav}
+                    >
+                      Five-minute walkthrough
+                    </SidebarNavItem>
+                    <SidebarNavItem href="#house-rules" anchorId="house-rules" active={activeAnchor === "house-rules"} onNav={onNav}>
+                      House rules
+                    </SidebarNavItem>
+                  </>
                 )}
-            </div>
-          ))}
+                {!isCollapsed &&
+                  group.features.map((f) => {
+                    const anchor = featureAnchorId(f);
+                    const tabId = isDemoTabId(group.id) ? (group.id as DemoTabId) : undefined;
+                    return (
+                      <SidebarNavItem
+                        key={f.title}
+                        href={`#${anchor}`}
+                        anchorId={anchor}
+                        tabId={tabId}
+                        active={activeAnchor === anchor}
+                        onNav={onNav}
+                      >
+                        {f.title}
+                      </SidebarNavItem>
+                    );
+                  })}
+                {isCollapsed && hasFeatures && (
+                  <p className="px-1 text-xs text-muted-foreground/50">
+                    {group.features.length} features
+                  </p>
+                )}
+                {group.id === "how-it-works" && (
+                  <>
+                    <SidebarNavItem href="#house-rules" anchorId="house-rules" active={activeAnchor === "house-rules"} onNav={onNav}>
+                      House rules
+                    </SidebarNavItem>
+                    <SidebarNavItem
+                      href="#walkthrough"
+                      anchorId="walkthrough"
+                      tabId="walkthrough"
+                      active={activeAnchor === "walkthrough"}
+                      onNav={onNav}
+                    >
+                      Walkthrough
+                    </SidebarNavItem>
+                  </>
+                )}
+                {group.features.length === 0 &&
+                  group.id !== "getting-started" &&
+                  group.id !== "how-it-works" && (
+                    <p className="px-1 text-xs text-muted-foreground/60">No matches</p>
+                  )}
+              </div>
+            );
+          })}
         </nav>
       </ScrollArea>
     </div>
@@ -190,26 +259,46 @@ function SidebarNav({
 
 function SidebarNavItem({
   href,
+  anchorId,
+  tabId,
   children,
   active,
   onNav,
 }: {
   href: string;
+  /** Target anchor id, without the leading "#". */
+  anchorId: string;
+  /** Set when the anchor lives inside a DemoTourTabs panel — switches tabs first. */
+  tabId?: DemoTabId;
   children: React.ReactNode;
   active?: boolean;
   onNav?: () => void;
 }) {
+  const { goToAnchor } = useDemoTab();
+  const className = `block rounded-md px-2 py-1.5 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring ${
+    active
+      ? "bg-accent font-medium text-foreground"
+      : "text-muted-foreground hover:bg-accent hover:text-foreground"
+  }`;
+
+  if (tabId) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          goToAnchor(tabId, anchorId);
+          onNav?.();
+        }}
+        aria-current={active ? "true" : undefined}
+        className={`w-full ${className}`}
+      >
+        {children}
+      </button>
+    );
+  }
+
   return (
-    <Link
-      href={href}
-      onClick={onNav}
-      aria-current={active ? "true" : undefined}
-      className={`block rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring ${
-        active
-          ? "bg-accent font-medium text-foreground"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-      }`}
-    >
+    <Link href={href} onClick={onNav} aria-current={active ? "true" : undefined} className={className}>
       {children}
     </Link>
   );
@@ -220,7 +309,8 @@ function SidebarNavItem({
 export function DemoSidebar() {
   const [query, setQuery] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const activeAnchor = useScrollSpy();
+  const { activeTab } = useDemoTab();
+  const activeAnchor = useScrollSpy(activeTab);
 
   const handleNav = useCallback(() => {
     setMobileOpen(false);
