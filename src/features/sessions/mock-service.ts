@@ -2,7 +2,7 @@
  * mockGuestService — future backend boundary for persistent guest identity
  * (plan 17): profiles, dedupe, bans, merges and the opt-in session link.
  * A GuestProfile is created only when someone *gives* us identity — a
- * reservation, a guestlist entry, a door ID check, or a host tagging a
+ * reservation, a guestlist entry, a door ID check, or security tagging a
  * regular. QR sessions stay anonymous unless a GuestLink attaches one.
  */
 import type { GuestLink, GuestProfile, GuestReferral, GuestTag, GuestVipTier } from "@/lib/types";

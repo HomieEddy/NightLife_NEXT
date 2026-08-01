@@ -446,7 +446,7 @@ export default function StaffDoorPage() {
         <EmptyState
           icon={ShieldOff}
           title="Not available for your role"
-          description="The door is operated by hosts, security and managers."
+          description="The door is operated by security and managers."
         />
       </div>
     );

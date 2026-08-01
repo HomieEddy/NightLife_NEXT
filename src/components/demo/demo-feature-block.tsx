@@ -1,0 +1,55 @@
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Reveal } from "@/components/fx/reveal";
+import { featureAnchorId, type DemoFeature } from "./demo-guide-content";
+
+const SURFACE_BADGE: Record<string, { label: string; className: string }> = {
+  manager: { label: "Manager", className: "border-violet-500/40 text-violet-500 dark:text-violet-400" },
+  staff: { label: "Staff", className: "border-fuchsia-500/40 text-fuchsia-500 dark:text-fuchsia-400" },
+  guest: { label: "Guest", className: "border-cyan-500/40 text-cyan-500 dark:text-cyan-400" },
+  admin: { label: "Admin", className: "border-amber-500/40 text-amber-500 dark:text-amber-400" },
+  public: { label: "Public", className: "border-emerald-500/40 text-emerald-500 dark:text-emerald-400" },
+};
+
+export function DemoFeatureBlock({ feature }: { feature: DemoFeature }) {
+  const badge = SURFACE_BADGE[feature.surface] ?? SURFACE_BADGE.manager;
+
+  return (
+    <Reveal>
+      <div
+        id={featureAnchorId(feature)}
+        className="scroll-mt-24 rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur transition-colors hover:border-gold/40"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-gold/30 bg-gold/10">
+              <feature.icon className="size-4 text-gold-deep dark:text-gold" />
+            </div>
+            <h3 className="text-base font-semibold">{feature.title}</h3>
+          </div>
+          <Badge variant="outline" className={`shrink-0 text-[0.65rem] ${badge.className}`}>
+            {badge.label}
+          </Badge>
+        </div>
+
+        <div className="mt-3 space-y-1.5">
+          <p className="text-sm font-medium text-foreground/90">{feature.what}</p>
+          <p className="text-voice text-sm text-muted-foreground">{feature.why}</p>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <span className="label-luxe text-muted-foreground/70">
+            Try it: {feature.tryPath}
+          </span>
+          <Link
+            href={feature.href}
+            className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep hover:underline dark:text-gold"
+          >
+            Open <ExternalLink className="size-3" />
+          </Link>
+        </div>
+      </div>
+    </Reveal>
+  );
+}

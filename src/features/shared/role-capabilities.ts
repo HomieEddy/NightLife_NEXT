@@ -52,7 +52,7 @@ const ALL_NAV: StaffNavItem[] = [
   { href: "/staff/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents", requiredAction: "incident:read-all" },
   { href: "/staff/reservations", label: "Reservations", icon: CalendarCheck, requiredAction: "reservation:create-own" },
   { href: "/staff/events", label: "Events", icon: PartyPopper, requiredAction: "reservation:create-own" },
-  { href: "/staff/help", label: "Help", icon: LifeBuoy, requiredAction: "help:respond" },
+  { href: "/staff/help", label: "Help", icon: LifeBuoy },
   { href: "/staff/schedule", label: "Schedule", icon: CalendarDays },
   { href: "/staff/tips", label: "Tips", icon: DollarSign },
   { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },

@@ -382,7 +382,7 @@ export default function StaffHomePage() {
                       <span className="size-2 animate-pulse rounded-full bg-amber-400" />
                     )}
                   </div>
-                  <p className="mt-3 text-3xl font-semibold tabular-nums"><CountUp value={tile.count} /></p>
+                  <p className="mt-3 text-3xl font-semibold tabular-nums"><CountUp value={tile.count} startOnMount /></p>
                   <p className="text-xs text-muted-foreground">{tile.label}</p>
                 </CardContent>
               </Card>

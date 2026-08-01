@@ -5,6 +5,7 @@
  */
 import type { BarTab, GuestSession, GuestVipTier, HelpRequest, HelpRequestType, SessionNote, SettlementMethod, SplitBillAssignment, VipTierBenefit } from "@/lib/types";
 import { mockGuestSessions, mockHelpRequests } from "@/features/ordering/mock-data";
+import { MOCK_VIP_TIER_BENEFITS } from "@/features/guests/mock-data";
 import { mockOrders } from "@/features/ordering/mock-data";
 import { mergedMinimumSpendCents } from "@/lib/tab";
 import { clone, delay, uid } from "@/features/shared/delay";
@@ -20,16 +21,7 @@ const barTabs: BarTab[] = [];
 let sessionNotes: SessionNote[] = [];
 
 // GS-03: VIP tier benefits — venue-configurable perks per tier
-let vipTierBenefits: VipTierBenefit[] = [
-  { id: "vtb-1", venueId: "venue-1", tier: "vip", benefit: "Priority bottle-service presentation", category: "bottle-service", sortOrder: 1, active: true },
-  { id: "vtb-2", venueId: "venue-1", tier: "vip", benefit: "Dedicated VIP host for the night", category: "service", sortOrder: 2, active: true },
-  { id: "vtb-3", venueId: "venue-1", tier: "vip", benefit: "Guaranteed VIP-section table", category: "reservation", sortOrder: 3, active: true },
-  { id: "vtb-4", venueId: "venue-1", tier: "vip", benefit: "Skip-the-line entry for you and your party", category: "admission", sortOrder: 4, active: true },
-  { id: "vtb-5", venueId: "venue-1", tier: "host-list", benefit: "Priority reservation access", category: "reservation", sortOrder: 1, active: true },
-  { id: "vtb-6", venueId: "venue-1", tier: "host-list", benefit: "Expedited check-in at the door", category: "admission", sortOrder: 2, active: true },
-  { id: "vtb-7", venueId: "venue-1", tier: "regular", benefit: "Birthday celebration acknowledgment", category: "service", sortOrder: 1, active: true },
-  { id: "vtb-8", venueId: "venue-1", tier: "regular", benefit: "Standard bottle presentation", category: "bottle-service", sortOrder: 2, active: true },
-];
+let vipTierBenefits = clone(MOCK_VIP_TIER_BENEFITS);
 
 export const mockGuestsService = {
   async listSessions(status?: GuestSession["status"]): Promise<GuestSession[]> {
