@@ -3,7 +3,6 @@ import {
   Banknote,
   BarChart3,
   Bell,
-  Building2,
   Calculator,
   CalendarDays,
   ClipboardCheck,
@@ -23,10 +22,8 @@ import {
   Martini,
   Megaphone,
   MessageSquare,
-  Package,
   PartyPopper,
   Percent,
-  Phone,
   QrCode,
   Radio,
   Receipt,
@@ -35,7 +32,6 @@ import {
   ShoppingCart,
   Smartphone,
   Sparkles,
-  Store,
   UserCheck,
   Users,
   type LucideIcon,
@@ -43,7 +39,7 @@ import {
 
 // ── Types ──────────────────────────────────────────────────────────
 
-export type Surface = "manager" | "staff" | "guest" | "admin" | "public";
+export type Surface = "manager" | "staff" | "guest" | "public";
 
 export interface DemoFeature {
   icon: LucideIcon;
@@ -79,6 +75,27 @@ export interface HouseRule {
   line: string;
   href?: string;
   linkLabel?: string;
+}
+
+// ── Anchor slugs ───────────────────────────────────────────────────
+
+/** Strips diacritics/punctuation to hyphen-safe, collision-resistant slugs. */
+function slugify(text: string): string {
+  return text
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Anchor id for a feature block. Scoped by surface — several titles repeat
+ * across surfaces (Tips, Incidents, Settings…), and an unscoped slug makes
+ * two different sections resolve to the same `#id`.
+ */
+export function featureAnchorId(feature: Pick<DemoFeature, "surface" | "title">): string {
+  return `${feature.surface}-${slugify(feature.title)}`;
 }
 
 // ── Walkthrough ────────────────────────────────────────────────────
@@ -193,15 +210,6 @@ export const DEMO_GROUPS: DemoGroup[] = [
         tryPath: "Open /staff",
         href: "/staff",
         surface: "staff",
-      },
-      {
-        icon: Building2,
-        title: "Admin panel",
-        what: "Platform SaaS — multi-tenant venue management, plans, leads, onboarding.",
-        why: "NightLifeNext runs across venues. Admin provisions tenants, manages plans, and onboards new clubs.",
-        tryPath: "Open /admin",
-        href: "/admin",
-        surface: "admin",
       },
     ],
   },
@@ -578,7 +586,7 @@ export const DEMO_GROUPS: DemoGroup[] = [
         icon: CalendarDays,
         title: "Reservations",
         what: "Tonight's bookings — who's coming, which table, what time, any special requests.",
-        why: "The host checks reservations at the door. Name, party size, table, and VIP notes in one list.",
+        why: "Security checks reservations at the door. Name, party size, table, and VIP notes in one list.",
         tryPath: "Staff bottom bar > Reservations",
         href: "/staff/reservations",
         surface: "staff",
@@ -676,103 +684,21 @@ export const DEMO_GROUPS: DemoGroup[] = [
       },
     ],
   },
-  // ── Admin ─────────────────────────────────────────────────────────
-  {
-    id: "admin",
-    label: "Admin",
-    icon: Building2,
-    intro:
-      "Platform SaaS — multi-tenant venue management. Admin provisions venues, manages plans, onboards new clubs, and monitors the platform.",
-    features: [
-      {
-        icon: LayoutDashboard,
-        title: "Overview",
-        what: "Platform dashboard — total venues, active trials, MRR, churn, recent signups.",
-        why: "The platform operator needs a bird's-eye view. Which venues are healthy, which are churning, what's the pipeline.",
-        tryPath: "Open /admin",
-        href: "/admin",
-        surface: "admin",
-      },
-      {
-        icon: Store,
-        title: "Venues",
-        what: "All tenant venues list — search, filter by plan and status, drill into detail.",
-        why: "Every venue is a tenant. The venues list is the CRM for the platform operator.",
-        tryPath: "Admin sidebar > Venues",
-        href: "/admin/venues",
-        surface: "admin",
-      },
-      {
-        icon: Building2,
-        title: "Venue detail",
-        what: "Single venue deep-dive — subscription, staff count, table count, revenue, activity log.",
-        why: "When a venue calls with a billing question, the detail page has every answer on one screen.",
-        tryPath: "Admin sidebar > Venues > click a venue",
-        href: "/admin/venues/demo-venue",
-        surface: "admin",
-      },
-      {
-        icon: Package,
-        title: "Plans",
-        what: "Subscription plan definitions — feature gates, seat limits, table caps, pricing tiers.",
-        why: "Plans define what each venue tier gets. Changing a plan updates every venue on it immediately.",
-        tryPath: "Admin sidebar > Plans",
-        href: "/admin/plans",
-        surface: "admin",
-      },
-      {
-        icon: Phone,
-        title: "Leads",
-        what: "Inbound demo requests and lead pipeline — status, notes, conversion tracking.",
-        why: "Every /lead submission lands here. Track outreach, schedule follow-ups, convert leads to venues.",
-        tryPath: "Admin sidebar > Leads",
-        href: "/admin/leads",
-        surface: "admin",
-      },
-      {
-        icon: Sparkles,
-        title: "Onboarding",
-        what: "New venue provisioning wizard — admin-side setup flow for tenant creation.",
-        why: "When a lead converts, admin provisions the venue — plan assignment, admin account, initial config.",
-        tryPath: "Admin sidebar > Onboarding",
-        href: "/admin/onboarding",
-        surface: "admin",
-      },
-      {
-        icon: Cog,
-        title: "Settings",
-        what: "Platform-level configuration — email templates, feature flags, global defaults.",
-        why: "Platform settings that apply across all tenants — not per-venue, but per-platform.",
-        tryPath: "Admin sidebar > Settings",
-        href: "/admin/settings",
-        surface: "admin",
-      },
-    ],
-  },
   // ── Public ────────────────────────────────────────────────────────
   {
     id: "public",
     label: "Public",
     icon: Globe,
     intro:
-      "Customer-facing surfaces outside the app — lead capture, public event pages, and reservation pages per venue.",
+      "Customer-facing surfaces outside the app — public event pages and reservation pages per venue.",
     features: [
-      {
-        icon: Phone,
-        title: "Lead capture",
-        what: "Demo request form — venue name, contact info, message — feeds the admin lead pipeline.",
-        why: "The front door for new business. Venues find NightLifeNext and request a personalized demo.",
-        tryPath: "Visit /lead",
-        href: "/lead",
-        surface: "public",
-      },
       {
         icon: Globe,
         title: "Public venue page",
         what: "Customer-facing venue landing — hours, location, upcoming events, reservation link.",
         why: "Every venue gets a public page at /e/venueslug. Guests discover events and book tables there.",
-        tryPath: "Visit /e/demo-venue",
-        href: "/e/demo-venue",
+        tryPath: "Visit /e/velvet-montreal",
+        href: "/e/velvet-montreal",
         surface: "public",
       },
       {
@@ -780,8 +706,8 @@ export const DEMO_GROUPS: DemoGroup[] = [
         title: "Public reservations",
         what: "Guest-facing reservation flow — pick date, party size, table, submit request.",
         why: "Guests book tables without calling the venue. The reservation lands in the manager's booking board.",
-        tryPath: "Visit /r/demo-venue",
-        href: "/r/demo-venue",
+        tryPath: "Visit /r/velvet-montreal",
+        href: "/r/velvet-montreal",
         surface: "public",
       },
     ],

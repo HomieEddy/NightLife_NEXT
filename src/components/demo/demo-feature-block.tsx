@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Reveal } from "@/components/fx/reveal";
-import type { DemoFeature } from "./demo-guide-content";
+import { featureAnchorId, type DemoFeature } from "./demo-guide-content";
 
 const SURFACE_BADGE: Record<string, { label: string; className: string }> = {
   manager: { label: "Manager", className: "border-violet-500/40 text-violet-500 dark:text-violet-400" },
@@ -18,7 +18,7 @@ export function DemoFeatureBlock({ feature }: { feature: DemoFeature }) {
   return (
     <Reveal>
       <div
-        id={feature.title.toLowerCase().replace(/\s+/g, "-")}
+        id={featureAnchorId(feature)}
         className="scroll-mt-24 rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur transition-colors hover:border-gold/40"
       >
         <div className="flex items-start justify-between gap-3">
