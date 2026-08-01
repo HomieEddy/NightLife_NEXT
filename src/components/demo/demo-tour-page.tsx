@@ -21,7 +21,7 @@ const HOW_IT_WORKS = DEMO_GROUPS.find((g) => g.id === "how-it-works");
 export default function DemoTourPage() {
   return (
     <DemoTabProvider>
-    <div className="relative flex min-h-screen">
+    <div className="relative flex min-h-screen flex-col lg:flex-row">
       {/* Fixed, full-viewport animated background — covers the whole page as
           you scroll, so there's no seam where the effect used to end. */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background">
