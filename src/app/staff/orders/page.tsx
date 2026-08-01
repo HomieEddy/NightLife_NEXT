@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCheck, Inbox, PartyPopper, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -209,10 +210,15 @@ function StaffOrdersContent() {
   return (
     <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-display text-xl">Order feed</h1>
-        <Button variant="ghost" size="icon" onClick={invalidate} aria-label="Refresh">
+        <div>
+          <h1 className="text-display text-xl">Order feed</h1>
+          <p className="text-sm text-muted-foreground">
+            Claim an order, walk it pending to delivered — no double-assignment, clear ownership.
+          </p>
+        </div>
+        <TooltipIconButton variant="ghost" tooltip="Refresh" onClick={invalidate}>
           <RefreshCw className="size-4" />
-        </Button>
+        </TooltipIconButton>
       </div>
 
       <div className="flex items-center justify-between gap-3">

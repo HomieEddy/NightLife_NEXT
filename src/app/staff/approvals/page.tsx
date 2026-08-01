@@ -127,7 +127,12 @@ export default function StaffApprovalsPage() {
 
   return (
     <div className="animate-fade-in space-y-5 p-4">
-      <h1 className="text-display text-xl">Guest approvals</h1>
+      <div>
+        <h1 className="text-display text-xl">Guest approvals</h1>
+        <p className="text-sm text-muted-foreground">
+          Approve QR join requests, review guest profiles and visit history before seating.
+        </p>
+      </div>
 
       {isLoading && !sessions ? (
         <ListSkeleton rows={3} rowHeight="h-28" />

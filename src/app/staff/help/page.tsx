@@ -84,9 +84,14 @@ export default function StaffHelpPage() {
 
   return (
     <div className="animate-fade-in space-y-5 p-4">
-      <h1 className="text-display text-xl">
-        {isSecurityRole ? "Security requests" : "Help requests"}
-      </h1>
+      <div>
+        <h1 className="text-display text-xl">
+          {isSecurityRole ? "Security requests" : "Help requests"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Triaged requests — ice, cleanup, bill, security — claimed and resolved by the right role.
+        </p>
+      </div>
 
       {isLoading ? (
         <ListSkeleton rows={3} rowHeight="h-28" />

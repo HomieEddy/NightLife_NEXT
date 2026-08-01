@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck, ChevronLeft, ChevronRight, PartyPopper } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EventCard, EventActionGold } from "@/components/shared/event-card";
@@ -107,28 +107,31 @@ export default function StaffEventsPage() {
 
   return (
     <div className="animate-fade-in stagger-children space-y-5 p-4">
-      <h1 className="text-display text-xl">Events</h1>
+      <div>
+        <h1 className="text-display text-xl">Events</h1>
+        <p className="text-sm text-muted-foreground">
+          Tonight&apos;s event — who&apos;s on the guestlist, what&apos;s different about the floor.
+        </p>
+      </div>
 
       <div className="flex items-center justify-between">
-        <Button
+        <TooltipIconButton
           variant="ghost"
-          size="icon"
           className="size-8"
           onClick={() => setMonth((m) => shiftMonth(m, -1))}
-          aria-label="Previous month"
+          tooltip="Previous month"
         >
           <ChevronLeft className="size-4" />
-        </Button>
+        </TooltipIconButton>
         <span className="text-sm font-medium">{monthLabel(month)}</span>
-        <Button
+        <TooltipIconButton
           variant="ghost"
-          size="icon"
           className="size-8"
           onClick={() => setMonth((m) => shiftMonth(m, 1))}
-          aria-label="Next month"
+          tooltip="Next month"
         >
           <ChevronRight className="size-4" />
-        </Button>
+        </TooltipIconButton>
       </div>
 
       {visible && visible.length === 0 && (
