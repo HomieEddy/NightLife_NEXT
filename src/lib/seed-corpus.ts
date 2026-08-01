@@ -1332,7 +1332,7 @@ function pickEventNights(startDay: number, endDay: number, count: number): numbe
 }
 
 export function generateHistoricalEvents(): GeneratedEvent[] {
-  const eventNights = pickEventNights(89, 7, 7);
+  const eventNights = pickEventNights(89, 0, 7);
   const events: GeneratedEvent[] = [];
 
   for (const daysOffset of eventNights) {
@@ -1391,6 +1391,14 @@ export function generateHistoricalEvents(): GeneratedEvent[] {
       capacity: def.capacity, status: eventStatus, guestlistEnabled: def.guestlist,
       eventGuests, talent,
     });
+  }
+
+  // Ensure at least one "upcoming" and one "completed" for variety
+  if (events.length >= 2) {
+    const hasUpcoming = events.some((e) => e.status === "upcoming");
+    const hasCompleted = events.some((e) => e.status === "completed");
+    if (!hasUpcoming) events[0].status = "upcoming";
+    if (!hasCompleted) events[events.length - 1].status = "completed";
   }
 
   return events;
