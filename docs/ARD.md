@@ -1,9 +1,10 @@
 # ARD — Architecture Requirements & Decisions
 
 **Status:** Living document · Companion to `docs/PRD.md` and `docs/DDD.md`.
-**Last updated:** 2026-07-27. Phase 2 shipped plans 01–12; decisions below are
-implemented unless an "Implementation status" note says otherwise. AD-19 through
-AD-23 are new — they govern Phases 3–5 of the re-aligned roadmap.
+**Last updated:** 2026-07-30. Decisions below are implemented unless an
+"Implementation status" note says otherwise. Phase numbers refer to
+`docs/ROADMAP.md` (realigned 2026-07-30): Phases 1–6 are complete, Phase 7 is
+live graduation, Phase 8 is production readiness, Phase 9 is CI/CD.
 
 Each decision: context → choice → alternatives considered → consequences. These are
 defaults, not dogma — overturn one by editing this file in the same PR that departs
@@ -92,7 +93,9 @@ the handler. Service-layer methods keep TypeScript signatures (R1).
 **Choice:** Resend for transactional mail via the notification dispatcher (AD-22).
 Templates in React Email. Dev mode logs to console.
 
-**Implementation status:** not landed. Ships with plan 25 (Phase 2).
+**Implementation status:** landed (plan 25). Transport in
+`src/features/notifications/email.ts`, templates in
+`src/features/notifications/templates.tsx` and `src/emails/`.
 
 ---
 
@@ -103,9 +106,11 @@ Templates in React Email. Dev mode logs to console.
 `/api/jobs/session-timeout`, `/api/jobs/certification-expiry`, `/api/jobs/compliance-deadline`.
 Jobs are idempotent; `job_runs` table prevents double-execution.
 
-**Implementation status:** partial. `job_runs` model exists but no handlers or cron
-wiring. Ships with plan 25 (Phase 2). Additional job handlers added in Phase 3
-(automations) and Phase 4 (auto-release, auto-escalation).
+**Implementation status:** landed. Handlers live under `src/app/api/jobs/*`
+(report schedules, nightly rollup, hold expiry, session timeout, certification
+expiry, compliance deadline) with `job_runs` deduplication. Staging and
+production dispatch through BullMQ (AD-22); local live dev uses the cron
+fallback.
 
 ---
 
@@ -122,8 +127,8 @@ fixtures.
 **Choice:** Tonight queries aggregate live orders. Historical ranges read
 `nightly_rollups`. Report engine composes same queries. CSV export rendered
 server-side; scheduled runs delivered via notification dispatcher (AD-22).
-Phase 4 adds comparison queries (night-over-night), projection queries, and
-SLA analytics on the same data.
+Comparison (night-over-night), projection, and SLA analytics queries live in
+`src/features/analytics/analytics-depth.ts` behind `/api/analytics`.
 
 ---
 
@@ -148,8 +153,8 @@ limits; no Stripe Connect, no guest-facing Checkout, no payment intents.
 ## AD-14 · Dual-mode: the mock demo is a permanent product surface
 
 **Choice:** Mock and real implementations co-exist. Contract from the mock
-(`type XService = typeof mockXService`). Selector layer (`src/lib/services/`)
-picks via `NEXT_PUBLIC_APP_MODE`. Demo build on Vercel, live build on OVHcloud.
+(`type XService = typeof mockXService`). Selector layer
+(`src/features/{domain}/services.ts`) picks via `NEXT_PUBLIC_APP_MODE`. Demo build on Vercel, live build on OVHcloud.
 Same repo, two deploy targets. Build-time inlining drops unused implementation.
 
 **Demo-first lifecycle:** Sketch mock-first → iterate UX in demo → gate behind
@@ -179,7 +184,7 @@ the same transaction as every sensitive effect. Ledger discipline is the default
 `tip_distributions`, `commission_statements`, `incident_notes`,
 `notification_logs`, `compliance_actions` — all INSERT-only.
 
-**Consequences:** "Who did what when" is one query. Plan 29 retention has one
+**Consequences:** "Who did what when" is one query. Plan 35 retention has one
 obvious source. Reversal/supersede chain encoded once in pure functions.
 
 ---
@@ -200,8 +205,9 @@ by construction. Recognition features degrade gracefully when no profile exists.
 ## AD-18 · Product cost: weighted average, carried on the movement
 
 **Choice:** Weighted average cost (WAC). `unitCostCents` on each inbound
-`StockMovement`. `MenuItem.avgCostCents` recomputed on each receipt. Phase 4
-adds auto-calculated pour cost from recipe BOM + current cost.
+`StockMovement`. `MenuItem.avgCostCents` recomputed on each receipt. Per-bottle
+WAC is the whole model — recipe/BOM pour costing is a deliberate omission for a
+VIP bottle-service product (ROADMAP parking lot, tier 3).
 
 **Consequences:** Pour cost and margin computable from movements alone. Historical
 margin does not retroactively change when a new shipment arrives.
@@ -351,6 +357,12 @@ AGENTS.md §1.2 warns against.
 adding a config shape and an evaluator function; the dispatch is shared. Venue
 admins can configure thresholds without code changes.
 
+**Implementation status:** partial, and the module has not been extracted. The
+automation rule engine (`src/features/automation/core.ts`, `/api/automations/*`)
+implements the scheduled and event-driven half. The remaining rule types are
+still evaluated inline in their feature's `core.ts`. Extract `src/server/rules/`
+when a rule type needs a second caller — not before (AGENTS.md §2.4).
+
 ---
 
 ## AD-22 · Notification dispatch: one dispatcher, three channels
@@ -360,7 +372,7 @@ notifications (Phase 5). Building channel logic in each feature would produce
 three parallel seams with different error handling, retry, and logging.
 
 **Choice:**
-- **`src/server/notifications/dispatch.ts`** — `notify(event, recipients, payload)`:
+- **`src/features/notifications/dispatch.ts`** — `notify(event, recipients, payload)`:
    resolves channels per recipient from `NotificationPreferences` (canonical
    model per AD-20: `NotificationPreference: { channel, eventType, enabled }[]`),
    calls the appropriate transport (`email.ts`, `sms.ts`, `push.ts`), records one
@@ -370,7 +382,8 @@ three parallel seams with different error handling, retry, and logging.
   - `email.ts` → Resend (AD-8)
   - `sms.ts` → Twilio (plan 26)
   - `push.ts` → Web Push API (AD-20)
-- **Templates**: `src/notifications/templates/*.ts` — typed template functions
+- **Templates**: `src/features/notifications/templates.tsx` and `sms-templates.ts`
+  — typed template functions
   that take a typed payload and return `{ subject?, body, html? }`. One template
   per event type per channel. Not React Email (email) + plain text (SMS/push).
 - **Logging**: `NotificationLog: { id, venueId, channel, template, recipientId,
@@ -378,35 +391,39 @@ three parallel seams with different error handling, retry, and logging.
   error?, createdAt }`. Append-only. The log IS the delivery audit trail.
 - **Failure handling**: per-transport retry with exponential backoff (max 3
   retries over 10 minutes). After 3 failures, log as "failed" and do not retry.
-  No dead-letter queue at this scale — the log is queryable for failed sends.
+  The `NotificationLog` is queryable for failed sends.
+- **Queue topology**: BullMQ (Redis-backed) in staging/prod for reliable retry
+  and scheduled sends; cron-job fallback for local live dev (`dev:pglite`,
+  `dev:stack`) — no Redis dependency for local development. Plan 30 §3 is the
+  implementation vehicle.
 
 **Alternatives:** per-feature notification logic (three code paths, three error
-  models, no cross-channel preferences — rejected per AGENTS.md §1.2); queue
-  infrastructure (BullMQ/Redis — synchronous sends suffice at this scale;
-  earned by volume, noted in parking lot).
+  models, no cross-channel preferences — rejected per AGENTS.md §1.2).
 
 **Consequences:** Adding a new notification trigger is: (1) define the domain
 event if new, (2) create a template, (3) call `notify(...)` at the trigger point.
 The dispatcher handles channel resolution, preferences, logging, and retries.
-All features in Phases 2–5 that say "notify X when Y" route through this one
-function.
+Every feature that says "notify X when Y" routes through this one function.
+
+**Implementation status:** landed (plans 25, 26, 28). Email, SMS and push
+transports all ship behind the dispatcher.
 
 ---
 
-## AD-23 · CI/CD deferral: minimal development CI, full automation in Phase 7
+## AD-23 · CI/CD deferral: minimal development CI, full automation in Phase 9
 
 **Context:** The product roadmap defers production-grade CI/CD, deployment
-automation, infrastructure-as-code, and release orchestration to Phase 7 —
-after the product is functionally complete through Phase 6. This AD records
-the decision so it is not relitigated per feature.
+automation, infrastructure-as-code, and release orchestration to Phase 9 —
+after the product is functionally complete and production-hardened through
+Phase 8. This AD records the decision so it is not relitigated per feature.
 
 **Choice:**
-- **During Phases 1–6 (development):** one minimal CI gate on every PR to `dev`:
+- **During Phases 1–8 (development):** one minimal CI gate on every PR to `dev`:
   `npx tsc --noEmit && npx eslint src && npm run test`. No staging deploys, no
   production pipelines, no Docker optimization, no Kubernetes, no Coolify
   automation beyond git-push deploys. Manual deploys via Coolify dashboard are
   acceptable for development velocity.
-- **Phase 7 (post-functional-completeness):** full CI/CD pipeline: GitHub Actions
+- **Phase 9 (post-functional-completeness):** full CI/CD pipeline: GitHub Actions
   with lint → typecheck → test → integration test gates; automated staging
   deploy on merge to `dev`; automated production deploy on merge to `master`
   with manual approval gate; blue-green deploy strategy; database migration
@@ -418,23 +435,61 @@ the decision so it is not relitigated per feature.
   make the product sellable. CI/CD is valuable, but it's valuable because it
   delivers features faster; if there are no features, there's nothing to deliver.
 
-**Alternatives:** shipping CI/CD early (plan 21's original position) — rejected
-  because the re-aligned strategy is "business logic first"; build pipelines
+**Alternatives:** shipping CI/CD early (plan 36's original position) — rejected
+  because the strategy is "business logic first"; build pipelines
   alongside features (incremental CI/CD) — tempting but each pipeline increment
   creates maintenance burden while the product surface changes rapidly.
 
-**Consequences:** The team manually deploys via Coolify during Phases 1–6. PR
+**Consequences:** The team manually deploys via Coolify during Phases 1–8. PR
 gates are automated (tsc, eslint, test). Staging validation is manual. This
 is acceptable because the number of deploy targets is small (staging, production,
 demo) and the team is small.
 
 ---
 
-## System sketch (updated for Phase 2–5)
+## AD-24 · Client server-state: TanStack Query
+
+**Context:** Every page hand-rolled the same fetch loop — `useState` for data,
+`useState` for loading, a `refresh` in `useCallback`, a `useEffect` to call it,
+and ad-hoc re-fetching after every mutation. Roughly sixty pages carried this
+boilerplate, each with its own subtly different behaviour on refetch, error and
+race conditions. That is the "second caller" threshold from AGENTS.md §2.4,
+crossed sixty times over.
+
+**Choice:** TanStack Query v5 owns all client-side server state.
+- **Provider**: `src/components/providers/query-provider.tsx`, mounted once in
+  the root layout. Devtools in development only.
+- **Key builders**: `src/features/{domain}/query-keys.ts` — one exported builder
+  per domain. Keys are never written as inline array literals at a call site;
+  invalidation always goes through the builder, so a key rename is one edit.
+- **Reads** use `useQuery`; **writes** use `useMutation` with explicit
+  `invalidateQueries` on the affected key prefixes.
+- **Selector compatibility**: query functions call the feature service selector
+  (`src/features/{domain}/services.ts`), so demo and live modes are unchanged —
+  Query sits above the mock/live seam, never inside it (R1, AD-14).
+- **`@tanstack/eslint-plugin-query`** is enabled; its rules are not warnings to
+  live with.
+
+**Alternatives:** keeping the hand-rolled loops (rejected — sixty copies of the
+same bug surface); SWR (smaller, but no mutation/invalidation model, which is
+most of what we needed); a global store such as Zustand or Redux (server state
+is not client state — caching, staleness and refetch are the actual problem, and
+a store solves none of them).
+
+**Consequences:** A new page fetching data in a `useEffect` is a pattern break.
+Realtime stays orthogonal: `useLiveEvents` (AD-6) receives the SSE event and
+invalidates the relevant query keys — SSE is the signal, Query is the cache.
+Loading skeletons key off `isPending`, and the demo build's artificial `delay()`
+still exercises them.
+
+---
+
+## System sketch
 
 ```
 Browser / PWA (manager / staff / guest / admin UIs)
-   │  imports from src/lib/services/* selectors (AD-14)
+   │  TanStack Query (useQuery / useMutation, AD-24) over
+   │  src/features/{domain}/services.ts selectors (AD-14)
    │  Service Worker: cache-first app shell + offline queue + push events (AD-19/20)
    ▼
 xService = demo → mockXService (in-memory, self-resetting)

@@ -3,9 +3,9 @@
 import type { ReactNode } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatMoney, timeAgo } from "@/lib/format";
+import { formatMoney, timeAgo } from "@/features/shared/format";
 import { orderLineSubtotal } from "@/lib/order-line";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type { Order } from "@/lib/types";
 import { Gift, MapPin, Tag } from "lucide-react";
 
@@ -48,7 +48,14 @@ export function OrderCard({
           </div>
           <div className="text-right">
             <p className="font-semibold tabular-nums">{formatMoney(order.total)}</p>
-            <p className="text-xs text-muted-foreground">{timeAgo(order.placedAt)}</p>
+            {order.status !== "delivered" && order.status !== "cancelled" ? (
+              <p className="text-xs text-muted-foreground">⏱ {timeAgo(order.placedAt)}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">{timeAgo(order.placedAt)}</p>
+            )}
+            {order.priorityScore != null && (
+              <p className="text-[10px] text-muted-foreground">Priority: {order.priorityScore}</p>
+            )}
           </div>
         </div>
 

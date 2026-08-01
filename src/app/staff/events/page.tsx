@@ -1,17 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck, ChevronLeft, ChevronRight, PartyPopper } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { EventCard, EventActionGold } from "@/components/shared/event-card";
-import { eventsService } from "@/lib/services/events-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { staffService } from "@/lib/services/staff-service";
+import { eventsService } from "@/features/hospitality/events-service";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { eventsKeys, reservationsKeys } from "@/features/hospitality/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { useLiveEvents } from "@/lib/use-live-events";
-import type { VenueEvent, StaffMember } from "@/lib/types";
+import type { VenueEvent } from "@/lib/types";
 
 interface EventWithTally extends VenueEvent {
   myReservations: number;
@@ -37,36 +41,49 @@ function shiftMonth(key: string, delta: number): string {
 
 export default function StaffEventsPage() {
   const router = useRouter();
-  const [events, setEvents] = useState<EventWithTally[] | null>(null);
-  const [me, setMe] = useState<StaffMember | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [month, setMonth] = useState(() => monthKey(new Date()));
 
-  const refresh = useCallback(async () => {
-    const [allEvents, staff] = await Promise.all([
-      eventsService.listEvents(),
-      staffService.getCurrentStaff(),
-    ]);
-    setMe(staff);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: eventsKeys.all(venueId) });
+    queryClient.invalidateQueries({ queryKey: reservationsKeys.all(venueId) });
+  };
 
-    const myRes = await reservationService.listMyReservations(staff.id);
-    const published = allEvents.filter((e) => e.status !== "draft");
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
 
-    const withTally: EventWithTally[] = published.map((evt) => ({
-      ...evt,
-      myReservations: myRes.filter((r) => r.eventId === evt.id).length,
-    }));
+  const { data: allEvents } = useQuery({
+    queryKey: eventsKeys.all(venueId),
+    queryFn: () => eventsService.listEvents(),
+    enabled: !!venueId,
+  });
 
-    setEvents(withTally);
-  }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: myReservations } = useQuery({
+    queryKey: reservationsKeys.mine(venueId, me?.id ?? ""),
+    queryFn: () => reservationService.listMyReservations(me!.id),
+    enabled: !!venueId && !!me,
+  });
 
   useLiveEvents({
     scope: "staff",
-    onEvent: () => refresh(),
+    onEvent: invalidate,
     fallbackMs: 8000,
-    fallbackRefresh: () => refresh(),
+    fallbackRefresh: invalidate,
   });
+
+  const events = useMemo((): EventWithTally[] | null => {
+    if (!allEvents || !myReservations) return null;
+    const published = allEvents.filter((e) => e.status !== "draft");
+    return published.map((evt) => ({
+      ...evt,
+      myReservations: myReservations.filter((r) => r.eventId === evt.id).length,
+    }));
+  }, [allEvents, myReservations]);
 
   const visible = useMemo(
     () =>
@@ -79,7 +96,7 @@ export default function StaffEventsPage() {
 
   if (!events || !me) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="animate-fade-in space-y-5 p-4">
         <Skeleton className="h-8 w-48" />
         {Array.from({ length: 3 }, (_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -89,33 +106,40 @@ export default function StaffEventsPage() {
   }
 
   return (
-    <div className="space-y-4 p-4">
-      <h1 className="text-lg font-semibold">Events</h1>
+    <div className="animate-fade-in stagger-children space-y-5 p-4">
+      <div>
+        <h1 className="text-display text-xl">Events</h1>
+        <p className="text-sm text-muted-foreground">
+          Tonight&apos;s event — who&apos;s on the guestlist, what&apos;s different about the floor.
+        </p>
+      </div>
 
       <div className="flex items-center justify-between">
-        <Button
+        <TooltipIconButton
           variant="ghost"
-          size="icon"
           className="size-8"
           onClick={() => setMonth((m) => shiftMonth(m, -1))}
-          aria-label="Previous month"
+          tooltip="Previous month"
         >
           <ChevronLeft className="size-4" />
-        </Button>
+        </TooltipIconButton>
         <span className="text-sm font-medium">{monthLabel(month)}</span>
-        <Button
+        <TooltipIconButton
           variant="ghost"
-          size="icon"
           className="size-8"
           onClick={() => setMonth((m) => shiftMonth(m, 1))}
-          aria-label="Next month"
+          tooltip="Next month"
         >
           <ChevronRight className="size-4" />
-        </Button>
+        </TooltipIconButton>
       </div>
 
       {visible && visible.length === 0 && (
-        <EmptyState icon={PartyPopper} title="No events this month" />
+        <EmptyState
+          icon={PartyPopper}
+          title="No events this month"
+          description="Switch months to browse other nights, or check back once the manager schedules one."
+        />
       )}
 
       {visible?.map((evt) => (

@@ -1,6 +1,7 @@
 # 09c — Analytics Depth & Reporting Expansion · PLAN
 
-**Status: complete except scheduled email delivery** — same unshipped leg as
+**Status: complete.** Scheduled email delivery landed with plan 25. Original
+note: same unshipped leg as
 plan 09; metrics, saved reports and CSV landed. See ROADMAP parking lot.
 
 Goal: capture in-depth metrics for the domains plan 09 left uncovered —
@@ -91,7 +92,7 @@ live branch computes them from real rows.
   new sections; `mockAnalyticsService.getHistorical` scales them with the same
   `seeded()` hash approach — deterministic, no `Math.random`.
 - **Analytics page**: new sections slot into the existing tab/card layout
-  (reuse `MockChart`, stat cards, `EntityChip` links to
+  (reuse `RevenueChart` (Recharts), stat cards, `EntityChip` links to
   reservations/events/promotions pages). No new dependencies.
 - **Report engine**: `REPORT_METRICS` grows ids — `sessions`, `reservations`,
   `happy-hours`, `events`, `promotions`, `service-fees`, `order-funnel` — each

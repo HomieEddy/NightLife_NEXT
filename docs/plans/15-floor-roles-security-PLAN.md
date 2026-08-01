@@ -1,6 +1,14 @@
 # 15 — Floor-Role Capability Matrix, Security Panel & Demo Personas · PLAN
 
-**Status: not started — demo track first (AD-14).**
+**Status: shipped (demo + live). WS-6 landed the capability matrix as the
+server authority — `requirePermission()` guard across the route handlers,
+scoped `canDo`, `usePermissions()`/`<Can>`, and nav derived from the live
+matrix. The matrix lives at `src/features/shared/role-capabilities.ts`
+(permission logic in `src/features/shared/permissions.ts`), not the
+`src/lib/role-capabilities.ts` path this doc originally named.**
+The capability matrix and security panel run on the mock permission service; the
+live branch still reads the hardcoded default map and needs
+`venue_role_permissions` persistence.
 
 Goal: the `/staff` panel stops pretending every floor role is a runner. Three
 moves: (1) redefine the **runner** as the bartender/hostess assistant —

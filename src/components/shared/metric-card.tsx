@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { InfoTip } from "@/components/shared/info-tip";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 export function MetricCard({
   label,

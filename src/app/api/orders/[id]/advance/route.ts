@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Order routes are disabled in demo mode" }, { status: 404 });
@@ -9,19 +9,16 @@ async function livePATCH(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb, getRawPrisma } = await import("@/server/db");
-  const { advanceOrder } = await import("@/server/order-core");
-  const { getCurrentStaff } = await import("@/server/staff-core");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
+  const { advanceOrder } = await import("@/features/ordering/core");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "order:transition");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { db, staff } = auth;
   const { id } = await params;
-  const staff = await getCurrentStaff(getRawPrisma(), venueId, auth.session.user.id);
-  const order = await advanceOrder(db, id, staff ? { staffId: staff.id, staffName: staff.name } : undefined);
+
+  const order = await advanceOrder(db, id, { staffId: staff.id, staffName: staff.name });
 
   if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(order);

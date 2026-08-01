@@ -15,6 +15,7 @@ import type {
 } from "@/lib/types";
 import { computeSessionBalance, shortfallRatio } from "@/lib/tab";
 import { occupancyRatio } from "@/lib/door";
+import { computeOrderPriority } from "@/features/ordering/costs";
 
 const HELP_LABELS: Record<HelpRequestType, string> = {
   "call-waiter": "Call waiter",
@@ -126,6 +127,33 @@ export function computeAttentionItems(
         message: `${session.displayName} — $${(balance.shortfallCents / 100).toFixed(0)} short of minimum`,
         ageMinutes: 0,
       });
+    }
+  }
+
+  // RV-19: Mid-night minimum-spend progress checks at configurable checkpoints.
+  // Alerts fire when current spend is below the checkpoint ratio of the minimum.
+  for (const session of sessions) {
+    if (session.status !== "approved" || !session.minimumSpendCents) continue;
+    const table = tables.find((t) => t.id === session.tableId);
+    if (!table) continue;
+    const balance = computeSessionBalance(session.id, orders, adjustments, session.minimumSpendCents);
+    if (balance.shortfallCents <= 0) continue;
+    const progress = balance.netCents / session.minimumSpendCents;
+    const checkpoints = [0.5, 0.75, 0.9];
+    for (const cp of checkpoints) {
+      if (progress < cp) {
+        items.push({
+          id: `min-progress-${session.id}-${cp}`,
+          type: "table-under-minimum",
+          severity: "warning",
+          tableId: table.id,
+          tableCode: table.code,
+          zoneName: zones.find((z) => z.id === table.zoneId)?.name ?? "",
+          message: `${session.displayName} — ${Math.round(progress * 100)}% of $${(session.minimumSpendCents / 100).toFixed(0)} minimum`,
+          ageMinutes: 0,
+        });
+        break; // only report lowest unmet checkpoint
+      }
     }
   }
 

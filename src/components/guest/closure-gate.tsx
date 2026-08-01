@@ -6,19 +6,21 @@
  * (or stale client state) can't outrun the truth — the order service rejects
  * regardless; this gate is the friendly layer.
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useGuest } from "@/context/guest-context";
-import { guestsService } from "@/lib/services/guests-service";
+import { guestsService } from "@/features/guests/services";
+import { cn } from "@/features/shared/utils";
 import type { ReactNode } from "react";
 
 export function ClosureGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { sessionId, closureStatus, setClosureStatus } = useGuest();
+  const [phase, setPhase] = useState<"active" | "fading" | "blocked">("active");
 
   useEffect(() => {
     if (!sessionId) return;
@@ -34,12 +36,22 @@ export function ClosureGate({ children }: { children: ReactNode }) {
   }, [sessionId, setClosureStatus]);
 
   useEffect(() => {
+    if (closureStatus === "requested" && phase === "active") {
+      setPhase("fading");
+      const t = setTimeout(() => setPhase("blocked"), 300);
+      return () => clearTimeout(t);
+    }
+  }, [closureStatus, phase]);
+
+  useEffect(() => {
     if (closureStatus === "closed") router.replace("/guest/receipt");
   }, [closureStatus, router]);
 
-  if (closureStatus === "requested") {
+  if (closureStatus === "closed") return null; // redirecting to the receipt
+
+  if (phase === "blocked") {
     return (
-      <div className="p-6">
+      <div className="p-6 animate-fade-up">
         <EmptyState
           icon={ReceiptText}
           title="Tab closure requested"
@@ -53,7 +65,10 @@ export function ClosureGate({ children }: { children: ReactNode }) {
       </div>
     );
   }
-  if (closureStatus === "closed") return null; // redirecting to the receipt
 
-  return <>{children}</>;
+  return (
+    <div className={cn("transition-opacity duration-300", phase === "fading" ? "opacity-0" : "opacity-100")}>
+      {children}
+    </div>
+  );
 }

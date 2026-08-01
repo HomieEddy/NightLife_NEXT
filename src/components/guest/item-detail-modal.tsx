@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Minus, Plus, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
+import { gsap } from "@/lib/gsap";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,8 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { BottleIcon } from "@/components/shared/bottle-icon";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import { useGuest } from "@/context/guest-context";
 import { orderLineSubtotal } from "@/lib/order-line";
 import type { MenuItem, ModifierGroup, OrderItemModifier } from "@/lib/types";
@@ -32,6 +34,7 @@ export function ItemDetailModal({
   const [quantity, setQuantity] = useState(1);
   const [selected, setSelected] = useState<Record<string, Record<string, number>>>({});
   const [note, setNote] = useState("");
+  const addBtnRef = useRef<HTMLButtonElement>(null);
 
   // Reset per item via key on DialogContent below.
   const modifiers: OrderItemModifier[] = useMemo(() => {
@@ -83,6 +86,31 @@ export function ItemDetailModal({
     if (!item) return;
     addToCart(item, quantity, modifiers, note.trim() || undefined);
     toast.success(`${quantity}× ${item.name} added to cart`);
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && addBtnRef.current) {
+      const btnRect = addBtnRef.current.getBoundingClientRect();
+      const pill = document.getElementById("cart-pill");
+      if (pill) {
+        const pillRect = pill.getBoundingClientRect();
+        const clone = document.createElement("span");
+        clone.textContent = `+${formatMoney(lineTotal)}`;
+        clone.className = "text-sm font-semibold text-primary tabular-nums";
+        clone.style.position = "fixed";
+        clone.style.left = `${btnRect.left}px`;
+        clone.style.top = `${btnRect.top}px`;
+        clone.style.zIndex = "9999";
+        clone.style.pointerEvents = "none";
+        document.body.appendChild(clone);
+        gsap.to(clone, {
+          x: pillRect.left + pillRect.width / 2 - btnRect.left,
+          y: pillRect.top + pillRect.height / 2 - btnRect.top,
+          scale: 0.4,
+          opacity: 0,
+          duration: 0.4,
+          ease: "power2.in",
+          onComplete: () => clone.remove(),
+        });
+      }
+    }
     handleClose();
   }
 
@@ -120,9 +148,9 @@ export function ItemDetailModal({
                     const active = selectedQuantity > 0;
                     return (
                       <div
-                        key={option.id}
+                        key={`${option.id}-${active}`}
                         className={cn(
-                          "flex w-full items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors",
+                          "flex w-full items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors animate-pop-in",
                           active
                             ? "border-primary bg-primary/10 text-foreground"
                             : "hover:bg-accent/50",
@@ -140,25 +168,23 @@ export function ItemDetailModal({
                         </button>
                         {active && group.kind === "washer" && option.maxQuantity > 1 && (
                           <div className="ml-3 flex items-center gap-1 border-l pl-3">
-                            <Button
+                            <TooltipIconButton
+                              tooltip={`Decrease ${option.name}`}
                               variant="ghost"
-                              size="icon"
                               className="size-7"
                               onClick={() => changeOptionQuantity(group.id, option.id, Math.max(1, selectedQuantity - 1))}
-                              aria-label={`Decrease ${option.name}`}
                             >
                               <Minus className="size-3.5" />
-                            </Button>
+                            </TooltipIconButton>
                             <span className="w-5 text-center tabular-nums">{selectedQuantity}</span>
-                            <Button
+                            <TooltipIconButton
+                              tooltip={`Increase ${option.name}`}
                               variant="ghost"
-                              size="icon"
                               className="size-7"
                               onClick={() => changeOptionQuantity(group.id, option.id, Math.min(option.maxQuantity, selectedQuantity + 1))}
-                              aria-label={`Increase ${option.name}`}
                             >
                               <Plus className="size-3.5" />
-                            </Button>
+                            </TooltipIconButton>
                           </div>
                         )}
                       </div>
@@ -180,27 +206,26 @@ export function ItemDetailModal({
 
             <div className="flex items-center gap-3 border-t pt-4">
               <div className="flex items-center gap-1 rounded-lg border p-1">
-                <Button
+                <TooltipIconButton
+                  tooltip="Decrease quantity"
                   variant="ghost"
-                  size="icon"
                   className="size-9"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  aria-label="Decrease quantity"
                 >
                   <Minus className="size-4" />
-                </Button>
-                <span className="w-8 text-center font-semibold tabular-nums">{quantity}</span>
-                <Button
+                </TooltipIconButton>
+                <span key={quantity} className="w-8 text-center font-semibold tabular-nums animate-pop-in">{quantity}</span>
+                <TooltipIconButton
+                  tooltip="Increase quantity"
                   variant="ghost"
-                  size="icon"
                   className="size-9"
                   onClick={() => setQuantity((q) => Math.min(item.inventory, q + 1))}
-                  aria-label="Increase quantity"
                 >
                   <Plus className="size-4" />
-                </Button>
+                </TooltipIconButton>
               </div>
               <Button
+                ref={addBtnRef}
                 className="h-11 flex-1"
                 onClick={handleAdd}
                 disabled={missingRequired}

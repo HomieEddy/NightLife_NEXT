@@ -13,12 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoOpenTableAction } from "@/components/shared/demo-links";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
-import { isDemoMode } from "@/lib/app-mode";
-import { guestsService } from "@/lib/services/guests-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { venueService } from "@/lib/services/venue-service";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { guestsService } from "@/features/guests/services";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { venueService } from "@/features/venue/services";
 import type { Reservation, Venue, VenueTable, Zone } from "@/lib/types";
 
 /**
@@ -53,22 +54,29 @@ export default function QrEntryPage({
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      let tableResult: { table: VenueTable; zone: Zone; venue: Venue } | null = null;
       try {
-        const tableResult = await venueService.getTableBySlug(tableCode);
-        if (cancelled) return;
-        setResult(tableResult);
+        tableResult = await venueService.getTableBySlug(tableCode);
+      } catch {
+        tableResult = null;
+      }
+      if (cancelled) return;
+      setResult(tableResult);
 
-        if (tableResult) {
+      // The PIN gate is a separate read: if it fails, the guest still gets the
+      // table. Folding it into the lookup above once turned any gate-check
+      // error into a bogus "Table not found" for every scan.
+      if (tableResult) {
+        try {
           const reservation = await reservationService.getActiveReservationForTable(
             tableResult.table.id,
           );
           if (!cancelled) setActiveReservation(reservation);
+        } catch {
+          if (!cancelled) setActiveReservation(null);
         }
-      } catch {
-        if (!cancelled) setResult(null);
-      } finally {
-        if (!cancelled) setLoading(false);
       }
+      if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -266,25 +274,23 @@ export default function QrEntryPage({
               <div className="space-y-1.5">
                 <Label>Party size</Label>
                 <div className="flex items-center justify-between rounded-lg border p-2">
-                  <Button
+                  <TooltipIconButton
+                    tooltip="Fewer people"
                     variant="outline"
-                    size="icon"
                     onClick={() => setPartySize((n) => Math.max(1, n - 1))}
-                    aria-label="Fewer people"
                   >
                     <Minus className="size-4" />
-                  </Button>
+                  </TooltipIconButton>
                   <span className="flex items-center gap-2 font-semibold tabular-nums">
                     <Users className="size-4 text-muted-foreground" /> {partySize}
                   </span>
-                  <Button
+                  <TooltipIconButton
+                    tooltip="More people"
                     variant="outline"
-                    size="icon"
                     onClick={() => setPartySize((n) => Math.min(result.table.seats, n + 1))}
-                    aria-label="More people"
                   >
                     <Plus className="size-4" />
-                  </Button>
+                  </TooltipIconButton>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   This table seats up to {result.table.seats}.

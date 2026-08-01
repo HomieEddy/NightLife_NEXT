@@ -1,4 +1,4 @@
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 import type { NextRequest } from "next/server";
 
 function demoHandler() {
@@ -6,14 +6,14 @@ function demoHandler() {
 }
 
 async function liveGET(request: NextRequest) {
-  const { auth } = await import("@/server/auth");
+  const { auth } = await import("@/features/platform/auth");
   const { toNextJsHandler } = await import("better-auth/next-js");
   const { GET } = toNextJsHandler(auth);
   return GET(request);
 }
 
 async function livePOST(request: NextRequest) {
-  const { auth } = await import("@/server/auth");
+  const { auth } = await import("@/features/platform/auth");
   const { toNextJsHandler } = await import("better-auth/next-js");
   const { POST } = toNextJsHandler(auth);
   return POST(request);

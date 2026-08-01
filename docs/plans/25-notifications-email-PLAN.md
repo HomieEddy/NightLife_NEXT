@@ -1,6 +1,9 @@
 # 25 — Notification Core & Email (Resend) · PLAN
 
-**Status: not started.**
+**Status: complete.** Resend + React Email templates, `NotificationLog`, the
+shared dispatcher (`src/features/notifications/dispatch.ts`) and the BullMQ /
+cron job handlers are live. Remaining residue is tracked as ROADMAP Phase 7,
+WS-7 (reservation PIN delivery, `venueName` in the reservation-status route).
 
 Goal: ship the notification layer the architecture already promised (AD-8
 Resend + React Email, AD-9 platform cron + idempotent jobs) and use it to
@@ -41,9 +44,10 @@ What this plan is **not**: no marketing email, no user-facing notification
 preferences UI (this ships in plan 28 alongside push — the dispatch core and
 preferences model are defined here; the preferences UI and per-channel
 control surface ship when push gives users a second channel to manage).
-No queue infrastructure (BullMQ/Redis) — sends are synchronous route-handler
-or cron work at this scale; a queue is earned when send volume or retry
-complexity demands it. Note the deferral in a `TODO(backend)`.
+Queue infrastructure (BullMQ) lands in Plan 30 §3 for staging/prod; local
+live dev uses cron-job fallback (no Redis dependency). This plan ships
+synchronous sends first — the queue adapter wraps them later without changing
+call sites.
 
 ## Design choices
 
@@ -81,9 +85,9 @@ complexity demands it. Note the deferral in a `TODO(backend)`.
   re-export, per §3. `venueId` scoping enforced like every tenant model;
   platform-level sends (lead ack) use the platform-null convention plan 10
   established.
-- **Email addresses are PII** — never logged in plaintext app logs (plan 23
+- **Email addresses are PII** — never logged in plaintext app logs (plan 32
   redaction covers this); `NotificationLog.recipient` is the one sanctioned
-  store, subject to plan 29 retention.
+  store, subject to plan 35 retention.
 
 ## Implementation strategy
 

@@ -67,7 +67,7 @@ remain in Canada to satisfy PIPEDA and Quebec's Law 25 without requiring a
 cross-border Privacy Impact Assessment. OVHcloud's Beauharnois, QC data center
 (region code `BHS`) keeps all live data on Canadian soil. External service
 integrations (Resend, Twilio, Web Push, Stripe — the latter for tenant SaaS
-billing only) are disclosed in the privacy policy per plan 29.
+billing only) are disclosed in the privacy policy per plan 35.
 
 **VPS tier:** OVHcloud VPS-2 — 4 vCores, 8 GB RAM, 75 GB NVMe, 1 Gbps,
 ~$11.64 CAD/mo. Enough headroom for Coolify + Postgres + Next.js with room for

@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import {
   Dialog,
   DialogContent,
@@ -21,27 +24,22 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import { ModifierPresetEditor } from "@/components/manager/modifier-preset-editor";
+import { zPackageInput } from "@/features/menu/schemas";
 import type { BottlePackage, MenuItem, ModifierGroup, PackageComponent } from "@/lib/types";
+import type { z } from "zod";
 
 export interface PackageDraft {
   name: string;
   description: string;
-  price: number;
+  priceCents: number;
   isActive: boolean;
   components: PackageComponent[];
   modifierGroups: ModifierGroup[];
 }
 
-const EMPTY_DRAFT: PackageDraft = {
-  name: "",
-  description: "",
-  price: 0,
-  isActive: true,
-  components: [],
-  modifierGroups: [],
-};
+type FormValues = z.input<typeof zPackageInput>;
 
 /** Create/edit dialog for bottle packages. Pass `pkg` to edit, omit to create. */
 export function PackageEditor({
@@ -57,69 +55,56 @@ export function PackageEditor({
   items: MenuItem[];
   onSave: (draft: PackageDraft) => Promise<void>;
 }) {
-  const [draft, setDraft] = useState<PackageDraft>(EMPTY_DRAFT);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { register, control, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting: saving } } = useForm({
+    resolver: zodResolver(zPackageInput),
+    defaultValues: { name: "", description: "", priceCents: 0, components: [], isActive: true, modifierGroups: [] },
+  });
+  const { fields, append, remove } = useFieldArray({ control, name: "components" });
+  const priceCents = watch("priceCents");
+  const isActive = watch("isActive");
+  const modifierGroups = watch("modifierGroups");
+
+  const componentsValue = useMemo(
+    () =>
+      fields.reduce((sum, component) => {
+        const item = items.find((i) => i.id === component.menuItemId);
+        return sum + (item ? item.price * component.quantity : 0);
+      }, 0),
+    [fields, items],
+  );
+
+  const unusedItems = items.filter(
+    (item) => !fields.some((c) => c.menuItemId === item.id),
+  );
 
   useEffect(() => {
     if (open) {
-      setDraft(
+      reset(
         pkg
           ? {
               name: pkg.name,
               description: pkg.description,
-              price: pkg.price,
-              isActive: pkg.isActive,
+              priceCents: Math.round(pkg.price * 100),
               components: pkg.components.map((c) => ({ ...c })),
+              isActive: pkg.isActive,
               modifierGroups: structuredClone(pkg.modifierGroups),
             }
-          : EMPTY_DRAFT,
+          : { name: "", description: "", priceCents: 0, components: [], isActive: true, modifierGroups: [] },
       );
-      setError(null);
     }
-  }, [open, pkg]);
+  }, [open, pkg, reset]);
 
-  const componentsValue = useMemo(
-    () =>
-      draft.components.reduce((sum, component) => {
-        const item = items.find((i) => i.id === component.menuItemId);
-        return sum + (item ? item.price * component.quantity : 0);
-      }, 0),
-    [draft.components, items],
-  );
-
-  const unusedItems = items.filter(
-    (item) => !draft.components.some((c) => c.menuItemId === item.id),
-  );
-
-  function setComponent(index: number, patch: Partial<PackageComponent>) {
-    setDraft((d) => ({
-      ...d,
-      components: d.components.map((c, i) => (i === index ? { ...c, ...patch } : c)),
-    }));
-  }
-
-  async function handleSave() {
-    if (!draft.name.trim()) {
-      setError("Give the package a name.");
-      return;
-    }
-    if (draft.components.length === 0) {
-      setError("Add at least one bottle to the package.");
-      return;
-    }
-    if (draft.price <= 0) {
-      setError("Set a package price.");
-      return;
-    }
-    setSaving(true);
-    try {
-      await onSave({ ...draft, name: draft.name.trim() });
-      onOpenChange(false);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const onFormSave = handleSubmit(async (data) => {
+    await onSave({
+      name: data.name.trim(),
+      description: data.description,
+      priceCents: data.priceCents,
+      components: data.components,
+      isActive: data.isActive ?? true,
+      modifierGroups: data.modifierGroups ?? [],
+    });
+    onOpenChange(false);
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -128,16 +113,12 @@ export function PackageEditor({
           <DialogTitle>{pkg ? `Edit ${pkg.name}` : "New package"}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <form onSubmit={onFormSave} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="pkg-name">Name</Label>
-              <Input
-                id="pkg-name"
-                placeholder="e.g. Mr Ace"
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              />
+              <Input id="pkg-name" placeholder="e.g. Mr Ace" {...register("name")} />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pkg-price">Package price ($ CAD)</Label>
@@ -146,9 +127,10 @@ export function PackageEditor({
                 type="number"
                 min={0}
                 step={10}
-                value={draft.price || ""}
-                onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })}
+                value={priceCents ? (priceCents / 100).toString() : ""}
+                onChange={(e) => setValue("priceCents", Math.round(parseFloat(e.target.value) * 100) || 0, { shouldValidate: true })}
               />
+              {errors.priceCents && <p className="text-xs text-destructive">{errors.priceCents.message}</p>}
             </div>
           </div>
 
@@ -158,18 +140,17 @@ export function PackageEditor({
               id="pkg-desc"
               rows={2}
               placeholder="What makes this package special?"
-              value={draft.description}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              {...register("description")}
             />
           </div>
 
           <div className="space-y-2">
             <Label>Bottles in this package</Label>
-            {draft.components.map((component, index) => (
-              <div key={component.menuItemId} className="flex items-center gap-2">
+            {fields.map((field, index) => (
+              <div key={field.id} className="flex items-center gap-2">
                 <Select
-                  value={component.menuItemId}
-                  onValueChange={(value) => setComponent(index, { menuItemId: value })}
+                  value={watch(`components.${index}.menuItemId`)}
+                  onValueChange={(value) => setValue(`components.${index}.menuItemId`, value)}
                 >
                   <SelectTrigger className="flex-1">
                     <SelectValue />
@@ -178,8 +159,8 @@ export function PackageEditor({
                     {items
                       .filter(
                         (item) =>
-                          item.id === component.menuItemId ||
-                          !draft.components.some((c) => c.menuItemId === item.id),
+                          item.id === watch(`components.${index}.menuItemId`) ||
+                          !fields.some((c, i) => i !== index && c.menuItemId === item.id),
                       )
                       .map((item) => (
                         <SelectItem key={item.id} value={item.id}>
@@ -193,37 +174,29 @@ export function PackageEditor({
                   min={1}
                   max={99}
                   className="w-18"
-                  value={component.quantity}
-                  onChange={(e) =>
-                    setComponent(index, { quantity: Math.max(1, Number(e.target.value)) })
-                  }
+                  {...register(`components.${index}.quantity`, { valueAsNumber: true })}
                   aria-label="Quantity"
                 />
-                <Button
+                <TooltipIconButton
+                  type="button"
                   variant="ghost"
-                  size="icon"
                   className="shrink-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                  onClick={() =>
-                    setDraft((d) => ({
-                      ...d,
-                      components: d.components.filter((_, i) => i !== index),
-                    }))
-                  }
-                  aria-label="Remove bottle"
+                  onClick={() => remove(index)}
+                  tooltip="Remove bottle"
                 >
                   <Trash2 className="size-4" />
-                </Button>
+                </TooltipIconButton>
               </div>
             ))}
+            {errors.components?.root && <p className="text-xs text-destructive">{errors.components.root.message}</p>}
+            {errors.components && Array.isArray(errors.components) ? null : errors.components?.message && <p className="text-xs text-destructive">{String(errors.components.message)}</p>}
             <Button
+              type="button"
               variant="outline"
               size="sm"
               disabled={unusedItems.length === 0}
               onClick={() =>
-                setDraft((d) => ({
-                  ...d,
-                  components: [...d.components, { menuItemId: unusedItems[0].id, quantity: 1 }],
-                }))
+                append({ menuItemId: unusedItems[0].id, quantity: 1 })
               }
             >
               <Plus className="size-3.5" /> Add bottle
@@ -231,8 +204,8 @@ export function PackageEditor({
           </div>
 
           <ModifierPresetEditor
-            value={draft.modifierGroups}
-            onChange={(modifierGroups) => setDraft({ ...draft, modifierGroups })}
+            value={modifierGroups ?? []}
+            onChange={(v) => setValue("modifierGroups", v as unknown as ModifierGroup[])}
             inventoryItems={items}
           />
 
@@ -245,7 +218,7 @@ export function PackageEditor({
               <div className="flex justify-between font-medium">
                 <span>Guest saves</span>
                 <span className="tabular-nums">
-                  {formatMoney(Math.max(0, componentsValue - draft.price))}
+                  {formatMoney(Math.max(0, componentsValue - (priceCents / 100)))}
                 </span>
               </div>
             </div>
@@ -257,19 +230,17 @@ export function PackageEditor({
               <p className="text-xs text-muted-foreground">Visible on the guest menu</p>
             </div>
             <Switch
-              checked={draft.isActive}
-              onCheckedChange={(checked) => setDraft({ ...draft, isActive: checked })}
+              checked={isActive}
+              onCheckedChange={(checked) => setValue("isActive", checked)}
             />
           </div>
-
-          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-        </div>
+        </form>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button type="submit" disabled={saving}>
             {saving && <Loader2 className="size-4 animate-spin" />}
             {saving ? "Saving…" : pkg ? "Save changes" : "Create package"}
           </Button>

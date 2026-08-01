@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { Check, Loader2, UserSquare2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { guestService } from "@/lib/services/guest-service";
-import { formatMoney } from "@/lib/format";
+import { guestService } from "@/features/sessions/services";
+import { formatMoney } from "@/features/shared/format";
+import { z } from "zod";
 import type { GuestProfile, StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
 
 export type ReservationDraft = {
@@ -21,9 +24,22 @@ export type ReservationDraft = {
   note: string;
   promoterId?: string;
   eventId?: string;
-  /** Resolved via dedupe search below — links the booking to a persistent guest identity. */
   guestProfileId?: string;
+  celebration?: "birthday" | "anniversary" | "other";
+  depositCents?: number;
+  cancellationDeadlineTime?: string;
+  holdUntil?: string;
+  minimumSpendCents?: number;
+  expectedDurationMinutes?: number;
+  timeSlot?: "early" | "late" | "any";
 };
+
+export const CELEBRATION_OPTIONS = [
+  { value: "" as const, label: "None" },
+  { value: "birthday" as const, label: "Birthday" },
+  { value: "anniversary" as const, label: "Anniversary" },
+  { value: "other" as const, label: "Other" },
+];
 
 export function toLocalInput(iso: string): string {
   const d = new Date(iso);
@@ -48,6 +64,35 @@ export const EMPTY_DRAFT: ReservationDraft = {
 const selectCls =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+const zReservationForm = z.object({
+  guestName: z.string().min(1, "Guest name is required"),
+  partySize: z.number().int().min(1),
+  zoneId: z.string().default(""),
+  tableId: z.string().default(""),
+  startsAt: z.string().default(toLocalInput(new Date().toISOString())),
+  endsAt: z.string().default(""),
+  note: z.string().default(""),
+  eventId: z.string().optional(),
+  promoterId: z.string().optional(),
+  celebration: z.string().optional(),
+  depositCents: z.string().default(""),
+  cancellationDeadlineTime: z.string().default(""),
+  holdUntil: z.string().default(""),
+  minimumSpendCents: z.string().default(""),
+  expectedDurationMinutes: z.string().default(""),
+  timeSlot: z.string().default("any"),
+});
+
+const ZFORM_EMPTY = {
+  guestName: "",
+  partySize: 2,
+  zoneId: "",
+  tableId: "",
+  startsAt: toLocalInput(new Date().toISOString()),
+  endsAt: "",
+  note: "",
+};
+
 interface ReservationFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -55,8 +100,7 @@ interface ReservationFormDialogProps {
   setDraft: (draft: ReservationDraft) => void;
   zones: Zone[];
   tablesForZone: VenueTable[];
-  saving: boolean;
-  onSave: () => void;
+  onSave: () => unknown;
   editingId: string | null;
   promoters?: StaffMember[];
   events?: VenueEvent[];
@@ -69,7 +113,6 @@ export function ReservationFormDialog({
   setDraft,
   zones,
   tablesForZone,
-  saving,
   onSave,
   editingId,
   promoters,
@@ -77,10 +120,13 @@ export function ReservationFormDialog({
 }: ReservationFormDialogProps) {
   const [candidates, setCandidates] = useState<GuestProfile[]>([]);
   const linkedProfile = candidates.find((c) => c.id === draft.guestProfileId);
+  const [saving, setSaving] = useState(false);
 
-  // Dedupe search — phone/email aren't collected on this form yet, so this
-  // matches on name only; the door and reservation-profile-search flows are
-  // where phone/email dedupe actually earns its keep (see mock-services/guest-service.ts).
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(zReservationForm) as unknown as ReturnType<typeof zodResolver>,
+    defaultValues: ZFORM_EMPTY,
+  });
+
   useEffect(() => {
     if (!open || draft.guestProfileId || draft.guestName.trim().length < 3) {
       setCandidates([]);
@@ -91,8 +137,16 @@ export function ReservationFormDialog({
       guestService.findCandidates({ firstName, lastName: rest.join(" ") || undefined }).then(setCandidates);
     }, 300);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.guestName, open, draft.guestProfileId]);
+
+  const onSubmit = handleSubmit(async () => {
+    setSaving(true);
+    try {
+      await onSave();
+    } finally {
+      setSaving(false);
+    }
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,7 +154,7 @@ export function ReservationFormDialog({
         <DialogHeader>
           <DialogTitle>{editingId ? "Edit reservation" : "New reservation"}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="res-name">Guest name</Label>
             <Input
@@ -262,16 +316,70 @@ export function ReservationFormDialog({
               placeholder="Birthday, VIP client, etc."
             />
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={onSave} disabled={saving}>
-            {saving && <Loader2 className="size-4 animate-spin" />}
-            {saving ? "Saving…" : editingId ? "Save" : "Create reservation"}
-          </Button>
-        </DialogFooter>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="res-celebration">Celebration</Label>
+              <select id="res-celebration" className={selectCls}
+                value={draft.celebration ?? ""}
+                onChange={(e) => setDraft({ ...draft, celebration: e.target.value as ReservationDraft["celebration"] || undefined })}>
+                {CELEBRATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="res-deposit">Deposit ($)</Label>
+              <Input id="res-deposit" type="number" min={0} step={50} placeholder="0"
+                value={draft.depositCents ? draft.depositCents / 100 : ""}
+                onChange={(e) => setDraft({ ...draft, depositCents: Math.round(Number(e.target.value) * 100) || undefined })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="res-cancel-deadline">Cancel by</Label>
+              <Input id="res-cancel-deadline" type="datetime-local"
+                value={draft.cancellationDeadlineTime ?? ""}
+                onChange={(e) => setDraft({ ...draft, cancellationDeadlineTime: e.target.value || undefined })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="res-hold-until">Hold until</Label>
+              <Input id="res-hold-until" type="datetime-local"
+                value={draft.holdUntil ?? ""}
+                onChange={(e) => setDraft({ ...draft, holdUntil: e.target.value || undefined })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="res-min-spend">Min spend ($)</Label>
+              <Input id="res-min-spend" type="number" min={0} step={50} placeholder="Table default"
+                value={draft.minimumSpendCents ? draft.minimumSpendCents / 100 : ""}
+                onChange={(e) => setDraft({ ...draft, minimumSpendCents: Math.round(Number(e.target.value) * 100) || undefined })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="res-duration">Duration (min)</Label>
+              <Input id="res-duration" type="number" min={30} step={30} max={480} placeholder="—"
+                value={draft.expectedDurationMinutes ?? ""}
+                onChange={(e) => setDraft({ ...draft, expectedDurationMinutes: Number(e.target.value) || undefined })} />
+            </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="res-slot">Time slot</Label>
+              <select id="res-slot" className={selectCls}
+                value={draft.timeSlot ?? "any"}
+                onChange={(e) => setDraft({ ...draft, timeSlot: e.target.value as ReservationDraft["timeSlot"] || undefined })}>
+                <option value="any">Any time</option>
+                <option value="early">Early (7–11 PM)</option>
+                <option value="late">Late (11 PM–3 AM)</option>
+              </select>
+            </div>
+          <DialogFooter>
+            <Button variant="ghost" type="button" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving && <Loader2 className="size-4 animate-spin" />}
+              {saving ? "Saving…" : editingId ? "Save" : "Create reservation"}
+            </Button>
+          </DialogFooter>
+          </form>
       </DialogContent>
     </Dialog>
   );

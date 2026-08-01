@@ -2,7 +2,7 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
@@ -11,14 +11,14 @@ import {
   Copy,
   KeyRound,
   Link2,
-  Loader2,
-  Pencil,
   Plus,
+  Pencil,
   Trash2,
   UserCheck,
   UserX,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ReservationFormDialog, type ReservationDraft, EMPTY_DRAFT, toLocalInput, fromLocalInput } from "@/components/shared/reservation-form-dialog";
@@ -29,18 +29,23 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WaitlistPanel } from "@/components/manager/waitlist-panel";
-import { eventsService } from "@/lib/services/events-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { staffService } from "@/lib/services/staff-service";
-import { venueService } from "@/lib/services/venue-service";
-import { isDemoMode } from "@/lib/app-mode";
-import { publicReservationHref } from "@/lib/entity-links";
-import { formatTime } from "@/lib/format";
+import { eventsService } from "@/features/hospitality/events-service";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { venueService } from "@/features/venue/services";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { publicReservationHref } from "@/features/shared/entity-links";
+import { formatTime } from "@/features/shared/format";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { SearchInput } from "@/components/shared/search-input";
-import { Pagination, paginate } from "@/components/shared/pagination";
-import { cn } from "@/lib/utils";
-import type { Reservation, ReservationStatus, StaffMember, Venue, VenueEvent, VenueTable, Zone } from "@/lib/types";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
+import { useAuth } from "@/context/auth-context";
+import { reservationsKeys, eventsKeys } from "@/features/hospitality/query-keys";
+import { venueKeys } from "@/features/venue/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { cn } from "@/features/shared/utils";
+import type { Reservation, ReservationStatus, StaffMember, VenueEvent, VenueTable, Zone } from "@/lib/types";
 
 const CHANNEL_LABEL: Record<string, string> = {
   embed: "Embed",
@@ -71,12 +76,10 @@ const STATUS_ACTIONS: Record<ReservationStatus, string> = {
 function ReservationsContent() {
   const searchParams = useSearchParams();
   const newForEventHandled = useRef(false);
-  const [reservations, setReservations] = useState<Reservation[] | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [tables, setTables] = useState<VenueTable[]>([]);
-  const [venue, setVenue] = useState<Venue | null>(null);
-  const [promoters, setPromoters] = useState<StaffMember[]>([]);
-  const [events, setEvents] = useState<VenueEvent[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [zoneFilter, setZoneFilter] = useState("all");
@@ -84,35 +87,121 @@ function ReservationsContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ReservationDraft>(EMPTY_DRAFT);
-  const [saving, setSaving] = useState(false);
-  const [page, setPage] = useState(1);
 
-  const refresh = useCallback(async () => {
-    const [list, z, t, v, allStaff, allEvents] = await Promise.all([
-      reservationService.listReservations(),
-      venueService.listZones(),
-      venueService.listTables(),
-      venueService.getVenue(),
-      staffService.listStaff(),
-      eventsService.listEvents(),
-    ]);
-    setReservations(list);
-    setZones(z);
-    setTables(t);
-    setVenue(v);
-    setPromoters(allStaff.filter((s) => s.role === "promoter"));
-    setEvents(allEvents.filter((e) => e.status !== "draft"));
-  }, []);
+  const { data: reservations } = useQuery({
+    queryKey: reservationsKeys.all(venueId),
+    queryFn: () => reservationService.listReservations(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: zones = [] } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const { data: tables = [] } = useQuery({
+    queryKey: venueKeys.tables(venueId),
+    queryFn: () => venueService.listTables(),
+    enabled: !!venueId,
+  });
+
+  const { data: venue } = useQuery({
+    queryKey: venueKeys.single(venueId),
+    queryFn: () => venueService.getVenue(),
+    enabled: !!venueId,
+  });
+
+  const { data: allStaff = [] } = useQuery({
+    queryKey: staffKeys.list(venueId),
+    queryFn: () => staffService.listStaff(),
+    enabled: !!venueId,
+  });
+
+  const { data: allEvents = [] } = useQuery({
+    queryKey: eventsKeys.all(venueId),
+    queryFn: () => eventsService.listEvents(),
+    enabled: !!venueId,
+  });
+
+  const promoters = useMemo(
+    () => allStaff.filter((s: StaffMember) => s.role === "promoter"),
+    [allStaff],
+  );
+  const events = useMemo(
+    () => allEvents.filter((e: VenueEvent) => e.status !== "draft"),
+    [allEvents],
+  );
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: reservationsKeys.all(venueId) });
+  };
+
+  const advanceMutation = useMutation({
+    mutationFn: (res: Reservation) => {
+      const next = res.status === "requested" ? "confirmed" : res.status === "confirmed" ? "seated" : "completed";
+      return reservationService.setStatus(res.id, next as ReservationStatus);
+    },
+    onSuccess: (_, res) => {
+      const verb = res.status === "requested" ? "confirmed" : res.status === "confirmed" ? "seated" : "completed";
+      toast.success(`${res.guestName}'s reservation ${verb}`);
+      invalidate();
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        zoneId: draft.zoneId,
+        tableId: draft.tableId || undefined,
+        guestName: draft.guestName,
+        partySize: draft.partySize,
+        startsAt: fromLocalInput(draft.startsAt),
+        endsAt: draft.endsAt ? fromLocalInput(draft.endsAt) : undefined,
+        note: draft.note,
+        source: "manager" as const,
+        promoterId: draft.promoterId,
+        eventId: draft.eventId,
+        guestProfileId: draft.guestProfileId,
+        ...(draft.promoterId ? { channel: "promoter" as const } : {}),
+      };
+      if (editingId) {
+        return reservationService.updateReservation(editingId, payload);
+      } else {
+        return reservationService.createReservation(payload);
+      }
+    },
+    onSuccess: () => {
+      toast.success(editingId ? "Reservation updated" : "Reservation created");
+      setDialogOpen(false);
+      invalidate();
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (res: Reservation) => reservationService.cancelReservation(res.id),
+    onSuccess: (_, res) => {
+      toast.info(`${res.guestName}'s reservation cancelled`);
+      invalidate();
+    },
+  });
+
+  const noShowMutation = useMutation({
+    mutationFn: (res: Reservation) => reservationService.markNoShow(res.id),
+    onSuccess: (_, res) => {
+      toast.info(`${res.guestName} marked as no-show`);
+      invalidate();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Could not mark as no-show");
+    },
+  });
 
   useEffect(() => {
     const eventId = searchParams.get("newForEvent");
-    if (!eventId || newForEventHandled.current || events.length === 0) return;
+    if (!eventId || newForEventHandled.current || !events || events.length === 0) return;
     newForEventHandled.current = true;
-    const evt = events.find((e) => e.id === eventId);
+    const evt = events.find((e: VenueEvent) => e.id === eventId);
     if (!evt) return;
     setEditingId(null);
     setDraft({
@@ -127,21 +216,18 @@ function ReservationsContent() {
     window.history.replaceState(null, "", "/manager/reservations");
   }, [searchParams, events, zones]);
 
-  const zoneName = (id?: string) => zones.find((z) => z.id === id)?.name ?? "—";
-  const tableName = (id?: string) => tables.find((t) => t.id === id)?.code ?? "—";
-  const eventName = (id?: string) => events.find((e) => e.id === id)?.name;
+  const zoneName = (id?: string) => zones.find((z: Zone) => z.id === id)?.name ?? "—";
+  const tableName = (id?: string) => tables.find((t: VenueTable) => t.id === id)?.code ?? "—";
+  const eventName = (id?: string) => events.find((e: VenueEvent) => e.id === id)?.name;
 
   const tablesForZone = useMemo(
-    () => (draft.zoneId ? tables.filter((t) => t.zoneId === draft.zoneId) : tables),
+    () => (draft.zoneId ? tables.filter((t: VenueTable) => t.zoneId === draft.zoneId) : tables),
     [draft.zoneId, tables],
   );
 
-  async function advance(res: Reservation) {
-    const next = STATUS_ACTIONS[res.status];
-    if (next === "—") return;
-    await reservationService.setStatus(res.id, res.status === "requested" ? "confirmed" : res.status === "confirmed" ? "seated" : "completed");
-    toast.success(`${res.guestName}'s reservation ${next.toLowerCase()}ed`);
-    await refresh();
+  function advance(res: Reservation) {
+    if (STATUS_ACTIONS[res.status] === "—") return;
+    advanceMutation.mutate(res);
   }
 
   function openCreate() {
@@ -167,54 +253,14 @@ function ReservationsContent() {
     setDialogOpen(true);
   }
 
-  async function save() {
-    if (!draft.guestName.trim()) return toast.error("Guest name is required.");
-    if (!draft.zoneId) return toast.error("Pick a zone.");
-    setSaving(true);
-    const payload = {
-      zoneId: draft.zoneId,
-      tableId: draft.tableId || undefined,
-      guestName: draft.guestName,
-      partySize: draft.partySize,
-      startsAt: fromLocalInput(draft.startsAt),
-      endsAt: draft.endsAt ? fromLocalInput(draft.endsAt) : undefined,
-      note: draft.note,
-      source: "manager" as const,
-      promoterId: draft.promoterId,
-      eventId: draft.eventId,
-      guestProfileId: draft.guestProfileId,
-      ...(draft.promoterId ? { channel: "promoter" as const } : {}),
-    };
-    if (editingId) {
-      await reservationService.updateReservation(editingId, payload);
-      toast.success("Reservation updated");
-    } else {
-      await reservationService.createReservation(payload);
-      toast.success("Reservation created");
-    }
-    setSaving(false);
-    setDialogOpen(false);
-    await refresh();
-  }
-
-  async function remove(res: Reservation) {
-    await reservationService.cancelReservation(res.id);
-    toast.info(`${res.guestName}'s reservation cancelled`);
-    await refresh();
-  }
-
-  async function noShow(res: Reservation) {
-    try {
-      await reservationService.markNoShow(res.id);
-      toast.info(`${res.guestName} marked as no-show`);
-      await refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not mark as no-show");
-    }
+  function save() {
+    if (!draft.guestName.trim()) { toast.error("Guest name is required."); return; }
+    if (!draft.zoneId) { toast.error("Pick a zone."); return; }
+    saveMutation.mutate();
   }
 
   const visible =
-    reservations?.filter((r) => {
+    reservations?.filter((r: Reservation) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (zoneFilter !== "all" && r.zoneId !== zoneFilter) return false;
       if (!isInDateRange(r.startsAt, dateRange)) return false;
@@ -223,7 +269,11 @@ function ReservationsContent() {
         if (!`${r.guestName} ${zoneName(r.zoneId)} ${tableName(r.tableId)}`.toLowerCase().includes(q)) return false;
       }
       return true;
-    }) ?? null;
+    }) ?? [];
+
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, statusFilter, zoneFilter, dateRange, reset]);
 
   const initialTab = searchParams.get("tab") === "waitlist" ? "waitlist" : "reservations";
 
@@ -243,6 +293,7 @@ function ReservationsContent() {
       <PageHeader
         title="Reservations"
         description="Table bookings and guest lists for the night."
+        breadcrumbs={[{ label: "Bookings", href: "/manager/events" }, { label: "Reservations" }]}
         actions={
           <div className="flex items-center gap-2">
             {venue && (
@@ -293,7 +344,7 @@ function ReservationsContent() {
             className={cn(selectCls, "w-40")}
           >
             <option value="all">All zones</option>
-            {zones.map((z) => (
+            {zones.map((z: Zone) => (
               <option key={z.id} value={z.id}>{z.name}</option>
             ))}
           </select>
@@ -321,7 +372,7 @@ function ReservationsContent() {
         </div>
       </div>
 
-      {visible === null ? (
+      {reservations === undefined ? (
         <ListSkeleton rows={4} rowHeight="h-24" />
       ) : visible.length === 0 ? (
         <EmptyState
@@ -331,7 +382,7 @@ function ReservationsContent() {
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {paginate(visible, page).map((res) => (
+          {sliced.map((res: Reservation) => (
             <Card key={res.id} className="py-4">
               <CardContent className="space-y-3 px-4">
                 <div className="flex items-start justify-between gap-2">
@@ -395,7 +446,7 @@ function ReservationsContent() {
                       description="They were confirmed but never arrived. The table is released and this counts against the no-show rate."
                       confirmLabel="Mark no-show"
                       destructive
-                      onConfirm={() => noShow(res)}
+                      onConfirm={() => noShowMutation.mutate(res)}
                     />
                   )}
                   <Button size="sm" variant="ghost" onClick={() => openEdit(res)}>
@@ -411,7 +462,7 @@ function ReservationsContent() {
                     description="The table is released back to open."
                     confirmLabel="Cancel reservation"
                     destructive
-                    onConfirm={() => remove(res)}
+                    onConfirm={() => removeMutation.mutate(res)}
                   />
                 </div>
               </CardContent>
@@ -420,7 +471,7 @@ function ReservationsContent() {
         </div>
       )}
 
-      <Pagination totalItems={visible?.length ?? 0} currentPage={page} onPageChange={setPage} className="mt-3" />
+      <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
 
       <ReservationFormDialog
         open={dialogOpen}
@@ -429,7 +480,6 @@ function ReservationsContent() {
         setDraft={setDraft}
         zones={zones}
         tablesForZone={tablesForZone}
-        saving={saving}
         onSave={save}
         editingId={editingId}
         promoters={promoters}

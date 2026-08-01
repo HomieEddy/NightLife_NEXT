@@ -14,6 +14,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("Edit Category fits its dialog", async ({ page }) => {
+  // Seeds demo-only localStorage auth, so it can only run against the demo build.
+  test.skip(process.env.NEXT_PUBLIC_APP_MODE === "live", "demo-mode layout check");
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/manager/menu");
   await page.getByRole("button", { name: "Edit category" }).click();

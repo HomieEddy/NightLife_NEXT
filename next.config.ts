@@ -1,11 +1,12 @@
 import type { NextConfig } from "next";
-import { buildDirectoryForMode, parseAppMode } from "./src/lib/app-mode";
+import { buildDirectoryForMode, parseAppMode } from "./src/features/shared/app-mode";
 
 const appMode = parseAppMode(process.env.NEXT_PUBLIC_APP_MODE);
 
 const demoResourceAliases = {
-  "@/server/auth": "./src/server/demo-resource-stub.ts",
-  "@/server/db": "./src/server/demo-resource-stub.ts",
+  "@/features/shared/db": "./src/features/shared/demo-resource-stub.ts",
+  "@/server/auth": "./src/features/shared/demo-resource-stub.ts",
+  "@/features/platform/auth": "./src/features/shared/demo-resource-stub.ts",
 };
 
 const mockServiceFiles = [
@@ -29,7 +30,7 @@ const mockServiceFiles = [
 const liveMockAliases = Object.fromEntries(
   mockServiceFiles.map((file) => [
     `@/lib/mock-services/${file}`,
-    "./src/lib/live-mock-stub.ts",
+    "./src/features/shared/live-mock-stub.ts",
   ]),
 );
 

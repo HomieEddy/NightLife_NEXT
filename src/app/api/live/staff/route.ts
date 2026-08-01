@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,12 +9,12 @@ export async function GET() {
     return NextResponse.json({ error: "Live events disabled in demo mode" }, { status: 404 });
   }
 
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const { venueId } = sessionToDbContext(auth.session);
-  const { createEventStream } = await import("@/server/sse");
+  const { createEventStream } = await import("@/features/realtime/sse");
 
   const controller = new AbortController();
   const stream = createEventStream({

@@ -1,10 +1,14 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, Pencil, Plus, Table2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -19,67 +23,112 @@ import { EntityChip } from "@/components/shared/entity-chip";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { TableCard } from "@/components/shared/table-card";
-import { venueService } from "@/lib/services/venue-service";
+import { venueService } from "@/features/venue/services";
+import { venueKeys } from "@/features/venue/query-keys";
 import { SearchInput } from "@/components/shared/search-input";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { useHighlight } from "@/lib/use-highlight";
-import { cn } from "@/lib/utils";
-import type { TableStatus, VenueTable, Zone } from "@/lib/types";
+import { useAuth } from "@/context/auth-context";
+import { cn } from "@/features/shared/utils";
+import { z } from "zod";
+import type { TableStatus, VenueTable } from "@/lib/types";
 
 const STATUSES: TableStatus[] = ["open", "occupied", "reserved", "closed"];
 
-type TableDraft = {
-  code: string;
-  label: string;
-  zoneId: string;
-  seats: number;
-  minimumSpend: string; // raw input; empty = no minimum
-};
+const zTableForm = z.object({
+  code: z.string().min(1, "Code is required"),
+  label: z.string().min(1, "Label is required"),
+  zoneId: z.string().min(1, "Zone is required"),
+  seats: z.number().int().min(1),
+  minimumSpend: z.string(),
+});
+
+type FormValues = z.infer<typeof zTableForm>;
+const EMPTY_VALUES: FormValues = { code: "", label: "", zoneId: "", seats: 4, minimumSpend: "" };
 
 function TablesContent() {
   const searchParams = useSearchParams();
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [tables, setTables] = useState<VenueTable[] | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [zoneFilter, setZoneFilter] = useState(searchParams.get("zone") ?? "all");
   const [statusFilter, setStatusFilter] = useState<TableStatus | "all">("all");
   const [query, setQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<TableDraft | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [page, setPage] = useState(1);
   const highlighted = useHighlight();
 
-  const refresh = useCallback(async () => {
-    setTables(await venueService.listTables());
-  }, []);
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormValues>({
+    resolver: zodResolver(zTableForm),
+    defaultValues: EMPTY_VALUES,
+  });
+  const zoneId = watch("zoneId");
 
-  useEffect(() => {
-    refresh();
-    venueService.listZones().then(setZones);
-  }, [refresh]);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: venueKeys.tables(venueId) });
+  };
 
-  async function setStatus(table: VenueTable, status: TableStatus) {
-    await venueService.setTableStatus(table.id, status);
-    toast.success(`${table.code} → ${status}`);
-    await refresh();
-  }
+  const { data: zones = [] } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const { data: tables } = useQuery({
+    queryKey: venueKeys.tables(venueId),
+    queryFn: () => venueService.listTables(),
+    enabled: !!venueId,
+  });
+
+  const setStatusMutation = useMutation({
+    mutationFn: ({ table, status }: { table: VenueTable; status: TableStatus }) =>
+      venueService.setTableStatus(table.id, status),
+    onSuccess: (_, { table, status }) => {
+      toast.success(`${table.code} → ${status}`);
+      invalidate();
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const input = {
+        code: data.code.trim().toUpperCase(),
+        label: data.label.trim(),
+        zoneId: data.zoneId,
+        seats: Math.max(1, data.seats),
+        minimumSpend: data.minimumSpend === "" ? null : Math.max(0, Number(data.minimumSpend)),
+      };
+      if (editingId) {
+        await venueService.updateTable(editingId, input);
+      } else {
+        await venueService.createTable({ ...input, status: "open" });
+      }
+    },
+    onSuccess: () => {
+      setDialogOpen(false);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (table: VenueTable) => venueService.deleteTable(table.id),
+    onSuccess: (_, table) => {
+      toast.info(`${table.code} deleted`);
+      invalidate();
+    },
+  });
 
   function openCreate() {
     setEditingId(null);
-    setDraft({
-      code: "",
-      label: "",
-      zoneId: zoneFilter !== "all" ? zoneFilter : zones[0]?.id ?? "",
-      seats: 4,
-      minimumSpend: "",
-    });
+    reset({ ...EMPTY_VALUES, zoneId: zoneFilter !== "all" ? zoneFilter : zones[0]?.id ?? "" });
     setDialogOpen(true);
   }
 
   function openEdit(table: VenueTable) {
     setEditingId(table.id);
-    setDraft({
+    reset({
       code: table.code,
       label: table.label,
       zoneId: table.zoneId,
@@ -87,38 +136,6 @@ function TablesContent() {
       minimumSpend: table.minimumSpend === null ? "" : String(table.minimumSpend),
     });
     setDialogOpen(true);
-  }
-
-  async function save() {
-    if (!draft) return;
-    if (!draft.code.trim() || !draft.label.trim() || !draft.zoneId) {
-      toast.error("Code, label and zone are required.");
-      return;
-    }
-    setSaving(true);
-    const input = {
-      code: draft.code.trim().toUpperCase(),
-      label: draft.label.trim(),
-      zoneId: draft.zoneId,
-      seats: Math.max(1, draft.seats),
-      minimumSpend: draft.minimumSpend === "" ? null : Math.max(0, Number(draft.minimumSpend)),
-    };
-    if (editingId) {
-      await venueService.updateTable(editingId, input);
-      toast.success(`${input.code} updated`);
-    } else {
-      await venueService.createTable({ ...input, status: "open" });
-      toast.success(`${input.code} created — QR available on the QR codes page`);
-    }
-    setSaving(false);
-    setDialogOpen(false);
-    await refresh();
-  }
-
-  async function remove(table: VenueTable) {
-    await venueService.deleteTable(table.id);
-    toast.info(`${table.code} deleted`);
-    await refresh();
   }
 
   const visible = (tables ?? []).filter((t) => {
@@ -132,13 +149,18 @@ function TablesContent() {
     return true;
   });
   const zoneName = (id: string) => zones.find((z) => z.id === id)?.name;
-  const zoneChips = (zoneId: string) => {
-    const name = zoneName(zoneId);
+
+  const { sliced, hasMore, loadMore, reset: resetSlice } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { resetSlice(); }, [query, zoneFilter, statusFilter, resetSlice]);
+
+  const zoneChips = (tableZoneId: string) => {
+    const name = zoneName(tableZoneId);
     if (!name) return undefined;
     return (
       <span className="inline-flex gap-1.5">
-        <EntityChip type="zone" id={zoneId} label={name} />
-        <EntityChip type="zone-staff" id={zoneId} label="Staff" />
+        <EntityChip type="zone" id={tableZoneId} label={name} />
+        <EntityChip type="zone-staff" id={tableZoneId} label="Staff" />
       </span>
     );
   };
@@ -196,161 +218,132 @@ function TablesContent() {
         </div>
       </div>
 
-      {tables === null ? (
+      {tables === undefined ? (
         <ListSkeleton rows={6} rowHeight="h-28" />
       ) : visible.length === 0 ? (
         <EmptyState icon={Table2} title="No tables match" description="Try adjusting the filters." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {paginate(visible, page).map((table) => (
+          {sliced.map((table) => (
             <div key={table.id} id={`highlight-${table.id}`}>
-            <TableCard
-              table={table}
-              className={cn(
-                "transition-shadow",
-                highlighted === table.id && "ring-2 ring-primary shadow-lg",
-              )}
-              zoneName={zoneChips(table.zoneId)}
-              footer={
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    {STATUSES.map((status) => (
+              <TableCard
+                table={table}
+                className={cn(
+                  "transition-shadow",
+                  highlighted === table.id && "ring-2 ring-primary shadow-lg",
+                )}
+                zoneName={zoneChips(table.zoneId)}
+                footer={
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {STATUSES.map((status) => (
+                        <ConfirmDialog
+                          key={status}
+                          trigger={
+                            <button
+                              type="button"
+                              disabled={table.status === status}
+                              className={cn(
+                                "rounded-full border px-2.5 py-1 text-xs capitalize transition-colors",
+                                table.status === status
+                                  ? "border-primary bg-primary/15 text-primary"
+                                  : "text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              {status}
+                            </button>
+                          }
+                          title={`Set ${table.code} to ${status}?`}
+                          description="Table status drives the guest QR flow and runner routing."
+                          confirmLabel={`Set ${status}`}
+                          onConfirm={() => setStatusMutation.mutate({ table, status })}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex shrink-0 items-center">
+                      <TooltipIconButton variant="ghost" className="size-7" tooltip="Edit table" onClick={() => openEdit(table)}>
+                        <Pencil className="size-3.5" />
+                      </TooltipIconButton>
                       <ConfirmDialog
-                        key={status}
                         trigger={
-                          <button
-                            type="button"
-                            disabled={table.status === status}
-                            className={cn(
-                              "rounded-full border px-2.5 py-1 text-xs capitalize transition-colors",
-                              table.status === status
-                                ? "border-primary bg-primary/15 text-primary"
-                                : "text-muted-foreground hover:text-foreground",
-                            )}
-                          >
-                            {status}
-                          </button>
+                          <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-red-600 dark:hover:text-red-400" aria-label="Delete table">
+                            <Trash2 className="size-3.5" />
+                          </Button>
                         }
-                        title={`Set ${table.code} to ${status}?`}
-                        description="Table status drives the guest QR flow and runner routing."
-                        confirmLabel={`Set ${status}`}
-                        onConfirm={() => setStatus(table, status)}
+                        title={`Delete ${table.code}?`}
+                        description="Its QR code will stop working. Past orders keep their history."
+                        confirmLabel="Delete table"
+                        destructive
+                        onConfirm={() => removeMutation.mutate(table)}
                       />
-                    ))}
+                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center">
-                    <Button variant="ghost" size="icon" className="size-7" aria-label="Edit table" onClick={() => openEdit(table)}>
-                      <Pencil className="size-3.5" />
-                    </Button>
-                    <ConfirmDialog
-                      trigger={
-                        <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-red-600 dark:hover:text-red-400" aria-label="Delete table">
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      }
-                      title={`Delete ${table.code}?`}
-                      description="Its QR code will stop working. Past orders keep their history."
-                      confirmLabel="Delete table"
-                      destructive
-                      onConfirm={() => remove(table)}
-                    />
-                  </div>
-                </div>
-              }
-            />
+                }
+              />
             </div>
           ))}
         </div>
       )}
 
-      <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+      <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
 
-      {/* ---------- Create / edit dialog ---------- */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit table" : "New table"}</DialogTitle>
           </DialogHeader>
-          {draft && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="table-code">Code</Label>
-                  <Input
-                    id="table-code"
-                    placeholder="VIP-07"
-                    value={draft.code}
-                    onChange={(e) => setDraft({ ...draft, code: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="table-label">Label</Label>
-                  <Input
-                    id="table-label"
-                    placeholder="Booth 7"
-                    value={draft.label}
-                    onChange={(e) => setDraft({ ...draft, label: e.target.value })}
-                  />
-                </div>
+          <form onSubmit={handleSubmit((data) => saveMutation.mutate(data))} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="table-code">Code</Label>
+                <Input id="table-code" placeholder="VIP-07" {...register("code")} />
+                {errors.code && <p className="text-xs text-destructive">{errors.code.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>Zone</Label>
-                <Select
-                  value={draft.zoneId}
-                  onValueChange={(zoneId) => setDraft({ ...draft, zoneId })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Pick a zone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {zones.map((zone) => (
-                      <SelectItem key={zone.id} value={zone.id}>
-                        {zone.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="table-label">Label</Label>
+                <Input id="table-label" placeholder="Booth 7" {...register("label")} />
+                {errors.label && <p className="text-xs text-destructive">{errors.label.message}</p>}
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="table-seats">Seats</Label>
-                  <Input
-                    id="table-seats"
-                    type="number"
-                    min={1}
-                    value={draft.seats}
-                    onChange={(e) => setDraft({ ...draft, seats: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="table-min">Min. spend ($)</Label>
-                  <Input
-                    id="table-min"
-                    type="number"
-                    min={0}
-                    step={50}
-                    placeholder="None"
-                    value={draft.minimumSpend}
-                    onChange={(e) => setDraft({ ...draft, minimumSpend: e.target.value })}
-                  />
-                </div>
-              </div>
-              {!editingId && (
-                <p className="text-xs text-muted-foreground">
-                  A QR code is generated automatically from the table code.
-                </p>
-              )}
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={save} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : editingId ? "Save" : "Create table"}
-            </Button>
-          </DialogFooter>
+            <div className="space-y-1.5">
+              <Label>Zone</Label>
+              <Select value={zoneId} onValueChange={(v) => setValue("zoneId", v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pick a zone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {zones.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>{zone.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.zoneId && <p className="text-xs text-destructive">{errors.zoneId.message}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="table-seats">Seats</Label>
+                <Input id="table-seats" type="number" min={1} {...register("seats", { valueAsNumber: true })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="table-min">Min. spend ($)</Label>
+                <Input id="table-min" type="number" min={0} step={50} placeholder="None" {...register("minimumSpend")} />
+              </div>
+            </div>
+            {!editingId && (
+              <p className="text-xs text-muted-foreground">
+                A QR code is generated automatically from the table code.
+              </p>
+            )}
+            <DialogFooter>
+              <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                {saveMutation.isPending ? "Saving…" : editingId ? "Save" : "Create table"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

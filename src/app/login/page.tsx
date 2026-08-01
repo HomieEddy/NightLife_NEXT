@@ -12,8 +12,8 @@ import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useAuth } from "@/context/auth-context";
-import { authService } from "@/lib/services/auth-service";
-import { isDemoMode } from "@/lib/app-mode";
+import { authService } from "@/features/platform/auth-service";
+import { isDemoMode } from "@/features/shared/app-mode";
 import type { AuthUser, StaffRole } from "@/lib/types";
 
 const STAFF_ROLE_ICON: Record<StaffRole, typeof UserCog> = {
@@ -105,7 +105,7 @@ function DemoLogin() {
             <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/15 text-primary">
               <Sparkles className="size-5" />
             </div>
-            <h1 className="text-display text-lg">Welcome to the demo</h1>
+            <h1 className="text-display text-xl">Welcome to the demo</h1>
             <p className="text-sm text-muted-foreground">
               Pick a role to explore NightLifeNext.
             </p>
@@ -210,7 +210,7 @@ function LiveLogin() {
             <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/15 text-primary">
               <LogIn className="size-5" />
             </div>
-            <h1 className="text-display text-lg">Sign in</h1>
+            <h1 className="text-display text-xl">Sign in</h1>
             <p className="text-sm text-muted-foreground">
               Enter your credentials to continue.
             </p>

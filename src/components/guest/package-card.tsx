@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BottleIcon } from "@/components/shared/bottle-icon";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
-import { formatMoney } from "@/lib/format";
-import type { PackageQuote } from "@/lib/services/menu-service";
+import { formatMoney } from "@/features/shared/format";
+import type { PackageQuote } from "@/features/menu/services";
 import type { BottlePackage, MenuItem } from "@/lib/types";
 
 export type PackageWithQuote = BottlePackage & { quote: PackageQuote };
@@ -37,7 +37,7 @@ export function PackageCard({ pkg, featured = false }: { pkg: PackageWithQuote; 
 
   return (
     <Card
-      className={`py-4 ${featured && !soldOut ? "focal-halo" : "border-primary/40"} ${soldOut ? "opacity-50" : ""}`}
+      className={`py-4 ${featured && !soldOut ? "focal-halo animate-glow-pulse" : "border-primary/40"} ${soldOut ? "opacity-50" : ""}`}
     >
       <CardContent className="space-y-3 px-4">
         <div className="flex items-start gap-3">

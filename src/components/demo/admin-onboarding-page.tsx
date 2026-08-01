@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Rocket } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,10 +14,11 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
-import { adminService } from "@/lib/services/admin-service";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { PlanConfig, TenantPlan } from "@/lib/types";
+import { adminService } from "@/features/platform/admin-service";
+import { adminKeys } from "@/features/platform/query-keys";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
+import type { TenantPlan } from "@/lib/types";
 
 /**
  * Admin-side provisioning: create the tenant, pick the plan, invite the
@@ -28,14 +30,6 @@ function ProvisioningContent() {
   const searchParams = useSearchParams();
   const leadId = searchParams.get("lead");
 
-  const [prefilling, setPrefilling] = useState(leadId !== null);
-  const [provisioning, setProvisioning] = useState(false);
-  const [plans, setPlans] = useState<PlanConfig[]>([]);
-
-  useEffect(() => {
-    adminService.getPlanConfigs().then(setPlans);
-  }, []);
-
   const [venueName, setVenueName] = useState("");
   const [city, setCity] = useState("");
   const [plan, setPlan] = useState<TenantPlan>("pro");
@@ -43,18 +37,53 @@ function ProvisioningContent() {
   const [managerName, setManagerName] = useState("");
   const [managerEmail, setManagerEmail] = useState("");
 
+  const { data: plans = [] } = useQuery({
+    queryKey: adminKeys.plans,
+    queryFn: () => adminService.getPlanConfigs(),
+  });
+
+  const { data: lead, isFetched: leadReady } = useQuery({
+    queryKey: adminKeys.lead(leadId!),
+    queryFn: () => adminService.getLead(leadId!),
+    enabled: !!leadId,
+  });
+
   useEffect(() => {
-    if (!leadId) return;
-    adminService.getLead(leadId).then((lead) => {
-      if (lead) {
-        setVenueName(lead.venueName);
-        setCity(lead.city);
-        setManagerName(lead.contactName);
-        setManagerEmail(lead.email);
-      }
-      setPrefilling(false);
-    });
-  }, [leadId]);
+    if (lead) {
+      setVenueName(lead.venueName);
+      setCity(lead.city);
+      setManagerName(lead.contactName);
+      setManagerEmail(lead.email);
+    }
+  }, [lead]);
+
+  const prefilling = leadId !== null && !leadReady;
+
+  const provisionMutation = useMutation({
+    mutationFn: async () => {
+      return adminService.onboardTenant({
+        venueName: venueName.trim(),
+        city: city.trim(),
+        address: "",
+        timezone: "Europe/Paris",
+        currency: "EUR",
+        plan,
+        startOnTrial,
+        zones: [],
+        menuCategories: [],
+        serviceFees: [],
+        managerName: managerName.trim(),
+        managerEmail: managerEmail.trim().toLowerCase(),
+        leadId: leadId ?? undefined,
+      });
+    },
+    onSuccess: (tenant) => {
+      toast.success(
+        `${tenant.venueName} provisioned${startOnTrial ? " on a 14-day trial" : ""} — setup invite sent to ${managerEmail.trim()}`,
+      );
+      router.push("/admin/venues");
+    },
+  });
 
   const slug = venueName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const valid =
@@ -62,30 +91,6 @@ function ProvisioningContent() {
     city.trim().length > 0 &&
     managerName.trim().length > 0 &&
     /\S+@\S+\.\S+/.test(managerEmail);
-
-  async function provision() {
-    setProvisioning(true);
-    const tenant = await adminService.onboardTenant({
-      venueName: venueName.trim(),
-      city: city.trim(),
-      address: "",
-      timezone: "Europe/Paris",
-      currency: "EUR",
-      plan,
-      startOnTrial,
-      zones: [],
-      menuCategories: [],
-      serviceFees: [],
-      managerName: managerName.trim(),
-      managerEmail: managerEmail.trim().toLowerCase(),
-      leadId: leadId ?? undefined,
-    });
-    setProvisioning(false);
-    toast.success(
-      `${tenant.venueName} provisioned${startOnTrial ? " on a 14-day trial" : ""} — setup invite sent to ${managerEmail.trim()}`,
-    );
-    router.push("/admin/venues");
-  }
 
   if (prefilling) {
     return (
@@ -198,9 +203,13 @@ function ProvisioningContent() {
             first sign-in.
           </p>
 
-          <Button onClick={provision} disabled={!valid || provisioning} className="w-full glow-primary">
-            {provisioning ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
-            {provisioning ? "Provisioning…" : `Provision ${venueName.trim() || "tenant"}`}
+          <Button
+            onClick={() => provisionMutation.mutate()}
+            disabled={!valid || provisionMutation.isPending}
+            className="w-full glow-primary"
+          >
+            {provisionMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
+            {provisionMutation.isPending ? "Provisioning…" : `Provision ${venueName.trim() || "tenant"}`}
           </Button>
         </CardContent>
       </Card>

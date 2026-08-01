@@ -1,6 +1,8 @@
 # 28 — PWA & Web Push · PLAN
 
-**Status: not started.**
+**Status: complete.** Service worker (`public/sw.js`), manifest
+(`src/app/manifest.ts`), app shell, offline queue and Web Push with VAPID keys
+behind `/api/push/*` are all live.
 
 Goal: make the app installable as a PWA with full offline resilience (manifest,
 icons, app shell with cache-first SW, offline action queue, offline indicator,

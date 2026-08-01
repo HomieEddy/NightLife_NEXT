@@ -58,6 +58,34 @@ export interface Venue {
   coatCheckEnabled: boolean;
   /** Forces the ID-check toggle on at admission time (plan 17). */
   doorRequiresIdCheck: boolean;
+  /** The legal drinking age in this venue's jurisdiction — defaults to 18 (Quebec). */
+  legalDrinkingAge: number;
+  /** RV-03: Auto-gratuity rules — triggers based on party size, zone, and table minimum. */
+  autoGratuityRules?: {
+    id: string;
+    /** Minimum party size to trigger this rule. */
+    minPartySize: number;
+    /** Gratuity percentage to auto-apply (e.g. 18). */
+    ratePct: number;
+    /** Roles that can override the auto-gratuity at the table. */
+    allowOverride?: boolean;
+  }[];
+  /** RV-07: Per-role comp threshold — below this, the role can comp themselves; above requires manager. */
+  roleCompThresholds?: Record<string, number>;
+  /** OE-14: Re-entry cutoff time (e.g. "02:00") — after this, exits are final. */
+  reEntryCutoffTime?: string;
+  /** RV-18: Minutes after which a pending session auto-rejects. */
+  pendingSessionTimeoutMinutes?: number;
+  /** RV-19: Ratios at which minimum-spend nudge alerts fire (e.g. [0.5, 0.75, 0.9]). */
+  minimumSpendCheckpoints?: number[];
+  /** RV-07: Minutes after reservation start time before the table is auto-released (AM-01). Default 30. */
+  lateArrivalGracePeriodMinutes?: number;
+  /** Ordering policy during last call — "block-all" stops all new orders, "allow-last-round" permits one final round. */
+  lastCallPolicy?: "block-all" | "allow-last-round";
+  /** OE-25: Minutes of continuous work before a break is required. */
+  requiredBreakAfterMinutes?: number;
+  /** OE-25: Duration of required break in minutes. */
+  breakDurationMinutes?: number;
 }
 
 export interface Zone {
@@ -67,9 +95,10 @@ export interface Zone {
   description: string;
   color: string; // tailwind-friendly hue token, e.g. "violet"
   tableCount: number;
+  capacity: number | null;
 }
 
-export type TableStatus = "open" | "occupied" | "reserved" | "closed";
+export type TableStatus = "open" | "occupied" | "reserved" | "closed" | "held" | "out-of-service";
 
 export interface VenueTable {
   id: string;
@@ -83,6 +112,9 @@ export interface VenueTable {
   /** Floor-map position as % of canvas (2–98). Defaults are auto-laid-out per zone. */
   mapX?: number;
   mapY?: number;
+  holdReason?: string;
+  heldBy?: string;
+  heldUntil?: string;
 }
 
 // ---------- Staff ----------
@@ -114,6 +146,8 @@ export interface StaffMember {
   employmentType?: EmploymentType;
   /** Plan 18: promoter commission rule — attribute bookings to this staff member. */
   commissionRuleId?: string;
+  /** PR-02: Max guests this promoter can add to a single event's guestlist. Unlimited when absent. */
+  guestlistQuota?: number;
 }
 
 /** One recurring weekly shift block — backed by the StaffShift table (plan 03). */
@@ -314,6 +348,13 @@ export interface GuestSession {
   /** Set by service:refuse — blocks new orders for this session with a guest-facing explanation. */
   serviceRefusedAt?: string;
   serviceRefusedReason?: string;
+  /** RV-20: Per-session spending cap — manager can override. Caps new orders when reached. */
+  spendingCapCents?: number;
+  /** RV-18: Auto-timeout minutes — pending sessions auto-rejected after this many minutes. Default from venue config. */
+  pendingTimeoutMinutes?: number;
+  lastCallOrderPlaced?: boolean;
+  assignedHostId?: string;
+  assignedHostName?: string;
 }
 
 export type SettlementMethod = "terminal" | "cash" | "house";
@@ -475,9 +516,14 @@ export interface Order {
   promotionId?: string;
   promotionCode?: string;
   promotionCents?: number;
-  // TODO(backend): becomes a real column — happy-hour attribution snapshot.
+  /** Happy-hour rule + discount applied at order time — persisted snapshot. */
   happyHourRuleId?: string;
   happyHourCents?: number;
+  /** RV-05: Computed priority score (zone weight × minimum spend × session age × order type). Higher = fulfill first. */
+  priorityScore?: number;
+  isRushed?: boolean;
+  rushedBy?: string;
+  rushedAt?: string;
 }
 
 // ---------- Help requests ----------
@@ -764,6 +810,8 @@ export interface AnalyticsSummary {
   inventoryDepth?: InventoryDepthAnalytics;
   promoters?: PromoterAnalytics;
   adjustments?: AdjustmentAnalytics;
+  pourCostPercent?: number;
+  grossMarginPercent?: number;
 }
 
 export interface HistoricalAnalytics {
@@ -773,6 +821,8 @@ export interface HistoricalAnalytics {
   totalRevenue: number;
   totalOrders: number;
   avgOrderValue: number;
+  pourCostPercent: number;
+  grossMarginPercent: number;
   bestNight: RevenuePoint;
   series: RevenuePoint[];
   revenueByZone: { zoneId: string; zoneName: string; revenue: number }[];
@@ -994,7 +1044,6 @@ export interface Reservation {
   guestEmail?: string;
   guestPhone?: string;
   reservationPin?: string;
-  // TODO(backend): FK to staff_profiles; set when a promoter creates the reservation or assigned by manager
   promoterId?: string;
   /** Bottle-service term negotiated at booking time — makes BottlePackage reachable pre-seating. */
   packageId?: string;
@@ -1008,12 +1057,39 @@ export interface Reservation {
   seatingNumber?: 1 | 2;
   /** Resolved via dedupe at booking time — links the reservation to a persistent guest identity. */
   guestProfileId?: string;
+  /** RV-13: Celebration type flagged at booking — auto-surfaced on guest profile and at every touchpoint. */
+  celebration?: "birthday" | "anniversary" | "other";
+  /** RV-09: Deposit charged at booking (outside the app, per PRD §4) — status tracked inside. */
+  depositCents?: number;
+  depositStatus?: "pending" | "paid" | "forfeited";
+  /** RV-10: Cancellation deadline; after this, the deposit is forfeited. */
+  cancellationDeadlineTime?: string;
+  cancellationPenaltyCents?: number;
+  /** RV-11: Confirmed reservations auto-release if not seated by this time. */
+  holdUntil?: string;
+  /** RV-10: Set when this reservation was bumped — links to the original booking that lost the table. */
+  bumpedFromId?: string;
+  /** RV-10: Reason recorded for the bump (e.g. "walk-in whale, reassigned to table X"). */
+  bumpReason?: string;
+  /** RV-10: Table the bumped guest was offered as an alternative. */
+  alternativeTableId?: string;
+  createdAt: string; // ISO
+}
+
+/** RV-06: A date on which the venue is closed or fully booked — reservations are blocked. */
+export interface BlackoutDate {
+  id: string;
+  venueId: string;
+  date: string; // YYYY-MM-DD
+  reason: string;
+  /** When set, the blackout only applies to this zone rather than the whole venue. */
+  zoneId?: string;
   createdAt: string; // ISO
 }
 
 // ---------- Events & promotions ----------
 
-export type EventStatus = "draft" | "published" | "live" | "ended";
+export type EventStatus = "draft" | "published" | "live" | "ended" | "cancelled";
 
 export interface VenueEvent {
   id: string;
@@ -1026,8 +1102,11 @@ export interface VenueEvent {
   capacity: number;
   status: EventStatus;
   guestlistEnabled: boolean;
-  // TODO(backend): stored as nullable text column; validated as URL by the API layer.
   ticketUrl?: string;
+  /** EV-03: Reason for cancellation — set when status moves to 'cancelled'. */
+  cancellationReason?: string;
+  /** EV-03: ISO timestamp of when the event was cancelled. */
+  cancelledAt?: string;
 }
 
 /** Event-scoped attendee name — not a stored customer/profile, unless resolved to a regular. */
@@ -1039,6 +1118,34 @@ export interface EventGuest {
   status: "invited" | "confirmed" | "checked-in";
   /** Set when a repeat guestlist name resolves to a known GuestProfile (plan 17). */
   guestProfileId?: string;
+  /** PR-02: Staff promoter ID for quota enforcement. */
+  promoterId?: string;
+}
+
+/** EV-01: Artist/talent booked for an event — DJ, MC, performer, host, etc. */
+export type TalentRole = "dj" | "mc" | "performer" | "host" | "dancer" | "musician" | "other";
+export type TalentStatus = "scheduled" | "arrived" | "performing" | "completed" | "cancelled";
+
+export interface TalentSetTime {
+  start: string; // "22:00"
+  end: string;   // "01:00"
+}
+
+export interface EventTalent {
+  id: string;
+  eventId: string;
+  venueId: string;
+  name: string;
+  role: TalentRole;
+  setTimes: TalentSetTime[];
+  /** When the talent is expected to arrive for soundcheck / setup. */
+  arrivalTime?: string; // ISO
+  /** Technical/hospitality rider — equipment, food, drinks, etc. */
+  rider?: string;
+  /** Green room or backstage assignment. */
+  greenRoom?: string;
+  status: TalentStatus;
+  createdAt: string; // ISO
 }
 
 export type PromotionType = "percentage" | "flat";
@@ -1088,6 +1195,24 @@ export interface GuestProfile {
   bannedByStaffId?: string;
   notes?: string;
   marketingConsent: { email: boolean; sms: boolean; capturedAt: string; source: string };
+  /** RV-12: Structured guest preferences surfaced at every touchpoint. */
+  preferences?: {
+    preferredTable?: string;
+    preferredDrink?: string;
+    dietary?: string;
+    allergies?: string;
+    celebrationDate?: string; // birthday or anniversary date
+  };
+  /** RV-14: Guest value scoring (recency, frequency, monetary). Recomputed nightly, never hand-edited. */
+  valueScore?: number; // 0–100 composite score
+  /** RV-15: Watchlist status — alerts at admission but does NOT block. Separate from ban. */
+  watchlist?: { reason: string; addedByStaffId: string; addedAt: string };
+  /** CRM-01: Staff-authored notes viewable at every guest touchpoint. */
+  staffNotes?: { text: string; authorStaffId: string; authorName: string; at: string }[];
+  /** CRM-02: Other profiles this guest "always comes with" (many-to-many). */
+  linkedProfileIds?: string[];
+  /** CRM-03: Profile photo URL for VIP recognition and banned-guest identification. */
+  photoUrl?: string;
   createdAt: string; // ISO
   /** Rollups — recomputed from sessions/admissions (AD-11 pattern), never hand-edited. */
   lastVisitAt?: string;
@@ -1113,6 +1238,8 @@ export type AdmissionSource = "walk-in" | "reservation" | "guestlist" | "re-entr
 export interface AdmissionIdCheck {
   checked: boolean;
   dobVerified: boolean;
+  /** Year of birth verified at the door — never the full DOB unless the guest profile gives it explicitly (Law 25). */
+  yearOfBirth?: number;
   byStaffId: string;
   at: string; // ISO
 }
@@ -1136,6 +1263,11 @@ export interface Admission {
   exitedAt?: string;
   /** Set when this row is a re-entry — reuses the original admission's cover, not double-counted. */
   reEntryOfAdmissionId?: string;
+  /** OE-12: Physical identifier assigned at admission for in-venue verification. */
+  wristband?: { number: string; color: string; assignedAt: string };
+  /** OE-15: Distinguishes a smoke break (re-entry expected) from a final exit. */
+  exitType?: "final" | "smoke-break";
+  groupAdmissionId?: string;
 }
 
 /**
@@ -1190,6 +1322,7 @@ export type IncidentType =
   | "theft"
   | "property-damage"
   | "police"
+  | "staff-injury"
   | "other";
 export type IncidentSeverity = "low" | "medium" | "high";
 export type IncidentStatus = "open" | "resolved";
@@ -1211,6 +1344,8 @@ export interface Incident {
   occurredAt: string; // ISO
   zoneId?: string;
   tableId?: string;
+  /** SI-01: Free-text description of the exact location (e.g. "Near the VIP staircase, east side"). */
+  locationDescription?: string;
   guestProfileId?: string;
   involvedStaffIds: string[];
   narrative: string;
@@ -1219,6 +1354,32 @@ export interface Incident {
   reportedByStaffId: string;
   reportedByStaffName: string;
   status: IncidentStatus;
+  /** S-02: set when this incident must be reported to a regulatory authority. */
+  reportable: boolean;
+  /** S-02: deadline by which reportable incidents must be filed with the authority. */
+  regulatoryDeadline?: string; // ISO date
+  /** S-02: when the report was actually filed with the authority. */
+  reportedToAuthorityAt?: string; // ISO
+  /** S-02: name of the regulatory authority (e.g. "Régie des alcools, des courses et des jeux"). */
+  regulatoryAuthority?: string;
+  /** OE-29: Escalation level — bumped by severity or manager action. */
+  escalationLevel?: 0 | 1 | 2 | 3;
+  /** OE-29: StaffId of the security lead assigned when escalated. */
+  escalatedToStaffId?: string;
+  /** OE-30: Witness accounts — names, contacts, statements. */
+  witnesses?: { name: string; contact?: string; statement: string }[];
+  /** OE-30: CCTV camera reference and timestamp for verification. */
+  cctvReference?: { camera: string; timestamp: string }[];
+  /** OE-31: Medical incident checklist fields. */
+  medicalChecklist?: { ambulanceCalled: boolean; paramedicsArrivedAt?: string; transportTo?: string; reportFiled: boolean };
+  staffInjuryDetails?: {
+    staffId: string;
+    injuryType: string;
+    injuryDescription: string;
+    treatmentProvided: string;
+    hospitalVisitRequired: boolean;
+    workersCompFiled: boolean;
+  };
 }
 
 /** Append-only follow-up on an Incident — the narrative itself never changes after submit. */
@@ -1229,6 +1390,49 @@ export interface IncidentNote {
   authorStaffId: string;
   authorStaffName: string;
   createdAt: string; // ISO
+}
+
+/** SI-08: Pre-filled template for common incident types — speeds up filing during busy nights. */
+export interface IncidentTemplate {
+  id: string;
+  venueId: string;
+  type: IncidentType;
+  severity: IncidentSeverity;
+  /** Pre-filled narrative template with placeholders like {guestName}, {zoneName}. */
+  narrativeTemplate: string;
+  /** Pre-filled actions-taken template. */
+  actionsTakenTemplate: string;
+  /** Whether this template is active (shown in the quick-file list). */
+  isActive: boolean;
+  createdAt: string; // ISO
+}
+
+// ---------- Safety: certification tracking (S-04, plan 17) ----------
+
+/** Venue-configurable certification type — seeded with common nightclub-required certs. */
+export type CertificationType = "smart-serve" | "first-aid" | "security-guard" | "food-handler" | "crowd-manager";
+
+export const CERTIFICATION_TYPE_LABELS: Record<CertificationType, string> = {
+  "smart-serve": "Smart Serve (responsible alcohol service)",
+  "first-aid": "First Aid / CPR",
+  "security-guard": "Security Guard Licence",
+  "food-handler": "Food Handler Certificate",
+  "crowd-manager": "Crowd Manager Certification",
+};
+
+export interface Certification {
+  id: string;
+  venueId: string;
+  staffId: string;
+  type: CertificationType;
+  issuedAt: string; // ISO
+  expiresAt: string; // ISO
+  issuingBody?: string;
+  referenceNumber?: string;
+  verifiedByStaffId?: string;
+  verifiedAt?: string; // ISO
+  /** Derived from expiresAt — "active" when not yet expired, "expired" past due, "revoked" by manager. */
+  status: "active" | "expired" | "revoked";
 }
 
 // ---------- Workforce: time clock, scheduling, tips & commissions (plan 18) ----------
@@ -1426,6 +1630,14 @@ export interface SupplierItem {
 
 export type PurchaseOrderStatus = "draft" | "submitted" | "partially-received" | "received" | "cancelled";
 
+export interface PriceChange {
+  menuItemId: string;
+  itemName: string;
+  previousUnitCostCents: number;
+  newUnitCostCents: number;
+  changePercent: number; // signed, e.g. +20 = 20% increase
+}
+
 export interface PurchaseOrderLine {
   id: string;
   menuItemId: string;
@@ -1515,4 +1727,684 @@ export interface EventPnL {
   eventCosts: EventCost[];
   totalCosts: number;
   contribution: number; // revenue - product - labour - event costs
+}
+
+// ---------- Remaining Phase 3 operational feature types ----------
+
+/** OE-01: Order SLA escalation path — triggers when an order exceeds its deadline. */
+export type OrderSlaEscalation = "none" | "warned" | "manager-alerted" | "auto-unclaimed";
+
+/** OE-05: Service checklist item on a bottle order — ice, glasses, mixers, garnish. */
+export interface OrderServiceChecklist {
+  ice: boolean;
+  glasses: boolean;
+  mixers: boolean;
+  garnish: boolean;
+}
+
+/** OE-08: Session reopen window — configurable minutes after close during which a session can be reopened. */
+export interface SessionReopenWindow {
+  reopenMinutes: number; // how long after close the session can be reopened
+  maxReopens: number; // max number of reopens per session
+}
+
+/** OE-19: Event run sheet — timeline of key moments for a night's event. */
+export interface EventRunSheetEntry {
+  time: string; // e.g. "22:00"
+  label: string; // e.g. "Doors open"
+  description?: string;
+}
+
+/** OE-27: Pre-shift briefing — manager-written notes for staff starting a shift. */
+export interface ShiftBriefing {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  message: string;
+  sentByStaffId: string;
+  sentByStaffName: string;
+  sentAt: string;
+}
+
+/** OE-32: Post-incident action item — assignable task from an incident review. */
+export interface IncidentActionItem {
+  id: string;
+  incidentId: string;
+  description: string;
+  assignedToStaffId?: string;
+  status: "pending" | "in-progress" | "completed";
+  createdAt: string;
+  completedAt?: string;
+}
+
+/** OE-33: Supplier performance metrics — on-time rate, fill rate, quality per supplier. */
+export interface SupplierPerformanceMetrics {
+  supplierId: string;
+  onTimeRate: number; // 0–100%
+  fillRate: number; // 0–100%
+  qualityRating?: number; // 1–5
+  lastEvaluatedAt: string;
+}
+
+/** OE-35: Pre/post-service inventory checklist entry. */
+export interface InventoryChecklistEntry {
+  id: string;
+  menuItemId: string;
+  itemName: string;
+  expectedCount: number;
+  actualCount?: number;
+  checked: boolean;
+  checkedByStaffId?: string;
+  checkedAt?: string;
+}
+
+/** OE-35: Inventory checklist session (pre-service or post-service). */
+export interface InventoryChecklist {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  type: "pre-service" | "post-service";
+  status: "open" | "completed";
+  lines: InventoryChecklistEntry[];
+  startedAt: string;
+  completedAt?: string;
+}
+
+/** CRM-06: Guest referral tracking — attribution chain for referral bonus basis. */
+export interface GuestReferral {
+  id: string;
+  referrerProfileId: string;
+  referredProfileId: string;
+  source: string; // "guest", "promoter", "staff"
+  status: "pending" | "converted" | "expired";
+  createdAt: string;
+  convertedAt?: string;
+}
+
+/** RV-01: Time-slotted reservation configuration. */
+export type ReservationTimeSlot = "early" | "late" | "any";
+
+/** OE-02: Drink preparation ETA — queue position × average prep time. */
+export interface DrinkEta {
+  orderId: string;
+  estimatedMinutes: number;
+  queuePosition: number;
+  startedAt?: string;
+}
+
+/** RV-04: Cover price schedule — time/event/category-based pricing rules at the door. */
+export interface CoverPriceRule {
+  id: string;
+  venueId: string;
+  label: string;
+  /** Which days of the week (0=Sun, 6=Sat). */
+  daysOfWeek: number[];
+  /** Start time for this rate (HH:MM). */
+  startTime: string;
+  /** End time for this rate (HH:MM). */
+  endTime: string;
+  /** Cover price in cents for walk-ins during this window. */
+  coverCents: number;
+  /** If set, only applies to this event. */
+  eventId?: string;
+  active: boolean;
+}
+
+/** OE-21: "Guest of" grouping — +1s attributed to a named main guest on a guest list. */
+export interface GuestOfGroup {
+  id: string;
+  eventId: string;
+  mainGuestName: string;
+  mainGuestProfileId?: string;
+  plusOnes: { name: string; profileId?: string }[];
+  promoterId?: string;
+}
+
+/** OE-28: Staff performance metrics per shift. */
+export interface StaffShiftMetrics {
+  staffId: string;
+  businessDate: string;
+  ordersFulfilled: number;
+  revenueCents: number;
+  avgMinutesToDeliver: number;
+  compCount: number;
+  compCents: number;
+}
+
+/** CRM-05: Visit cadence analysis result for a guest. */
+export interface VisitCadenceAnalysis {
+  profileId: string;
+  avgDaysBetweenVisits: number;
+  last30Days: number;
+  last90Days: number;
+  isDormant: boolean; // no visits in 90 days
+  streak: number; // consecutive weeks with a visit
+}
+
+/** RV-08: Split-bill — per-item assignment to sub-totals for sequential settlement. */
+export interface SplitBillAssignment {
+  sessionId: string;
+  splits: { label: string; orderItemIds: string[]; subTotalCents: number; settled: boolean }[];
+}
+
+/** RV-21: Bar tab — non-table session created by bartender, profile-linked. */
+export interface BarTab {
+  id: string;
+  venueId: string;
+  guestProfileId?: string;
+  guestName: string;
+  status: "open" | "closed";
+  openedByStaffId: string;
+  openedByStaffName: string;
+  openedAt: string;
+  closedAt?: string;
+}
+
+/** OE-20: Event-specific menu — scoped items/packages to an event window. */
+export interface EventMenuOverride {
+  eventId: string;
+  menuItemIds: string[];
+  packageIds: string[];
+  priceOverrides: Record<string, number>; // menuItemId → cents
+}
+
+// ---------- Phase 4: Analytics Depth (AI-01 through AI-14) ----------
+
+/** AI-01: Night-over-night comparison — tonight vs a reference night (e.g. last Saturday, avg Saturday). */
+export interface NightComparison {
+  /** Label for the comparison (e.g. "vs last Saturday", "vs avg Saturday"). */
+  referenceLabel: string;
+  /** Tonight's metric values (live or historical). */
+  current: { revenue: number; orders: number; avgOrderValue: number; covers: number };
+  /** Reference night's metric values. */
+  reference: { revenue: number; orders: number; avgOrderValue: number; covers: number };
+  /** Percentage deltas (can be negative). */
+  deltas: { revenuePct: number; ordersPct: number; avgOrderValuePct: number; coversPct: number };
+}
+
+/** AI-02: Forecast / projection — current pace extrapolated to end-of-night. */
+export interface NightForecast {
+  /** The current (partial) night metrics, computed so far. */
+  current: { revenue: number; orders: number; covers: number };
+  /** How many hours into the night (e.g. 3.5 out of 8). */
+  hoursElapsed: number;
+  hoursTotal: number;
+  /** Projected end-of-night numbers. */
+  projected: { revenue: number; orders: number; covers: number };
+  /** The pace multiplier (totalHours / elapsedHours), capped at a plausible ceiling. */
+  paceMultiplier: number;
+  /** 0 = on pace, >0 = ahead, <0 = behind. */
+  variancePct: number;
+  /** Event boosting revenue (if any active event contributes uplift). */
+  eventBoost?: { eventName: string; estimatedUpliftCents: number };
+}
+
+/** AI-03: Per-hour breakdown — revenue, orders, admissions by operational hour. */
+export interface PerHourBucket {
+  hour: string; // e.g. "22:00"
+  revenue: number;
+  orders: number;
+  admissions: number;
+  exits: number;
+  occupancy: number;
+  peakFlag?: boolean;
+}
+
+export interface PerHourAnalytics {
+  buckets: PerHourBucket[];
+  peakHour: string;
+  peakRevenue: number;
+  peakOccupancy: number;
+  legalCapacity: number;
+}
+
+/** AI-04: Door-to-table conversion funnel — how admissions flow through to revenue. */
+export interface DoorToTableFunnel {
+  admissions: number;
+  sessionsCreated: number;
+  menusOpened: number;
+  ordersPlaced: number;
+  ordersDelivered: number;
+  /** Step conversion rates (each step / admissions). */
+  rates: { sessionRate: number; menuOpenRate: number; orderRate: number; deliveryRate: number };
+  /** Where the biggest drop-off happens. */
+  biggestDropStep: string;
+  biggestDropPct: number;
+}
+
+/** AI-05: Table-turn analytics — occupancy duration and seatings per night. */
+export interface TableTurnEntry {
+  tableId: string;
+  tableCode: string;
+  zoneId: string;
+  zoneName: string;
+  seatings: number;
+  avgOccupancyMinutes: number;
+  totalOccupancyMinutes: number;
+  /** Revenue per seating — the table's contribution per occupied slot. */
+  revenuePerSeating: number;
+  /** Percentage of the night this table was occupied. */
+  occupancyRate: number;
+}
+
+export interface TableTurnAnalytics {
+  turns: TableTurnEntry[];
+  avgTurnsPerTable: number;
+  avgOccupancyMinutes: number;
+  totalSeatings: number;
+  fastestTurn: { tableCode: string; minutes: number };
+  slowestTurn: { tableCode: string; minutes: number };
+}
+
+/** AI-06: Order SLA / time-to-serve analytics. */
+export interface OrderSlaBucket {
+  label: string; // e.g. "0-5 min", "5-10 min", "10-15 min", "15+ min"
+  minMinutes: number;
+  maxMinutes: number | null;
+  count: number;
+}
+
+export interface OrderSlaAnalytics {
+  avgAcceptMinutes: number;
+  avgPrepMinutes: number;
+  avgTotalMinutes: number;
+  p50Minutes: number;
+  p95Minutes: number;
+  p99Minutes: number;
+  /** Distribution buckets for total time-to-serve. */
+  distribution: OrderSlaBucket[];
+  byZone: { zoneId: string; zoneName: string; avgMinutes: number; count: number }[];
+  byStaff: { staffId: string; staffName: string; role: StaffRole; avgMinutes: number; count: number }[];
+  slaBreachCount: number;
+  slaBreachRate: number;
+  autoEscalationCount: number;
+}
+
+/** AI-07: Comp/void ratio monitoring — per-staff with threshold alerting. */
+export interface CompVoidRatioEntry {
+  staffId: string;
+  staffName: string;
+  role: StaffRole;
+  compCount: number;
+  voidCount: number;
+  compCents: number;
+  voidCents: number;
+  compRate: number; // compCents / grossCents
+  voidRate: number; // voidCents / grossCents
+  /** Whether this staff member exceeds the configured threshold. */
+  flagged: boolean;
+}
+
+export interface CompVoidRatioAnalytics {
+  entries: CompVoidRatioEntry[];
+  /** Configurable threshold above which a staff member is flagged. */
+  compRateThreshold: number;
+  voidRateThreshold: number;
+  flaggedCount: number;
+}
+
+/** AI-08: Report CSV export & email delivery. (CSV rendering exists in report-csv.ts — this type
+ *  represents the export job and delivery status.) */
+export interface ReportExport {
+  id: string;
+  reportName: string;
+  metrics: ReportMetric[];
+  rangeFrom: string;
+  rangeTo: string;
+  format: "csv";
+  /** Status of the export job. */
+  status: "pending" | "generated" | "emailed" | "failed";
+  /** CSV content (in-memory for demo; in real life, a signed S3 URL). */
+  csvContent?: string;
+  /** When email sent (ISO). */
+  emailedAt?: string;
+  recipient?: string;
+  createdAt: string;
+}
+
+/** AI-09: Promoter performance report — fill rate, check-in rate, spend, commission. */
+export interface PromoterPerformanceReport {
+  promoterId: string;
+  promoterName: string;
+  /** Reservations created in the range. */
+  reservationsCreated: number;
+  /** Reservations confirmed (approved by venue). */
+  reservationsConfirmed: number;
+  /** Guests who actually checked in. */
+  checkIns: number;
+  /** Show-up rate (check-ins / confirmed). */
+  showUpRate: number;
+  /** Fill rate (confirmed / created). */
+  fillRate: number;
+  /** Attributed revenue from seated reservations. */
+  attributedRevenue: number;
+  /** Commission earned (if commission rate is set). */
+  commissionCents: number;
+  /** Average spend per checked-in guest. */
+  avgSpendPerGuest: number;
+  /** Guest list count for promoter-hosted events. */
+  guestListCount: number;
+  /** Guest list conversion (seated ÷ guest list invites). */
+  guestListConversion: number;
+}
+
+/** AI-10: Security incident pattern report — by zone, time, night, staff presence. */
+export interface IncidentPatternEntry {
+  zoneId?: string;
+  zoneName?: string;
+  hour?: string;
+  dayOfWeek?: number; // 0=Sun
+  severity: "low" | "medium" | "high";
+  count: number;
+}
+
+export interface IncidentPatternReport {
+  byZone: { zoneId: string; zoneName: string; low: number; medium: number; high: number; total: number }[];
+  byHour: { hour: string; count: number; severity: "low" | "medium" | "high" }[];
+  byDayOfWeek: { day: number; dayName: string; count: number }[];
+  /** Hotspots — the zone+hour combinations with the most incidents. */
+  hotspots: { zoneName: string; hour: string; count: number }[];
+  totalIncidents: number;
+}
+
+/** AI-11: Guest retention report — repeat rate, churn, new vs returning. */
+export interface GuestRetentionMetrics {
+  newGuests: number;
+  returningGuests: number;
+  totalGuests: number;
+  /** Repeat rate: returning / total. */
+  repeatRate: number;
+  /** Churn rate: guests who visited last period but not this one. */
+  churnRate: number;
+  /** Average visits per guest in the range. */
+  avgVisitsPerGuest: number;
+  /** Guests with 3+ visits (power users). */
+  powerUsers: number;
+  /** VIP retention — percentage of VIPs who returned this period. */
+  vipRetentionRate: number;
+  /** Average days between visits for returning guests. */
+  avgDaysBetweenVisits: number;
+}
+
+/** AI-12: Bottle service utilization — by brand, zone, time; presentation frequency. */
+export interface BottleServiceEntry {
+  menuItemId: string;
+  itemName: string;
+  categoryId: string;
+  categoryName: string;
+  presentations: number; // count of sparkler/presentation events
+  bottlesSold: number;
+  revenue: number;
+  /** Average revenue per bottle presentation. */
+  avgRevenuePerPresentation: number;
+  /** Zone breakdown. */
+  zoneBreakdown: { zoneId: string; zoneName: string; bottles: number; revenue: number }[];
+  /** Percentage of total bottle revenue this item represents. */
+  shareOfBottleRevenue: number;
+}
+
+export interface BottleServiceAnalytics {
+  entries: BottleServiceEntry[];
+  totalBottleRevenue: number;
+  totalPresentations: number;
+  totalBottlesSold: number;
+  avgBottleRevenue: number;
+  /** Peak hour for bottle presentations. */
+  peakHour: string;
+}
+
+/** AI-13: Capacity utilization — peak occupancy, entry/exit rates, avg stay. */
+export interface CapacityUtilizationBucket {
+  hour: string;
+  occupancy: number; // headcount
+  utilizationPct: number; // occupancy / legalCapacity
+  entries: number;
+  exits: number;
+}
+
+export interface CapacityUtilizationAnalytics {
+  buckets: CapacityUtilizationBucket[];
+  legalCapacity: number;
+  peakOccupancy: number;
+  peakHour: string;
+  peakUtilizationPct: number;
+  avgOccupancy: number;
+  avgStayMinutes: number;
+  totalEntries: number;
+  totalExits: number;
+  /** Whether legal capacity was ever exceeded. */
+  exceededLegalCapacity: boolean;
+}
+
+/** AI-14: Night summary auto-generation — one-page executive summary at venue close. */
+export interface NightSummary {
+  businessDate: string;
+  generatedAt: string;
+  /** Revenue snapshot. */
+  revenue: { total: number; deltaVsAvgPct: number; deltaVsLastWeekPct: number };
+  orders: { total: number; avgValue: number; topItem: string };
+  covers: { total: number; seated: number; noShowCount: number };
+  staff: { onDuty: number; topPerformer: string; topPerformerRevenue: number };
+  incidents: { total: number; highSeverity: number };
+  inventory: { topSoldItem: string; soldOutItems: string[] };
+  /** Single-paragraph executive summary — the "what happened tonight" narrative. */
+  executiveSummary: string;
+  /** Action items flagged for the next manager on duty. */
+  actionItems: string[];
+  /** Whether this summary has been emailed. */
+  emailed: boolean;
+}
+
+// ---------- Phase 4: Automations (AM-01 through AM-13) ----------
+
+/** Each automation the venue can enable/configure. */
+export type AutomationCode =
+  | "auto-release-reservations"    // AM-01
+  | "auto-generate-po"             // AM-02
+  | "auto-escalate-orders"         // AM-03
+  | "auto-detect-duplicates"       // AM-04
+  | "auto-vip-tier-upgrade"        // AM-05
+  | "auto-event-pricing"           // AM-06
+  | "auto-close-event"             // AM-07
+  | "auto-remove-86"               // AM-08
+  | "auto-pour-cost"               // AM-09
+  | "auto-flag-variance"           // AM-10
+  | "auto-notify-vip-arrival"      // AM-11
+  | "auto-flag-dormant-vip"        // AM-12
+  | "auto-suggest-table"           // AM-13
+  | "auto-close-abandoned-sessions";
+
+export interface AutomationRule {
+  id: string;
+  code: AutomationCode;
+  label: string;
+  description: string;
+  /** Whether the automation is enabled for this venue. */
+  enabled: boolean;
+  /** Category for grouping in the UI. */
+  category: "reservations" | "orders" | "inventory" | "vip" | "events" | "reports";
+  /** Configurable threshold values per-automation (JSON-typed for demo flexibility). */
+  config: Record<string, string | number | boolean>;
+  /** When this rule was last triggered (ISO). */
+  lastTriggeredAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A record of an automation having run — the execution log. */
+export interface AutomationExecution {
+  id: string;
+  ruleId: string;
+  code: AutomationCode;
+  triggeredAt: string;
+  /** What happened — a human-readable summary. */
+  result: string;
+  /** Whether the action was applied (some are advisory/suggestive). */
+  actionApplied: boolean;
+  /** Relevant entity IDs affected (e.g. order IDs, guest IDs). */
+  affectedEntityIds: string[];
+  /** Duration in milliseconds the automation took to run. */
+  durationMs: number;
+}
+
+// ---------- Realtime: revenue pace & attention acknowledgments ----------
+
+export interface RevenuePace {
+  current: number;
+  lastWeekSameTime: number;
+  pacePercent: number;
+  projected: number;
+}
+
+export interface AttentionAcknowledgment {
+  id: string;
+  attentionItemId: string;
+  acknowledgedByStaffId: string;
+  acknowledgedByStaffName: string;
+  acknowledgedAt: string;
+  snoozedUntil?: string;
+}
+
+// ---------- Door: coat check & refusals ----------
+
+export interface CoatCheckClaim {
+  id: string;
+  ticketId?: string;
+  claimType: "lost-ticket" | "lost-item";
+  description: string;
+  reportedByStaffName: string;
+  reportedAt: string;
+  resolution?: string;
+  resolvedAt?: string;
+  resolvedByStaffId?: string;
+}
+
+export interface DoorRefusal {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  reason: string;
+  description: string;
+  partySize: number;
+  refusedByStaffId: string;
+  refusedByStaffName: string;
+  timestamp: string;
+}
+
+// ---------- Guest sessions: notes & VIP tiers ----------
+
+export interface SessionNote {
+  id: string;
+  sessionId: string;
+  note: string;
+  createdByStaffId: string;
+  createdByStaffName: string;
+  createdAt: string;
+}
+
+export interface VipTierBenefit {
+  id: string;
+  venueId: string;
+  tier: GuestVipTier;
+  benefit: string;
+  category: string;
+  sortOrder: number;
+  active: boolean;
+}
+
+// ---------- Orders: remakes & walkouts ----------
+
+export interface OrderRemake {
+  id: string;
+  oldOrderId: string;
+  newOrderId: string;
+  reason: string;
+  remadeByStaffId: string;
+  remadeByStaffName: string;
+  remadeAt: string;
+}
+
+export interface WalkoutRecord {
+  id: string;
+  sessionId: string;
+  tableCode: string;
+  description: string;
+  reportedByStaffId: string;
+  reportedByStaffName: string;
+  reportedAt: string;
+}
+
+// ---------- Workforce: assignments & handoffs ----------
+
+export interface StaffTableAssignment {
+  id: string;
+  venueId: string;
+  staffId: string;
+  tableIds: string[];
+  zoneId: string;
+  shiftId?: string;
+  assignedAt: string;
+}
+
+export interface ShiftHandoff {
+  id: string;
+  venueId: string;
+  businessDate: string;
+  fromStaffId: string;
+  fromStaffName: string;
+  toStaffId?: string;
+  toStaffName?: string;
+  openIncidents: string[];
+  vipNotes: string;
+  inventoryAlerts: string;
+  specialInstructions: string;
+  generatedAt: string;
+  acknowledgedByStaffId?: string;
+  acknowledgedByStaffName?: string;
+  acknowledgedAt?: string;
+}
+
+// ---------- Venue: checklists ----------
+
+export type ChecklistType = "opening" | "closing";
+
+export interface ChecklistTemplateItem {
+  id: string;
+  label: string;
+  required: boolean;
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  venueId: string;
+  name: string;
+  type: ChecklistType;
+  active: boolean;
+  items: ChecklistTemplateItem[];
+}
+
+export interface ChecklistRunItem {
+  templateItemId: string;
+  label: string;
+  checked: boolean;
+  checkedAt?: string;
+  checkedByStaffId?: string;
+  note?: string;
+}
+
+export interface ChecklistRun {
+  id: string;
+  venueId: string;
+  templateId: string;
+  templateName: string;
+  type: ChecklistType;
+  businessDate: string;
+  status: "in-progress" | "completed" | "skipped";
+  items: ChecklistRunItem[];
+  startedAt: string;
+  startedByStaffId: string;
+  startedByStaffName: string;
+  completedAt?: string;
+  completedByStaffId?: string;
+  completedByStaffName?: string;
 }

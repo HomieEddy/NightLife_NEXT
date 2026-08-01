@@ -2,11 +2,13 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { Inbox, Loader2, Lock, Map, QrCode, Receipt, Save, Users, X } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,21 +19,27 @@ import { EntityChip } from "@/components/shared/entity-chip";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { ordersService } from "@/lib/services/orders-service";
-import { guestsService } from "@/lib/services/guests-service";
-import { venueService } from "@/lib/services/venue-service";
-import { ZONE_SWATCH } from "@/lib/zone-colors";
-import { formatMoney } from "@/lib/format";
+import { ordersService } from "@/features/ordering/services";
+import { guestsService } from "@/features/guests/services";
+import { venueService } from "@/features/venue/services";
+import { venueKeys } from "@/features/venue/query-keys";
+import { ordersKeys } from "@/features/ordering/query-keys";
+import { sessionsKeys } from "@/features/guests/query-keys";
+import { useAuth } from "@/context/auth-context";
+import { ZONE_SWATCH } from "@/features/shared/zone-colors";
+import { formatMoney } from "@/features/shared/format";
 import { FloorMapCanvas } from "@/components/shared/floor-map-canvas";
 import { SessionOverview } from "@/components/shared/session-overview";
-import { cn } from "@/lib/utils";
-import type { GuestSession, Order, TableStatus, Venue, VenueTable, Zone } from "@/lib/types";
+import { cn } from "@/features/shared/utils";
+import type { GuestSession, Order, TableStatus, VenueTable, Zone, Venue } from "@/lib/types";
 
 const STATUS_NODE: Record<TableStatus, string> = {
   open: "bg-emerald-500/20 border-emerald-500/60 text-emerald-700 dark:text-emerald-300",
   occupied: "bg-fuchsia-500/25 border-fuchsia-500/70 text-fuchsia-700 dark:text-fuchsia-300",
   reserved: "bg-amber-500/20 border-amber-500/60 text-amber-700 dark:text-amber-300",
   closed: "bg-muted border-border text-muted-foreground",
+  held: "bg-gray-500/20 border-gray-500/60 text-gray-700 dark:text-gray-300",
+  "out-of-service": "bg-gray-500/20 border-gray-500/60 text-gray-700 dark:text-gray-300",
 };
 
 const STATUSES: TableStatus[] = ["open", "occupied", "reserved", "closed"];
@@ -52,32 +60,81 @@ export default function ManagerFloorMapPage() {
 }
 
 function FloorMapPageContent() {
-  const [venue, setVenue] = useState<Venue | null>(null);
-  const [tables, setTables] = useState<VenueTable[] | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+
   const [editMode, setEditMode] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tableOrders, setTableOrders] = useState<Order[] | null>(null); // null = panel closed
+  const [tableOrders, setTableOrders] = useState<Order[] | null>(null);
   const [tableSessions, setTableSessions] = useState<GuestSession[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
-  const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
   const snapshotRef = useRef<{ tables: VenueTable[]; floorMap: Venue["floorMap"] } | null>(null);
 
-  const refresh = useCallback(async () => {
-    const [tableList, zoneList, venueData] = await Promise.all([
-      venueService.listTables(),
-      venueService.listZones(),
-      venueService.getVenue(),
-    ]);
-    setTables(tableList);
-    setZones(zoneList);
-    setVenue(venueData);
-  }, []);
+  const { data: tables } = useQuery({
+    queryKey: venueKeys.tables(venueId),
+    queryFn: () => venueService.listTables(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: zones = [] } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const { data: venue } = useQuery({
+    queryKey: venueKeys.single(venueId),
+    queryFn: () => venueService.getVenue(),
+    enabled: !!venueId,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: venueKeys.tables(venueId) });
+    queryClient.invalidateQueries({ queryKey: venueKeys.zones(venueId) });
+    queryClient.invalidateQueries({ queryKey: venueKeys.single(venueId) });
+  };
+
+  const setStatusMutation = useMutation({
+    mutationFn: ({ table, status }: { table: VenueTable; status: TableStatus }) =>
+      venueService.setTableStatus(table.id, status),
+    onSuccess: (_, { table, status }) => {
+      toast.success(`${table.code} → ${status}`);
+      invalidate();
+    },
+  });
+
+  const saveEditMutation = useMutation({
+    mutationFn: async () => {
+      if (!tables || !venue) return;
+      const snap = snapshotRef.current;
+      const movedTables = snap
+        ? tables.filter((t) => {
+            const orig = snap.tables.find((o) => o.id === t.id);
+            return orig && (orig.mapX !== t.mapX || orig.mapY !== t.mapY);
+          })
+        : [];
+      await Promise.all(
+        movedTables
+          .filter((t): t is VenueTable & { mapX: number; mapY: number } => t.mapX != null && t.mapY != null)
+          .map((t) => venueService.setTablePosition(t.id, t.mapX, t.mapY)),
+      );
+      const canvasChanged = snap && (snap.floorMap.width !== venue.floorMap.width || snap.floorMap.height !== venue.floorMap.height);
+      if (canvasChanged) {
+        await venueService.updateVenue({ floorMap: venue.floorMap });
+      }
+    },
+    onSuccess: () => {
+      snapshotRef.current = null;
+      setEditMode(false);
+      invalidate();
+      toast.success("Layout saved");
+    },
+    onError: () => {
+      toast.error("Could not save layout changes");
+    },
+  });
 
   const selected = (tables ?? []).find((t) => t.id === selectedId) ?? null;
   const zoneOf = (zoneId: string) => zones.find((z) => z.id === zoneId);
@@ -96,8 +153,10 @@ function FloorMapPageContent() {
   function cancelEdit() {
     const snap = snapshotRef.current;
     if (snap) {
-      setTables(snap.tables);
-      if (venue) setVenue({ ...venue, floorMap: snap.floorMap });
+      if (venue) {
+        queryClient.setQueryData(venueKeys.tables(venueId), snap.tables);
+        queryClient.setQueryData(venueKeys.single(venueId), { ...venue, floorMap: snap.floorMap });
+      }
     }
     snapshotRef.current = null;
     setEditMode(false);
@@ -107,31 +166,7 @@ function FloorMapPageContent() {
   async function saveEdit() {
     if (!tables || !venue) return;
     setEditSaving(true);
-    try {
-      const snap = snapshotRef.current;
-      const movedTables = snap
-        ? tables.filter((t) => {
-            const orig = snap.tables.find((o) => o.id === t.id);
-            return orig && (orig.mapX !== t.mapX || orig.mapY !== t.mapY);
-          })
-        : [];
-      await Promise.all(
-        movedTables
-          .filter((t): t is VenueTable & { mapX: number; mapY: number } => t.mapX != null && t.mapY != null)
-          .map((t) => venueService.setTablePosition(t.id, t.mapX, t.mapY)),
-      );
-      const canvasChanged = snap && (snap.floorMap.width !== venue.floorMap.width || snap.floorMap.height !== venue.floorMap.height);
-      if (canvasChanged) {
-        await venueService.updateVenue({ floorMap: venue.floorMap });
-      }
-      snapshotRef.current = null;
-      setEditMode(false);
-      toast.success("Layout saved");
-    } catch {
-      toast.error("Could not save layout changes");
-    } finally {
-      setEditSaving(false);
-    }
+    saveEditMutation.mutate(undefined, { onSettled: () => setEditSaving(false) });
   }
 
   const hasEditChanges = (() => {
@@ -152,14 +187,17 @@ function FloorMapPageContent() {
       width: Math.min(40, Math.max(1, width)),
       height: Math.min(40, Math.max(1, height)),
     };
-    setVenue({ ...venue, floorMap });
+    queryClient.setQueryData(venueKeys.single(venueId), { ...venue, floorMap });
   }
 
-  // ---------- Drag handling (edit mode) ----------
+  // ---------- Drag handling (edit mode via dnd-kit) ----------
 
-  function onPointerDown(e: React.PointerEvent, table: VenueTable) {
-    dragRef.current = { id: table.id, moved: false };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  function handleTableDrag(tableId: string, mapX: number, mapY: number) {
+    if (!tables) return;
+    queryClient.setQueryData(
+      venueKeys.tables(venueId),
+      tables.map((t) => (t.id === tableId ? { ...t, mapX, mapY } : t)),
+    );
   }
 
   function handleSelectTable(table: VenueTable) {
@@ -168,31 +206,7 @@ function FloorMapPageContent() {
     setTableOrders(null);
   }
 
-  function onPointerMove(e: React.PointerEvent) {
-    const drag = dragRef.current;
-    if (!drag) return;
-    drag.moved = true;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.min(98, Math.max(2, ((e.clientX - rect.left) / rect.width) * 100));
-    const y = Math.min(98, Math.max(2, ((e.clientY - rect.top) / rect.height) * 100));
-    setTables((prev) =>
-      prev ? prev.map((t) => (t.id === drag.id ? { ...t, mapX: x, mapY: y } : t)) : prev,
-    );
-  }
-
-  function onPointerUp() {
-    const drag = dragRef.current;
-    dragRef.current = null;
-    if (!drag?.moved) return;
-  }
-
-  async function setStatus(table: VenueTable, status: TableStatus) {
-    await venueService.setTableStatus(table.id, status);
-    toast.success(`${table.code} → ${status}`);
-    await refresh();
-  }
-
-  // ---------- Inline orders panel ----------
+  // ---------- Inline orders panel (on-demand fetch) ----------
 
   async function showOrders(table: VenueTable) {
     setOrdersLoading(true);
@@ -205,7 +219,16 @@ function FloorMapPageContent() {
     setOrdersLoading(false);
   }
 
-  const aspect = venue ? `${venue.floorMap.width} / ${venue.floorMap.height}` : "16 / 9";
+  if (!tables || !venue) {
+    return (
+      <div className="space-y-5">
+        <PageHeader title="Floor map" description="Loading…" />
+        <Skeleton className="aspect-video w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  const aspect = `${venue.floorMap.width} / ${venue.floorMap.height}`;
 
   return (
     <div className="space-y-5">
@@ -251,7 +274,7 @@ function FloorMapPageContent() {
       />
 
       {/* ---------- Canvas size controls (edit mode) ---------- */}
-      {editMode && venue && (
+      {editMode && (
         <Card className="py-3">
           <CardContent className="flex flex-wrap items-end gap-3 px-4">
             <div className="space-y-1.5">
@@ -310,156 +333,149 @@ function FloorMapPageContent() {
         </Card>
       )}
 
-      {tables === null ? (
-        <Skeleton className="aspect-video w-full rounded-xl" />
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-[1fr_290px]">
-          {/* ---------- Canvas ---------- */}
-          <FloorMapCanvas
-            tables={tables}
-            zones={zones}
-            aspectRatio={aspect}
-            selectedId={selectedId}
-            editMode={editMode}
-            onSelectTable={handleSelectTable}
-            onDragStart={onPointerDown}
-            onDragMove={onPointerMove}
-            onDragEnd={onPointerUp}
-          />
+      <div className="grid gap-4 lg:grid-cols-[1fr_290px]">
+        {/* ---------- Canvas ---------- */}
+        <FloorMapCanvas
+          tables={tables}
+          zones={zones}
+          aspectRatio={aspect}
+          selectedId={selectedId}
+          editMode={editMode}
+          onSelectTable={handleSelectTable}
+          onTableDrag={handleTableDrag}
+        />
 
-          {/* ---------- Side panel ---------- */}
-          <div className="space-y-3">
-            {/* Legend */}
-            <Card className="py-3">
-              <CardContent className="space-y-2 px-4">
-                <p className="text-xs font-medium text-muted-foreground">Zones</p>
-                <div className="flex flex-wrap gap-2">
-                  {zones.map((zone) => (
-                    <span key={zone.id} className="flex items-center gap-1.5 text-xs">
-                      <span className={cn("size-2 rounded-full", ZONE_SWATCH[zone.color] ?? "bg-muted-foreground")} />
-                      {zone.name}
-                    </span>
-                  ))}
-                </div>
-                <p className="pt-1 text-xs font-medium text-muted-foreground">Status</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {STATUSES.map((status) => (
-                    <span
-                      key={status}
-                      className={cn("rounded-md border px-1.5 py-0.5 text-[10px] capitalize", STATUS_NODE[status])}
+        {/* ---------- Side panel ---------- */}
+        <div className="space-y-3">
+          {/* Legend */}
+          <Card className="py-3">
+            <CardContent className="space-y-2 px-4">
+              <p className="text-xs font-medium text-muted-foreground">Zones</p>
+              <div className="flex flex-wrap gap-2">
+                {zones.map((zone) => (
+                  <span key={zone.id} className="flex items-center gap-1.5 text-xs">
+                    <span className={cn("size-2 rounded-full", ZONE_SWATCH[zone.color] ?? "bg-muted-foreground")} />
+                    {zone.name}
+                  </span>
+                ))}
+              </div>
+              <p className="pt-1 text-xs font-medium text-muted-foreground">Status</p>
+              <div className="flex flex-wrap gap-1.5">
+                {STATUSES.map((status) => (
+                  <span
+                    key={status}
+                    className={cn("rounded-md border px-1.5 py-0.5 text-[10px] capitalize", STATUS_NODE[status])}
+                  >
+                    {status}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Selected table details */}
+          {selected ? (
+            <Card className="py-4">
+              <CardContent className="space-y-3 px-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-mono text-sm font-semibold">{selected.code}</p>
+                    <p className="text-sm text-muted-foreground">{selected.label}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <StatusBadge status={selected.status} />
+                    <TooltipIconButton
+                      variant="ghost"
+                      className="size-7"
+                      tooltip="Close details"
+                      onClick={() => {
+                        setSelectedId(null);
+                        setTableOrders(null);
+                      }}
                     >
-                      {status}
-                    </span>
-                  ))}
+                      <X className="size-3.5" />
+                    </TooltipIconButton>
+                  </div>
+                </div>
+
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p className="flex items-center gap-1.5">
+                    <Users className="size-3.5" /> {selected.seats} seats
+                  </p>
+                  {selected.minimumSpend !== null && (
+                    <p>Minimum spend {formatMoney(selected.minimumSpend)}</p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {zoneOf(selected.zoneId) && (
+                    <EntityChip type="zone" id={selected.zoneId} label={zoneOf(selected.zoneId)!.name} />
+                  )}
+                  <EntityChip type="zone-staff" id={selected.zoneId} label="Zone staff" />
+                </div>
+
+                <div className="space-y-1.5 border-t pt-3">
+                  <p className="text-xs font-medium text-muted-foreground">Set status</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {STATUSES.map((status) => (
+                      <ConfirmDialog
+                        key={status}
+                        trigger={
+                          <button
+                            type="button"
+                            disabled={selected.status === status}
+                            className={cn(
+                              "rounded-full border px-2.5 py-1 text-xs capitalize transition-colors",
+                              selected.status === status
+                                ? "border-primary bg-primary/15 text-primary"
+                                : "text-muted-foreground hover:text-foreground",
+                            )}
+                          >
+                            {status}
+                          </button>
+                        }
+                        title={`Set ${selected.code} to ${status}?`}
+                        description="Table status drives the guest QR flow and runner routing."
+                        confirmLabel={`Set ${status}`}
+                        onConfirm={() => setStatusMutation.mutate({ table: selected, status })}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 border-t pt-3">
+                  <Button
+                    variant={tableOrders !== null ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() =>
+                      tableOrders !== null ? setTableOrders(null) : showOrders(selected)
+                    }
+                    disabled={ordersLoading}
+                  >
+                    <Receipt className="size-3.5" />
+                    {ordersLoading ? "Loading…" : tableOrders !== null ? "Hide orders" : "Orders"}
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1" asChild>
+                    <Link href="/manager/qr">
+                      <QrCode className="size-3.5" /> QR
+                    </Link>
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Selected table details */}
-            {selected ? (
-              <Card className="py-4">
-                <CardContent className="space-y-3 px-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-mono text-sm font-semibold">{selected.code}</p>
-                      <p className="text-sm text-muted-foreground">{selected.label}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <StatusBadge status={selected.status} />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        aria-label="Close details"
-                        onClick={() => {
-                          setSelectedId(null);
-                          setTableOrders(null);
-                        }}
-                      >
-                        <X className="size-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p className="flex items-center gap-1.5">
-                      <Users className="size-3.5" /> {selected.seats} seats
-                    </p>
-                    {selected.minimumSpend !== null && (
-                      <p>Minimum spend {formatMoney(selected.minimumSpend)}</p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    {zoneOf(selected.zoneId) && (
-                      <EntityChip type="zone" id={selected.zoneId} label={zoneOf(selected.zoneId)!.name} />
-                    )}
-                    <EntityChip type="zone-staff" id={selected.zoneId} label="Zone staff" />
-                  </div>
-
-                  <div className="space-y-1.5 border-t pt-3">
-                    <p className="text-xs font-medium text-muted-foreground">Set status</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {STATUSES.map((status) => (
-                        <ConfirmDialog
-                          key={status}
-                          trigger={
-                            <button
-                              type="button"
-                              disabled={selected.status === status}
-                              className={cn(
-                                "rounded-full border px-2.5 py-1 text-xs capitalize transition-colors",
-                                selected.status === status
-                                  ? "border-primary bg-primary/15 text-primary"
-                                  : "text-muted-foreground hover:text-foreground",
-                              )}
-                            >
-                              {status}
-                            </button>
-                          }
-                          title={`Set ${selected.code} to ${status}?`}
-                          description="Table status drives the guest QR flow and runner routing."
-                          confirmLabel={`Set ${status}`}
-                          onConfirm={() => setStatus(selected, status)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 border-t pt-3">
-                    <Button
-                      variant={tableOrders !== null ? "default" : "outline"}
-                      size="sm"
-                      className="flex-1"
-                      onClick={() =>
-                        tableOrders !== null ? setTableOrders(null) : showOrders(selected)
-                      }
-                      disabled={ordersLoading}
-                    >
-                      <Receipt className="size-3.5" />
-                      {ordersLoading ? "Loading…" : tableOrders !== null ? "Hide orders" : "Orders"}
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex-1" asChild>
-                      <Link href="/manager/qr">
-                        <QrCode className="size-3.5" /> QR
-                      </Link>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="py-4">
-                <CardContent className="flex flex-col items-center gap-2 px-4 py-6 text-center text-sm text-muted-foreground">
-                  <Map className="size-6" />
-                  {editMode
-                    ? "Drag tables into place, then hit “Done editing”."
-                    : "Select a table on the map to see its details."}
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          ) : (
+            <Card className="py-4">
+              <CardContent className="flex flex-col items-center gap-2 px-4 py-6 text-center text-sm text-muted-foreground">
+                <Map className="size-6" />
+                {editMode
+                  ? "Drag tables into place, then hit \"Done editing\"."
+                  : "Select a table on the map to see its details."}
+              </CardContent>
+            </Card>
+          )}
         </div>
-      )}
+      </div>
 
       {/* ---------- Inline orders for the selected table ---------- */}
       {selected && tableOrders !== null && (

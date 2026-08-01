@@ -1,17 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Clock, Minus, Plus, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
-import { waitlistService } from "@/lib/services/waitlist-service";
-import type { WaitlistEntryWithPosition } from "@/lib/services/waitlist-service";
-import { cn } from "@/lib/utils";
+import { waitlistService } from "@/features/door/waitlist-service";
+import { waitlistKeys } from "@/features/door/query-keys";
+import { useAuth } from "@/context/auth-context";
+import { zWaitlistEntryInput } from "@/lib/form-schemas";
+import type { WaitlistEntryWithPosition } from "@/features/door/waitlist-service";
+import { cn } from "@/features/shared/utils";
+import type { z } from "zod";
 
 const QUOTE_PRESETS = [15, 30, 45];
 
@@ -25,52 +32,67 @@ const STATUS_LABEL: Record<WaitlistEntryWithPosition["status"], string> = {
 
 /** Shares the same waitlist state as /staff/door — a table on reservations page for manager visibility. */
 export function WaitlistPanel() {
-  const [entries, setEntries] = useState<WaitlistEntryWithPosition[] | null>(null);
-  const [name, setName] = useState("");
-  const [partySize, setPartySize] = useState(2);
-  const [quotedMinutes, setQuotedMinutes] = useState(15);
-  const [busy, setBusy] = useState(false);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [nowMs, setNowMs] = useState(() => Date.now());
 
-  const refresh = useCallback(async () => {
-    setEntries(await waitlistService.listEntries());
-  }, []);
+  type FormValues = z.infer<typeof zWaitlistEntryInput>;
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zWaitlistEntryInput),
+    defaultValues: { name: "", partySize: 2, quotedMinutes: 15 },
+  });
+  const quotedMinutes = watch("quotedMinutes");
+  const partySize = watch("partySize");
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: entries } = useQuery({
+    queryKey: waitlistKeys.all(venueId),
+    queryFn: () => waitlistService.listEntries(),
+    enabled: !!venueId,
+  });
+
+  // Tick every 30s for elapsed-time display
   useEffect(() => {
     const t = setInterval(() => setNowMs(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: waitlistKeys.all(venueId) });
+  };
+
+  const joinMutation = useMutation({
+    mutationFn: (data: FormValues) =>
+      waitlistService.join({ name: data.name.trim(), partySize: data.partySize, quotedMinutes: data.quotedMinutes }),
+    onSuccess: (_, data) => {
+      reset({ name: "", partySize: 2, quotedMinutes: 15 });
+      toast.success(`${data.name.trim()} added to the waitlist`);
+      invalidate();
+    },
+    onError: () => {
+      toast.error("Could not add to the waitlist");
+    },
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "notified" | "left" | "seated" }) =>
+      waitlistService.setStatus(id, status),
+    onSuccess: () => {
+      invalidate();
+    },
+  });
+
   const active = (entries ?? []).filter((e) => e.status === "waiting" || e.status === "notified");
   const history = (entries ?? []).filter((e) => e.status !== "waiting" && e.status !== "notified");
 
-  async function join() {
-    if (!name.trim()) return;
-    setBusy(true);
-    try {
-      await waitlistService.join({ name: name.trim(), partySize, quotedMinutes });
-      setName("");
-      setPartySize(2);
-      setQuotedMinutes(15);
-      toast.success(`${name.trim()} added to the waitlist`);
-      await refresh();
-    } catch {
-      toast.error("Could not add to the waitlist");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function setStatus(id: string, status: "notified" | "left" | "seated") {
-    await waitlistService.setStatus(id, status);
-    await refresh();
-  }
+  const onJoin = handleSubmit(async (data) => {
+    joinMutation.mutate(data);
+  });
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
       <div className="space-y-3">
-        {entries === null ? (
+        {entries === undefined ? (
           <ListSkeleton rows={3} rowHeight="h-16" />
         ) : active.length === 0 ? (
           <EmptyState icon={Users} title="No one waiting" description="Walk-ins added at the door show up here." />
@@ -93,10 +115,10 @@ export function WaitlistPanel() {
                     </div>
                     <div className="flex shrink-0 gap-1.5">
                       {entry.status === "waiting" && (
-                        <Button size="sm" variant="outline" onClick={() => setStatus(entry.id, "notified")}>Notify</Button>
+                        <Button size="sm" variant="outline" onClick={() => statusMutation.mutate({ id: entry.id, status: "notified" })}>Notify</Button>
                       )}
-                      <Button size="sm" onClick={() => setStatus(entry.id, "seated")}>Seat</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setStatus(entry.id, "left")}>Leave</Button>
+                      <Button size="sm" onClick={() => statusMutation.mutate({ id: entry.id, status: "seated" })}>Seat</Button>
+                      <Button size="sm" variant="ghost" onClick={() => statusMutation.mutate({ id: entry.id, status: "left" })}>Leave</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -121,14 +143,16 @@ export function WaitlistPanel() {
       <Card>
         <CardContent className="space-y-3 pt-4">
           <p className="text-sm font-medium">Add a walk-in</p>
-          <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+          <form onSubmit={onJoin} className="space-y-3">
+          <Input placeholder="Name" {...register("name")} />
+          {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
           <div className="flex items-center gap-2">
             <Label className="w-20 shrink-0 text-xs">Party</Label>
-            <Button variant="outline" size="icon" className="size-9" onClick={() => setPartySize((p) => Math.max(1, p - 1))}>
+            <Button type="button" variant="outline" size="icon" className="size-9" onClick={() => setValue("partySize", Math.max(1, partySize - 1))}>
               <Minus className="size-4" />
             </Button>
             <span className="w-6 text-center tabular-nums">{partySize}</span>
-            <Button variant="outline" size="icon" className="size-9" onClick={() => setPartySize((p) => p + 1)}>
+            <Button type="button" variant="outline" size="icon" className="size-9" onClick={() => setValue("partySize", partySize + 1)}>
               <Plus className="size-4" />
             </Button>
           </div>
@@ -141,16 +165,17 @@ export function WaitlistPanel() {
                   type="button"
                   size="sm"
                   variant={quotedMinutes === m ? "default" : "outline"}
-                  onClick={() => setQuotedMinutes(m)}
+                  onClick={() => setValue("quotedMinutes", m)}
                 >
                   <Clock className="size-3.5" /> {m}m
                 </Button>
               ))}
             </div>
           </div>
-          <Button className="w-full" disabled={!name.trim() || busy} onClick={join}>
+          <Button type="submit" className="w-full" disabled={isSubmitting || joinMutation.isPending}>
             <UserPlus className="size-4" /> Add to waitlist
           </Button>
+          </form>
         </CardContent>
       </Card>
     </div>

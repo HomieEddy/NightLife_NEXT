@@ -12,17 +12,17 @@ import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoNewSessionAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { CountUp } from "@/components/fx/count-up";
 import { useGuest } from "@/context/guest-context";
-import { ordersService } from "@/lib/services/orders-service";
-import { guestsService } from "@/lib/services/guests-service";
-import { formatDate, formatMoney, formatTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import { orderLineSubtotal } from "@/lib/order-line";
+import { ordersService } from "@/features/ordering/services";
+import { guestsService } from "@/features/guests/services";
+import { formatDate, formatMoney, formatTime } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import { evenShares, summarizeReceipt } from "@/lib/receipt";
 import { computeSessionBalance } from "@/lib/tab";
 import type { Order, TabAdjustment, Venue } from "@/lib/types";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function OrderLines({ order }: { order: Order }) {
   return (
@@ -35,7 +35,7 @@ function OrderLines({ order }: { order: Order }) {
                 {item.quantity}× {item.name}
               </span>
               <span className="tabular-nums">
-                {formatMoney(orderLineSubtotal(item.unitPrice, item.quantity, item.modifiers))}
+                {formatMoney(item.unitPrice * item.quantity)}
               </span>
             </div>
             {item.modifiers.length > 0 && (
@@ -89,7 +89,7 @@ function Totals({ subtotal, feeBreakdown, tip, total, promotionCode, promotionCe
       </div>
       <div className="flex justify-between pt-1 text-base font-semibold">
         <span>Total</span>
-        <CountUp value={total} format={formatMoney} duration={1.2} className="tabular-nums" />
+        <CountUp value={total} format={formatMoney} duration={1.2} startOnMount className="tabular-nums" />
       </div>
     </div>
   );
@@ -206,23 +206,21 @@ function SplitBill({ total }: { total: number }) {
             {mode === "even" ? (
               <>
                 <div className="flex items-center justify-center gap-4">
-                  <Button
+                  <TooltipIconButton
+                    tooltip="Fewer people"
                     variant="outline"
-                    size="icon"
                     onClick={() => setPeople((p) => Math.max(2, p - 1))}
-                    aria-label="Fewer people"
                   >
                     <Minus className="size-4" />
-                  </Button>
+                  </TooltipIconButton>
                   <span className="w-10 text-center text-2xl font-bold tabular-nums">{people}</span>
-                  <Button
+                  <TooltipIconButton
+                    tooltip="More people"
                     variant="outline"
-                    size="icon"
                     onClick={() => setPeople((p) => Math.min(8, p + 1))}
-                    aria-label="More people"
                   >
                     <Plus className="size-4" />
-                  </Button>
+                  </TooltipIconButton>
                 </div>
                 <p className="text-center text-xs text-muted-foreground">people splitting evenly</p>
                 <div className="rounded-lg bg-accent/50 p-3 text-center">
@@ -258,16 +256,15 @@ function SplitBill({ total }: { total: number }) {
                           aria-label="Amount"
                         />
                       </div>
-                      <Button
+                      <TooltipIconButton
+                        tooltip="Remove person"
                         variant="ghost"
-                        size="icon"
                         className="shrink-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                        aria-label="Remove person"
                         disabled={shares.length <= 2}
                         onClick={() => removeShare(share.id)}
                       >
                         <X className="size-4" />
-                      </Button>
+                      </TooltipIconButton>
                     </div>
                   ))}
                 </div>
@@ -360,7 +357,7 @@ function NightReceipt() {
       </div>
 
       {/* Paper receipt */}
-      <div className="mx-auto w-full max-w-sm rounded-lg bg-zinc-50 text-zinc-900 shadow-xl">
+      <div className="mx-auto w-full max-w-sm rounded-lg bg-zinc-50 text-zinc-900 shadow-xl animate-fade-up" style={{ animationDelay: "450ms" }}>
         <div className="space-y-2 p-5 font-mono text-xs leading-relaxed">
           <div className="text-center">
             <p className="text-sm font-bold tracking-[0.2em]">{venue?.name.toUpperCase()}</p>
@@ -408,11 +405,11 @@ function NightReceipt() {
                         {item.quantity}× {item.name}
                       </span>
                       <span className="whitespace-nowrap tabular-nums">
-                        {formatMoney(orderLineSubtotal(item.unitPrice, item.quantity, item.modifiers))}
+                        {formatMoney(item.unitPrice * item.quantity)}
                       </span>
                     </div>
                     {item.modifiers.length > 0 && (
-                      <ul className="pl-3 space-y-0.5 text-[11px] text-zinc-500">
+                      <ul className="pl-3 space-y-0.5 text-[11px] text-muted-foreground">
                         {item.modifiers.map((m, i) => (
                           <li key={i} className="flex justify-between">
                             <span>• {m.quantity}× {m.optionName}</span>
@@ -502,10 +499,12 @@ function NightReceipt() {
         </div>
       </div>
 
-      <SplitBill total={total} />
+      <div className="animate-fade-up" style={{ animationDelay: "650ms" }}>
+        <SplitBill total={total} />
+      </div>
 
       {/* Dummy email-the-receipt action */}
-      <div className="space-y-2">
+      <div className="space-y-2 animate-fade-up" style={{ animationDelay: "850ms" }}>
         <Input
           type="email"
           placeholder="guest@email.com"
@@ -517,7 +516,9 @@ function NightReceipt() {
         </Button>
       </div>
 
-      <DemoNewSessionAction />
+      <div className="animate-fade-up" style={{ animationDelay: "850ms" }}>
+        <DemoNewSessionAction />
+      </div>
     </div>
   );
 }

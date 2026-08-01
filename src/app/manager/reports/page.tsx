@@ -2,13 +2,17 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   CalendarClock, Download, Eye, FileText, Loader2, Pencil, Plus, Trash2, X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,18 +27,22 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MetricCard } from "@/components/shared/metric-card";
-import { MockChart } from "@/components/shared/mock-chart";
+import { RevenueChart } from "@/components/shared/revenue-chart";
 import { PageHeader } from "@/components/shared/page-header";
 import { RoleBadge } from "@/components/shared/role-badge";
 import {
   aggregateWeekly, analyticsService, type HistoricalAnalytics,
-} from "@/lib/services/analytics-service";
+} from "@/features/analytics/analytics-service";
 import {
   reportService, REPORT_METRICS, type ReportMetric, type SavedReport,
-} from "@/lib/services/report-service";
-import { renderCsv } from "@/lib/report-csv";
-import { formatMoney, formatPct, timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+} from "@/features/analytics/report-service";
+import { reportsKeys } from "@/features/analytics/query-keys";
+import { renderCsv } from "@/features/analytics/report-csv";
+import { formatMoney, formatPct, timeAgo } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
+import { useAuth } from "@/context/auth-context";
+import { zReportConfigInput } from "@/lib/form-schemas";
+import type { z } from "zod";
 
 const RANGE_OPTIONS = [
   { days: 7, label: "Last 7 days" },
@@ -48,16 +56,8 @@ const isoDaysAgo = (days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-interface Draft {
-  name: string;
-  metrics: ReportMetric[];
-  rangeDays: number;
-  scheduled: boolean;
-  frequency: "daily" | "weekly" | "monthly";
-  recipient: string;
-}
-
-const EMPTY_DRAFT: Draft = {
+type FormValues = z.infer<typeof zReportConfigInput>;
+const EMPTY_VALUES: FormValues = {
   name: "",
   metrics: ["revenue"],
   rangeDays: 7,
@@ -89,81 +89,90 @@ export default function ManagerReportsPage() {
 }
 
 function ReportsPageContent() {
-  const [reports, setReports] = useState<SavedReport[] | null>(null);
-  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [viewing, setViewing] = useState<{ report: SavedReport; data: HistoricalAnalytics } | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setReports(await reportService.listReports());
-  }, []);
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
+    resolver: zodResolver(zReportConfigInput),
+    defaultValues: EMPTY_VALUES,
+  });
+  const scheduled = watch("scheduled");
+  const metrics = watch("metrics");
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: reportsKeys.all(venueId) });
+
+  const { data: reports } = useQuery({
+    queryKey: reportsKeys.all(venueId),
+    queryFn: () => reportService.listReports(),
+    enabled: !!venueId,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const input = {
+        name: data.name.trim(),
+        metrics: data.metrics as ReportMetric[],
+        rangeDays: data.rangeDays,
+        schedule: data.scheduled
+          ? { frequency: data.frequency, recipient: (data.recipient ?? "").trim() }
+          : null,
+      };
+      if (editingId) {
+        await reportService.updateReport(editingId, input);
+        return `${input.name} updated`;
+      } else {
+        return reportService.createReport(input).then(() =>
+          input.schedule
+            ? `${input.name} saved — runs ${input.schedule.frequency}`
+            : `${input.name} saved`,
+        );
+      }
+    },
+    onSuccess: (message) => {
+      toast.success(message);
+      setEditingId(null);
+      reset(EMPTY_VALUES);
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (report: SavedReport) => reportService.deleteReport(report.id),
+    onSuccess: (_, report) => {
+      if (viewing?.report.id === report.id) setViewing(null);
+      if (editingId === report.id) { setEditingId(null); reset(EMPTY_VALUES); }
+      toast.info(`${report.name} deleted`);
+      invalidate();
+    },
+  });
 
   function toggleMetric(id: ReportMetric) {
-    setDraft((d) => ({
-      ...d,
-      metrics: d.metrics.includes(id)
-        ? d.metrics.filter((m) => m !== id)
-        : [...d.metrics, id],
-    }));
+    setValue("metrics",
+      metrics.includes(id)
+        ? metrics.filter((m) => m !== id)
+        : [...metrics, id],
+    );
   }
 
   function startEdit(report: SavedReport) {
     setEditingId(report.id);
-    setDraft({
+    reset({
       name: report.name,
       metrics: report.metrics,
       rangeDays: report.rangeDays,
       scheduled: report.schedule !== null,
       frequency: report.schedule?.frequency ?? "weekly",
-      recipient: report.schedule?.recipient ?? EMPTY_DRAFT.recipient,
+      recipient: report.schedule?.recipient ?? EMPTY_VALUES.recipient,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function save() {
-    if (!draft.name.trim()) {
-      toast.error("Give the report a name.");
-      return;
-    }
-    if (draft.metrics.length === 0) {
-      toast.error("Pick at least one metric.");
-      return;
-    }
-    if (draft.scheduled && !draft.recipient.trim()) {
-      toast.error("Scheduled reports need a recipient email.");
-      return;
-    }
-    setSaving(true);
-    const input = {
-      name: draft.name.trim(),
-      metrics: draft.metrics,
-      rangeDays: draft.rangeDays,
-      schedule: draft.scheduled
-        ? { frequency: draft.frequency, recipient: draft.recipient.trim() }
-        : null,
-    };
-    if (editingId) {
-      await reportService.updateReport(editingId, input);
-      toast.success(`${input.name} updated`);
-    } else {
-      await reportService.createReport(input);
-      toast.success(
-        input.schedule
-          ? `${input.name} saved — runs ${input.schedule.frequency}`
-          : `${input.name} saved`,
-      );
-    }
-    setSaving(false);
-    setEditingId(null);
-    setDraft(EMPTY_DRAFT);
-    await refresh();
-  }
+  const onSave = handleSubmit((data) => saveMutation.mutate(data));
 
   async function run(report: SavedReport): Promise<HistoricalAnalytics> {
     const data = await analyticsService.getHistorical(
@@ -171,7 +180,7 @@ function ReportsPageContent() {
       isoDaysAgo(0),
     );
     await reportService.markRun(report.id);
-    await refresh();
+    invalidate();
     return data;
   }
 
@@ -189,22 +198,12 @@ function ReportsPageContent() {
     toast.success(`${report.name} downloaded as CSV`);
   }
 
-  async function remove(report: SavedReport) {
-    await reportService.deleteReport(report.id);
-    if (viewing?.report.id === report.id) setViewing(null);
-    if (editingId === report.id) {
-      setEditingId(null);
-      setDraft(EMPTY_DRAFT);
-    }
-    toast.info(`${report.name} deleted`);
-    await refresh();
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Reports"
         description="Build, save and schedule recurring reports over historical data."
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Reports" }]}
       />
 
       {/* ---------- Builder ---------- */}
@@ -215,21 +214,22 @@ function ReportsPageContent() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <form onSubmit={onSave}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="report-name">Name</Label>
               <Input
                 id="report-name"
                 placeholder="e.g. Saturday deep-dive"
-                value={draft.name}
-                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                {...register("name")}
               />
+              {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label>Data range (rolling)</Label>
               <Select
-                value={String(draft.rangeDays)}
-                onValueChange={(v) => setDraft({ ...draft, rangeDays: Number(v) })}
+                value={String(watch("rangeDays"))}
+                onValueChange={(v) => setValue("rangeDays", Number(v))}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -255,7 +255,7 @@ function ReportsPageContent() {
                   onClick={() => toggleMetric(metric.id)}
                   className={cn(
                     "rounded-full border px-3 py-1 text-xs transition-colors",
-                    draft.metrics.includes(metric.id)
+                    metrics.includes(metric.id)
                       ? "border-primary bg-primary/15 text-primary"
                       : "text-muted-foreground hover:text-foreground",
                   )}
@@ -264,6 +264,7 @@ function ReportsPageContent() {
                 </button>
               ))}
             </div>
+            {errors.metrics && <p className="text-xs text-red-600">{errors.metrics.message}</p>}
           </div>
 
           <div className="space-y-3 rounded-lg border p-3">
@@ -277,18 +278,18 @@ function ReportsPageContent() {
                 </p>
               </div>
               <Switch
-                checked={draft.scheduled}
-                onCheckedChange={(scheduled) => setDraft({ ...draft, scheduled })}
+                checked={scheduled}
+                onCheckedChange={(v) => setValue("scheduled", v)}
                 aria-label="Schedule report"
               />
             </div>
-            {draft.scheduled && (
+            {scheduled && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label>Frequency</Label>
                   <Select
-                    value={draft.frequency}
-                    onValueChange={(v) => setDraft({ ...draft, frequency: v as Draft["frequency"] })}
+                    value={watch("frequency")}
+                    onValueChange={(v) => setValue("frequency", v as FormValues["frequency"])}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />
@@ -305,8 +306,7 @@ function ReportsPageContent() {
                   <Input
                     id="report-email"
                     type="email"
-                    value={draft.recipient}
-                    onChange={(e) => setDraft({ ...draft, recipient: e.target.value })}
+                    {...register("recipient")}
                   />
                 </div>
               </div>
@@ -316,20 +316,22 @@ function ReportsPageContent() {
           <div className="flex justify-end gap-2">
             {editingId && (
               <Button
+                type="button"
                 variant="ghost"
                 onClick={() => {
                   setEditingId(null);
-                  setDraft(EMPTY_DRAFT);
+                  reset(EMPTY_VALUES);
                 }}
               >
                 Cancel edit
               </Button>
             )}
-            <Button onClick={save} disabled={saving}>
-              {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-              {saving ? "Saving…" : editingId ? "Save changes" : "Save report"}
+            <Button type="submit" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              {saveMutation.isPending ? "Saving…" : editingId ? "Save changes" : "Save report"}
             </Button>
           </div>
+          </form>
         </CardContent>
       </Card>
 
@@ -363,7 +365,7 @@ function ReportsPageContent() {
                   <MetricCard label="Avg order" value={formatMoney(viewing.data.avgOrderValue)} icon={FileText} />
                   <MetricCard label="Best night" value={formatMoney(viewing.data.bestNight.revenue)} icon={FileText} hint={viewing.data.bestNight.label} />
                 </div>
-                <MockChart
+                <RevenueChart
                   data={viewing.data.days > 21 ? aggregateWeekly(viewing.data.series) : viewing.data.series}
                   height={180}
                 />
@@ -546,7 +548,7 @@ function ReportsPageContent() {
           <CardTitle className="text-base">Saved & scheduled reports</CardTitle>
         </CardHeader>
         <CardContent>
-          {reports === null ? (
+          {reports === undefined ? (
             <ListSkeleton rows={3} rowHeight="h-12" />
           ) : reports.length === 0 ? (
             <EmptyState
@@ -597,10 +599,9 @@ function ReportsPageContent() {
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end">
-                          <Button
+                          <TooltipIconButton
                             variant="ghost"
-                            size="icon"
-                            aria-label="View report"
+                            tooltip="View report"
                             disabled={runningId !== null}
                             onClick={() => view(report)}
                           >
@@ -609,24 +610,22 @@ function ReportsPageContent() {
                             ) : (
                               <Eye className="size-4" />
                             )}
-                          </Button>
-                          <Button
+                          </TooltipIconButton>
+                          <TooltipIconButton
                             variant="ghost"
-                            size="icon"
-                            aria-label="Download CSV"
+                            tooltip="Download CSV"
                             disabled={runningId !== null}
                             onClick={() => download(report)}
                           >
                             <Download className="size-4" />
-                          </Button>
-                          <Button
+                          </TooltipIconButton>
+                          <TooltipIconButton
                             variant="ghost"
-                            size="icon"
-                            aria-label="Edit report"
+                            tooltip="Edit report"
                             onClick={() => startEdit(report)}
                           >
                             <Pencil className="size-4" />
-                          </Button>
+                          </TooltipIconButton>
                           <ConfirmDialog
                             trigger={
                               <Button
@@ -646,7 +645,7 @@ function ReportsPageContent() {
                             }
                             confirmLabel="Delete report"
                             destructive
-                            onConfirm={() => remove(report)}
+                            onConfirm={() => removeMutation.mutate(report)}
                           />
                         </div>
                       </TableCell>

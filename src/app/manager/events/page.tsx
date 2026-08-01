@@ -2,10 +2,13 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarCheck, Code, Link2, Loader2, PartyPopper, Pencil, Plus, Ticket, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,13 +26,18 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { EventCard, EventActionGold, EventActionChrome } from "@/components/shared/event-card";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { eventsService } from "@/lib/services/events-service";
-import { venueService } from "@/lib/services/venue-service";
-import { publicEventsHref, publicReservationHref } from "@/lib/entity-links";
+import { eventsService } from "@/features/hospitality/events-service";
+import { venueService } from "@/features/venue/services";
+import { eventsKeys } from "@/features/hospitality/query-keys";
+import { venueKeys } from "@/features/venue/query-keys";
+import { useAuth } from "@/context/auth-context";
+import { publicEventsHref, publicReservationHref } from "@/features/shared/entity-links";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { SearchInput } from "@/components/shared/search-input";
-import { cn } from "@/lib/utils";
-import type { EventGuest, EventStatus, Venue, VenueEvent, Zone } from "@/lib/types";
+import { cn } from "@/features/shared/utils";
+import { zEventInput } from "@/lib/form-schemas";
+import type { EventGuest, EventStatus, VenueEvent, Zone } from "@/lib/types";
+import type { z } from "zod";
 
 const selectCls =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -43,27 +51,15 @@ function fromLocalInput(value: string): string {
   return new Date(value).toISOString();
 }
 
-type EventDraft = {
-  name: string;
-  description: string;
-  startsAt: string;
-  endsAt: string;
-  zoneId: string;
-  capacity: number;
-  status: EventStatus;
-  guestlistEnabled: boolean;
-  ticketEnabled: boolean;
-  ticketUrl: string;
-};
-
-const EMPTY_DRAFT: EventDraft = {
+type FormValues = z.infer<typeof zEventInput>;
+const EMPTY_VALUES: FormValues = {
   name: "",
   description: "",
   startsAt: toLocalInput(new Date().toISOString()),
   endsAt: toLocalInput(new Date(Date.now() + 5 * 3600_000).toISOString()),
   zoneId: "",
   capacity: 50,
-  status: "draft",
+  status: "draft" as const,
   guestlistEnabled: false,
   ticketEnabled: false,
   ticketUrl: "",
@@ -71,122 +67,155 @@ const EMPTY_DRAFT: EventDraft = {
 
 function EventsContent() {
   const router = useRouter();
-  const [events, setEvents] = useState<VenueEvent[] | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [venue, setVenue] = useState<Venue | null>(null);
-  const [guestsByEvent, setGuestsByEvent] = useState<Record<string, EventGuest[]>>({});
-  const [statusFilter, setStatusFilter] = useState<EventStatus | "all">("all");
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+
+  const [statusFilter, setStatusFilter] = useState<"draft" | "published" | "live" | "ended" | "cancelled" | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("all");
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<EventDraft>(EMPTY_DRAFT);
-  const [saving, setSaving] = useState(false);
   const [newGuestName, setNewGuestName] = useState("");
 
-  const refresh = useCallback(async () => {
-    const [list, z, v] = await Promise.all([
-      eventsService.listEvents(),
-      venueService.listZones(),
-      venueService.getVenue(),
-    ]);
-    setEvents(list);
-    setZones(z);
-    setVenue(v);
-    const entries = await Promise.all(
-      list.filter((e) => e.guestlistEnabled).map(async (e) => [e.id, await eventsService.listEventGuests(e.id)] as const),
-    );
-    setGuestsByEvent(Object.fromEntries(entries));
-  }, []);
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(zEventInput),
+    defaultValues: EMPTY_VALUES,
+  });
+  const ticketEnabled = watch("ticketEnabled");
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: events } = useQuery({
+    queryKey: eventsKeys.all(venueId),
+    queryFn: () => eventsService.listEvents(),
+    enabled: !!venueId,
+  });
+
+  const { data: zones = [] } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const { data: venue } = useQuery({
+    queryKey: venueKeys.single(venueId),
+    queryFn: () => venueService.getVenue(),
+    enabled: !!venueId,
+  });
+
+  const { data: guestsByEvent = {} } = useQuery({
+    queryKey: eventsKeys.guests(venueId),
+    queryFn: async () => {
+      const enabledEvents = (events ?? []).filter((e) => e.guestlistEnabled);
+      const entries = await Promise.all(
+        enabledEvents.map(async (e) => [e.id, await eventsService.listEventGuests(e.id)] as const),
+      );
+      return Object.fromEntries(entries);
+    },
+    enabled: !!venueId && !!events,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: eventsKeys.all(venueId) });
+    queryClient.invalidateQueries({ queryKey: eventsKeys.guests(venueId) });
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const rawTicketUrl = data.ticketEnabled ? data.ticketUrl.trim() : "";
+      const payload = {
+        name: data.name.trim(),
+        description: data.description.trim(),
+        startsAt: fromLocalInput(data.startsAt),
+        endsAt: fromLocalInput(data.endsAt),
+        zoneId: data.zoneId || undefined,
+        capacity: data.capacity,
+        status: data.status as EventStatus,
+        guestlistEnabled: data.guestlistEnabled,
+        ticketUrl: rawTicketUrl || undefined,
+      };
+      if (editingId) {
+        return eventsService.updateEvent(editingId, payload);
+      } else {
+        return eventsService.createEvent(payload);
+      }
+    },
+    onSuccess: () => {
+      setDialogOpen(false);
+      toast.success(editingId ? "Event updated" : "Event created");
+      invalidate();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (ev: VenueEvent) => eventsService.deleteEvent(ev.id),
+    onSuccess: (_, ev) => {
+      toast.info(`${ev.name} deleted`);
+      invalidate();
+    },
+  });
+
+  const toggleGuestlistMutation = useMutation({
+    mutationFn: (ev: VenueEvent) => eventsService.updateEvent(ev.id, { guestlistEnabled: !ev.guestlistEnabled }),
+    onSuccess: () => invalidate(),
+  });
+
+  const addGuestMutation = useMutation({
+    mutationFn: ({ eventId, name }: { eventId: string; name: string }) =>
+      eventsService.addEventGuest({ eventId, name, partySize: 1 }),
+    onSuccess: () => {
+      setNewGuestName("");
+      invalidate();
+    },
+  });
+
+  const removeGuestMutation = useMutation({
+    mutationFn: (guestId: string) => eventsService.removeEventGuest(guestId),
+    onSuccess: () => invalidate(),
+  });
+
+  const onSave = handleSubmit(async (data) => {
+    const rawTicketUrl = data.ticketEnabled ? data.ticketUrl.trim() : "";
+    if (rawTicketUrl && !/^https?:\/\/.+/.test(rawTicketUrl)) {
+      toast.error("Ticket URL must start with http:// or https://");
+      return;
+    }
+    if (data.ticketEnabled && !rawTicketUrl) {
+      toast.error("Paste a ticket URL or turn off the ticket link toggle.");
+      return;
+    }
+    saveMutation.mutate(data);
+  });
+
+  function addGuest(eventId: string) {
+    if (!newGuestName.trim()) return;
+    addGuestMutation.mutate({ eventId, name: newGuestName.trim() });
+  }
 
   const zoneName = (id?: string) => zones.find((z) => z.id === id)?.name ?? "—";
 
   function openCreate() {
     setEditingId(null);
-    setDraft({ ...EMPTY_DRAFT, zoneId: zones[0]?.id ?? "" });
+    reset({ ...EMPTY_VALUES, zoneId: zones[0]?.id ?? "" });
     setDialogOpen(true);
   }
 
   function openEdit(ev: VenueEvent) {
     setEditingId(ev.id);
-    setDraft({
+    const s: FormValues["status"] = ev.status === "live" || ev.status === "ended" ? "published" : ev.status;
+    reset({
       name: ev.name,
       description: ev.description,
       startsAt: toLocalInput(ev.startsAt),
       endsAt: toLocalInput(ev.endsAt),
       zoneId: ev.zoneId ?? "",
       capacity: ev.capacity,
-      status: ev.status,
+      status: s,
       guestlistEnabled: ev.guestlistEnabled,
       ticketEnabled: !!ev.ticketUrl,
       ticketUrl: ev.ticketUrl ?? "",
     });
     setDialogOpen(true);
-  }
-
-  async function save() {
-    if (!draft.name.trim()) return toast.error("Event name is required.");
-    setSaving(true);
-    const rawTicketUrl = draft.ticketEnabled ? draft.ticketUrl.trim() : "";
-    if (rawTicketUrl && !/^https?:\/\/.+/.test(rawTicketUrl)) {
-      toast.error("Ticket URL must start with http:// or https://");
-      setSaving(false);
-      return;
-    }
-    if (draft.ticketEnabled && !rawTicketUrl) {
-      toast.error("Paste a ticket URL or turn off the ticket link toggle.");
-      setSaving(false);
-      return;
-    }
-    const payload = {
-      name: draft.name.trim(),
-      description: draft.description.trim(),
-      startsAt: fromLocalInput(draft.startsAt),
-      endsAt: fromLocalInput(draft.endsAt),
-      zoneId: draft.zoneId || undefined,
-      capacity: draft.capacity,
-      status: draft.status,
-      guestlistEnabled: draft.guestlistEnabled,
-      ticketUrl: rawTicketUrl || undefined,
-    };
-    if (editingId) {
-      await eventsService.updateEvent(editingId, payload);
-      toast.success("Event updated");
-    } else {
-      await eventsService.createEvent(payload);
-      toast.success("Event created");
-    }
-    setSaving(false);
-    setDialogOpen(false);
-    await refresh();
-  }
-
-  async function remove(ev: VenueEvent) {
-    await eventsService.deleteEvent(ev.id);
-    toast.info(`${ev.name} deleted`);
-    await refresh();
-  }
-
-  async function toggleGuestlist(ev: VenueEvent) {
-    await eventsService.updateEvent(ev.id, { guestlistEnabled: !ev.guestlistEnabled });
-    await refresh();
-  }
-
-  async function addGuest(eventId: string) {
-    if (!newGuestName.trim()) return;
-    await eventsService.addEventGuest({ eventId, name: newGuestName, partySize: 1 });
-    setNewGuestName("");
-    await refresh();
-  }
-
-  async function removeGuest(guestId: string) {
-    await eventsService.removeEventGuest(guestId);
-    await refresh();
   }
 
   const visible = (events ?? []).filter((ev) => {
@@ -204,6 +233,7 @@ function EventsContent() {
       <PageHeader
         title="Events"
         description="Promotions, parties and guestlists for the venue."
+        breadcrumbs={[{ label: "Bookings", href: "/manager/reservations" }, { label: "Events" }]}
         actions={
           <div className="flex items-center gap-2">
             {venue && (
@@ -272,7 +302,7 @@ function EventsContent() {
         </div>
       </div>
 
-      {events === null ? (
+      {events === undefined ? (
         <ListSkeleton rows={3} rowHeight="h-32" />
       ) : visible.length === 0 ? (
         <EmptyState
@@ -313,7 +343,7 @@ function EventsContent() {
                               <span>
                                 {g.name} <span className="text-xs text-muted-foreground">· {g.partySize}</span>
                               </span>
-                              <Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-red-600" onClick={() => removeGuest(g.id)}>
+                              <Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-red-600" aria-label="Remove guest" onClick={() => removeGuestMutation.mutate(g.id)}>
                                 <Trash2 className="size-3.5" />
                               </Button>
                             </li>
@@ -343,7 +373,7 @@ function EventsContent() {
                       description="This also removes its guestlist."
                       confirmLabel="Delete event"
                       destructive
-                      onConfirm={() => remove(ev)}
+                      onConfirm={() => deleteMutation.mutate(ev)}
                     />
                     {ev.guestlistEnabled && (
                       <EventActionChrome onClick={() => setOpenId(expanded ? null : ev.id)}>
@@ -352,7 +382,7 @@ function EventsContent() {
                     )}
                     <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
                       Guestlist
-                      <Switch checked={ev.guestlistEnabled} onCheckedChange={() => toggleGuestlist(ev)} />
+                      <Switch checked={ev.guestlistEnabled} onCheckedChange={() => toggleGuestlistMutation.mutate(ev)} />
                     </label>
                   </>
                 }
@@ -367,29 +397,30 @@ function EventsContent() {
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit event" : "New event"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={onSave} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="ev-name">Name</Label>
-              <Input id="ev-name" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+              <Input id="ev-name" {...register("name")} />
+              {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ev-desc">Description</Label>
-              <Textarea id="ev-desc" rows={2} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+              <Textarea id="ev-desc" rows={2} {...register("description")} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="ev-start">Starts</Label>
-                <Input id="ev-start" type="datetime-local" value={draft.startsAt} onChange={(e) => setDraft({ ...draft, startsAt: e.target.value })} />
+                <Input id="ev-start" type="datetime-local" {...register("startsAt")} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ev-end">Ends</Label>
-                <Input id="ev-end" type="datetime-local" value={draft.endsAt} onChange={(e) => setDraft({ ...draft, endsAt: e.target.value })} />
+                <Input id="ev-end" type="datetime-local" {...register("endsAt")} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="ev-zone">Zone</Label>
-                <select id="ev-zone" className={selectCls} value={draft.zoneId} onChange={(e) => setDraft({ ...draft, zoneId: e.target.value })}>
+                <select id="ev-zone" className={selectCls} value={watch("zoneId")} onChange={(e) => setValue("zoneId", e.target.value)}>
                   <option value="">Select zone…</option>
                   {zones.map((z) => (
                     <option key={z.id} value={z.id}>{z.name}</option>
@@ -398,12 +429,12 @@ function EventsContent() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="ev-cap">Capacity</Label>
-                <Input id="ev-cap" type="number" min={1} value={draft.capacity} onChange={(e) => setDraft({ ...draft, capacity: Math.max(1, Number(e.target.value)) })} />
+                <Input id="ev-cap" type="number" min={1} {...register("capacity", { valueAsNumber: true })} />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ev-status">Status</Label>
-              <select id="ev-status" className={selectCls} value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as EventStatus })}>
+              <select id="ev-status" className={selectCls} value={watch("status")} onChange={(e) => setValue("status", e.target.value as FormValues["status"])}>
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
                 <option value="live">Live</option>
@@ -412,19 +443,20 @@ function EventsContent() {
             </div>
             <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
               Enable guestlist
-              <Switch checked={draft.guestlistEnabled} onCheckedChange={(v) => setDraft({ ...draft, guestlistEnabled: v })} />
+              <Switch checked={watch("guestlistEnabled")} onCheckedChange={(v) => setValue("guestlistEnabled", v)} />
             </label>
             <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
               Sell tickets via external link
               <Switch
-                checked={draft.ticketEnabled}
-                onCheckedChange={(v) =>
-                  setDraft({ ...draft, ticketEnabled: v, ticketUrl: v ? draft.ticketUrl : "" })
-                }
+                checked={ticketEnabled}
+                onCheckedChange={(v) => {
+                  setValue("ticketEnabled", v);
+                  if (!v) setValue("ticketUrl", "");
+                }}
                 aria-label="Enable ticket link"
               />
             </label>
-            {draft.ticketEnabled && (
+            {ticketEnabled && (
               <div className="space-y-1.5">
                 <Label htmlFor="ev-ticket-url" className="flex items-center gap-1.5">
                   <Ticket className="size-3.5" /> Ticket URL
@@ -433,19 +465,18 @@ function EventsContent() {
                   id="ev-ticket-url"
                   type="url"
                   placeholder="https://www.eventbrite.com/e/…"
-                  value={draft.ticketUrl}
-                  onChange={(e) => setDraft({ ...draft, ticketUrl: e.target.value })}
+                  {...register("ticketUrl")}
                 />
               </div>
             )}
-          </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={save} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : editingId ? "Save" : "Create event"}
+            <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+              {isSubmitting ? "Saving…" : editingId ? "Save" : "Create event"}
             </Button>
           </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

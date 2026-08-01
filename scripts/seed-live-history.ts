@@ -27,57 +27,22 @@
 
 import { EventStatus, ReservationStatus } from "@prisma/client";
 import type { ModifierGroup } from "@/lib/types";
-import { getDb, getRawPrisma } from "../src/server/db";
-import { computeRollup, upsertRollup } from "../src/server/analytics-core";
-import { nightForDate, type NightConfig } from "../src/server/night";
-import { createReport, recordRun } from "../src/server/report-core";
-import { toCents } from "../src/server/money";
-import { computeOrderPricing, type FeeInput, type PricingLineInput, type PromotionInput } from "../src/server/pricing";
+import { getDb, getRawPrisma } from "../src/features/shared/db";
+import { computeRollup, upsertRollup } from "../src/features/analytics/analytics-core";
+import { nightForDate, type NightConfig } from "../src/features/shared/night";
+import { createReport, recordRun } from "../src/features/analytics/report-core";
+import { toCents } from "../src/features/shared/money";
+import { computeOrderPricing, type FeeInput, type PricingLineInput, type PromotionInput } from "../src/features/ordering/pricing";
+import {
+  rand, randInt, pick, pickDistinct, seededPin,
+  CORPUS_GUEST_FIRST_NAMES,
+  CORPUS_HELP_TYPES, CORPUS_SETTLEMENT_METHODS, CORPUS_RESERVATION_NAMES,
+} from "../src/lib/seed-corpus";
 
 const HISTORY_DAYS = 90;
 const STOCK_MOVEMENT_PREFIX = "hist-sale-";
 
-// ── Deterministic pseudo-random (seeded) — reproducible runs ──────────
-let _seed = 42;
-function rand(): number {
-  _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
-  return _seed / 0x7fffffff;
-}
-function randInt(min: number, max: number): number {
-  return Math.floor(rand() * (max - min + 1)) + min;
-}
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(rand() * arr.length)];
-}
-/** Deterministic pick of N distinct elements (no repeats), using our own rand(). */
-function pickDistinct<T>(arr: T[], n: number): T[] {
-  const pool = [...arr];
-  const out: T[] = [];
-  for (let i = 0; i < n && pool.length > 0; i++) {
-    out.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
-  }
-  return out;
-}
-
-const GUEST_FIRST_NAMES = [
-  "Alex", "Jordan", "Taylor", "Morgan", "Casey", "Riley", "Quinn",
-  "Avery", "Blake", "Charlie", "Dana", "Emery", "Finley", "Harper",
-  "Jamie", "Kai", "Logan", "Noel", "Reese", "Sage",
-];
-const HELP_TYPES = ["call-waiter", "refill-ice", "clean-table", "security", "bill"] as const;
-const SETTLEMENT_METHODS = ["terminal", "cash", "house"] as const;
-const RESERVATION_NAMES = [
-  "Dubois party", "Martinez celebration", "Kim birthday", "Chen group",
-  "O'Brien corporate", "Nakamura anniversary", "Singh engagement",
-  "Thompson reunion", "Garcia bridal", "Wilson launch party",
-];
 const RESERVATION_CHANNELS = ["walk-in", "embed", "direct", "embed", "direct"] as const;
-
-function seededPin(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
-  return String(Math.abs(hash) % 1000000).padStart(6, "0");
-}
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -301,10 +266,11 @@ async function main() {
     const night = nightForDate(nightLabel, nightConfig);
     const isWeekend = d.getDay() === 5 || d.getDay() === 6; // Fri/Sat
     const sessionsTonight = isWeekend ? randInt(10, 20) : randInt(5, 12);
+    const nightSessionIds: string[] = [];
 
     for (let si = 0; si < sessionsTonight; si++) {
       const table = pick(tables);
-      const guestName = pick(GUEST_FIRST_NAMES);
+      const guestName = pick(CORPUS_GUEST_FIRST_NAMES);
       const partySize = randInt(2, 8);
 
       // Guests arrive 22:00-01:00 local, stay 1-3 hours — offset from night.start (venue-local nightStartHour).
@@ -321,12 +287,13 @@ async function main() {
           displayName: guestName,
           partySize,
           status: "closed",
-          settlementMethod: pick([...SETTLEMENT_METHODS]),
+          settlementMethod: pick([...CORPUS_SETTLEMENT_METHODS]),
           settledExternallyAt: sessionEnd,
           createdAt: sessionStart,
         },
       });
       totalSessions++;
+      nightSessionIds.push(session.id);
 
       const ordersInSession = randInt(1, 3);
       for (let oi = 0; oi < ordersInSession; oi++) {
@@ -461,7 +428,7 @@ async function main() {
             tableCode: table.code,
             zoneName: zoneNameById.get(table.zoneId) ?? "",
             guestName,
-            type: pick([...HELP_TYPES]),
+            type: pick([...CORPUS_HELP_TYPES]),
             status,
             resolvedByStaffId: resolver.userId,
             resolvedByStaffName: resolver.name,
@@ -473,11 +440,25 @@ async function main() {
       }
     }
 
+    // ── Walkout records (~5% chance per night with sessions) ──
+    if (rand() < 0.05 && nightSessionIds.length > 0) {
+      const ws = (await raw.guestSession.findUnique({ where: { id: pick(nightSessionIds) } }))!;
+      await db.walkoutRecord.upsert({ where: { id: `hist-wo-${nightLabel}` }, update: {}, create: { venueId, sessionId: ws.id, tableCode: ws.tableCode, description: pick(["Party left without paying — $320 tab", "Group exited through back door during last call", "Single guest unattended at bar"]), reportedByStaffId: pick(deliveryStaff.map((s) => s.userId)), reportedByStaffName: pick(deliveryStaff).name } });
+    }
+
+    // ── Order remakes (~3% chance per night) ──
+    if (rand() < 0.03 && nightSessionIds.length > 0) {
+      const remOrders = await raw.order.findMany({ where: { venueId, sessionId: pick(nightSessionIds) }, take: 1, orderBy: { placedAt: "desc" } });
+      for (const ro of remOrders) {
+        await db.orderRemake.upsert({ where: { id: `hist-remake-${nightLabel}` }, update: {}, create: { venueId, oldOrderId: ro.id, newOrderId: `remade-${ro.id}`, reason: pick(["Wrong items delivered", "Guest changed order", "Kitchen error — bottle wrong size"]), remadeByStaffId: pick(deliveryStaff.map((s) => s.userId)), remadeByStaffName: pick(deliveryStaff).name } });
+      }
+    }
+
     // Reservations — a few per open night, mostly resolved (this is history).
     const resCount = isWeekend ? randInt(2, 6) : randInt(0, 3);
     for (let ri = 0; ri < resCount; ri++) {
       const resTime = new Date(night.start.getTime() + 4 * 3_600_000); // 22:00 local
-      const nameIdx = (totalReservations + ri) % RESERVATION_NAMES.length;
+      const nameIdx = (totalReservations + ri) % CORPUS_RESERVATION_NAMES.length;
       const isPublic = rand() < 0.4;
       const table = rand() < 0.7 ? pick(tables) : null;
       const status = pick([ReservationStatus.completed, ReservationStatus.completed, ReservationStatus.completed, ReservationStatus.cancelled]);
@@ -487,7 +468,7 @@ async function main() {
         data: {
           id: resId,
           venueId,
-          guestName: RESERVATION_NAMES[nameIdx],
+          guestName: CORPUS_RESERVATION_NAMES[nameIdx],
           partySize: randInt(4, 12),
           startsAt: resTime,
           status,
@@ -529,7 +510,7 @@ async function main() {
     const night = nightForDate(isoDate(day), nightConfig);
     const resTime = new Date(night.start.getTime() + 4 * 3_600_000);
     const table = pick(tables);
-    const nameIdx = upcomingCount % RESERVATION_NAMES.length;
+    const nameIdx = upcomingCount % CORPUS_RESERVATION_NAMES.length;
     const status = dayOffset === 0 ? ReservationStatus.confirmed : pick([ReservationStatus.requested, ReservationStatus.confirmed]);
     const resId = `hist-res-upcoming-${dayOffset}`;
 
@@ -537,7 +518,7 @@ async function main() {
       data: {
         id: resId,
         venueId,
-        guestName: RESERVATION_NAMES[nameIdx],
+        guestName: CORPUS_RESERVATION_NAMES[nameIdx],
         partySize: randInt(4, 10),
         startsAt: resTime,
         status,

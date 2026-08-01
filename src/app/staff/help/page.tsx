@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { CheckCircle2, Eye, GlassWater, Hand, LifeBuoy, ReceiptEuro, Shield, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,16 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { guestsService } from "@/lib/services/guests-service";
-import { staffService } from "@/lib/services/staff-service";
-import { getHelpScope } from "@/lib/role-capabilities";
-import { timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { guestsService } from "@/features/guests/services";
+import { staffService } from "@/features/workforce/staff-service";
+import { helpRequestKeys } from "@/features/guests/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { getHelpScope } from "@/features/shared/role-capabilities";
+import { canDo, DEFAULT_ROLE_PERMISSIONS } from "@/features/shared/permissions";
+import { timeAgo } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
+import { useAuth } from "@/context/auth-context";
 import type { HelpRequest, HelpRequestType, StaffMember } from "@/lib/types";
 
 const TYPE_META: Record<HelpRequestType, { label: string; icon: typeof Hand; urgent?: boolean }> = {
@@ -36,67 +40,74 @@ function scopeFilter(requests: HelpRequest[], me: StaffMember): HelpRequest[] {
 }
 
 export default function StaffHelpPage() {
-  const [requests, setRequests] = useState<HelpRequest[] | null>(null);
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
 
-  const refresh = useCallback(async () => {
-    const [allRequests, currentStaff] = await Promise.all([
-      guestsService.listHelpRequests(),
-      staffService.getCurrentStaff(),
-    ]);
-    setMe(currentStaff);
-    setRequests(allRequests);
-  }, []);
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: helpRequestKeys.all(venueId) });
 
-  const refreshRef = useRef(refresh);
-  refreshRef.current = refresh;
+  const { data: requests, isLoading: requestsLoading } = useQuery({
+    queryKey: helpRequestKeys.all(venueId),
+    queryFn: () => guestsService.listHelpRequests(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
 
   useLiveEvents({
     scope: "staff",
-    onEvent: () => refreshRef.current(),
+    onEvent: invalidate,
     fallbackMs: 8000,
-    fallbackRefresh: () => refreshRef.current(),
+    fallbackRefresh: invalidate,
   });
 
-  async function setStatus(request: HelpRequest, status: "acknowledged" | "resolved") {
-    setBusyId(request.id);
-    await guestsService.setHelpRequestStatus(request.id, status);
-    toast.success(`${request.tableCode} ${status === "acknowledged" ? "on it" : "resolved"}`);
-    await refresh();
-    setBusyId(null);
-  }
+  const setStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "acknowledged" | "resolved" }) =>
+      guestsService.setHelpRequestStatus(id, status),
+    onSuccess: (_, { id: _id, status }) => {
+      toast.success(status === "acknowledged" ? "On it" : "Resolved");
+      invalidate();
+    },
+  });
 
+  const isLoading = requestsLoading && !requests;
   const scoped = me ? scopeFilter(requests ?? [], me) : (requests ?? []);
   const open = scoped.filter((r) => r.status !== "resolved");
   const resolved = scoped.filter((r) => r.status === "resolved").slice(0, 5);
-
   const isSecurityRole = me?.role === "security";
+  const canResolve = me ? canDo(DEFAULT_ROLE_PERMISSIONS, me.role, "help:respond") : false;
 
   return (
-    <div className="space-y-5 p-4">
-      <h1 className="text-display text-xl">
-        {isSecurityRole ? "Security requests" : "Help requests"}
-      </h1>
+    <div className="animate-fade-in space-y-5 p-4">
+      <div>
+        <h1 className="text-display text-xl">
+          {isSecurityRole ? "Security requests" : "Help requests"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Triaged requests — ice, cleanup, bill, security — claimed and resolved by the right role.
+        </p>
+      </div>
 
-      {requests === null ? (
+      {isLoading ? (
         <ListSkeleton rows={3} rowHeight="h-28" />
       ) : open.length === 0 ? (
         <EmptyState
           icon={LifeBuoy}
           title={isSecurityRole ? "No active security requests" : "All guests are happy"}
-          description={
-            isSecurityRole
-              ? "Security help requests will appear here as soon as a guest flags a situation."
-              : "Open help requests will appear here the moment a guest taps a button."
-          }
+          description="Guest help requests appear here. Respond to claim and assist."
         />
       ) : (
-        <div className="space-y-3">
+        <div className="stagger-children space-y-3">
           {open.map((request) => {
             const meta = TYPE_META[request.type];
+            const isBusy =
+              setStatusMutation.isPending &&
+              setStatusMutation.variables?.id === request.id;
             return (
               <Card
                 key={request.id}
@@ -127,6 +138,7 @@ export default function StaffHelpPage() {
                       </span>
                     </div>
                   </div>
+                  {canResolve && (
                   <div className="flex gap-2">
                     {request.status === "open" && (
                       <ConfirmDialog
@@ -134,7 +146,7 @@ export default function StaffHelpPage() {
                           <Button
                             variant="outline"
                             className="h-11 flex-1"
-                            disabled={busyId === request.id}
+                            disabled={isBusy}
                           >
                             <Eye className="size-4" /> On it
                           </Button>
@@ -142,21 +154,26 @@ export default function StaffHelpPage() {
                         title={`Take "${meta.label}" at ${request.tableCode}?`}
                         description="The guest sees that someone is on the way."
                         confirmLabel="I'm on it"
-                        onConfirm={() => setStatus(request, "acknowledged")}
+                        onConfirm={() =>
+                          setStatusMutation.mutate({ id: request.id, status: "acknowledged" })
+                        }
                       />
                     )}
                     <ConfirmDialog
                       trigger={
-                        <Button className="h-11 flex-1" disabled={busyId === request.id}>
+                        <Button className="h-11 flex-1" disabled={isBusy}>
                           <CheckCircle2 className="size-4" /> Resolve
                         </Button>
                       }
                       title={`Resolve "${meta.label}" at ${request.tableCode}?`}
                       description="The request is closed and leaves the open queue."
                       confirmLabel="Resolve"
-                      onConfirm={() => setStatus(request, "resolved")}
+                      onConfirm={() =>
+                        setStatusMutation.mutate({ id: request.id, status: "resolved" })
+                      }
                     />
                   </div>
+                  )}
                 </CardContent>
               </Card>
             );

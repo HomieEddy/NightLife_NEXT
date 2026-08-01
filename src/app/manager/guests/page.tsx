@@ -1,24 +1,36 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, Pencil, Plus, Search, ShieldOff, SlidersHorizontal, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination, paginate } from "@/components/shared/pagination";
-import { guestService } from "@/lib/services/guest-service";
-import { formatMoney, formatDate } from "@/lib/format";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
+import { guestService } from "@/features/sessions/services";
+import { profilesKeys } from "@/features/sessions/query-keys";
+import { formatMoney, formatDate } from "@/features/shared/format";
+import { useAuth } from "@/context/auth-context";
+import { zGuestInput } from "@/lib/form-schemas";
 import type { GuestProfile, GuestTag, GuestVipTier } from "@/lib/types";
+import type { z } from "zod";
+
+type FormValues = z.infer<typeof zGuestInput>;
 
 const VIP_OPTIONS: { value: GuestVipTier; label: string }[] = [
   { value: "none", label: "None" }, { value: "regular", label: "Regular" }, { value: "vip", label: "VIP" }, { value: "host-list", label: "Host list" },
@@ -26,15 +38,15 @@ const VIP_OPTIONS: { value: GuestVipTier; label: string }[] = [
 const TAG_OPTIONS: GuestTag[] = ["regular", "industry", "influencer", "birthday", "allergy-noted", "high-spender"];
 
 export default function ManagerGuestsPage() {
-  const [profiles, setProfiles] = useState<GuestProfile[] | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<GuestProfile | null>(null);
   const [banReason, setBanReason] = useState("");
   const [mergeTargetId, setMergeTargetId] = useState("");
-  const [busy, setBusy] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [page, setPage] = useState(1);
 
   // Filters
   const [vipFilter, setVipFilter] = useState<string>("all");
@@ -48,10 +60,79 @@ export default function ManagerGuestsPage() {
   // Create / Edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GuestProfile | null>(null);
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", email: "", dobYear: "", vipTier: "none" as GuestVipTier, tags: [] as GuestTag[], notes: "", marketingEmail: false, marketingSms: false });
 
-  const refresh = useCallback(async () => { setProfiles(await guestService.listProfiles()); }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  const { register, handleSubmit, reset: formReset, setValue, watch, formState: { errors } } = useForm({
+    resolver: zodResolver(zGuestInput),
+    defaultValues: { firstName: "", lastName: "", phone: "", email: "", vipTier: "none" as GuestVipTier, tags: [] as GuestTag[], notes: "", photoUrl: "", preferredDrink: "", dietary: "", allergies: "", celebrationDate: "", watchlistReason: "", marketingEmail: false, marketingSms: false },
+  });
+  const tags = watch("tags") ?? [];
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: profilesKeys.all(venueId) });
+
+  const { data: profiles } = useQuery({
+    queryKey: profilesKeys.all(venueId),
+    queryFn: () => guestService.listProfiles(),
+    enabled: !!venueId,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: FormValues) => {
+      const prefs = data.preferredDrink || data.dietary || data.allergies || data.celebrationDate
+        ? { preferredDrink: data.preferredDrink || undefined, dietary: data.dietary || undefined, allergies: data.allergies || undefined, celebrationDate: data.celebrationDate || undefined }
+        : undefined;
+      if (editing) {
+        await guestService.updateProfile(editing.id, {
+          firstName: data.firstName.trim(), lastName: data.lastName.trim() || undefined,
+          phone: data.phone.trim() || undefined, email: data.email?.trim().toLowerCase() || undefined,
+          dobYear: data.dobYear, tags: data.tags as GuestTag[], vipTier: data.vipTier,
+          notes: data.notes.trim() || undefined, photoUrl: data.photoUrl.trim() || undefined, preferences: prefs,
+        }, "manager", "Manager");
+        return `Updated ${data.firstName}`;
+      } else {
+        await guestService.createProfile({
+          firstName: data.firstName.trim(), lastName: data.lastName.trim() || undefined,
+          phone: data.phone.trim() || undefined, email: data.email?.trim().toLowerCase() || undefined,
+          dobYear: data.dobYear, tags: data.tags as GuestTag[], vipTier: data.vipTier,
+          notes: data.notes.trim() || undefined, marketingConsent: { email: data.marketingEmail, sms: data.marketingSms },
+          source: "manager", photoUrl: data.photoUrl.trim() || undefined, preferences: prefs,
+        });
+        return `Created profile for ${data.firstName}`;
+      }
+    },
+    onSuccess: (message) => {
+      toast.success(message);
+      setDialogOpen(false);
+      invalidate();
+    },
+    onError: () => toast.error("Could not save profile"),
+  });
+
+  const banMutation = useMutation({
+    mutationFn: (profile: GuestProfile) =>
+      guestService.setBanStatus(profile.id, { banned: profile.status !== "banned", reason: banReason || undefined }, "manager", "Manager"),
+    onSuccess: (_, profile) => {
+      toast.success(profile.status === "banned" ? `Lifted ban on ${profile.displayName}` : `Banned ${profile.displayName}`);
+      setBanReason("");
+      invalidate();
+    },
+    onError: () => toast.error("Could not update ban status"),
+  });
+
+  const mergeMutation = useMutation({
+    mutationFn: () => {
+      if (!selected || !mergeTargetId) throw new Error("Select a target");
+      return guestService.mergeProfiles(selected.id, mergeTargetId, "manager", "Manager");
+    },
+    onSuccess: (merged) => {
+      toast.success(`Merged into ${merged?.displayName}`);
+      setSelected(null);
+      setMergeTargetId("");
+      invalidate();
+    },
+    onError: () => toast.error("Could not merge"),
+  });
+
+  const onSave = handleSubmit((data) => saveMutation.mutate(data));
 
   const visible = useMemo(() => {
     let list = profiles ?? [];
@@ -67,7 +148,6 @@ export default function ManagerGuestsPage() {
     const vMin = parseInt(visitsMin); const vMax = parseInt(visitsMax);
     if (!isNaN(vMin)) list = list.filter((p) => p.visitCount >= vMin);
     if (!isNaN(vMax)) list = list.filter((p) => p.visitCount <= vMax);
-    // Sort
     if (sortBy === "name") list = [...list].sort((a, b) => a.displayName.localeCompare(b.displayName));
     else if (sortBy === "visits") list = [...list].sort((a, b) => b.visitCount - a.visitCount);
     else if (sortBy === "lifetime") list = [...list].sort((a, b) => b.lifetimeNetCents - a.lifetimeNetCents);
@@ -75,65 +155,43 @@ export default function ManagerGuestsPage() {
     return list;
   }, [profiles, query, statusFilter, vipFilter, tagFilter, spendMin, spendMax, visitsMin, visitsMax, sortBy]);
 
-  const filterCount = [vipFilter !== "all", tagFilter !== "all", spendMin || spendMax, visitsMin || visitsMax].filter(Boolean).length;
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
 
+  useEffect(() => { reset(); }, [query, statusFilter, vipFilter, tagFilter, spendMin, spendMax, visitsMin, visitsMax, sortBy, reset]);
+
+  const filterCount = [vipFilter !== "all", tagFilter !== "all", spendMin || spendMax, visitsMin || visitsMax].filter(Boolean).length;
   const mergeCandidates = (profiles ?? []).filter((p) => p.id !== selected?.id);
 
   function openCreate() {
     setEditing(null);
-    setForm({ firstName: "", lastName: "", phone: "", email: "", dobYear: "", vipTier: "none", tags: [], notes: "", marketingEmail: false, marketingSms: false });
+    formReset({ firstName: "", lastName: "", phone: "", email: "", vipTier: "none", tags: [], notes: "", photoUrl: "", preferredDrink: "", dietary: "", allergies: "", celebrationDate: "", watchlistReason: "", marketingEmail: false, marketingSms: false });
     setDialogOpen(true);
   }
 
   function openEdit(profile: GuestProfile) {
     setEditing(profile);
-    setForm({ firstName: profile.firstName, lastName: profile.lastName ?? "", phone: profile.phone ?? "", email: profile.email ?? "", dobYear: profile.dobYear ? String(profile.dobYear) : "", vipTier: profile.vipTier, tags: profile.tags, notes: profile.notes ?? "", marketingEmail: profile.marketingConsent.email, marketingSms: profile.marketingConsent.sms });
+    formReset({
+      firstName: profile.firstName, lastName: profile.lastName ?? "", phone: profile.phone ?? "", email: profile.email ?? "",
+      dobYear: profile.dobYear, vipTier: profile.vipTier, tags: profile.tags, notes: profile.notes ?? "",
+      marketingEmail: profile.marketingConsent.email, marketingSms: profile.marketingConsent.sms,
+      photoUrl: profile.photoUrl ?? "",
+      preferredDrink: profile.preferences?.preferredDrink ?? "",
+      dietary: profile.preferences?.dietary ?? "",
+      allergies: profile.preferences?.allergies ?? "",
+      celebrationDate: profile.preferences?.celebrationDate ?? "",
+      watchlistReason: profile.watchlist?.reason ?? "",
+    });
     setDialogOpen(true);
   }
 
-  async function saveProfile() {
-    if (!form.firstName.trim()) { toast.error("First name is required"); return; }
-    setBusy(true);
-    try {
-      if (editing) {
-        await guestService.updateProfile(editing.id, {
-          firstName: form.firstName.trim(), lastName: form.lastName.trim() || undefined, phone: form.phone.trim() || undefined, email: form.email.trim() || undefined, dobYear: form.dobYear ? parseInt(form.dobYear) : undefined, tags: form.tags, vipTier: form.vipTier, notes: form.notes.trim() || undefined,
-        }, "manager", "Manager");
-        toast.success(`Updated ${form.firstName}`);
-      } else {
-        await guestService.createProfile({
-          firstName: form.firstName.trim(), lastName: form.lastName.trim() || undefined, phone: form.phone.trim() || undefined, email: form.email.trim() || undefined, dobYear: form.dobYear ? parseInt(form.dobYear) : undefined, tags: form.tags, vipTier: form.vipTier, notes: form.notes.trim() || undefined, marketingConsent: { email: form.marketingEmail, sms: form.marketingSms }, source: "manager",
-        });
-        toast.success(`Created profile for ${form.firstName}`);
-      }
-      setDialogOpen(false);
-      await refresh();
-    } catch { toast.error("Could not save profile"); } finally { setBusy(false); }
-  }
-
-  async function toggleBan(profile: GuestProfile) {
-    setBusy(true); try {
-      await guestService.setBanStatus(profile.id, { banned: profile.status !== "banned", reason: banReason || undefined }, "manager", "Manager");
-      toast.success(profile.status === "banned" ? `Lifted ban on ${profile.displayName}` : `Banned ${profile.displayName}`);
-      setBanReason(""); await refresh();
-    } catch { toast.error("Could not update ban status"); } finally { setBusy(false); }
-  }
-
-  async function mergeInto() {
-    if (!selected || !mergeTargetId) return; setBusy(true); try {
-      const merged = await guestService.mergeProfiles(selected.id, mergeTargetId, "manager", "Manager");
-      toast.success(`Merged into ${merged?.displayName}`);
-      setSelected(null); setMergeTargetId(""); await refresh();
-    } catch { toast.error("Could not merge"); } finally { setBusy(false); }
-  }
-
   function toggleTag(tag: GuestTag) {
-    setForm((prev) => ({ ...prev, tags: prev.tags.includes(tag) ? prev.tags.filter((t) => t !== tag) : [...prev.tags, tag] }));
+    setValue("tags", tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag]);
   }
 
   return (
     <div className="space-y-5">
       <PageHeader title="Guests" description="Persistent guest identity — profiles, VIP tiers and bans."
+        breadcrumbs={[{ label: "Bookings", href: "/manager/reservations" }, { label: "Guests" }]}
         actions={<Button size="sm" onClick={openCreate}><Plus className="size-4 mr-1" /> Add guest</Button>}
       />
 
@@ -156,57 +214,58 @@ export default function ManagerGuestsPage() {
             <SelectItem value="lastVisit">Last visit</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant={showFilters ? "secondary" : "outline"} size="icon" className="h-9 w-9 shrink-0" onClick={() => setShowFilters(!showFilters)} aria-label="More filters">
+        <TooltipIconButton variant={showFilters ? "secondary" : "outline"} className="h-9 w-9 shrink-0" onClick={() => setShowFilters(!showFilters)} tooltip="More filters">
           <SlidersHorizontal className="size-4" />
           {filterCount > 0 && <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground">{filterCount}</span>}
-        </Button>
+        </TooltipIconButton>
       </div>
         {showFilters && (
           <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-3 sm:grid-cols-4">
             <div>
-              <Label className="text-[11px]">VIP tier</Label>
+              <Label className="text-xs">VIP tier</Label>
               <Select value={vipFilter} onValueChange={setVipFilter}>
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All tiers</SelectItem><SelectItem value="none">None</SelectItem><SelectItem value="regular">Regular</SelectItem><SelectItem value="vip">VIP</SelectItem><SelectItem value="host-list">Host list</SelectItem></SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-[11px]">Tag</Label>
+              <Label className="text-xs">Tag</Label>
               <Select value={tagFilter} onValueChange={setTagFilter}>
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All tags</SelectItem>{TAG_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="flex gap-1">
-              <div className="flex-1"><Label className="text-[11px]">Spend $ min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={spendMin} onChange={(e) => setSpendMin(e.target.value)} /></div>
-              <div className="flex-1"><Label className="text-[11px]">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={spendMax} onChange={(e) => setSpendMax(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">Spend $ min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={spendMin} onChange={(e) => setSpendMin(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={spendMax} onChange={(e) => setSpendMax(e.target.value)} /></div>
             </div>
             <div className="flex gap-1">
-              <div className="flex-1"><Label className="text-[11px]">Visits min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={visitsMin} onChange={(e) => setVisitsMin(e.target.value)} /></div>
-              <div className="flex-1"><Label className="text-[11px]">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={visitsMax} onChange={(e) => setVisitsMax(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">Visits min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={visitsMin} onChange={(e) => setVisitsMin(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={visitsMax} onChange={(e) => setVisitsMax(e.target.value)} /></div>
             </div>
           </div>
         )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-        {profiles === null ? <ListSkeleton rows={5} rowHeight="h-16" /> : visible.length === 0 ? <EmptyState icon={UserPlus} title="No guests match" description="Profiles are created from reservations, guestlists and door ID checks." /> : (
+        {profiles === undefined ? <ListSkeleton rows={5} rowHeight="h-16" /> : visible.length === 0 ? <EmptyState icon={UserPlus} title="No guests match" description="Profiles are created from reservations, guestlists and door ID checks." /> : (
           <>
           <Card><CardContent className="divide-y p-0">
-            {paginate(visible, page).map((profile) => (
+            {sliced.map((profile) => (
               <div key={profile.id} className={`flex items-center justify-between gap-2 px-4 py-3 transition-colors ${selected?.id === profile.id ? "bg-accent/60" : "hover:bg-accent/30"}`}>
                 <button type="button" onClick={() => { setSelected(profile); setBanReason(""); setMergeTargetId(""); }} className="flex-1 text-left min-w-0">
-                  <p className="flex items-center gap-2 font-medium">{profile.displayName}
+                   <p className="flex items-center gap-2 font-medium">{profile.displayName}
                     {profile.status === "banned" && <Badge variant="outline" className="border-red-500/40 text-red-600 dark:text-red-400 text-[10px]">Banned</Badge>}
+                    {profile.watchlist && <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px]">Watchlist</Badge>}
                     {profile.vipTier !== "none" && <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px] capitalize">{profile.vipTier}</Badge>}
                   </p>
-                  <p className="text-xs text-muted-foreground">{profile.visitCount} visits · {formatMoney(profile.lifetimeNetCents / 100)} lifetime{profile.lastVisitAt && ` · ${formatDate(profile.lastVisitAt)}`}</p>
+                  <p className="text-xs text-muted-foreground">{profile.visitCount} visits · {formatMoney(profile.lifetimeNetCents / 100)} lifetime{profile.lastVisitAt && ` · ${formatDate(profile.lastVisitAt)}`}{profile.valueScore != null ? ` · Score ${profile.valueScore}` : ""}</p>
                 </button>
-                <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => openEdit(profile)} aria-label="Edit"><Pencil className="size-3.5" /></Button>
+                <TooltipIconButton variant="ghost" className="size-7 shrink-0" onClick={() => openEdit(profile)} tooltip="Edit"><Pencil className="size-3.5" /></TooltipIconButton>
               </div>
             ))}
           </CardContent></Card>
-          <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+          <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
           </>
         )}
 
@@ -218,7 +277,7 @@ export default function ManagerGuestsPage() {
                   <p className="text-lg font-semibold">{selected.displayName}</p>
                   <p className="text-sm text-muted-foreground">{selected.phone}{selected.phone && selected.email && <><br /></>}{selected.email}</p>
                 </div>
-                <Button variant="ghost" size="icon" className="size-7" onClick={() => openEdit(selected)} aria-label="Edit"><Pencil className="size-3.5" /></Button>
+                <TooltipIconButton variant="ghost" className="size-7" onClick={() => openEdit(selected)} tooltip="Edit"><Pencil className="size-3.5" /></TooltipIconButton>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div><p className="text-xs text-muted-foreground">Visits</p><p className="font-medium tabular-nums">{selected.visitCount}</p></div>
@@ -230,13 +289,13 @@ export default function ManagerGuestsPage() {
                 <div className="space-y-2 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
                   <p className="flex items-center gap-1.5 text-sm font-medium text-red-600 dark:text-red-400"><ShieldOff className="size-4" /> Banned</p>
                   <p className="text-sm text-muted-foreground">{selected.banReason}</p>
-                  <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={busy}>Lift ban</Button>} title={`Lift ${selected.displayName}'s ban?`} description="They will be admittable at the door again immediately." confirmLabel="Lift ban" onConfirm={() => toggleBan(selected)} />
+                  <ConfirmDialog trigger={<Button variant="outline" className="w-full">Lift ban</Button>} title={`Lift ${selected.displayName}'s ban?`} description="They will be admittable at the door again immediately." confirmLabel="Lift ban" onConfirm={() => banMutation.mutate(selected)} />
                 </div>
               ) : (
                 <div className="space-y-2 border-t pt-3">
                   <Label htmlFor="ban-reason">Ban reason</Label>
                   <Textarea id="ban-reason" value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder="Why is this guest being banned?" rows={2} />
-                  <ConfirmDialog trigger={<Button variant="destructive" className="w-full" disabled={!banReason.trim() || busy}>Ban this guest</Button>} title={`Ban ${selected.displayName}?`} description="They'll be refused at the door on sight." confirmLabel="Ban guest" destructive onConfirm={() => toggleBan(selected)} />
+                  <ConfirmDialog trigger={<Button variant="destructive" className="w-full" disabled={!banReason.trim()}>Ban this guest</Button>} title={`Ban ${selected.displayName}?`} description="They'll be refused at the door on sight." confirmLabel="Ban guest" destructive onConfirm={() => banMutation.mutate(selected)} />
                 </div>
               )}
               <div className="space-y-2 border-t pt-3">
@@ -245,7 +304,7 @@ export default function ManagerGuestsPage() {
                   <SelectTrigger id="merge-target" className="w-full"><SelectValue placeholder="Choose surviving profile" /></SelectTrigger>
                   <SelectContent>{mergeCandidates.map((p) => <SelectItem key={p.id} value={p.id}>{p.displayName}</SelectItem>)}</SelectContent>
                 </Select>
-                <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={!mergeTargetId || busy}>Merge duplicate</Button>} title="Merge these profiles?" description={`${selected.displayName}'s history folds into the other. Cannot be undone.`} confirmLabel="Merge" onConfirm={mergeInto} />
+                <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={!mergeTargetId}>Merge duplicate</Button>} title="Merge these profiles?" description={`${selected.displayName}'s history folds into the other. Cannot be undone.`} confirmLabel="Merge" onConfirm={() => mergeMutation.mutate()} />
               </div>
             </CardContent>
           </Card>
@@ -256,33 +315,49 @@ export default function ManagerGuestsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editing ? "Edit profile" : "New guest profile"}</DialogTitle><DialogDescription>{editing ? "Update the guest's details." : "Create a profile for a known guest."}</DialogDescription></DialogHeader>
-          <div className="space-y-3">
+          <form onSubmit={onSave} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="g-fn">First name *</Label><Input id="g-fn" value={form.firstName} onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))} /></div>
-              <div><Label htmlFor="g-ln">Last name</Label><Input id="g-ln" value={form.lastName} onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))} /></div>
+              <div><Label htmlFor="g-fn">First name *</Label><Input id="g-fn" {...register("firstName")} />{errors.firstName && <p className="text-xs text-destructive">{errors.firstName.message}</p>}</div>
+              <div><Label htmlFor="g-ln">Last name</Label><Input id="g-ln" {...register("lastName")} /></div>
             </div>
-            <div><Label htmlFor="g-phone">Phone</Label><Input id="g-phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} /></div>
-            <div><Label htmlFor="g-email">Email</Label><Input id="g-email" type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div><Label htmlFor="g-phone">Phone</Label><Input id="g-phone" {...register("phone")} /></div>
+            <div><Label htmlFor="g-email">Email</Label><Input id="g-email" type="email" {...register("email")} />{errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}</div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="g-dob">Birth year</Label><Input id="g-dob" value={form.dobYear} onChange={(e) => setForm((p) => ({ ...p, dobYear: e.target.value }))} placeholder="1990" /></div>
-              <div><Label htmlFor="g-vip">VIP tier</Label><Select value={form.vipTier} onValueChange={(v) => setForm((p) => ({ ...p, vipTier: v as GuestVipTier }))}><SelectTrigger id="g-vip"><SelectValue /></SelectTrigger><SelectContent>{VIP_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
+              <div><Label htmlFor="g-dob">Birth year</Label><Input id="g-dob" type="number" min={1900} max={2026} placeholder="1990" {...register("dobYear", { valueAsNumber: true })} />{errors.dobYear && <p className="text-xs text-destructive">{errors.dobYear.message}</p>}</div>
+              <div><Label htmlFor="g-vip">VIP tier</Label><Select value={watch("vipTier")} onValueChange={(v) => setValue("vipTier", v as GuestVipTier)}><SelectTrigger id="g-vip"><SelectValue /></SelectTrigger><SelectContent>{VIP_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div>
               <Label>Tags</Label>
-              <div className="mt-1 flex flex-wrap gap-1">{TAG_OPTIONS.map((tag) => <Badge key={tag} variant={form.tags.includes(tag) ? "default" : "outline"} className="cursor-pointer text-[10px]" onClick={() => toggleTag(tag)}>{tag}</Badge>)}</div>
+              <div className="mt-1 flex flex-wrap gap-1">{TAG_OPTIONS.map((tag) => <Badge key={tag} variant={tags.includes(tag) ? "default" : "outline"} className="cursor-pointer text-[10px]" onClick={() => toggleTag(tag)}>{tag}</Badge>)}</div>
             </div>
-            <div><Label htmlFor="g-notes">Notes</Label><Textarea id="g-notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} rows={2} /></div>
+            <div><Label htmlFor="g-notes">Notes</Label><Textarea id="g-notes" {...register("notes")} rows={2} /></div>
+            <div><Label htmlFor="g-photo">Photo URL</Label><Input id="g-photo" {...register("photoUrl")} placeholder="https://..." /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label htmlFor="g-drink">Pref. drink</Label><Input id="g-drink" {...register("preferredDrink")} /></div>
+              <div><Label htmlFor="g-dietary">Dietary</Label><Input id="g-dietary" {...register("dietary")} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label htmlFor="g-allergies">Allergies</Label><Input id="g-allergies" {...register("allergies")} /></div>
+              <div><Label htmlFor="g-celebration">Celebration date</Label><Input id="g-celebration" type="date" {...register("celebrationDate")} /></div>
+            </div>
+            <div><Label htmlFor="g-watchlist">Watchlist reason</Label><Input id="g-watchlist" {...register("watchlistReason")} placeholder="Leave blank to remove" /></div>
             {!editing && (
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.marketingEmail} onChange={(e) => setForm((p) => ({ ...p, marketingEmail: e.target.checked }))} /> Email consent</label>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.marketingSms} onChange={(e) => setForm((p) => ({ ...p, marketingSms: e.target.checked }))} /> SMS consent</label>
+                <div className="flex items-center gap-2">
+                  <Switch checked={watch("marketingEmail")} onCheckedChange={(v) => setValue("marketingEmail", v)} id="g-email-consent" />
+                  <Label htmlFor="g-email-consent" className="text-sm">Email consent</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={watch("marketingSms")} onCheckedChange={(v) => setValue("marketingSms", v)} id="g-sms-consent" />
+                  <Label htmlFor="g-sms-consent" className="text-sm">SMS consent</Label>
+                </div>
               </div>
             )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveProfile} disabled={!form.firstName.trim() || busy}>{editing ? "Save changes" : "Create"}</Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={saveMutation.isPending}>{editing ? "Save changes" : "Create"}</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

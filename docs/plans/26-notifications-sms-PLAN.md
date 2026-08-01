@@ -1,6 +1,7 @@
 # 26 — SMS Notifications (Twilio) · PLAN
 
-**Status: not started.**
+**Status: complete.** Twilio transport ships behind the shared dispatcher
+(AD-22). Remaining residue is tracked as ROADMAP Phase 7, WS-7.
 
 Goal: add SMS as the second channel on the plan-18 dispatch layer and use it
 to deliver what email can't reliably reach in a nightclub context: the
@@ -33,7 +34,7 @@ Preconditions: plan 25 complete (dispatch core, `NotificationLog`,
    on the public reservation form states what it's used for), every SMS
    identifies the venue, and "Reply STOP" handling comes free with Twilio's
    default opt-out management. Marketing SMS is explicitly out of scope and
-   stays out until plan 29's consent infrastructure exists.
+   stays out until plan 35's consent infrastructure exists.
 4. **Track placement:** live-track, same shape as plan 25 — server-side side
    effect, no demo analog. The demo reservation flow shows the PIN on-screen
    after booking (that on-screen reveal becomes the demo simulation; the
@@ -102,7 +103,7 @@ preferences.
 ## Review checklist
 
 - No marketing content in any template; venue identified in every message.
-- PIN never appears in app logs (only `NotificationLog`, plan 29 retention).
+- PIN never appears in app logs (only `NotificationLog`, plan 35 retention).
 - Demo build shows on-screen PIN, live build never does — both modes driven.
 - Cap + rate limit actually enforced (test proves it, not the code comment).
 - Twilio creds only via env; absent in demo build entirely.

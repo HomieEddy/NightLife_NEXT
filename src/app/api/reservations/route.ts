@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isDemoMode } from "@/lib/app-mode";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 function demoHandler() {
   return NextResponse.json({ error: "Reservation routes are disabled in demo mode" }, { status: 404 });
 }
 
 async function liveGET(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
-  const { listReservations } = await import("@/server/reservation-core");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { getDb } = await import("@/features/shared/db");
+  const { listReservations } = await import("@/features/hospitality/reservation-core");
 
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -20,21 +20,23 @@ async function liveGET(request: NextRequest) {
   const status = url.searchParams.getAll("status");
   const zoneIds = url.searchParams.getAll("zoneId");
   const date = url.searchParams.get("date") ?? undefined;
+  const promoterId = url.searchParams.get("promoterId") ?? undefined;
 
   return NextResponse.json(
     await listReservations(db, {
       status: status.length ? status as never[] : undefined,
       zoneIds: zoneIds.length ? zoneIds : undefined,
       date,
+      promoterId,
     }),
   );
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/server/auth-helpers");
-  const { getDb } = await import("@/server/db");
-  const { createReservation } = await import("@/server/reservation-core");
-  const { zReservationInput } = await import("@/server/schemas/reservations");
+  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { getDb } = await import("@/features/shared/db");
+  const { createReservation } = await import("@/features/hospitality/reservation-core");
+  const { zReservationInput } = await import("@/features/hospitality/reservation-schemas");
 
   const auth = await requireApiArea("manager");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });

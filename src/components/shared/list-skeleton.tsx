@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 /** Generic loading placeholder for card lists. */
 export function ListSkeleton({

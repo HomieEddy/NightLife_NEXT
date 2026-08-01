@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecks, ShieldOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,35 +11,33 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { Pagination, paginate } from "@/components/shared/pagination";
-import { auditService } from "@/lib/services/audit-service";
-import { staffService } from "@/lib/services/staff-service";
-import { permissionService } from "@/lib/services/permission-service";
-import { canDo } from "@/lib/permissions";
-import { formatDate, formatTime } from "@/lib/format";
-import type { AuditEntry, StaffMember } from "@/lib/types";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
+import { auditService } from "@/features/platform/audit-service";
+import { usePermissions } from "@/features/platform/use-permissions";
+import { auditKeys } from "@/features/platform/query-keys";
+import { useAuth } from "@/context/auth-context";
+import { formatDate, formatTime } from "@/features/shared/format";
 
 export default function AuditTrailPage() {
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [canRead, setCanRead] = useState(false);
-  const [entries, setEntries] = useState<AuditEntry[] | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const [actorFilter, setActorFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
   const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
 
-  const refresh = useCallback(async () => {
-    const [currentStaff, permissions] = await Promise.all([
-      staffService.getCurrentStaff(),
-      permissionService.getRolePermissions("venue-1"),
-    ]);
-    setMe(currentStaff);
-    const allowed = canDo(permissions, currentStaff.role, "audit:read");
-    setCanRead(allowed);
-    if (allowed) setEntries(await auditService.listEntries());
-  }, []);
+  const { can, isLoading: permsLoading } = usePermissions();
+  const canRead = can("audit:read");
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: entries } = useQuery({
+    queryKey: auditKeys.all(venueId),
+    queryFn: () => auditService.listEntries(),
+    enabled: !!venueId && canRead,
+  });
+
+  // Silence unused-variable warning — queryClient kept for future invalidation
+  void queryClient;
 
   const actors = useMemo(
     () => Array.from(new Set((entries ?? []).map((e) => e.actorName))).sort(),
@@ -56,7 +55,11 @@ export default function AuditTrailPage() {
     return true;
   });
 
-  if (me && !canRead) {
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, actorFilter, actionFilter, reset]);
+
+  if (!permsLoading && !canRead) {
     return (
       <div className="space-y-5">
         <PageHeader title="Audit trail" description="Every sensitive action, by whom and why." />
@@ -76,6 +79,7 @@ export default function AuditTrailPage() {
       <PageHeader
         title="Audit trail"
         description={entries ? `${visible.length} of ${entries.length} entries` : "Loading…"}
+        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Audit Trail" }]}
       />
 
       <Card>
@@ -100,30 +104,30 @@ export default function AuditTrailPage() {
         </CardContent>
       </Card>
 
-      {entries === null ? (
+      {entries === undefined ? (
         <ListSkeleton rows={5} rowHeight="h-16" />
       ) : visible.length === 0 ? (
         <EmptyState icon={ListChecks} title="No entries match" description="Sensitive actions will appear here as they happen." />
       ) : (
         <>
-        <Card>
-          <CardContent className="divide-y p-0">
-            {paginate(visible, page).map((entry) => (
-              <div key={entry.id} className="flex items-start justify-between gap-3 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{entry.summary}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {entry.actorName} · {entry.action} · {entry.targetType} {entry.targetId}
+          <Card>
+            <CardContent className="divide-y p-0">
+              {sliced.map((entry) => (
+                <div key={entry.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{entry.summary}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.actorName} · {entry.action} · {entry.targetType} {entry.targetId}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-right text-xs text-muted-foreground">
+                    {formatDate(entry.createdAt)}<br />{formatTime(entry.createdAt)}
                   </p>
                 </div>
-                <p className="shrink-0 text-right text-xs text-muted-foreground">
-                  {formatDate(entry.createdAt)}<br />{formatTime(entry.createdAt)}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-        <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+              ))}
+            </CardContent>
+          </Card>
+          <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
         </>
       )}
     </div>

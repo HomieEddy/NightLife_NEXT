@@ -2,9 +2,10 @@
 
 // Plan 10 graduates this demo-only surface.
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { ExternalLink, Loader2, Plus, Radar, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +21,8 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
-import { adminService } from "@/lib/services/admin-service";
+import { adminService } from "@/features/platform/admin-service";
+import { adminKeys } from "@/features/platform/query-keys";
 import type { TelemetryCategory, TelemetryLink } from "@/lib/types";
 
 const CATEGORIES: TelemetryCategory[] = ["monitoring", "logs", "analytics", "infra", "other"];
@@ -38,19 +40,42 @@ function validUrl(value: string): boolean {
 }
 
 export default function AdminSettingsPage() {
-  const [links, setLinks] = useState<TelemetryLink[] | null>(null);
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<LinkDraft>(EMPTY_DRAFT);
-  const [saving, setSaving] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setLinks(await adminService.listTelemetryLinks());
-  }, []);
+  const { data: links } = useQuery({
+    queryKey: adminKeys.telemetry,
+    queryFn: () => adminService.listTelemetryLinks(),
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: adminKeys.telemetry });
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const input = { ...draft, name: draft.name.trim(), url: draft.url.trim() };
+      if (editingId) {
+        return adminService.updateTelemetryLink(editingId, input);
+      }
+      return adminService.createTelemetryLink(input);
+    },
+    onSuccess: () => {
+      toast.success(editingId ? `${draft.name.trim()} updated` : `${draft.name.trim()} added`);
+      setDialogOpen(false);
+      invalidate();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (link: TelemetryLink) => adminService.deleteTelemetryLink(link.id),
+    onSuccess: (_, link) => {
+      toast.info(`${link.name} removed`);
+      invalidate();
+    },
+  });
 
   function openCreate() {
     setEditingId(null);
@@ -73,24 +98,7 @@ export default function AdminSettingsPage() {
       toast.error("Enter a valid http(s) URL.");
       return;
     }
-    setSaving(true);
-    const input = { ...draft, name: draft.name.trim(), url: draft.url.trim() };
-    if (editingId) {
-      await adminService.updateTelemetryLink(editingId, input);
-      toast.success(`${input.name} updated`);
-    } else {
-      await adminService.createTelemetryLink(input);
-      toast.success(`${input.name} added`);
-    }
-    setSaving(false);
-    setDialogOpen(false);
-    await refresh();
-  }
-
-  async function remove(link: TelemetryLink) {
-    await adminService.deleteTelemetryLink(link.id);
-    toast.info(`${link.name} removed`);
-    await refresh();
+    saveMutation.mutate();
   }
 
   return (
@@ -112,7 +120,7 @@ export default function AdminSettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {links === null ? (
+          {links === undefined ? (
             <ListSkeleton rows={4} rowHeight="h-14" />
           ) : links.length === 0 ? (
             <EmptyState
@@ -163,7 +171,7 @@ export default function AdminSettingsPage() {
                       description="The shortcut disappears from the admin overview. The external tool itself is untouched."
                       confirmLabel="Remove link"
                       destructive
-                      onConfirm={() => remove(link)}
+                      onConfirm={() => deleteMutation.mutate(link)}
                     />
                   </div>
                 </li>
@@ -220,12 +228,12 @@ export default function AdminSettingsPage() {
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setDialogOpen(false)} disabled={saving}>
+            <Button variant="ghost" onClick={() => setDialogOpen(false)} disabled={saveMutation.isPending}>
               Cancel
             </Button>
-            <Button onClick={save} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : editingId ? "Save changes" : "Add link"}
+            <Button onClick={save} disabled={saveMutation.isPending}>
+              {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+              {saveMutation.isPending ? "Saving…" : editingId ? "Save changes" : "Add link"}
             </Button>
           </DialogFooter>
         </DialogContent>

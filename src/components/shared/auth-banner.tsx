@@ -4,7 +4,7 @@ import Link from "next/link";
 import { LogOut, User } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 /** Small "signed-in as" indicator shown in the manager/staff/admin shells. */
 export function AuthBanner({ className }: { className?: string }) {

@@ -1,9 +1,9 @@
 # PRD — NightLifeNext
 
-**Status:** Living document. Phase 2 foundation shipped (plans 01–12 complete, 13
-demo-complete, 14–15 in demo track). Phases 2–7 governed by the re-aligned
-`docs/ROADMAP.md` (2026-07-27).
-**Owner:** Eddy · **Last updated:** 2026-07-27
+**Status:** Living document. The product is feature-complete on the demo track
+(ROADMAP Phases 1–6). Live graduation is in progress (Phase 7), followed by
+production readiness (Phase 8) and CI/CD (Phase 9).
+**Owner:** Eddy · **Last updated:** 2026-07-30
 
 ---
 
@@ -68,53 +68,64 @@ base roles respectively with elevated scoped capabilities.
 
 ## 3. Product phases
 
-### Phase 1 — Core Platform Foundation (PLANS 01–15) · COMPLETE / IN PROGRESS
+### Phase 1 — Core Platform Foundation (plans 01–12) · COMPLETE
 
 Durable multi-tenant storage, real auth, full order lifecycle, realtime floor
-pulse, analytics, platform admin. Plans 01–12 complete, 13 demo-complete,
-14–15 in demo track.
+pulse, analytics, platform admin, design system, containerized local dev. All
+live.
 
-### Phase 2 — Core Nightclub Operations · NOT STARTED
+### Phase 2 — Core Nightclub Operations (plans 13–17, 25–26) · COMPLETE (DEMO)
 
 The venue can open its doors. Tab ledger (comp/void/discount, minimum spend,
 cash-out, audit), door surface (occupancy, admissions, waitlist, ID checks, coat
 check), guest identity (profiles, VIP, bans, watchlist), incidents (8 types,
-notes, review), notification infrastructure (Resend email + Twilio SMS), and
-safety features (age verification, emergency evacuation, certification tracking,
-mandatory incident reporting).
+notes, review), safety enforcement (age verification, emergency evacuation,
+certification tracking, mandatory incident reporting), and notification
+infrastructure. Notifications are live; the rest awaits graduation in Phase 7.
 
-### Phase 3 — Business Logic Completion · NOT STARTED
+### Phase 3 — Business Logic Completion (plans 18–20) · COMPLETE (DEMO)
 
-88 operational features from the comprehensive business logic audit. Workforce
-(time clock, scheduling, tips, commissions), cost & supply (suppliers, POs,
-stocktakes, pour cost, margin), navigation UX overhaul, plus: time-slotted
-reservations, capacity-aware booking, auto-gratuity rules, order priority system,
-cover price schedule, guest preferences, celebration detection, split-bill
-workflow, delegated comp authority, watchlist, ejection workflow, and 70+
-additional operational, CRM, and efficiency features.
+~86 operational features from the business logic audit. Workforce (time clock,
+scheduling, tips, commissions), cost & supply (suppliers, POs, stocktakes,
+margin), the navigation and UX overhaul, plus time-slotted and capacity-aware
+reservations, auto-gratuity rules, order priority, cover price schedules, guest
+preferences, celebration detection, split-bill, delegated comp authority,
+watchlist, and the integrated ejection workflow. Navigation is live; the rest
+awaits graduation in Phase 7.
 
-### Phase 4 — Automation & Intelligence · NOT STARTED
+### Phase 4 — Automation & Intelligence · COMPLETE
 
 Night-over-night comparison, forecasting, per-hour analytics, conversion funnel,
-order SLA analytics, comp/void ratio monitoring, report CSV export & email
-delivery, and 13 automation features (auto-release reservations, auto-suggested
-POs, overdue-order escalation, VIP upgrade suggestions, dormant VIP alerts).
+SLA analytics, comp/void ratio monitoring, CSV export with scheduled email
+delivery, and thirteen automations. All live.
 
-### Phase 5 — Mobile Experience (PWA + Push) · NOT STARTED
+### Phase 5 — Mobile Experience (PWA + Push) · COMPLETE
 
-Progressive Web App with installable experience, app shell architecture,
-offline indicator and action queue, responsive mobile-first layouts. Full push
-notification system: Web Push API integration, notification preferences per
-user per channel, event-driven notification engine, 20 operational notification
-triggers, quiet hours, delivery tracking, retry policies.
+Installable PWA with app shell, offline indicator and action queue, responsive
+mobile-first layouts. Full push system: Web Push API, per-user per-channel
+preferences, event-driven dispatch, operational triggers, quiet hours, delivery
+tracking and retry policies. All live.
 
-### Phase 6 — Production Readiness · NOT STARTED
+### Phase 6 — Foundation Modernization & Server State · COMPLETE
+
+Plan 30 (Recharts, react-hook-form, dnd-kit, TanStack Virtual, react-day-picker,
+BullMQ, feature-folder reorganization) plus TanStack Query as the client
+server-state layer (AD-24). All live.
+
+### Phase 7 — Live Graduation to MVP · CURRENT
+
+Everything that works in the demo build works in the live build. Eight fully
+stubbed live-service modules and six partially stubbed ones are implemented
+against real Postgres with real auth and tenant scoping, in eight workstreams
+ordered by dependency. **This is the last phase before MVP.**
+
+### Phase 8 — Production Readiness (plans 31–35) · NOT STARTED
 
 Security hardening, observability, automated backups, French/English i18n,
-Law 25/PIPEDA compliance. No new product features — hardening and compliance
+Law 25 / PIPEDA compliance. No new product features — hardening and compliance
 only.
 
-### Phase 7 — CI/CD & Deployment Automation · DEFERRED
+### Phase 9 — CI/CD & Deployment Automation (plan 36) · DEFERRED
 
 Automated build/deploy pipelines, blue-green deployment, infrastructure-as-code,
 database migration automation, disaster recovery runbook, production monitoring.
@@ -176,6 +187,8 @@ work-in-progress.
 - **Paying anyone.** Tip shares, commission statements, PO totals are computed
   and recorded; settlement stays outside the app.
 - **Marketing campaigns.** Plans 25–26 are transactional only.
+- **Recipes / BOM / cocktail pour costing.** The product is VIP bottle service;
+  per-bottle weighted average cost (AD-18) covers the actual business.
 
 ---
 
@@ -185,7 +198,8 @@ Numbered for traceability (`Rn`). Extended from the original 14.
 
 **R1 — Contract stability.** Every page calls the same service interface. Mock
 defines the contract; real implementation satisfies it; pages import through the
-`src/lib/services/` selector (AD-14). Mocks co-exist permanently.
+`src/features/{domain}/services.ts` selector (AD-14), read through TanStack Query
+(AD-24). Mocks co-exist permanently.
 
 **R2 — Tenant isolation.** No query returns another venue's rows. Enforced
 centrally via scoped Prisma client. `/admin` is the sole cross-tenant surface
@@ -296,7 +310,7 @@ multi-page processes.
   records. Append-only ledgers never mutate.
 - **Privacy:** guests are pseudonymous (first name only) by default. Guest PII only
   when identity is explicitly given. No document images stored. Law 25/PIPEDA
-  compliance (plan 29).
+  compliance (plan 35).
 - **Performance:** PWA initial load < 3 s on 4G. App shell cached for instant
   subsequent loads. Service Worker size < 100 KB.
 
@@ -306,9 +320,14 @@ multi-page processes.
 
 Service-by-service behind the stable interface. Foundation → auth → venue →
 menu/inventory → orders → sessions → realtime → reservations/events → analytics →
-platform admin → tab ledger → door & guests → workforce → cost & supply → navigation →
-safety features → operational features → analytics depth → automations → PWA → push → 
-security hardening → observability → DB ops → i18n → compliance → CI/CD.
+platform admin → tab ledger → door & guests → workforce → cost & supply →
+navigation → safety features → operational features → analytics depth →
+automations → notifications → PWA → push → foundation modernization →
+**live graduation** → security hardening → observability → DB ops → i18n →
+compliance → CI/CD.
+
+Everything through "foundation modernization" has shipped. Live graduation
+(Phase 7) is in progress.
 
 Each feature ships independently; the app runs mixed (some services real, some mock)
 throughout. See `docs/ROADMAP.md` for phase-level sequencing.
@@ -319,6 +338,8 @@ throughout. See `docs/ROADMAP.md` for phase-level sequencing.
 
 The Live Demo is the permanent sandbox (AD-14). Every future feature is sketched
 mock-first in demo mode, iterated on UX until satisfied, kept demo-only behind
-`isDemoMode()`, and only then given a plan and real implementation.
+`isDemoMode()`, and only then given a plan and real implementation. Plan numbers
+are assigned in implementation order at creation time; the next new plan is 37
+(21–24, 27 and 29 are retired numbers — see the ROADMAP plan index).
 Demo track and live track are two tracks that meet at graduation — see
 `docs/ROADMAP.md` "Definition of done."

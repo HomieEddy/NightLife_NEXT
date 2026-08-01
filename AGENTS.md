@@ -15,10 +15,11 @@ once, then behave like the agent that built this repo.
 per feature, not per era (ARD AD-14):
 
 - **Demo track (the sandbox):** mock data + in-memory services in
-  `src/lib/mock-services/`, shipped forever as the public Live Demo. Every new
+`src/features/{domain}/mock-service.ts`, shipped forever as the public Live Demo. Every new
   feature **starts here**: sketch mock-first, iterate the UX in the preview,
-  keep its entry points behind `isDemoMode()`. The "Phase 1" rules below are
-  this track's rules — they never expire.
+  keep its entry points behind `isDemoMode()`. The "demo track" rules below are
+  this track's rules — they never expire, and they are unrelated to the
+  numbered *product* phases in `docs/ROADMAP.md`.
 - **Live track (the backend):** signals it exists: `prisma/`, `src/app/api/`
   route handlers, an auth library, `*.test.ts`. A feature moves here only by
   **graduating**: a `docs/plans/NN-name-PLAN.md`, a real implementation that
@@ -29,8 +30,8 @@ per feature, not per era (ARD AD-14):
 Which track is a given task on? New feature or UX change → demo track first.
 Implementing/altering persistence, auth, realtime → live track, governed by the
 feature's plan. Mocks are never edited to ship live behavior, and live code
-never leaks into the demo bundle — the selector layer (`src/lib/services/`) is
-the only meeting point.
+never leaks into the demo bundle — the selector layer
+(`src/features/{domain}/services.ts`) is the only meeting point.
 
 Everything else — reasoning, planning, quality, review — applies identically
 on both tracks.
@@ -75,23 +76,31 @@ it was always there.
 3. **Checkpoint cheaply and often.** Run `npx tsc --noEmit` after each
    workstream, not at the end of five. A type error caught early is a one-line
    fix; caught late it's archaeology.
-4. **Don't gold-plate a prototype.** YAGNI aggressively: no state libraries, no
-   form libraries, no chart libraries (there's a hand-rolled `MockChart`), no
-   drag-and-drop packages (the floor map is pointer events + absolute
-   positioning). The only dependency added in months was `qrcode`, because
-   fake QR codes can't be scanned. Earn every dependency.
+4. **Don't gold-plate a prototype.** YAGNI aggressively: no state libraries.
+   Dependencies earned their place — react-hook-form replaced hand-rolled
+   form state across 25 forms, Recharts replaced `MockChart`, dnd-kit
+   replaced raw pointer events on the floor map, TanStack Virtual replaced
+   page-based pagination, and react-day-picker replaced native date inputs
+   (plan 30). Each was swapped in only after the hand-rolled version proved
+   insufficient. Earn every dependency.
 
 ## 3. Architecture — the load-bearing walls
 
 The repo has exactly one architectural idea. Respect it:
 
 ```
-src/lib/types.ts            ← the contract. One interface per domain concept.
-src/lib/mock-data/*.ts      ← seed data (plain literals, realistic, French-touched)
-src/lib/mock-services/*.ts  ← the future backend boundary. ALL reads/writes go here.
-src/app/**/page.tsx         ← client pages that only talk to mock services
-src/components/shared/*.tsx ← cross-role primitives (cards, badges, chips, dialogs)
-src/components/manager/*.tsx← role-specific composites when a page gets fat
+src/features/{domain}/        ← Feature folders aligned with DDD bounded contexts
+  services.ts                 ← selector: picks mock vs live
+  mock-service.ts             ← in-memory demo implementation
+  mock-data.ts                ← seed data (plain literals, French-touched)
+  live-service.ts             ← live (DB-backed) implementation
+  core.ts                     ← business logic, invariants, state machines
+  schemas.ts                  ← Zod validation at the boundary
+  types.ts                    ← domain-specific types
+src/lib/types.ts              ← the central type contract (re-exports feature types)
+src/app/**/page.tsx           ← client pages that only talk to feature services
+src/components/shared/*.tsx   ← cross-role primitives (cards, badges, chips, dialogs)
+src/components/manager/*.tsx ← role-specific composites when a page gets fat
 ```
 
 Rules that follow from it:
@@ -104,11 +113,13 @@ Rules that follow from it:
    `// TODO(backend): becomes an append-only stock_movements ledger table.`
    These comments are the real spec for the eventual API — write them like you
    mean them.
-3. **Business math lives in `src/lib/`, not in components.** Fees are computed
-   by `fees.ts` and consumed by both the guest cart and the orders service —
-   one formula, two callers. If a second caller for any calculation appears,
-   extract it the same way.
-4. **Cross-page navigation goes through `entity-links.ts` + `EntityChip`.**
+3. **Business math lives in the feature folder or `src/lib/`, never in
+   components.** Fees are computed by `src/features/ordering/fees.ts` and
+   consumed by both the guest cart and the orders service — one formula, two
+   callers. If a second caller for any calculation appears, extract it the same
+   way.
+4. **Cross-page navigation goes through `src/features/shared/entity-links.ts` +
+   `EntityChip`.**
    URLs live in one place. Target pages own reading their params
    (`useSearchParams` inside a `Suspense` boundary — always, or the build breaks).
 5. **State is module-level `let` inside services** — it resets on full page
@@ -116,41 +127,58 @@ Rules that follow from it:
    (don't "verify persistence" across a hard navigation; use client-side nav).
 6. **Demo-persistent flags** (like first-run onboarding) go in `localStorage`
    via a tiny helper in `src/lib/`, never sprinkled inline.
+7. **Client server-state is TanStack Query's job (ARD AD-24).** Reads are
+   `useQuery`, writes are `useMutation` + `invalidateQueries`. Keys come from
+   the domain's `query-keys.ts` builder — never an inline array literal at a
+   call site. Query sits *above* the selector: query functions call
+   `xService.*` from `services.ts`, so demo and live are unchanged. A page that
+   fetches in a `useEffect` is a pattern break.
 
 ## 4. Code quality
 
 1. **Match the neighborhood.** Before writing a page, mimic the canonical one:
-   `"use client"` → state → `refresh` via `useCallback` → `useEffect` →
-   handlers with `toast` feedback → skeleton / empty-state / list render.
-   Dialogs: local draft state, `openCreate`/`openEdit`, validation with
-   `toast.error`, `saving` spinner. If your page doesn't look like
-   `staff/page.tsx` grew a sibling, rewrite it.
+   `"use client"` → `useQuery` for reads → `useMutation` + `invalidateQueries`
+   for writes → handlers with `toast` feedback → skeleton (`isPending`) /
+   empty-state / list render. Forms are react-hook-form + Zod, never hand-rolled
+   state. Dialogs: `openCreate`/`openEdit`, validation via the resolver,
+   `saving` spinner. If your page doesn't look like `staff/page.tsx` grew a
+   sibling, rewrite it.
 2. **Comment constraints, not narration.** Good: `// won/lost are exits, not
    steps`, `// Nightclub week: render Thursday→Sunday first`. Bad: `// map over
    the zones`. Density in this repo is low; keep it that way.
 3. **No raw emoji, no raw hex colors.** Icons come from `lucide-react` or
    `BottleIcon`; colors are Tailwind tokens through maps like `ZONE_COLORS` /
-   `ZONE_SWATCH` in `src/lib/zone-colors.ts`.
+   `ZONE_SWATCH` in `src/features/shared/zone-colors.ts`.
 4. **Money and counts:** `formatMoney()` + `tabular-nums`, always. Round to
    cents at the service boundary (`Math.round(x * 100) / 100`), not in JSX.
-5. **Consequential actions use `ConfirmDialog` or undo toast by policy (plan 20).**
-   The rule of thumb, stated once so future features don't relitigate it: **if the
-   action can be silently undone with no ledger entry, use undo; if undoing it
-   would itself be a recorded business event, confirm it.**
+ 5. **Consequential actions use `ConfirmDialog` or undo toast by policy (plan 20).**
+    **No destructive, audited, or irreversible action fires on a single click — every
+    one requires a modal confirmation explaining what will happen and why.** A
+    "Resolve" button, a "Record" button, or an "Override" toggle that fires
+    instantly is a bug. The rule of thumb, stated once so future features don't
+    relitigate it: **if the action can be silently undone with no ledger entry, use
+    undo; if undoing it would itself be a recorded business event, confirm it.**
 
-   | Pattern | Applies to |
-   |---|---|
-   | **Optimistic + 5s undo toast** | order status transitions, claim/release, table status toggle, help acknowledge, shift toggle, waitlist reorder |
-   | **Keep `ConfirmDialog`** | anything money-touching (comps, voids, discounts, cash-out close, tip distribution), deletes, cancellations, ban/refusal, incident submit, publish schedule, plan changes, last call, stocktake commit |
+    | Pattern | Applies to |
+    |---|---|
+    | **Optimistic + 5s undo toast** | order status transitions, claim/release, table status toggle, help acknowledge, shift toggle, waitlist reorder |
+    | **Keep `ConfirmDialog`** | anything money-touching (comps, voids, discounts, cash-out close, tip distribution), deletes, cancellations, ban/refusal, incident submit, incident resolve, incident record-reported, publish schedule, plan changes, last call, stocktake commit, emergency evacuation/resume, capacity override, certification revocation, guest ban |
 
-   ConfirmDialog: wrap the trigger, write a title that names the object
-   (`Set VIP-01 to reserved?`) and a description that states the consequence.
-   Reversible-and-free actions (search, copy link, tab switch) stay one-click.
+    ConfirmDialog: wrap the trigger, write a title that names the object
+    (`Set VIP-01 to reserved?`) and a description that states the consequence.
+    Reversible-and-free actions (search, copy link, tab switch) stay one-click.
 6. **Functional state updates for rapid-fire controls.** `setX(prev => ...)`
    for steppers and counters — render-closure reads drop clicks. (This bug
    shipped once, in the bulk-restock stepper. Once.)
-7. **Accessibility is not optional chrome:** `aria-label` on icon-only buttons,
-   `Label htmlFor` on inputs, keyboard-reachable everything.
+ 7. **Accessibility is not optional chrome:** `aria-label` on icon-only buttons,
+    `Label htmlFor` on inputs, keyboard-reachable everything.
+ 8. **Every action needs a UI trigger.** A service method + a permission row +
+    a `TODO(backend)` is not a feature — it's three files of dead code. Any new
+    `StaffAction` must ship with a button, switch, form, or confirm dialog on the
+    role's primary page that calls it. The safety features (plans 16-17) shipped
+    with service methods and permissions but no UI to trigger them — five gaps
+    caught at review; this rule exists so it never happens again. Count the
+    touchpoints: one permission → one service method → one UI trigger, minimum.
 
 ## 5. Verification — evidence before assertions
 
@@ -201,22 +229,22 @@ When reviewing (or before finishing your own diff), hunt in this order:
 
 ## 7. Testing philosophy
 
-**Phase 1 (prototype):** there is no UI test suite, deliberately — the mock
+**On the demo track:** there is no UI test suite, deliberately — the mock
 services *are* the fixtures and the preview browser is the harness. Unit tests
-exist where money/logic purity justifies them (`src/lib/*.test.ts`, the
-mock-service math), not for rendering.
+exist where money/logic purity justifies them (`src/lib/*.test.ts`,
+`src/features/*/*.test.ts`, the mock-service math), not for rendering.
 
 - **Behavioral verification replaces unit tests**: every feature must be
   driven end-to-end in the preview before it's "done" (see §5).
-- Keep logic **testable anyway**: pure functions in `src/lib/` (`fees.ts`,
-  `entity-links.ts`, the analytics generator) take inputs and return outputs —
-  these become the first test files without refactoring.
+- Keep logic **testable anyway**: pure functions (`ordering/fees.ts`,
+  `shared/entity-links.ts`, the analytics generator) take inputs and return
+  outputs — these become the first test files without refactoring.
 - Deterministic beats random: mock generators seed from stable hashes
   (see `analytics-service.ts`) so the same date range always renders the same
   chart. Never `Math.random()` in anything an assertion might read —
   `uid()` for identity is the sanctioned exception.
 
-**Phase 2 (backend):** the suite exists as soon as the first API route does.
+**On the live track:** the suite exists and grows with every route handler.
 Priorities, highest value first:
 
 1. **Money math and state machines get unit tests before anything else** —
@@ -224,7 +252,7 @@ Priorities, highest value first:
    inventory ledger balancing (`inventory === Σ movements.delta`). These are
    the functions where a silent bug costs real money.
 2. **Route handlers get integration tests** against a real in-process database
-   (PGlite via `src/server/test-pglite.ts`) — request in, DB rows + response out.
+   (PGlite via `src/features/shared/test-pglite.ts`) — request in, DB rows + response out.
    No Docker or external Postgres needed. Test the authorization boundary explicitly:
    a staff token must not reach manager endpoints; tenant A must never read tenant B's rows.
 3. **A handful of end-to-end flows** (Playwright): guest scan→order→delivery,
@@ -247,7 +275,7 @@ feature's plan names its required tests; don't invent a different set silently.
    Playwright for the E2E flows named in §7.3 and the plans. Commands: `npm run test`,
    `test:integration`, `test:e2e`.
 2. **Layout & naming:** tests live next to the code they test —
-   `src/server/pricing.ts` → `src/server/pricing.test.ts`;
+   `src/features/ordering/fees.ts` → `src/features/ordering/fees.test.ts`;
    `*.integration.test.ts` for DB-backed suites; `e2e/*.spec.ts` for Playwright.
    One behavior per test; the name states the rule, not the method:
    `("rejects a claim when another staff already holds the order")`, not
@@ -256,9 +284,10 @@ feature's plan names its required tests; don't invent a different set silently.
    ledgers, locks (the DDD `INV-*` list): write the failing test, then the code.
    For everything else, tests land in the same commit as the code — never a
    later "add tests" commit.
-4. **Fixtures come from mock data.** Seed suites from `src/lib/mock-data/*` via
-   shared helpers; if a test needs a shape mock data lacks, extend mock data (it
-   feeds the demo too) rather than inventing a parallel fixture.
+4. **Fixtures come from mock data.** Seed suites from
+   `src/features/{domain}/mock-data.ts` via shared helpers; if a test needs a
+   shape mock data lacks, extend mock data (it feeds the demo too) rather than
+   inventing a parallel fixture.
 5. **Determinism is non-negotiable:** fake timers for anything time-based
    (SLA ages, ETAs, night boundaries), fixed seeds for generated data, no
    `Math.random()`/`Date.now()` in assertions. A test that flakes gets fixed or
@@ -288,15 +317,23 @@ feature's plan names its required tests; don't invent a different set silently.
 
 ## 9. Product strategy & graduation playbook
 
-**The master roadmap is `docs/ROADMAP.md`** (re-aligned 2026-07-27). It
-organises all work into seven phases: Foundation → Core Ops → Business Logic
-Completion → Automation & Intelligence → Mobile (PWA + Push) → Production
-Readiness → CI/CD. Business logic completes before infrastructure automation.
+**The master roadmap is `docs/ROADMAP.md`** (re-aligned 2026-07-30). It
+organises all work into nine phases: Foundation → Core Ops → Business Logic
+Completion → Automation & Intelligence → Mobile (PWA + Push) → Foundation
+Modernization → **Live Graduation to MVP** → Production Readiness → CI/CD.
 
-**Strategy: Business Logic First.** Every operational gap from the comprehensive
-business logic audit must be addressed before CI/CD, deployment automation, or
-production hardening. The PWA is the primary staff delivery target; push
-notifications are a first-class feature, not an afterthought.
+**Where we are:** Phases 1–7 are done (Phase 7 closed 2026-07-31 —
+`docs/PHASE-7-AUDIT.md`). Every feature works in **both** builds: all 29 service
+selectors resolve to a real live implementation against Postgres, and the demo
+sandbox still runs the same workflows on mocks. **Phase 8 (production
+readiness) is current** — plans 31–35. Note that plans 34 (French UI) and 35
+(Law 25 / PIPEDA) are legal requirements for the Quebec market, not polish.
+`docs/PHASE-PROMPT.md` is the per-workstream kickoff template.
+
+**Strategy: Business Logic First.** Operational completeness comes before CI/CD,
+deployment automation, and production hardening. The PWA is the primary staff
+delivery target; push notifications are a first-class feature, not an
+afterthought.
 
 **The architecture is governed by `docs/ARD.md`** (PRD/ARD/DDD + per-feature
 plans) — where this section and docs/ disagree, docs/ wins and this file gets
@@ -311,7 +348,7 @@ bang**. The whole design bet is the service boundary; cash it in like this.
    replace mock bodies. Instead: the mock defines the type
    (`type XService = typeof mockXService`), the real implementation is declared
    `satisfies XService`, and pages import the plain name from a
-   `src/lib/services/` selector that picks mock vs real from
+   `src/features/{domain}/services.ts` selector that picks mock vs real from
    `NEXT_PUBLIC_APP_MODE` (demo/live builds). If you find yourself editing 15
    pages to ship one endpoint — or editing a mock to ship a real feature —
    you're doing it wrong. No `mockXService → xService` renames, ever.
@@ -450,6 +487,14 @@ readable; they codify how this repo has actually been built.
    the branches don't diverge. Hotfixes are rare — most fixes go through the
    normal `dev` flow.
 
+   **Integration branches** (the one sanctioned exception to short-lived work
+   branches): a multi-week phase whose parts share a seam may run on a single
+   integration branch — workstream branches PR into it, and one release PR
+   closes the phase into `dev`. Currently in use: `feature/live-graduation`
+   for ROADMAP Phase 7 (see its "Phase 7 runs on an integration branch"
+   section). Don't reach for this pattern for ordinary feature work; the cost
+   is that staging sees nothing until the phase closes.
+
    **Rules:**
    - No direct pushes to `dev` or `master` — always via PR.
    - Every PR to `dev` must pass `tsc`, eslint, and the test suite.
@@ -502,6 +547,27 @@ makes it obsolete.
 - Shells read the venue name via `venueService.getVenue()` — never hardcode a
   venue string in layout chrome; demo shows the seeded venue, live the tenant's.
 
+- Before trusting that a feature is complete, count the touchpoints: a new
+  `StaffAction` needs exactly one permission row, one service method, and one UI
+  trigger on a role's page. Finding a service method with no UI to invoke it is
+  the same class of gap as the safety features that shipped half-finished — this
+  appendix entry is the tripwire.
+- A new Prisma model needs a migration in the same commit — `npx tsc --noEmit`
+  and `npx prisma generate` both succeed against a model with zero migrations,
+  because the generated client only needs the schema, never a real table. Five
+  models (`SessionNote`, `BarTab`, `VipTierBenefit`, `AttentionItem`,
+  `AttentionAcknowledgment`) shipped this way and threw "table does not exist"
+  on first live use — caught only by writing an integration test against a real
+  in-process Postgres (`createTestDb()`), not by any static check. If a model
+  has no `CREATE TABLE` anywhere under `prisma/migrations/*/migration.sql`,
+  it doesn't exist outside your local `db push`.
+- `getDb()`'s tenant-scoping extension (`src/features/shared/db.ts`) injects
+  `venueId` into every operation on every model, except the ones on its
+  `platformModels` list. A model scoped through a parent FK instead of its own
+  `venueId` column (`IncidentNote`, `SupplierItem`, `AttentionAcknowledgment`)
+  must be added to that list or every `create` on it throws "Unknown argument
+  `venueId`." Check this the moment a new child/join table is added.
+
 - `useSearchParams` **must** sit under `<Suspense>` — wrap the page content in
   a `*Content` component; the default export renders the boundary.
 - Radix `Switch`/`Button` work as `ConfirmDialog` triggers via `asChild` —
@@ -511,16 +577,16 @@ makes it obsolete.
   `?highlight=` scroll-and-ring pattern in `use-highlight.ts`).
 - Print styles: manager chrome is `print:hidden`; the QR sheet is
   `hidden print:block`. Test with the print dialog, not by guessing.
-- `MockChart` renders every label — aggregate to weekly buckets past ~21 data
-  points (`aggregateWeekly`).
+- Recharts renders every label by default — aggregate to weekly buckets past
+  ~21 data points (`aggregateWeekly`) to keep chart axes legible.
 - The dev server module graph re-instantiates service state on HMR of any file
   in the import chain. If a manual test spans an edit, re-run the test.
 - All graduated services (plans 03–10) persist across reload **in live mode
   only** — real Postgres behind each selector's live branch. Demo mode still
   resets on reload; that's the permanent sandbox behavior (AD-14), not a bug.
   Local live testing: `npm run dev:pglite` (PGlite in-process, fastest),
-  `npm run dev:stack` (compose stack: real Postgres 17 + both live/demo apps),
-  or connect to real Postgres at `DATABASE_URL` for external DBs.
+  the compose stack in `compose.yaml` (real Postgres 17 + both
+  live/demo apps), or connect to real Postgres at `DATABASE_URL` for external DBs.
 - Guest flow entry: **demo mode** — `/g/demo-table` → join → "Simulate host
   approval" (prototype control, demo-only) → menu. **Live mode** — QR URL is
   `/g/<tableId>.<sig>` (signed token); guest joins via API, sets httpOnly
@@ -528,12 +594,17 @@ makes it obsolete.
   are gated behind `isDemoMode()` and never render in the live build.
   `QR_TOKEN_SECRET` env var is required in live mode (distinct from
   `AUTH_SECRET`). A table with an active confirmed reservation is gated behind
-  its 6-digit reservation PIN (plan 13 — demo track only until it graduates).
+  its 6-digit reservation PIN (plan 13). The two routes behind that gate
+  (`/api/public/reservations/table/[tableId]/{active,pin}`) are genuinely
+  public — they resolve the tenant from the table row, redact the PIN and the
+  booker's contact details, and rate-limit guessing. Never add an area guard to
+  a route the QR landing calls: the guest has no session yet, and a 401 there
+  surfaces to them as "Table not found".
   The manager area gates on first run: clear
   `localStorage["nlx-manager-onboarded"]` to see onboarding.
 - Realtime (plan 07): **demo mode** uses fallback polling only (no SSE server).
   **Live mode** uses SSE via `useLiveEvents` → `/api/live/{manager,staff,guest}`
   backed by Postgres `LISTEN/NOTIFY`. All pages use `useLiveEvents` — zero
   `setInterval(refresh` patterns remain. Floor coordination (broadcasts, last
-  call, show lock, chat) lives in `src/server/floor-core.ts` with domain events
-  published via `src/server/events.ts`.
+  call, show lock, chat) lives in `src/features/realtime/floor-core.ts` with
+  domain events published via `src/features/realtime/events.ts`.

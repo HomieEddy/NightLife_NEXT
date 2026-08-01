@@ -1,10 +1,12 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarCheck, CalendarDays, Check, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { CalendarCheck, CalendarDays, Check, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -17,16 +19,18 @@ import {
   toLocalInput,
   fromLocalInput,
 } from "@/components/shared/reservation-form-dialog";
-import { eventsService } from "@/lib/services/events-service";
-import { reservationService } from "@/lib/services/reservation-service";
-import { staffService } from "@/lib/services/staff-service";
-import { venueService } from "@/lib/services/venue-service";
-import { formatTime } from "@/lib/format";
-import { canDo } from "@/lib/permissions";
-import { permissionService } from "@/lib/services/permission-service";
-import type { RolePermissions } from "@/lib/permissions";
+import { eventsService } from "@/features/hospitality/events-service";
+import { reservationService } from "@/features/hospitality/reservation-service";
+import { staffService } from "@/features/workforce/staff-service";
+import { venueService } from "@/features/venue/services";
+import { usePermissions } from "@/features/platform/use-permissions";
+import { eventsKeys, reservationsKeys } from "@/features/hospitality/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { venueKeys } from "@/features/venue/query-keys";
+import { useAuth } from "@/context/auth-context";
+import { formatTime } from "@/features/shared/format";
 import { useLiveEvents } from "@/lib/use-live-events";
-import type { Reservation, StaffMember, VenueEvent, Zone, VenueTable } from "@/lib/types";
+import type { Reservation, VenueEvent } from "@/lib/types";
 
 const NIGHT_LABELS: Record<string, string> = {};
 function nightLabel(iso: string): string {
@@ -40,36 +44,68 @@ function nightLabel(iso: string): string {
 
 function StaffReservationsContent() {
   const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
   const newForEventHandled = useRef(false);
-  const [reservations, setReservations] = useState<Reservation[] | null>(null);
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [tables, setTables] = useState<VenueTable[]>([]);
-  const [events, setEvents] = useState<VenueEvent[]>([]);
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState<ReservationDraft>(EMPTY_DRAFT);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const [staff, z, t, allEvents, perms] = await Promise.all([
-      staffService.getCurrentStaff(),
-      venueService.listZones(),
-      venueService.listTables(),
-      eventsService.listEvents(),
-      permissionService.getRolePermissions("venue-1"),
-    ]);
-    setMe(staff);
-    setPermissions(perms);
-    setZones(z);
-    setTables(t);
-    setEvents(allEvents.filter((e) => e.status !== "draft"));
-    const res = await reservationService.listMyReservations(staff.id);
-    setReservations(res);
-  }, []);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: reservationsKeys.all(venueId) });
+    queryClient.invalidateQueries({ queryKey: reservationsKeys.mine(venueId, me?.id ?? "") });
+  };
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
+
+  const { can } = usePermissions();
+
+  const { data: zones } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const { data: tables } = useQuery({
+    queryKey: venueKeys.tables(venueId),
+    queryFn: () => venueService.listTables(),
+    enabled: !!venueId,
+  });
+
+  const { data: allEvents } = useQuery({
+    queryKey: eventsKeys.all(venueId),
+    queryFn: () => eventsService.listEvents(),
+    enabled: !!venueId,
+  });
+
+  const { data: reservations } = useQuery({
+    queryKey: reservationsKeys.mine(venueId, me?.id ?? ""),
+    queryFn: () => reservationService.listMyReservations(me!.id),
+    enabled: !!venueId && !!me,
+  });
+
+  useLiveEvents({
+    scope: "staff",
+    onEvent: invalidate,
+    fallbackMs: 8000,
+    fallbackRefresh: invalidate,
+  });
+
+  const events = useMemo(
+    () => (allEvents ?? []).filter((e) => e.status !== "draft"),
+    [allEvents],
+  );
+
+  const tablesForZone = useMemo(
+    () => (tables ?? []).filter((t) => t.zoneId === draft.zoneId),
+    [tables, draft.zoneId],
+  );
 
   useEffect(() => {
     const eventId = searchParams.get("newForEvent");
@@ -81,7 +117,7 @@ function StaffReservationsContent() {
     setDraft({
       ...EMPTY_DRAFT,
       eventId,
-      zoneId: evt.zoneId ?? zones[0]?.id ?? "",
+      zoneId: evt.zoneId ?? (zones ?? [])[0]?.id ?? "",
       tableId: "",
       startsAt: toLocalInput(evt.startsAt),
       endsAt: toLocalInput(evt.endsAt),
@@ -90,17 +126,60 @@ function StaffReservationsContent() {
     window.history.replaceState(null, "", "/staff/reservations");
   }, [searchParams, events, zones]);
 
-  useLiveEvents({
-    scope: "staff",
-    onEvent: () => refresh(),
-    fallbackMs: 8000,
-    fallbackRefresh: () => refresh(),
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!draft.guestName.trim()) throw new Error("Guest name is required");
+      if (!draft.zoneId) throw new Error("Pick a zone");
+      const payload = {
+        guestName: draft.guestName,
+        partySize: draft.partySize,
+        zoneId: draft.zoneId,
+        tableId: draft.tableId || undefined,
+        startsAt: fromLocalInput(draft.startsAt),
+        endsAt: draft.endsAt ? fromLocalInput(draft.endsAt) : undefined,
+        note: draft.note || undefined,
+        eventId: draft.eventId,
+      };
+      if (editingId) {
+        await reservationService.updateReservation(editingId, payload);
+        return "updated";
+      } else {
+        await reservationService.createReservation({
+          ...payload,
+          source: "manager",
+          channel: "promoter",
+          promoterId: me?.id,
+        });
+        return "created";
+      }
+    },
+    onSuccess: (result) => {
+      toast.success(result === "updated" ? "Reservation updated" : "Reservation created");
+      setDialogOpen(false);
+      invalidate();
+    },
+    onError: (e) => {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    },
   });
 
-  const tablesForZone = useMemo(
-    () => tables.filter((t) => t.zoneId === draft.zoneId),
-    [tables, draft.zoneId],
-  );
+  const confirmMutation = useMutation({
+    mutationFn: (res: Reservation) => reservationService.setStatus(res.id, "confirmed"),
+    onSuccess: (_, res) => {
+      toast.success(`${res.guestName}'s reservation confirmed`);
+      invalidate();
+    },
+    onError: () => toast.error("Failed to confirm"),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (res: Reservation) => reservationService.cancelReservation(res.id),
+    onSuccess: (_, res) => {
+      toast.success(`Cancelled reservation for ${res.guestName}`);
+      invalidate();
+    },
+    onError: () => toast.error("Failed to cancel"),
+  });
 
   const isPromoter = me?.role === "promoter";
 
@@ -125,63 +204,6 @@ function StaffReservationsContent() {
     setDialogOpen(true);
   }
 
-  async function save() {
-    if (!draft.guestName.trim()) { toast.error("Guest name is required"); return; }
-    if (!draft.zoneId) { toast.error("Pick a zone"); return; }
-    setSaving(true);
-    try {
-      const payload = {
-        guestName: draft.guestName,
-        partySize: draft.partySize,
-        zoneId: draft.zoneId,
-        tableId: draft.tableId || undefined,
-        startsAt: fromLocalInput(draft.startsAt),
-        endsAt: draft.endsAt ? fromLocalInput(draft.endsAt) : undefined,
-        note: draft.note || undefined,
-        eventId: draft.eventId,
-      };
-      if (editingId) {
-        await reservationService.updateReservation(editingId, payload);
-        toast.success("Reservation updated");
-      } else {
-        await reservationService.createReservation({
-          ...payload,
-          source: "manager",
-          channel: "promoter",
-          promoterId: me?.id,
-        });
-        toast.success("Reservation created");
-      }
-      setDialogOpen(false);
-      refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function confirm(res: Reservation) {
-    try {
-      await reservationService.setStatus(res.id, "confirmed");
-      toast.success(`${res.guestName}'s reservation confirmed`);
-      refresh();
-    } catch {
-      toast.error("Failed to confirm");
-    }
-  }
-
-  async function remove(res: Reservation) {
-    try {
-      await reservationService.cancelReservation(res.id);
-      toast.success(`Cancelled reservation for ${res.guestName}`);
-      refresh();
-    } catch {
-      toast.error("Failed to cancel");
-    }
-  }
-
-  // Group by night
   const grouped = useMemo(() => {
     if (!reservations) return [];
     const map = new Map<string, Reservation[]>();
@@ -196,7 +218,7 @@ function StaffReservationsContent() {
 
   if (!reservations || !me) {
     return (
-      <div className="space-y-4 p-4">
+      <div className="animate-fade-in space-y-5 p-4">
         <Skeleton className="h-8 w-48" />
         {Array.from({ length: 3 }, (_, i) => (
           <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -206,10 +228,15 @@ function StaffReservationsContent() {
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">My Reservations</h1>
-        {isPromoter && permissions && canDo(permissions, "promoter", "reservation:create-own") && (
+        <div>
+          <h1 className="text-display text-xl">My Reservations</h1>
+          <p className="text-sm text-muted-foreground">
+            Tonight&apos;s bookings — who&apos;s coming, which table, what time, any special requests.
+          </p>
+        </div>
+        {isPromoter && can("reservation:create-own") && (
           <Button size="sm" onClick={openCreate}>
             <Plus className="mr-1.5 size-4" /> New
           </Button>
@@ -217,18 +244,23 @@ function StaffReservationsContent() {
       </div>
 
       {grouped.length === 0 && (
-        <EmptyState icon={CalendarCheck} title="No reservations yet" />
+        <EmptyState
+          icon={CalendarCheck}
+          title="No reservations yet"
+          description="Bookings you create or are assigned to show up here, grouped by night."
+        />
       )}
 
       {grouped.map(([dateKey, items]) => (
-        <div key={dateKey} className="space-y-2">
+        <div key={dateKey} className="stagger-children space-y-2">
           <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             {nightLabel(items[0].startsAt)}
           </h2>
           {items.map((res) => {
-            const confirmable = isPromoter && !!permissions && res.status === "requested" && canDo(permissions, "promoter", "reservation:confirm-own");
-            const editable = isPromoter && !!permissions && ["requested", "confirmed"].includes(res.status) && canDo(permissions, "promoter", "reservation:edit-own");
-            const cancellable = isPromoter && !!permissions && ["requested", "confirmed"].includes(res.status) && canDo(permissions, "promoter", "reservation:cancel-own");
+            const owner = { ownerStaffId: res.promoterId };
+            const confirmable = isPromoter && res.status === "requested" && can("reservation:confirm-own", owner);
+            const editable = isPromoter && ["requested", "confirmed"].includes(res.status) && can("reservation:edit-own", owner);
+            const cancellable = isPromoter && ["requested", "confirmed"].includes(res.status) && can("reservation:cancel-own", owner);
             return (
               <Card key={res.id}>
                 <CardContent className="flex items-start justify-between gap-3 p-3">
@@ -242,7 +274,7 @@ function StaffReservationsContent() {
                       {res.note && <> · {res.note}</>}
                     </p>
                     {res.eventId && (() => {
-                      const evt = events.find((e) => e.id === res.eventId);
+                      const evt = events.find((e: VenueEvent) => e.id === res.eventId);
                       return evt ? (
                         <p className="flex items-center gap-1 text-xs text-primary">
                           <CalendarDays className="size-3" /> {evt.name}
@@ -260,13 +292,13 @@ function StaffReservationsContent() {
                             <Check className="size-3.5" />
                           </Button>
                         }
-                        onConfirm={() => confirm(res)}
+                        onConfirm={() => confirmMutation.mutate(res)}
                       />
                     )}
                     {editable && (
-                      <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(res)} aria-label="Edit reservation">
+                      <TooltipIconButton variant="ghost" className="size-8" onClick={() => openEdit(res)} tooltip="Edit reservation">
                         <Pencil className="size-3.5" />
-                      </Button>
+                      </TooltipIconButton>
                     )}
                     {cancellable && (
                       <ConfirmDialog
@@ -277,7 +309,7 @@ function StaffReservationsContent() {
                             <Trash2 className="size-3.5" />
                           </Button>
                         }
-                        onConfirm={() => remove(res)}
+                        onConfirm={() => cancelMutation.mutate(res)}
                       />
                     )}
                   </div>
@@ -293,10 +325,9 @@ function StaffReservationsContent() {
         onOpenChange={setDialogOpen}
         draft={draft}
         setDraft={setDraft}
-        zones={zones}
+        zones={zones ?? []}
         tablesForZone={tablesForZone}
-        saving={saving}
-        onSave={save}
+        onSave={() => saveMutation.mutate()}
         editingId={editingId}
         events={events}
       />

@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Inbox, ListFilter, RefreshCw, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Inbox, ListFilter, RefreshCw, Search, X, Wallet } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,19 +16,24 @@ import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { AdjustmentDialog } from "@/components/shared/adjustment-dialog";
-import { Pagination, paginate } from "@/components/shared/pagination";
-import { menuService } from "@/lib/services/menu-service";
-import { ordersService } from "@/lib/services/orders-service";
-import { staffService } from "@/lib/services/staff-service";
-import { guestsService } from "@/lib/services/guests-service";
-import { venueService } from "@/lib/services/venue-service";
-import { permissionService } from "@/lib/services/permission-service";
-import { canDo } from "@/lib/permissions";
-import { formatMoney } from "@/lib/format";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
+import { menuService } from "@/features/menu/services";
+import { ordersService } from "@/features/ordering/services";
+import { staffService } from "@/features/workforce/staff-service";
+import { guestsService } from "@/features/guests/services";
+import { venueService } from "@/features/venue/services";
+import { usePermissions } from "@/features/platform/use-permissions";
+import { formatMoney } from "@/features/shared/format";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { SessionOverview } from "@/components/shared/session-overview";
-import { cn } from "@/lib/utils";
-import { Wallet } from "lucide-react";
+import { useAuth } from "@/context/auth-context";
+import { ordersKeys } from "@/features/ordering/query-keys";
+import { venueKeys } from "@/features/venue/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
+import { menuKeys } from "@/features/menu/query-keys";
+import { sessionsKeys } from "@/features/guests/query-keys";
+import { cn } from "@/features/shared/utils";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { DateRangePicker, getDefaultDateRange, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
 import type {
@@ -44,18 +51,11 @@ const STATUS_FILTERS: { id: "all" | "active" | OrderStatus; label: string }[] = 
 ];
 
 export default function ManagerOrdersPage() {
-  const [orders, setOrders] = useState<Order[] | null>(null);
-  const [zones, setZones] = useState<Zone[]>([]);
-  const [tables, setTables] = useState<VenueTable[]>([]);
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+
   const [view, setView] = useState<"orders" | "sessions">("orders");
-  const [sessions, setSessions] = useState<GuestSession[] | null>(null);
-  const [me, setMe] = useState<StaffMember | null>(null);
-  const [permissions, setPermissions] = useState<import("@/lib/permissions").RolePermissions | null>(null);
-  const [compThresholdCents, setCompThresholdCents] = useState(0);
-  const [minimumSpendWarningRatio, setMinimumSpendWarningRatio] = useState(0.25);
 
   // Filters
   const [query, setQuery] = useState("");
@@ -65,39 +65,79 @@ export default function ManagerOrdersPage() {
   const [staffFilter, setStaffFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
-  const [page, setPage] = useState(1);
   const [sessionDateRange, setSessionDateRange] = useState<DateRangeValue>(getDefaultDateRange);
 
-  const refresh = useCallback(async () => {
-    setOrders(await ordersService.listOrders());
-  }, []);
+  const { data: orders } = useQuery({
+    queryKey: ordersKeys.all(venueId),
+    queryFn: () => ordersService.listOrders(),
+    enabled: !!venueId,
+  });
 
-  const refreshAfterTabAction = useCallback(async () => {
-    await Promise.all([
-      refresh(),
-      guestsService.listSessions().then(setSessions),
-      venueService.listTables().then(setTables),
-    ]);
-  }, [refresh]);
+  const { data: zones = [] } = useQuery({
+    queryKey: venueKeys.zones(venueId),
+    queryFn: () => venueService.listZones(),
+    enabled: !!venueId,
+  });
+
+  const { data: tables = [] } = useQuery({
+    queryKey: venueKeys.tables(venueId),
+    queryFn: () => venueService.listTables(),
+    enabled: !!venueId,
+  });
+
+  const { data: staff = [] } = useQuery({
+    queryKey: staffKeys.list(venueId),
+    queryFn: () => staffService.listStaff(),
+    enabled: !!venueId,
+  });
+
+  const { data: items = [] } = useQuery({
+    queryKey: menuKeys.items(venueId),
+    queryFn: () => menuService.listItems(),
+    enabled: !!venueId,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: menuKeys.categories(venueId),
+    queryFn: () => menuService.listCategories(true),
+    enabled: !!venueId,
+  });
+
+  const { data: sessions } = useQuery({
+    queryKey: sessionsKeys.all(venueId),
+    queryFn: () => guestsService.listSessions(),
+    enabled: !!venueId,
+  });
+
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
+
+  const { can } = usePermissions();
+
+  const { data: venueSnapshot } = useQuery({
+    queryKey: venueKeys.snapshot(venueId),
+    queryFn: () => venueService.getVenueSnapshot(),
+    enabled: !!venueId,
+  });
+
+  const compThresholdCents = venueSnapshot?.compThresholdCents ?? 0;
+  const minimumSpendWarningRatio = venueSnapshot?.minimumSpendWarningRatio ?? 0.25;
+
+  const refresh = () => {
+    queryClient.invalidateQueries({ queryKey: ordersKeys.all(venueId) });
+  };
+
+  const refreshAfterTabAction = () => {
+    queryClient.invalidateQueries({ queryKey: ordersKeys.all(venueId) });
+    queryClient.invalidateQueries({ queryKey: sessionsKeys.all(venueId) });
+    queryClient.invalidateQueries({ queryKey: venueKeys.tables(venueId) });
+  };
 
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
-
-  useEffect(() => {
-    refresh();
-    venueService.listZones().then(setZones);
-    venueService.listTables().then(setTables);
-    staffService.listStaff().then(setStaff);
-    menuService.listItems().then(setItems);
-    menuService.listCategories(true).then(setCategories);
-    guestsService.listSessions().then(setSessions);
-    staffService.getCurrentStaff().then(setMe);
-    permissionService.getRolePermissions("venue-1").then(setPermissions);
-    venueService.getVenueSnapshot().then((v) => {
-      setCompThresholdCents(v.compThresholdCents);
-      setMinimumSpendWarningRatio(v.minimumSpendWarningRatio);
-    });
-  }, [refresh]);
 
   useLiveEvents({
     scope: "manager",
@@ -154,6 +194,10 @@ export default function ManagerOrdersPage() {
       .sort((a, b) => b.placedAt.localeCompare(a.placedAt));
   }, [orders, status, zoneFilter, tableFilter, staffFilter, categoryFilter, query, staff, itemCategory, dateRange]);
 
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, status, zoneFilter, tableFilter, staffFilter, categoryFilter, dateRange, reset]);
+
   const hasFilters =
     query !== "" ||
     status !== "active" ||
@@ -186,9 +230,9 @@ export default function ManagerOrdersPage() {
             : "Loading the feed…"
         }
         actions={
-          <Button variant="ghost" size="icon" onClick={refresh} aria-label="Refresh">
+          <TooltipIconButton variant="ghost" onClick={refresh} tooltip="Refresh">
             <RefreshCw className="size-4" />
-          </Button>
+          </TooltipIconButton>
         }
       />
 
@@ -272,7 +316,7 @@ export default function ManagerOrdersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All zones</SelectItem>
-                    {zones.map((zone) => (
+                    {zones.map((zone: Zone) => (
                       <SelectItem key={zone.id} value={zone.id}>
                         {zone.name}
                       </SelectItem>
@@ -286,7 +330,7 @@ export default function ManagerOrdersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All tables</SelectItem>
-                    {zoneTables.map((table) => (
+                    {zoneTables.map((table: VenueTable) => (
                       <SelectItem key={table.id} value={table.id}>
                         {table.code} · {table.label}
                       </SelectItem>
@@ -301,8 +345,8 @@ export default function ManagerOrdersPage() {
                   <SelectContent>
                     <SelectItem value="all">All staff</SelectItem>
                     {staff
-                      .filter((s) => s.assignedZoneIds.length > 0)
-                      .map((member) => (
+                      .filter((s: StaffMember) => s.assignedZoneIds.length > 0)
+                      .map((member: StaffMember) => (
                         <SelectItem key={member.id} value={member.id}>
                           {member.name} · {member.role}
                         </SelectItem>
@@ -316,7 +360,7 @@ export default function ManagerOrdersPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All categories</SelectItem>
-                    {categories.map((cat) => (
+                    {categories.map((cat: MenuCategory) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
                       </SelectItem>
@@ -336,7 +380,7 @@ export default function ManagerOrdersPage() {
             </CardContent>
           </Card>
 
-          {orders === null ? (
+          {orders === undefined ? (
             <ListSkeleton rows={4} rowHeight="h-36" />
           ) : visible.length === 0 ? (
             <EmptyState
@@ -347,9 +391,9 @@ export default function ManagerOrdersPage() {
           ) : (
             <>
             <div className="grid gap-3 md:grid-cols-2">
-              {paginate(visible, page).map((order) => {
-                const availableKinds: TabAdjustmentKind[] = permissions && me
-                  ? (["void", "comp", "discount"] as const).filter((k) => canDo(permissions, me.role, `tab:${k}` as const))
+              {sliced.map((order: Order) => {
+                const availableKinds: TabAdjustmentKind[] = me
+                  ? (["void", "comp", "discount"] as const).filter((k) => can(`tab:${k}` as const))
                   : [];
                 const canAdjust = !!order.sessionId && order.status !== "pending" && order.status !== "cancelled" && availableKinds.length > 0;
                 return (
@@ -378,28 +422,29 @@ export default function ManagerOrdersPage() {
                 );
               })}
             </div>
-            <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+            <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
             </>
           )}
         </>
       ) : (
         <>
           <DateRangePicker value={sessionDateRange} onChange={setSessionDateRange} />
-          {sessions === null ? (
+          {sessions === undefined ? (
             <ListSkeleton rows={4} rowHeight="h-32" />
           ) : (
             <SessionOverview
-              sessions={sessions.filter((s) => isInCustomDateRange(s.createdAt, sessionDateRange))}
+              sessions={sessions.filter((s: GuestSession) => isInCustomDateRange(s.createdAt, sessionDateRange))}
               orders={orders ?? []}
               tables={tables}
               menuItems={items ?? []}
               minimumSpendWarningRatio={minimumSpendWarningRatio}
-              staffContext={me && permissions ? {
+              staffContext={me ? {
                 staffId: me.id,
                 staffName: me.name,
-                canTransfer: canDo(permissions, me.role, "tab:transfer"),
-                canMerge: canDo(permissions, me.role, "tab:merge"),
-                canRefuseService: canDo(permissions, me.role, "service:refuse"),
+                canTransfer: can("tab:transfer"),
+                canMerge: can("tab:merge"),
+                canRefuseService: can("service:refuse"),
+                canEjectGuest: can("service:refuse"),
                 onChange: refreshAfterTabAction,
               } : undefined}
             />

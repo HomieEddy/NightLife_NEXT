@@ -5,7 +5,7 @@ import { Clock, Coffee, LogIn, LogOut, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { timeService } from "@/lib/services/time-service";
+import { timeService } from "@/features/workforce/time-service";
 import type { TimeEntry } from "@/lib/types";
 
 function formatElapsed(ms: number): string {

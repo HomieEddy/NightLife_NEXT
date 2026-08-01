@@ -13,13 +13,14 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { PageHeader } from "@/components/shared/page-header";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { ClosureGate } from "@/components/guest/closure-gate";
 import { useGuest } from "@/context/guest-context";
-import { menuService } from "@/lib/services/menu-service";
-import { ordersService } from "@/lib/services/orders-service";
-import { venueService } from "@/lib/services/venue-service";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { menuService } from "@/features/menu/services";
+import { ordersService } from "@/features/ordering/services";
+import { venueService } from "@/features/venue/services";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
 import type { MenuItem, VenueTable } from "@/lib/types";
 
 const MAX_GIFT_PRICE = 60;
@@ -142,27 +143,25 @@ export default function GuestGiftPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1 rounded-md border">
-                  <Button
+                  <TooltipIconButton
+                    tooltip="Decrease"
                     variant="ghost"
-                    size="icon"
                     className="size-7"
                     onClick={() => updateLineQty(line.menuItem.id, line.quantity - 1)}
-                    aria-label="Decrease"
                   >
                     <Minus className="size-3" />
-                  </Button>
+                  </TooltipIconButton>
                   <span className="w-5 text-center text-sm font-medium tabular-nums">
                     {line.quantity}
                   </span>
-                  <Button
+                  <TooltipIconButton
+                    tooltip="Increase"
                     variant="ghost"
-                    size="icon"
                     className="size-7"
                     onClick={() => updateLineQty(line.menuItem.id, line.quantity + 1)}
-                    aria-label="Increase"
                   >
                     <Plus className="size-3" />
-                  </Button>
+                  </TooltipIconButton>
                 </div>
               </li>
             ))}

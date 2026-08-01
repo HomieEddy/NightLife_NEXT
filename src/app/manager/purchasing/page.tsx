@@ -1,8 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowUpDown, BookOpen, Package, Plus, Pencil, Search, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ArrowUpDown, BookOpen, Package, Loader2, Plus, Pencil, Search, ShoppingCart, Trash2, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,29 +14,32 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
-import { purchasingService } from "@/lib/services/purchasing-service";
-import { menuService } from "@/lib/services/menu-service";
-import { staffService } from "@/lib/services/staff-service";
-import { suggestPurchaseOrder } from "@/lib/costs";
-import { formatMoney } from "@/lib/format";
+import { purchasingService } from "@/features/platform/purchasing-service";
+import { menuService } from "@/features/menu/services";
+import { staffService } from "@/features/workforce/staff-service";
+import { suggestPurchaseOrder } from "@/features/ordering/costs";
+import { formatMoney } from "@/features/shared/format";
+import { zSupplierInput, zSupplierCatalogueInput } from "@/lib/form-schemas";
+import { useAuth } from "@/context/auth-context";
+import { purchasingKeys } from "@/features/platform/query-keys";
+import { menuKeys } from "@/features/menu/query-keys";
+import { staffKeys } from "@/features/workforce/query-keys";
 import type { PurchaseOrder, Stocktake, Supplier, SupplierItem, MenuItem } from "@/lib/types";
 
 const STATUS_BADGE: Record<string, "default" | "secondary" | "outline"> = { draft: "outline", submitted: "secondary", "partially-received": "secondary", received: "default", cancelled: "outline" };
 
 export default function ManagerPurchasingPage() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [supplierItems, setSupplierItems] = useState<SupplierItem[]>([]);
-  const [stocktakes, setStocktakes] = useState<Stocktake[]>([]);
-  const [ready, setReady] = useState(false);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
+
   const [suggestions, setSuggestions] = useState<{ menuItemId: string; itemName: string; suggestedQty: number; unitCostCents: number | null }[]>([]);
-  const [meId, setMeId] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [nonFormBusy, setNonFormBusy] = useState(false);
 
   // Filters
   const [supFilter, setSupFilter] = useState<string>("all");
@@ -44,7 +51,13 @@ export default function ManagerPurchasingPage() {
   // Supplier dialog
   const [supOpen, setSupOpen] = useState(false);
   const [supEditing, setSupEditing] = useState<Supplier | null>(null);
-  const [supForm, setSupForm] = useState({ name: "", contactName: "", email: "", phone: "", leadTimeDays: "2", minOrder: "" });
+
+  const supplierForm = useForm({
+    resolver: zodResolver(zSupplierInput),
+    defaultValues: { name: "", contactName: "", email: "", phone: "", leadTimeDays: 2, minOrder: 0 },
+  });
+
+  const supBusy = supplierForm.formState.isSubmitting;
 
   // PO create dialog
   const [poOpen, setPoOpen] = useState(false);
@@ -57,17 +70,230 @@ export default function ManagerPurchasingPage() {
   // Catalogue management dialog
   const [catOpen, setCatOpen] = useState(false);
   const [catSupplierId, setCatSupplierId] = useState("");
-  const [catForm, setCatForm] = useState({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false });
   const [catEditing, setCatEditing] = useState<SupplierItem | null>(null);
 
-  const refresh = useCallback(async () => {
-    const [sups, pos, its, sis, sts, me] = await Promise.all([
-      purchasingService.listSuppliers(), purchasingService.listPurchaseOrders(), menuService.listItems(),
-      purchasingService.listSupplierItems(), purchasingService.listStocktakes(), staffService.getCurrentStaff(),
-    ]);
-    setSuppliers(sups); setOrders(pos); setItems(its); setSupplierItems(sis); setStocktakes(sts); setMeId(me.id); setReady(true);
-  }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  const catForm = useForm({
+    resolver: zodResolver(zSupplierCatalogueInput),
+    defaultValues: { menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false },
+  });
+
+  const catBusy = catForm.formState.isSubmitting;
+
+  const zStocktakeForm = z.object({
+    date: z.string().min(1, "Date is required"),
+  });
+
+  const stocktakeForm = useForm({
+    resolver: zodResolver(zStocktakeForm),
+    defaultValues: { date: new Date().toISOString().slice(0, 10) },
+  });
+
+  const [stOpen, setStOpen] = useState(false);
+
+  const { data: suppliers = [], isPending: loading } = useQuery({
+    queryKey: purchasingKeys.suppliers(venueId),
+    queryFn: () => purchasingService.listSuppliers(),
+    enabled: !!venueId,
+  });
+
+  const { data: orders = [] } = useQuery({
+    queryKey: purchasingKeys.purchaseOrders(venueId),
+    queryFn: () => purchasingService.listPurchaseOrders(),
+    enabled: !!venueId,
+  });
+
+  const { data: items = [] } = useQuery({
+    queryKey: menuKeys.items(venueId),
+    queryFn: () => menuService.listItems(),
+    enabled: !!venueId,
+  });
+
+  const { data: supplierItems = [] } = useQuery({
+    queryKey: purchasingKeys.supplierItems(venueId),
+    queryFn: () => purchasingService.listSupplierItems(),
+    enabled: !!venueId,
+  });
+
+  const { data: stocktakes = [] } = useQuery({
+    queryKey: purchasingKeys.stocktakes(venueId),
+    queryFn: () => purchasingService.listStocktakes(),
+    enabled: !!venueId,
+  });
+
+  const { data: me } = useQuery({
+    queryKey: staffKeys.me(venueId),
+    queryFn: () => staffService.getCurrentStaff(),
+    enabled: !!venueId,
+  });
+
+  const ready = !!venueId && !loading;
+  const meId = me?.id ?? "";
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: purchasingKeys.suppliers(venueId) });
+    queryClient.invalidateQueries({ queryKey: purchasingKeys.purchaseOrders(venueId) });
+    queryClient.invalidateQueries({ queryKey: purchasingKeys.supplierItems(venueId) });
+    queryClient.invalidateQueries({ queryKey: purchasingKeys.stocktakes(venueId) });
+    queryClient.invalidateQueries({ queryKey: menuKeys.items(venueId) });
+  };
+
+  // Supplier mutations
+  const saveSupplierMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof zSupplierInput>) => {
+      const s: Supplier = {
+        id: supEditing?.id ?? `sup-${Date.now()}`,
+        venueId: venueId,
+        name: data.name.trim(),
+        contactName: data.contactName.trim() || undefined,
+        email: data.email?.trim() || undefined,
+        phone: data.phone.trim() || undefined,
+        leadTimeDays: data.leadTimeDays || 2,
+        orderDays: [1, 2, 3, 4, 5],
+        minimumOrderCents: data.minOrder ? Math.round(data.minOrder * 100) : undefined,
+        active: true,
+      };
+      return purchasingService.saveSupplier(s);
+    },
+    onSuccess: () => {
+      toast.success(supEditing ? "Supplier updated" : "Supplier added");
+      setSupOpen(false);
+      invalidate();
+    },
+    onError: () => toast.error("Could not save supplier"),
+  });
+
+  // Stocktake mutations
+  const startStocktakeMutation = useMutation({
+    mutationFn: async (data: { date: string }) => {
+      const st: Stocktake = {
+        id: `st-${data.date}`,
+        venueId: venueId,
+        businessDate: data.date,
+        scope: "full",
+        status: "open",
+        startedAt: new Date().toISOString(),
+        startedByStaffId: meId,
+        lines: items.map((item) => ({
+          id: `stl-${data.date}-${item.id}`,
+          menuItemId: item.id,
+          expectedQty: item.inventory,
+          countedQty: item.inventory,
+          varianceQty: 0,
+          varianceCents: 0,
+        })),
+        totalVarianceCents: 0,
+      };
+      return purchasingService.saveStocktake(st);
+    },
+    onSuccess: (_, data) => {
+      toast.success(`Stocktake started for ${data.date}`);
+      invalidate();
+    },
+    onError: () => toast.error("Could not start stocktake"),
+  });
+
+  const commitStocktakeMutation = useMutation({
+    mutationFn: (st: Stocktake) => purchasingService.commitStocktake(st.id),
+    onSuccess: () => {
+      toast.success("Stocktake committed — adjustment movements written");
+      invalidate();
+    },
+    onError: () => toast.error("Could not commit"),
+  });
+
+  // PO mutations
+  const savePOMutation = useMutation({
+    mutationFn: async () => {
+      const active = poLines.filter((l) => parseInt(l.qty) > 0);
+      if (active.length === 0) throw new Error("Add at least one item with quantity");
+      const ts = Date.now();
+      const lines = active.map((l, i) => {
+        const si = supplierItems.find((s) => s.menuItemId === l.menuItemId && s.supplierId === poSupplierId);
+        const mi = items.find((it) => it.id === l.menuItemId);
+        const qty = parseInt(l.qty);
+        const unit = si?.unitCostCents ?? Math.round((mi?.price ?? 0) * 35);
+        return { id: `pol-${ts}-${i}`, menuItemId: l.menuItemId, qtyOrdered: qty, qtyReceived: 0, unitCostCents: unit, lineTotalCents: qty * unit };
+      });
+      const subtotal = lines.reduce((s, l) => s + l.lineTotalCents, 0);
+      const po: PurchaseOrder = {
+        id: `po-${ts}`, venueId: venueId, supplierId: poSupplierId,
+        code: `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(ts % 1000).padStart(3, "0")}`,
+        status: "draft", lines, subtotalCents: subtotal,
+      };
+      return purchasingService.savePurchaseOrder(po);
+    },
+    onSuccess: (_, __, context) => {
+      const active = poLines.filter((l) => parseInt(l.qty) > 0);
+      toast.success(`PO created with ${active.length} items`);
+      setPoOpen(false);
+      invalidate();
+    },
+    onError: (error) => {
+      if (error instanceof Error && error.message === "Add at least one item with quantity") {
+        toast.error(error.message);
+      } else {
+        toast.error("Could not create PO");
+      }
+    },
+  });
+
+  const submitPOMutation = useMutation({
+    mutationFn: (poId: string) => purchasingService.submitPurchaseOrder(poId, meId),
+    onSuccess: () => { invalidate(); toast.success("PO submitted"); },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Could not submit"),
+  });
+
+  const receivePOMutation = useMutation({
+    mutationFn: async () => {
+      if (!receivingPO) throw new Error("No PO selected");
+      const lines = Object.entries(receiveQty).map(([lineId, qty]) => ({ lineId, qtyReceived: qty }));
+      return purchasingService.receivePurchaseOrder(receivingPO.id, lines);
+    },
+    onSuccess: () => {
+      setReceiveOpen(false);
+      toast.success("PO received");
+      invalidate();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Could not receive"),
+  });
+
+  // Catalogue mutations
+  const saveCatalogueItemMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof zSupplierCatalogueInput>) => {
+      const si: SupplierItem = {
+        id: catEditing?.id ?? `si-${catSupplierId}-${data.menuItemId}`,
+        supplierId: catSupplierId,
+        menuItemId: data.menuItemId,
+        unitCostCents: data.unitCostCents || undefined,
+        caseSize: undefined,
+        caseCostCents: undefined,
+        supplierSku: data.supplierSku.trim() || undefined,
+        preferred: data.preferred,
+      };
+      return purchasingService.saveSupplierItem(si);
+    },
+    onSuccess: () => {
+      setCatEditing(null);
+      catForm.reset({ menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false });
+      toast.success(catEditing ? "Catalogue item updated" : "Item added to catalogue");
+      invalidate();
+    },
+    onError: () => toast.error("Could not save catalogue item"),
+  });
+
+  const removeCatalogueItemMutation = useMutation({
+    mutationFn: (siId: string) => purchasingService.removeSupplierItem(siId),
+    onSuccess: () => { invalidate(); toast.success("Removed from catalogue"); },
+    onError: () => toast.error("Could not remove"),
+  });
+
+  const onStartStocktake = stocktakeForm.handleSubmit(async (data) => {
+    startStocktakeMutation.mutate(data);
+  });
+
+  async function commitStocktake(st: Stocktake) {
+    commitStocktakeMutation.mutate(st);
+  }
 
   // Filtered data
   const filteredSuppliers = suppliers.filter((s) => (supFilter === "all" || s.id === supFilter) && (searchQuery ? s.name.toLowerCase().includes(searchQuery.toLowerCase()) || (s.contactName ?? "").toLowerCase().includes(searchQuery.toLowerCase()) : true));
@@ -80,50 +306,29 @@ export default function ManagerPurchasingPage() {
   const filteredStocktakes = stocktakes.filter((st) => stStatusFilter === "all" || st.status === stStatusFilter).sort((a, b) => b.businessDate.localeCompare(a.businessDate));
 
   // ── Supplier CRUD ──
-  function openSupCreate() { setSupEditing(null); setSupForm({ name: "", contactName: "", email: "", phone: "", leadTimeDays: "2", minOrder: "" }); setSupOpen(true); }
-  function openSupEdit(sup: Supplier) { setSupEditing(sup); setSupForm({ name: sup.name, contactName: sup.contactName ?? "", email: sup.email ?? "", phone: sup.phone ?? "", leadTimeDays: String(sup.leadTimeDays), minOrder: sup.minimumOrderCents ? String(sup.minimumOrderCents / 100) : "" }); setSupOpen(true); }
-  async function saveSupplier() {
-    if (!supForm.name.trim()) { toast.error("Name required"); return; }
-    setBusy(true); try {
-      const s: Supplier = { id: supEditing?.id ?? `sup-${Date.now()}`, venueId: "venue-1", name: supForm.name.trim(), contactName: supForm.contactName.trim() || undefined, email: supForm.email.trim() || undefined, phone: supForm.phone.trim() || undefined, leadTimeDays: parseInt(supForm.leadTimeDays) || 2, orderDays: [1, 2, 3, 4, 5], minimumOrderCents: supForm.minOrder ? Math.round(parseFloat(supForm.minOrder) * 100) : undefined, active: true };
-      await purchasingService.saveSupplier(s); await refresh(); setSupOpen(false);
-      toast.success(supEditing ? "Supplier updated" : "Supplier added");
-    } catch { toast.error("Could not save supplier"); } finally { setBusy(false); }
-  }
+  function openSupCreate() { setSupEditing(null); supplierForm.reset({ name: "", contactName: "", email: "", phone: "", leadTimeDays: 2, minOrder: 0 }); setSupOpen(true); }
+  function openSupEdit(sup: Supplier) { setSupEditing(sup); supplierForm.reset({ name: sup.name, contactName: sup.contactName ?? "", email: sup.email ?? "", phone: sup.phone ?? "", leadTimeDays: sup.leadTimeDays, minOrder: sup.minimumOrderCents ? sup.minimumOrderCents / 100 : 0 }); setSupOpen(true); }
+
+  const onSaveSupplier = supplierForm.handleSubmit(async (data) => {
+    saveSupplierMutation.mutate(data);
+  });
 
   // ── PO actions ──
   function openPO(supplierId: string) {
     setPoSupplierId(supplierId);
-    const supplierCatalogue = supplierItems.filter((si) => si.supplierId === supplierId);
-    setPoLines(supplierCatalogue.slice(0, 10).map((si) => ({ menuItemId: si.menuItemId, qty: "" })));
+    const catalogue = supplierItems.filter((si) => si.supplierId === supplierId);
+    setPoLines(catalogue.slice(0, 10).map((si) => ({ menuItemId: si.menuItemId, qty: "" })));
     setPoOpen(true);
   }
 
-  async function savePO() {
+  function savePO() {
     const active = poLines.filter((l) => parseInt(l.qty) > 0);
     if (active.length === 0) { toast.error("Add at least one item with quantity"); return; }
-    setBusy(true); try {
-      const ts = Date.now();
-      const lines = active.map((l, i) => {
-        const si = supplierItems.find((s) => s.menuItemId === l.menuItemId && s.supplierId === poSupplierId);
-        const mi = items.find((it) => it.id === l.menuItemId);
-        const qty = parseInt(l.qty);
-        const unit = si?.unitCostCents ?? Math.round((mi?.price ?? 0) * 35);
-        return { id: `pol-${ts}-${i}`, menuItemId: l.menuItemId, qtyOrdered: qty, qtyReceived: 0, unitCostCents: unit, lineTotalCents: qty * unit };
-      });
-      const subtotal = lines.reduce((s, l) => s + l.lineTotalCents, 0);
-      const po: PurchaseOrder = {
-        id: `po-${ts}`, venueId: "venue-1", supplierId: poSupplierId,
-        code: `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(ts % 1000).padStart(3, "0")}`,
-        status: "draft", lines, subtotalCents: subtotal,
-      };
-      await purchasingService.savePurchaseOrder(po); await refresh(); setPoOpen(false);
-      toast.success(`PO created with ${active.length} items`);
-    } catch { toast.error("Could not create PO"); } finally { setBusy(false); }
+    savePOMutation.mutate();
   }
 
-  async function submitPO(poId: string) {
-    try { await purchasingService.submitPurchaseOrder(poId, meId); await refresh(); toast.success("PO submitted"); } catch (err) { toast.error(err instanceof Error ? err.message : "Could not submit"); }
+  function submitPO(poId: string) {
+    submitPOMutation.mutate(poId);
   }
 
   function openReceive(po: PurchaseOrder) {
@@ -134,56 +339,37 @@ export default function ManagerPurchasingPage() {
     setReceiveOpen(true);
   }
 
-  async function receivePO() {
-    if (!receivingPO) return; setBusy(true); try {
-      const lines = Object.entries(receiveQty).map(([lineId, qty]) => ({ lineId, qtyReceived: qty }));
-      await purchasingService.receivePurchaseOrder(receivingPO.id, lines); await refresh(); setReceiveOpen(false);
-      toast.success("PO received");
-    } catch (err) { toast.error(err instanceof Error ? err.message : "Could not receive"); } finally { setBusy(false); }
+  function receivePO() {
+    receivePOMutation.mutate();
   }
 
-  async function computeSuggestions(supplierId: string) {
+  function computeSuggestions(supplierId: string) {
     const openPos = orders.filter((po) => po.status !== "received" && po.status !== "cancelled");
     const s = suggestPurchaseOrder(items, openPos, (new Date().getDay() + 1) % 7, supplierItems, supplierId);
-    setSuggestions(s); toast.success(`Found ${s.length} items below par`);
+    setSuggestions(s);
+    toast.success(`Found ${s.length} items below par`);
   }
 
   // ── Catalogue management ──
-  function openCatalogue(supplierId: string) { setCatSupplierId(supplierId); setCatEditing(null); setCatForm({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false }); setCatOpen(true); }
+  function openCatalogue(supplierId: string) { setCatSupplierId(supplierId); setCatEditing(null); catForm.reset({ menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false }); setCatOpen(true); }
 
   function editCatalogueItem(si: SupplierItem) {
     setCatEditing(si);
-    setCatForm({ menuItemId: si.menuItemId, unitCostCents: si.unitCostCents ? String(si.unitCostCents / 100) : "", caseSize: si.caseSize ? String(si.caseSize) : "", caseCostCents: si.caseCostCents ? String(si.caseCostCents / 100) : "", supplierSku: si.supplierSku ?? "", preferred: si.preferred });
+    catForm.reset({ menuItemId: si.menuItemId, unitCostCents: si.unitCostCents ?? 0, supplierSku: si.supplierSku ?? "", preferred: si.preferred });
     setCatOpen(true);
   }
 
   function addNewCatalogueItem() {
     setCatEditing(null);
-    setCatForm({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false });
+    catForm.reset({ menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false });
   }
 
-  async function saveCatalogueItem() {
-    if (!catForm.menuItemId) { toast.error("Select an item"); return; }
-    setBusy(true); try {
-      const si: SupplierItem = {
-        id: catEditing?.id ?? `si-${catSupplierId}-${catForm.menuItemId}`,
-        supplierId: catSupplierId,
-        menuItemId: catForm.menuItemId,
-        unitCostCents: catForm.unitCostCents ? Math.round(parseFloat(catForm.unitCostCents) * 100) : undefined,
-        caseSize: catForm.caseSize ? parseInt(catForm.caseSize) : undefined,
-        caseCostCents: catForm.caseCostCents ? Math.round(parseFloat(catForm.caseCostCents) * 100) : undefined,
-        supplierSku: catForm.supplierSku.trim() || undefined,
-        preferred: catForm.preferred,
-      };
-      await purchasingService.saveSupplierItem(si); await refresh();
-      // Return to list view
-      setCatEditing(null); setCatForm({ menuItemId: "", unitCostCents: "", caseSize: "", caseCostCents: "", supplierSku: "", preferred: false });
-      toast.success(catEditing ? "Catalogue item updated" : "Item added to catalogue");
-    } catch { toast.error("Could not save catalogue item"); } finally { setBusy(false); }
-  }
+  const onSaveCatalogueItem = catForm.handleSubmit(async (data) => {
+    saveCatalogueItemMutation.mutate(data);
+  });
 
-  async function removeFromCatalogue(siId: string) {
-    setBusy(true); try { await purchasingService.removeSupplierItem(siId); await refresh(); toast.success("Removed from catalogue"); } catch { toast.error("Could not remove"); } finally { setBusy(false); }
+  function removeFromCatalogue(siId: string) {
+    removeCatalogueItemMutation.mutate(siId);
   }
 
   if (!ready) return <ListSkeleton />;
@@ -191,6 +377,7 @@ export default function ManagerPurchasingPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Purchasing" description="Suppliers, purchase orders, stocktakes and suggested ordering"
+        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Purchasing" }]}
         actions={<Button size="sm" onClick={openSupCreate}><Plus className="size-4 mr-1" /> Add supplier</Button>}
       />
 
@@ -224,13 +411,13 @@ export default function ManagerPurchasingPage() {
             <CardTitle className="text-base flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {sup.name}
-                <Button variant="ghost" size="icon" className="size-6" onClick={() => openSupEdit(sup)}><Plus className="size-3 rotate-45" /></Button>
+                <Button variant="ghost" size="icon" className="size-6" aria-label="Edit supplier" onClick={() => openSupEdit(sup)}><Plus className="size-3 rotate-45" /></Button>
                 {!sup.active && <Badge variant="outline">Inactive</Badge>}
               </div>
               <div className="flex gap-1">
                 <Button size="sm" variant="outline" onClick={() => openCatalogue(sup.id)}><BookOpen className="size-4 mr-1" /> Catalogue</Button>
                 <Button size="sm" variant="outline" onClick={() => computeSuggestions(sup.id)}><ShoppingCart className="size-4 mr-1" /> Par check</Button>
-                <Button size="sm" variant="outline" onClick={() => openPO(sup.id)} disabled={busy}><Plus className="size-4 mr-1" /> New PO</Button>
+                <Button size="sm" variant="outline" onClick={() => openPO(sup.id)} disabled={nonFormBusy}><Plus className="size-4 mr-1" /> New PO</Button>
               </div>
             </CardTitle>
           </CardHeader>
@@ -259,27 +446,45 @@ export default function ManagerPurchasingPage() {
       ))}
 
       {/* Stocktakes */}
-      {stocktakes.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center justify-between">
-              Stocktakes
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center justify-between">
+            Stocktakes
+            <div className="flex items-center gap-2">
               <Select value={stStatusFilter} onValueChange={setStStatusFilter}>
                 <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="Filter" /></SelectTrigger>
                 <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="open">Open</SelectItem><SelectItem value="counting">Counting</SelectItem><SelectItem value="committed">Committed</SelectItem></SelectContent>
               </Select>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {filteredStocktakes.map((st) => (
+              <Button size="sm" variant="outline" onClick={() => { stocktakeForm.reset({ date: new Date().toISOString().slice(0, 10) }); setStOpen(true); }}>
+                <Plus className="size-3.5 mr-1" /> New stocktake
+              </Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {filteredStocktakes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No stocktakes yet.</p>
+          ) : (
+            filteredStocktakes.map((st) => (
               <div key={st.id} className="flex items-center justify-between rounded-md border px-3 py-2">
                 <div><p className="text-sm font-medium">{st.businessDate}</p><p className="text-xs text-muted-foreground">{st.scope} · {st.status}{st.committedAt && ` · ${new Date(st.committedAt).toLocaleTimeString()}`}</p></div>
-                <div className="text-right"><p className={`text-sm font-semibold tabular-nums ${st.totalVarianceCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{formatMoney(st.totalVarianceCents, "CAD")}</p><p className="text-xs text-muted-foreground">{st.lines.length} lines</p></div>
+                <div className="flex items-center gap-2 text-right">
+                  <div><p className={`text-sm font-semibold tabular-nums ${st.totalVarianceCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{formatMoney(st.totalVarianceCents, "CAD")}</p><p className="text-xs text-muted-foreground">{st.lines.length} lines</p></div>
+                  {st.status !== "committed" && (
+                    <ConfirmDialog
+                      trigger={<Button size="sm" disabled={nonFormBusy || commitStocktakeMutation.isPending}>Commit</Button>}
+                      title="Commit stocktake?"
+                      description="Writes adjustment movements for every non-zero variance line. This action is audited and irreversible."
+                      confirmLabel="Commit"
+                      onConfirm={() => commitStocktake(st)}
+                    />
+                  )}
+                </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       {suggestions.length > 0 && (
         <Card>
@@ -294,22 +499,22 @@ export default function ManagerPurchasingPage() {
       <Dialog open={supOpen} onOpenChange={setSupOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader><DialogTitle>{supEditing ? "Edit supplier" : "Add supplier"}</DialogTitle><DialogDescription>Supplier contact and ordering defaults.</DialogDescription></DialogHeader>
-          <div className="space-y-3">
-            <div><Label htmlFor="s-name">Name *</Label><Input id="s-name" value={supForm.name} onChange={(e) => setSupForm((p) => ({ ...p, name: e.target.value }))} /></div>
+          <form onSubmit={onSaveSupplier} className="space-y-3">
+            <div><Label htmlFor="s-name">Name *</Label><Input id="s-name" {...supplierForm.register("name")} />{supplierForm.formState.errors.name && <p className="text-xs text-destructive">{supplierForm.formState.errors.name.message}</p>}</div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="s-contact">Contact</Label><Input id="s-contact" value={supForm.contactName} onChange={(e) => setSupForm((p) => ({ ...p, contactName: e.target.value }))} /></div>
-              <div><Label htmlFor="s-phone">Phone</Label><Input id="s-phone" value={supForm.phone} onChange={(e) => setSupForm((p) => ({ ...p, phone: e.target.value }))} /></div>
+              <div><Label htmlFor="s-contact">Contact</Label><Input id="s-contact" {...supplierForm.register("contactName")} /></div>
+              <div><Label htmlFor="s-phone">Phone</Label><Input id="s-phone" {...supplierForm.register("phone")} /></div>
             </div>
-            <div><Label htmlFor="s-email">Email</Label><Input id="s-email" type="email" value={supForm.email} onChange={(e) => setSupForm((p) => ({ ...p, email: e.target.value }))} /></div>
+            <div><Label htmlFor="s-email">Email</Label><Input id="s-email" type="email" {...supplierForm.register("email")} />{supplierForm.formState.errors.email && <p className="text-xs text-destructive">{supplierForm.formState.errors.email.message}</p>}</div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="s-lead">Lead time (days)</Label><Input id="s-lead" type="number" min={1} value={supForm.leadTimeDays} onChange={(e) => setSupForm((p) => ({ ...p, leadTimeDays: e.target.value }))} /></div>
-              <div><Label htmlFor="s-min">Min order ($)</Label><Input id="s-min" placeholder="500" value={supForm.minOrder} onChange={(e) => setSupForm((p) => ({ ...p, minOrder: e.target.value }))} /></div>
+              <div><Label htmlFor="s-lead">Lead time (days)</Label><Input id="s-lead" type="number" min={1} {...supplierForm.register("leadTimeDays", { valueAsNumber: true })} /></div>
+              <div><Label htmlFor="s-min">Min order ($)</Label><Input id="s-min" placeholder="500" {...supplierForm.register("minOrder", { valueAsNumber: true })} /></div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSupOpen(false)}>Cancel</Button>
-            <Button onClick={saveSupplier} disabled={!supForm.name.trim() || busy}>{supEditing ? "Save" : "Add"}</Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSupOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={supBusy}>{supEditing ? "Save" : "Add"}</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -330,7 +535,7 @@ export default function ManagerPurchasingPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
-            <Button onClick={receivePO} disabled={busy}>Confirm receipt</Button>
+            <Button onClick={receivePO} disabled={receivePOMutation.isPending}>Confirm receipt</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -348,7 +553,6 @@ export default function ManagerPurchasingPage() {
             {(() => {
               const supplierCatalogue = supplierItems.filter((si) => si.supplierId === poSupplierId);
               const allItemIds = new Set(supplierCatalogue.map((si) => si.menuItemId));
-              // Show catalogue items first, then other menu items for convenience
               const ordered = [...supplierCatalogue.map((si) => si.menuItemId), ...items.filter((i) => !allItemIds.has(i.id)).map((i) => i.id)];
               const seen = new Set<string>();
               return ordered.map((itemId) => {
@@ -402,7 +606,7 @@ export default function ManagerPurchasingPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPoOpen(false)}>Cancel</Button>
-            <Button onClick={savePO} disabled={busy}>Create PO</Button>
+            <Button onClick={savePO} disabled={savePOMutation.isPending}>Create PO</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -416,11 +620,11 @@ export default function ManagerPurchasingPage() {
           </DialogHeader>
 
           {/* Add/edit form */}
-          <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+          <form onSubmit={onSaveCatalogueItem} className="space-y-3 rounded-lg border bg-muted/30 p-3">
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 <Label className="text-xs">Item</Label>
-                <Select value={catForm.menuItemId} onValueChange={(v) => setCatForm((p) => ({ ...p, menuItemId: v }))}>
+                <Select value={catForm.watch("menuItemId")} onValueChange={(v) => catForm.setValue("menuItemId", v)}>
                   <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Select menu item" /></SelectTrigger>
                   <SelectContent>
                     {items.filter((i) => catEditing || !supplierItems.some((si) => si.supplierId === catSupplierId && si.menuItemId === i.id)).map((i) => (
@@ -428,26 +632,26 @@ export default function ManagerPurchasingPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {catForm.formState.errors.menuItemId && <p className="text-xs text-destructive">{catForm.formState.errors.menuItemId.message}</p>}
               </div>
               <div className="w-24">
                 <Label className="text-xs">Unit cost ($)</Label>
-                <Input className="mt-1 h-8 text-sm" value={catForm.unitCostCents} onChange={(e) => setCatForm((p) => ({ ...p, unitCostCents: e.target.value }))} placeholder="4.00" />
+                <Input className="mt-1 h-8 text-sm" type="number" step={0.01} value={catForm.watch("unitCostCents") ? (catForm.watch("unitCostCents") / 100).toString() : ""} onChange={(e) => catForm.setValue("unitCostCents", Math.round(parseFloat(e.target.value) * 100) || 0, { shouldValidate: true })} placeholder="4.00" />
+                {catForm.formState.errors.unitCostCents && <p className="text-xs text-destructive">{catForm.formState.errors.unitCostCents.message}</p>}
               </div>
             </div>
             <div className="flex gap-3">
-              <div className="flex-1"><Label className="text-xs">SKU</Label><Input className="mt-1 h-8 text-sm" value={catForm.supplierSku} onChange={(e) => setCatForm((p) => ({ ...p, supplierSku: e.target.value }))} placeholder="GG-750" /></div>
-              <div className="w-20"><Label className="text-xs">Case size</Label><Input className="mt-1 h-8 text-sm" type="number" value={catForm.caseSize} onChange={(e) => setCatForm((p) => ({ ...p, caseSize: e.target.value }))} placeholder="6" /></div>
-              <div className="w-24"><Label className="text-xs">Case cost ($)</Label><Input className="mt-1 h-8 text-sm" value={catForm.caseCostCents} onChange={(e) => setCatForm((p) => ({ ...p, caseCostCents: e.target.value }))} placeholder="24.00" /></div>
+              <div className="flex-1"><Label className="text-xs">SKU</Label><Input className="mt-1 h-8 text-sm" {...catForm.register("supplierSku")} placeholder="GG-750" /></div>
             </div>
-            <label className="flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={catForm.preferred} onChange={(e) => setCatForm((p) => ({ ...p, preferred: e.target.checked }))} />
-              Preferred supplier for this item
-            </label>
+            <div className="flex items-center gap-2 text-xs">
+              <Switch checked={catForm.watch("preferred")} onCheckedChange={(v) => catForm.setValue("preferred", v)} id="cat-preferred" />
+              <Label htmlFor="cat-preferred">Preferred supplier for this item</Label>
+            </div>
             <div className="flex gap-2">
-              <Button size="sm" onClick={saveCatalogueItem} disabled={!catForm.menuItemId || busy}>{catEditing ? "Update" : "Add to catalogue"}</Button>
-              {catEditing && <Button size="sm" variant="ghost" onClick={addNewCatalogueItem}>Cancel edit</Button>}
+              <Button type="submit" size="sm" disabled={!catForm.watch("menuItemId") || catBusy}>{catEditing ? "Update" : "Add to catalogue"}</Button>
+              {catEditing && <Button type="button" size="sm" variant="ghost" onClick={addNewCatalogueItem}>Cancel edit</Button>}
             </div>
-          </div>
+          </form>
 
           {/* Existing catalogue items */}
           <div className="max-h-60 space-y-1 overflow-y-auto">
@@ -464,11 +668,11 @@ export default function ManagerPurchasingPage() {
                       {formatMoney(si.unitCostCents ?? 0, "CAD")}/unit
                       {si.supplierSku && ` · ${si.supplierSku}`}
                       {si.caseSize && ` · case of ${si.caseSize}`}
-                      {si.preferred && <Badge variant="secondary" className="ml-1 text-[9px]">Preferred</Badge>}
+                      {si.preferred && <Badge variant="secondary" className="ml-1 text-[10px]">Preferred</Badge>}
                     </p>
                   </div>
-                  <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => editCatalogueItem(si)}><Pencil className="size-3" /></Button>
-                  <ConfirmDialog trigger={<Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive"><Trash2 className="size-3" /></Button>} title="Remove from catalogue?" description={`Remove ${mi?.name ?? si.menuItemId} from this supplier.`} confirmLabel="Remove" destructive onConfirm={() => removeFromCatalogue(si.id)} />
+                  <Button variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Edit catalogue item" onClick={() => editCatalogueItem(si)}><Pencil className="size-3" /></Button>
+                  <ConfirmDialog trigger={<Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" aria-label="Remove from catalogue"><Trash2 className="size-3" /></Button>} title="Remove from catalogue?" description={`Remove ${mi?.name ?? si.menuItemId} from this supplier.`} confirmLabel="Remove" destructive onConfirm={() => removeFromCatalogue(si.id)} />
                 </div>
               );
             })}
@@ -477,6 +681,27 @@ export default function ManagerPurchasingPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCatOpen(false)}>Close</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stocktake create dialog */}
+      <Dialog open={stOpen} onOpenChange={setStOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Start new stocktake</DialogTitle>
+            <DialogDescription>
+              Snapshots current stock levels for all {items.length} items. Count and commit after.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={onStartStocktake} className="space-y-3">
+            <div><Label htmlFor="st-date">Business date</Label><Input id="st-date" type="date" {...stocktakeForm.register("date")} /></div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setStOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={nonFormBusy || startStocktakeMutation.isPending || stocktakeForm.formState.isSubmitting}>
+                {(startStocktakeMutation.isPending || stocktakeForm.formState.isSubmitting) ? "Starting…" : "Start stocktake"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Minus, Pencil, Plus, ShoppingBag, Tag, Trash2, X } from "lucide-react";
+import { CheckCircle2, Loader2, Minus, Pencil, Plus, ShoppingBag, Tag, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,16 +11,17 @@ import { Separator } from "@/components/ui/separator";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { BottleIcon } from "@/components/shared/bottle-icon";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { AnimatedMoney } from "@/components/fx/animated-money";
 import { useGuest } from "@/context/guest-context";
-import { menuService } from "@/lib/services/menu-service";
-import { ordersService } from "@/lib/services/orders-service";
-import { promotionsService } from "@/lib/services/promotions-service";
-import { computeFeeLines, feeLabel } from "@/lib/fees";
+import { menuService } from "@/features/menu/services";
+import { ordersService } from "@/features/ordering/services";
+import { promotionsService } from "@/features/hospitality/promotions-service";
+import { computeFeeLines, feeLabel } from "@/features/ordering/fees";
 import { cartHappyHourDiscount } from "@/lib/happy-hour";
-import { formatMoney } from "@/lib/format";
+import { formatMoney } from "@/features/shared/format";
 import { useLastCall } from "@/lib/use-last-call";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import { orderLineSubtotal } from "@/lib/order-line";
 import type { HappyHourRule, Promotion } from "@/lib/types";
 
@@ -44,6 +45,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
   const [customTip, setCustomTip] = useState(false);
   const [customTipPct, setCustomTipPct] = useState(15);
   const [submitting, setSubmitting] = useState(false);
+  const [placing, setPlacing] = useState(false);
   const [promoInput, setPromoInput] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<Promotion | null>(null);
@@ -137,7 +139,8 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
       clearCart();
       toast.success(`Order ${order.code} sent to the team!`);
       onSubmitted?.();
-      router.push("/guest/orders");
+      setPlacing(true);
+      setTimeout(() => router.push("/guest/orders"), 900);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not submit your order. Please try again.",
@@ -146,6 +149,16 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
       setSubmitting(false);
     }
   }
+
+  if (placing) return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+      <div className="flex flex-col items-center gap-4 animate-pop-in">
+        <CheckCircle2 className="h-16 w-16 text-primary" />
+        <p className="text-xl font-semibold">Order sent!</p>
+        <p className="text-muted-foreground">Taking you to your orders...</p>
+      </div>
+    </div>
+  );
 
   if (cart.length === 0) {
     return (
@@ -184,27 +197,25 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
                 {line.note && <p className="text-xs italic text-muted-foreground">“{line.note}”</p>}
                 <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-1 rounded-md border">
-                    <Button
+                    <TooltipIconButton
+                      tooltip="Decrease"
                       variant="ghost"
-                      size="icon"
                       className="size-8"
                       onClick={() => updateQuantity(line.lineId, line.quantity - 1)}
-                      aria-label="Decrease"
                     >
                       <Minus className="size-3.5" />
-                    </Button>
-                    <span className="w-6 text-center text-sm font-medium tabular-nums">
+                    </TooltipIconButton>
+                    <span key={line.quantity} className="w-6 text-center text-sm font-medium tabular-nums animate-pop-in">
                       {line.quantity}
                     </span>
-                    <Button
+                    <TooltipIconButton
+                      tooltip="Increase"
                       variant="ghost"
-                      size="icon"
                       className="size-8"
                       onClick={() => updateQuantity(line.lineId, line.quantity + 1)}
-                      aria-label="Increase"
                     >
                       <Plus className="size-3.5" />
-                    </Button>
+                    </TooltipIconButton>
                   </div>
                   <ConfirmDialog
                     trigger={
@@ -265,27 +276,25 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
         {customTip && (
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 rounded-md border">
-              <Button
+              <TooltipIconButton
+                tooltip="Decrease tip"
                 variant="ghost"
-                size="icon"
                 className="size-8"
                 onClick={() => setCustomTipPct((prev) => Math.max(0, prev - 1))}
-                aria-label="Decrease tip"
               >
                 <Minus className="size-3.5" />
-              </Button>
+              </TooltipIconButton>
               <span className="w-10 text-center text-sm font-semibold tabular-nums">
                 {customTipPct}%
               </span>
-              <Button
+              <TooltipIconButton
+                tooltip="Increase tip"
                 variant="ghost"
-                size="icon"
                 className="size-8"
                 onClick={() => setCustomTipPct((prev) => prev + 1)}
-                aria-label="Increase tip"
               >
                 <Plus className="size-3.5" />
-              </Button>
+              </TooltipIconButton>
             </div>
             <span className="text-sm text-muted-foreground tabular-nums">
               {formatMoney(tip)}
@@ -297,19 +306,18 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
       <div className="space-y-2">
         <p className="text-sm font-medium">Promo code</p>
         {appliedPromo ? (
-          <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+          <div key={appliedPromo.code} className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
             <Tag className="size-4 text-primary" />
             <span className="flex-1 text-sm font-medium">{appliedPromo.code}</span>
             <span className="text-sm text-primary tabular-nums">-{formatMoney(promoDiscount)}</span>
-            <Button
+            <TooltipIconButton
+              tooltip="Remove promo code"
               variant="ghost"
-              size="icon"
               className="size-6"
               onClick={() => setAppliedPromo(null)}
-              aria-label="Remove promo code"
             >
               <X className="size-3.5" />
-            </Button>
+            </TooltipIconButton>
           </div>
         ) : (
           <div className="flex gap-2">
@@ -377,7 +385,8 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
         </p>
       )}
 
-      {/* TODO(backend): payment step (Stripe) goes here before submission. */}
+      {/* No payment step by design (ARD AD-12): the app computes what is owed
+          and never collects it. Guests settle with the venue. */}
       <ConfirmDialog
         title="Place this order?"
         description={`${formatMoney(total)} total including fees and tip — the bar starts on it right away.`}

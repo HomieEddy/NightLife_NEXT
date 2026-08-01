@@ -3,7 +3,10 @@
 **Status:** Living document. The domain language below is spoken by
 `src/lib/types.ts` and materialized in `prisma/schema.prisma`; this document
 organizes it into bounded contexts, aggregates and invariants.
-**Last updated:** 2026-07-27 — extended for Phases 2–5 of the re-aligned roadmap.
+**Last updated:** 2026-07-30. Every context and event below exists in
+`src/lib/types.ts` and the mock services; the "live" marker on the event lists
+records whether it is also published by the live build (`domain_events` +
+`NOTIFY`) or still demo-track only, pending ROADMAP Phase 7 graduation.
 
 Where the two drift, the schema wins and this file gets fixed (AGENTS.md §9.9).
 
@@ -53,23 +56,27 @@ Where the two drift, the schema wins and this file gets fixed (AGENTS.md §9.9).
 +----------------------------------------------------------------------------------+
 ```
 
-Contexts added by the re-aligned roadmap:
+Contexts that cross-cut the venue diagram above:
 
-- **Guest Identity & CRM** (Phase 2–3): profiles acquire preferences, celebrations,
-  linked profiles, staff notes, photo, RFM scoring, referral tracking, and
-  spend-by-category — graduating from "identity record" to "relationship hub."
-- **Notifications** (Phase 2): the `NotificationLog` and `NotificationPreferences`
+- **Guest Identity & CRM** — profiles carry preferences, celebrations, linked
+  profiles, staff notes, photo, value scoring, referral tracking, and
+  spend-by-category: an identity record grown into a relationship hub.
+  Demo track; live pending (Phase 7, WS-2).
+- **Notifications** — the `NotificationLog` and `NotificationPreferences`
   aggregates, plus the template registry and dispatcher (AD-22). Cross-cuts every
-  context — any domain event can trigger a notification.
-- **Compliance** (Phase 2–6): certification tracking, compliance calendar,
-  mandatory incident reporting, data retention, and the breach register.
-  Cross-cuts workforce, incidents, and guest identity.
-- **PWA Infrastructure** (Phase 5): `PushSubscription` and offline queue are
-  technical aggregates — they don't model the business domain but are first-class
-  architectural concerns.
-- **Rules Engine** (AD-21): the `RuleDefinition` aggregate plus the evaluator.
+  context: any domain event can trigger a notification. **Live.**
+- **Compliance** — certification tracking, compliance calendar, mandatory
+  incident reporting, data retention, and the breach register. Cross-cuts
+  workforce, incidents, and guest identity. Demo track; retention and the breach
+  register land with plan 35.
+- **PWA Infrastructure** — `PushSubscription` and the offline queue are technical
+  aggregates: they don't model the business domain but are first-class
+  architectural concerns. **Live.**
+- **Rules Engine** (AD-21) — the `RuleDefinition` aggregate plus the evaluator.
   Cross-cuts ordering (auto-gratuity, SLA), workforce (overtime, breaks),
-  venue config (capacity warnings), and inventory (par levels, pour cost).
+  venue config (capacity warnings), and inventory (par levels). Partially
+  realized: the automation engine implements the scheduled and event-driven
+  half; the rest is still inline per feature (see AD-21's status note).
 
 Multi-venue grouping remains deliberately absent (roadmap parking lot).
 
@@ -105,6 +112,11 @@ tests-first treatment.
 - **INV-O9 (auto-gratuity):** `autoGratuityCents` is computed server-side in the
   settlement transaction from active `AutoGratuityRule` definitions at close time;
   the guest sees it as an explicit line item.
+- **INV-O10 (modification):** an order may only be modified (add/remove items,
+  change modifiers) while in `pending` status. Once `accepted`, the order is
+  immutable — corrections after acceptance are tab adjustments (Plan 16), not
+  edits. Modification re-runs INV-O2 (total recomputation) and INV-O5
+  (inventory check for added items) in one transaction.
 
 **GuestSession** (root) — the table's tab for the night.
 - INV-S1: pending → approved | denied; approved → closure-requested → closed |
@@ -124,6 +136,14 @@ tests-first treatment.
 - **INV-S7 (transfer chain):** session transfers record a full chain
   (`transferredFromTableId` is the immediate predecessor; the full chain is
   derived by walking predecessor links).
+- **INV-S8 (auto-timeout):** pending sessions with no approval action within
+  `venue.sessionTimeoutMinutes` are auto-transitioned to `denied` with reason
+  `timeout` by an idempotent cron job (AD-9).
+- **INV-S9 (reopen window):** a `closed` session may transition to `reopened`
+  only within `venue.sessionReopenWindowMinutes` of closure. Reopening
+  re-occupies the table (INV-S4) and restores the original minimum-spend
+  snapshot (INV-S6). A session closed by cash-out (Plan 16) cannot be reopened
+  — the reconciliation is final.
 
 **HelpRequest** (root) — open → acknowledged → resolved; timestamps drive Pulse SLA.
 
@@ -146,7 +166,7 @@ tests-first treatment.
   reorder quantity = max(par[today] - currentStock, 0).
 
 **BottlePackage** (root) — components reference items; pricing/availability
-quotes are *derived*. **Recipe** (Phase 4) — BOM linking a drink to component
+quotes are *derived*. **Recipe** (parked, see ROADMAP tier 3) — BOM linking a drink to component
 pour costs; pour cost = Σ(componentCost × pourQty) / sellPrice.
 
 **HappyHourRule** (root) — applies at order pricing time inside the order
@@ -159,7 +179,8 @@ thresholds, last-call auto-flag, tip presets, night-window hours,
 `publicSlug`, `legalDrinkingAge`, `cancellationWindowHours`,
 `reservationHoldMinutes`, `sessionTimeoutMinutes`, `reEntryCutoffTime`,
 `swapDeadlineHours`, `overtimeThresholdHours`, `breakRequirementMinutes`,
-`noShowGraceMinutes`, `lateThresholdMinutes`, and `occupancyWarnRatio`.
+`noShowGraceMinutes`, `lateThresholdMinutes`, `sessionReopenWindowMinutes`,
+and `occupancyWarnRatio`.
 
 **Zone**, **VenueTable** (roots) — table carries status + map position +
 `tokenVersion` + `requiresVipTier`.
@@ -223,6 +244,9 @@ no-show. Carries `arrivalTime`, `durationMinutes`, `channel`, `promoterId`,
 - INV-R1: no two confirmed reservations for the same table have overlapping
   `[arrivalTime, arrivalTime + durationMinutes]` windows.
 - INV-R2: deposit status must be `paid` before transition to `confirmed`.
+  All deposit status transitions (paid, forfeited, refunded) are staff-initiated
+  manual toggles reflecting external actions — the platform records the status,
+  it does not process the payment (PRD §4).
 - INV-R3: cancellation within `cancellationWindowHours` of `arrivalTime`
   auto-flags `lateCancellation: true` and transitions deposit to `forfeited`.
 - INV-R4: a `holdExpiresAt` in the past triggers auto-cancellation (cron job).
@@ -233,6 +257,12 @@ no-show. Carries `arrivalTime`, `durationMinutes`, `channel`, `promoterId`,
 - INV-E1: Σ event guests cannot exceed `event.guestlistCapacity`.
 - INV-E2: per-promoter allocation: Σ guests attributed to promoter ≤
   `promoterAllocation.limit`.
+- **INV-E3 (event menu/pricing):** an `EventMenuOverride` scopes item
+  availability and price overrides to `[event.startTime, event.endTime]`.
+  During an active event window, the override price takes precedence over
+  the base `MenuItem.priceCents` for ordering (INV-O2 uses the override).
+  Items excluded by the override are unavailable for the event's duration.
+  Outside the window, the base catalog applies — no manual toggle required.
 
 **Promotion** (root) — `redemptionCount` increments only inside an order
 transaction that applied it.
@@ -342,8 +372,9 @@ transaction that applied it.
 
 **Supplier**, **SupplierItem**, **PurchaseOrder** (root) + lines,
 **Stocktake** (root) + lines.
-- INV-C1 through INV-C5: unchanged from prior DDD version.
-- **INV-C6 (auto-suggested PO):** `suggestedOrderQuantity = max(parLevel[today] -
+- INV-CS1 through INV-CS5: unchanged from prior DDD version (renamed from
+  INV-C* to avoid collision with Compliance context invariants).
+- **INV-CS6 (auto-suggested PO):** `suggestedOrderQuantity = max(parLevel[today] -
   currentStock, 0)`, surfaced as an attention item and a one-click "create PO" action.
 
 ### Platform context
@@ -356,14 +387,14 @@ billing only — no guest or venue payment processing (AD-12).
 
 ## 3. Domain events (the realtime vocabulary)
 
-### Published today
+### Published by the live build today
 
 `OrderPlaced, OrderStatusChanged, OrderClaimed, OrderReleased, GiftSent,
 SessionRequested, SessionApproved, SessionDenied, ClosureRequested, SessionClosed,
 HelpRequested, HelpStatusChanged, SoldOut, StockRestocked, BroadcastSent,
 LastCallStarted, LastCallEnded, ShowStarted, ShowFinished`
 
-### Phase 2 (plans 16–17, 25–26)
+### Tab, door, identity & safety — demo track; live pending (Phase 7, WS-1/WS-2)
 
 `TabAdjusted, SessionTransferred, SessionsMerged, SessionSplit, CashoutClosed,
 GuestAdmitted, GuestExited, GuestDenied, OccupancyChanged, OccupancyWarning,
@@ -372,7 +403,7 @@ ServiceRefused, ReservationSeated, GuestCheckedIn, GuestProfileCreated,
 GuestBanned, GuestWatchlisted, NotificationSent, NotificationFailed,
 EmergencyEvacuated, CertificationExpiring`
 
-### Phase 3 (plans 18–20, operational features)
+### Workforce, hospitality & operational features — demo track; live pending (Phase 7, WS-3/WS-4/WS-5)
 
 `ShiftPublished, ShiftSwapRequested, ShiftSwapApproved, ClockedIn, ClockedOut,
 BreakStarted, BreakEnded, ShiftNoShow, OvertimeWarning, LateArrivalFlagged,
@@ -383,19 +414,19 @@ WatchlistWarning, VipArrived, EjectionExecuted, OrderOverdue, OrderPriorityChang
 OrderEtaUpdated, BriefingPublished, IncidentActionAssigned, WitnessRecorded,
 CctvLinked, MandatoryReportDue`
 
-### Phase 4 (automations & intelligence)
+### Automations & intelligence — live
 
 `PourCostTargetBreached, VarianceThresholdExceeded, ParLevelLow,
 AutoSuggestedPo, VipTierUpgradeSuggested, DormantVipDetected,
 DuplicateReservationDetected, EventAutoEnded, StocktakeVarianceFlagged`
 
-### Phase 5 (PWA & push)
+### PWA & push — live
 
 `PushSubscribed, PushUnsubscribed, PushDelivered, PushClicked, PushFailed,
 NotificationPreferenceChanged, OfflineActionQueued, OfflineActionSynced,
 OfflineActionFailed, SwUpdateAvailable, SwUpdateApplied`
 
-### Phase 6 (compliance & hardening)
+### Compliance & hardening — pending plan 35 (Phase 8)
 
 `ComplianceDeadlineApproaching, ComplianceDeadlineOverdue, DataRetentionExecuted,
 DataDeletionCompleted, BreachRecorded, SecurityScanCompleted`

@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 import type {
   EventStatus,
   GuestSessionStatus,
@@ -40,6 +40,8 @@ const STATUS_STYLES: Record<AnyStatus, string> = {
   occupied: "bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30",
   reserved: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
   closed: "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/30",
+  held: "bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/30",
+  "out-of-service": "bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/30",
   // guest sessions
   approved: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
   denied: "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30",

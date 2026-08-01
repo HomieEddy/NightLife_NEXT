@@ -2,12 +2,15 @@
 
 // Plan 10 graduates this demo-only surface.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, ChevronRight, Columns3, Filter, List, Loader2, Pencil, Plus, Rocket, Search, Send, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,10 +28,14 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { adminService } from "@/lib/services/admin-service";
-import { formatMoney, timeAgo } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
+import { adminService } from "@/features/platform/admin-service";
+import { adminKeys } from "@/features/platform/query-keys";
+import { formatMoney, timeAgo } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
+import { zLeadInput } from "@/lib/form-schemas";
 import type { Lead, LeadSource, LeadStatus } from "@/lib/types";
+import type { z } from "zod";
 
 const PIPELINE: LeadStatus[] = ["new", "contacted", "demo", "negotiating", "won", "lost"];
 
@@ -39,30 +46,8 @@ const SOURCE_LABEL: Record<LeadSource, string> = {
   event: "Event",
 };
 
-interface LeadDraft {
-  venueName: string;
-  contactName: string;
-  email: string;
-  phone: string;
-  city: string;
-  source: LeadSource;
-  dealValue: number;
-  notes: string;
-}
-
-const EMPTY_DRAFT: LeadDraft = {
-  venueName: "",
-  contactName: "",
-  email: "",
-  phone: "",
-  city: "",
-  source: "outbound",
-  dealValue: 2988,
-  notes: "",
-};
-
 export default function AdminLeadsPage() {
-  const [leads, setLeads] = useState<Lead[] | null>(null);
+  const queryClient = useQueryClient();
   const [view, setView] = useState<"board" | "list">("board");
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<"all" | LeadSource>("all");
@@ -70,21 +55,72 @@ export default function AdminLeadsPage() {
   // Add/edit dialog
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<LeadDraft>(EMPTY_DRAFT);
-  const [saving, setSaving] = useState(false);
+
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
+    resolver: zodResolver(zLeadInput),
+    defaultValues: { venueName: "", contactName: "", email: "", phone: "", city: "", source: "landing-page" as const, dealValue: 2988, notes: "" },
+  });
 
   // Detail dialog
   const [detailId, setDetailId] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [sendingNote, setSendingNote] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setLeads(await adminService.listLeads());
-  }, []);
+  const { data: leads } = useQuery({
+    queryKey: adminKeys.leads,
+    queryFn: () => adminService.listLeads(),
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: adminKeys.leads });
+  };
+
+  const statusMutation = useMutation({
+    mutationFn: ({ lead, status }: { lead: Lead; status: LeadStatus }) =>
+      adminService.setLeadStatus(lead.id, status),
+    onSuccess: (_, { lead, status }) => {
+      toast.success(`${lead.venueName} → ${status}`);
+      invalidate();
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: z.infer<typeof zLeadInput>) => {
+      const input = {
+        ...data,
+        venueName: data.venueName.trim(),
+        contactName: data.contactName.trim(),
+        email: data.email.trim().toLowerCase(),
+        dealValue: Math.max(0, data.dealValue ?? 0),
+      };
+      if (editingId) {
+        return adminService.updateLead(editingId, input);
+      }
+      return adminService.createLead(input);
+    },
+    onSuccess: (_, data) => {
+      toast.success(editingId ? `${data.venueName} updated` : `${data.venueName} added to the pipeline`);
+      setFormOpen(false);
+      invalidate();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (lead: Lead) => adminService.deleteLead(lead.id),
+    onSuccess: (_, lead) => {
+      if (detailId === lead.id) setDetailId(null);
+      toast.info(`${lead.venueName} removed from the pipeline`);
+      invalidate();
+    },
+  });
+
+  const noteMutation = useMutation({
+    mutationFn: ({ lead, text }: { lead: Lead; text: string }) =>
+      adminService.addLeadNote(lead.id, text),
+    onSuccess: () => {
+      setNote("");
+      invalidate();
+    },
+  });
 
   const visible = useMemo(() => {
     return (leads ?? []).filter((lead) => {
@@ -110,10 +146,8 @@ export default function AdminLeadsPage() {
 
   // ---------- Actions ----------
 
-  async function setStatus(lead: Lead, status: LeadStatus) {
-    await adminService.setLeadStatus(lead.id, status);
-    toast.success(`${lead.venueName} → ${status}`);
-    await refresh();
+  function setStatus(lead: Lead, status: LeadStatus) {
+    statusMutation.mutate({ lead, status });
   }
 
   function moveStage(lead: Lead, direction: 1 | -1) {
@@ -126,13 +160,13 @@ export default function AdminLeadsPage() {
 
   function openCreate() {
     setEditingId(null);
-    setDraft(EMPTY_DRAFT);
+    reset({ venueName: "", contactName: "", email: "", phone: "", city: "", source: "landing-page", dealValue: 2988, notes: "" });
     setFormOpen(true);
   }
 
   function openEdit(lead: Lead) {
     setEditingId(lead.id);
-    setDraft({
+    reset({
       venueName: lead.venueName,
       contactName: lead.contactName,
       email: lead.email,
@@ -145,45 +179,17 @@ export default function AdminLeadsPage() {
     setFormOpen(true);
   }
 
-  async function saveDraft() {
-    if (!draft.venueName.trim() || !draft.contactName.trim() || !draft.email.trim()) {
-      toast.error("Venue, contact and email are required.");
-      return;
-    }
-    setSaving(true);
-    const input = {
-      ...draft,
-      venueName: draft.venueName.trim(),
-      contactName: draft.contactName.trim(),
-      email: draft.email.trim().toLowerCase(),
-      dealValue: Math.max(0, draft.dealValue),
-    };
-    if (editingId) {
-      await adminService.updateLead(editingId, input);
-      toast.success(`${input.venueName} updated`);
-    } else {
-      await adminService.createLead(input);
-      toast.success(`${input.venueName} added to the pipeline`);
-    }
-    setSaving(false);
-    setFormOpen(false);
-    await refresh();
-  }
+  const onSave = handleSubmit(async (data) => {
+    saveMutation.mutate(data);
+  });
 
-  async function remove(lead: Lead) {
-    await adminService.deleteLead(lead.id);
-    if (detailId === lead.id) setDetailId(null);
-    toast.info(`${lead.venueName} removed from the pipeline`);
-    await refresh();
+  function remove(lead: Lead) {
+    deleteMutation.mutate(lead);
   }
 
   async function addNote() {
     if (!detail || !note.trim()) return;
-    setSendingNote(true);
-    await adminService.addLeadNote(detail.id, note.trim());
-    setNote("");
-    setSendingNote(false);
-    await refresh();
+    noteMutation.mutate({ lead: detail, text: note.trim() });
   }
 
   // ---------- Card ----------
@@ -216,27 +222,25 @@ export default function AdminLeadsPage() {
               className="flex justify-between border-t pt-1.5"
               onClick={(e) => e.stopPropagation()}
             >
-              <Button
+              <TooltipIconButton
                 variant="ghost"
-                size="icon"
                 className="size-6"
-                aria-label="Move back"
+                tooltip="Move back"
                 disabled={lead.status === "new"}
                 onClick={() => moveStage(lead, -1)}
               >
                 <ChevronLeft className="size-3.5" />
-              </Button>
+              </TooltipIconButton>
               <span className="text-[10px] text-muted-foreground">{timeAgo(lead.createdAt)}</span>
-              <Button
+              <TooltipIconButton
                 variant="ghost"
-                size="icon"
                 className="size-6"
-                aria-label="Move forward"
+                tooltip="Move forward"
                 disabled={lead.status === "negotiating"}
                 onClick={() => moveStage(lead, 1)}
               >
                 <ChevronRight className="size-3.5" />
-              </Button>
+              </TooltipIconButton>
             </div>
           )}
         </CardContent>
@@ -249,7 +253,7 @@ export default function AdminLeadsPage() {
       <PageHeader
         title="Lead pipeline"
         description={
-          leads
+          leads !== undefined
             ? `${visible.length} leads · ${formatMoney(openPipelineValue)} open pipeline`
             : "Loading…"
         }
@@ -308,7 +312,7 @@ export default function AdminLeadsPage() {
         </Select>
       </div>
 
-      {leads === null ? (
+      {leads === undefined ? (
         <ListSkeleton rows={5} rowHeight="h-28" />
       ) : visible.length === 0 ? (
         <EmptyState
@@ -362,58 +366,40 @@ export default function AdminLeadsPage() {
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit lead" : "Add a lead"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={onSave} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="lead-venue">Venue</Label>
-                <Input
-                  id="lead-venue"
-                  value={draft.venueName}
-                  onChange={(e) => setDraft({ ...draft, venueName: e.target.value })}
-                />
+                <Input id="lead-venue" {...register("venueName")} />
+                {errors.venueName && <p className="text-xs text-red-600">{errors.venueName.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="lead-city">City</Label>
-                <Input
-                  id="lead-city"
-                  value={draft.city}
-                  onChange={(e) => setDraft({ ...draft, city: e.target.value })}
-                />
+                <Input id="lead-city" {...register("city")} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="lead-contact">Contact</Label>
-                <Input
-                  id="lead-contact"
-                  value={draft.contactName}
-                  onChange={(e) => setDraft({ ...draft, contactName: e.target.value })}
-                />
+                <Input id="lead-contact" {...register("contactName")} />
+                {errors.contactName && <p className="text-xs text-red-600">{errors.contactName.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="lead-phone">Phone</Label>
-                <Input
-                  id="lead-phone"
-                  value={draft.phone}
-                  onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-                />
+                <Input id="lead-phone" {...register("phone")} />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lead-email">Email</Label>
-              <Input
-                id="lead-email"
-                type="email"
-                value={draft.email}
-                onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-              />
+              <Input id="lead-email" type="email" {...register("email")} />
+              {errors.email && <p className="text-xs text-red-600">{errors.email.message}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Source</Label>
                 <Select
-                  value={draft.source}
-                  onValueChange={(v) => setDraft({ ...draft, source: v as LeadSource })}
+                  value={watch("source")}
+                  onValueChange={(v) => setValue("source", v as LeadSource)}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue />
@@ -434,30 +420,24 @@ export default function AdminLeadsPage() {
                   type="number"
                   min={0}
                   step={100}
-                  value={draft.dealValue}
-                  onChange={(e) => setDraft({ ...draft, dealValue: Number(e.target.value) })}
+                  {...register("dealValue", { valueAsNumber: true })}
                 />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="lead-notes">Notes</Label>
-              <Textarea
-                id="lead-notes"
-                rows={2}
-                value={draft.notes}
-                onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
-              />
+              <Textarea id="lead-notes" rows={2} {...register("notes")} />
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setFormOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={saveDraft} disabled={saving}>
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : editingId ? "Save" : "Add lead"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button variant="ghost" type="button" onClick={() => setFormOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                {saveMutation.isPending ? "Saving…" : editingId ? "Save" : "Add lead"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -492,7 +472,7 @@ export default function AdminLeadsPage() {
 
                 {detail.notes && (
                   <p className="rounded-lg bg-accent/50 p-3 text-sm text-muted-foreground">
-                    “{detail.notes}”
+                    "{detail.notes}"
                   </p>
                 )}
 
@@ -561,18 +541,17 @@ export default function AdminLeadsPage() {
                       onChange={(e) => setNote(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addNote()}
                     />
-                    <Button
-                      size="icon"
+                    <TooltipIconButton
                       onClick={addNote}
-                      disabled={sendingNote || !note.trim()}
-                      aria-label="Add note"
+                      disabled={noteMutation.isPending || !note.trim()}
+                      tooltip="Add note"
                     >
-                      {sendingNote ? (
+                      {noteMutation.isPending ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
                         <Send className="size-4" />
                       )}
-                    </Button>
+                    </TooltipIconButton>
                   </div>
                 </div>
               </div>

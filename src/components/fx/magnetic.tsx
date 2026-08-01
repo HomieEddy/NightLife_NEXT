@@ -2,7 +2,7 @@
 
 import { useRef, type ReactNode } from "react";
 import { gsap, useGSAP } from "@/lib/gsap";
-import { cn } from "@/lib/utils";
+import { cn } from "@/features/shared/utils";
 
 /**
  * Magnetic hover: the wrapped element is gently pulled toward the cursor and

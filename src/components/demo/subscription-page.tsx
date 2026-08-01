@@ -2,22 +2,22 @@
 
 // Plan 10 graduates this demo-only surface.
 
-import { useCallback, useEffect, useState } from "react";
 import { Check, CreditCard, Loader2, Receipt } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
-import {
-  billingService, type Invoice, type Subscription,
-} from "@/lib/services/billing-service";
+import { billingService } from "@/features/platform/billing-service";
+import { billingKeys } from "@/features/platform/query-keys";
+import { useAuth } from "@/context/auth-context";
 import { FEATURE_CATALOG } from "@/lib/plan-catalog";
-import { formatMoney } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { PlanConfig, TenantPlan } from "@/lib/types";
+import { formatMoney } from "@/features/shared/format";
+import { cn } from "@/features/shared/utils";
+import type { TenantPlan } from "@/lib/types";
 
 const PLAN_ORDER: TenantPlan[] = ["starter", "pro", "enterprise"];
 
@@ -26,36 +26,50 @@ function featureLabel(key: string): string {
 }
 
 export default function ManagerSubscriptionPage() {
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [plans, setPlans] = useState<PlanConfig[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [changing, setChanging] = useState<TenantPlan | null>(null);
+  const { user } = useAuth();
+  const venueId = user?.venueId ?? "";
+  const queryClient = useQueryClient();
 
-  const refresh = useCallback(async () => {
-    const [sub, planList, inv] = await Promise.all([
-      billingService.getSubscription(),
-      billingService.listPlans(),
-      billingService.listInvoices(),
-    ]);
-    setSubscription(sub);
-    setPlans(planList);
-    setInvoices(inv);
-  }, []);
+  const { data: subscription } = useQuery({
+    queryKey: billingKeys.subscription(venueId),
+    queryFn: () => billingService.getSubscription(),
+    enabled: !!venueId,
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const { data: plans = [] } = useQuery({
+    queryKey: billingKeys.plans(venueId),
+    queryFn: () => billingService.listPlans(),
+    enabled: !!venueId,
+  });
+
+  const { data: invoices = [] } = useQuery({
+    queryKey: billingKeys.invoices(venueId),
+    queryFn: () => billingService.listInvoices(),
+    enabled: !!venueId,
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: billingKeys.all(venueId) });
+  };
+
+  const changePlanMutation = useMutation({
+    mutationFn: async (plan: TenantPlan) => {
+      await billingService.changePlan(plan);
+    },
+    onSuccess: (_, plan) => {
+      toast.success(`Switched to the ${plans.find((p) => p.id === plan)?.name} plan`);
+      invalidate();
+    },
+    onError: () => {
+      toast.error("Could not change plan");
+    },
+  });
 
   async function changePlan(plan: TenantPlan) {
-    setChanging(plan);
-    // Live mode: billingService.changePlan() returns a Stripe checkout/portal URL.
-    await billingService.changePlan(plan);
-    setChanging(null);
-    toast.success(`Switched to the ${plans.find((p) => p.id === plan)?.name} plan`);
-    await refresh();
+    changePlanMutation.mutate(plan);
   }
 
-  if (subscription === null || plans.length === 0) {
+  if (subscription === undefined || plans.length === 0) {
     return (
       <div className="space-y-4">
         <PageHeader title="Subscription" />
@@ -180,9 +194,9 @@ export default function ManagerSubscriptionPage() {
                 ) : isUpgrade ? (
                   <ConfirmDialog
                     trigger={
-                      <Button disabled={changing !== null}>
-                        {changing === plan.id && <Loader2 className="size-4 animate-spin" />}
-                        {changing === plan.id ? "Upgrading…" : `Upgrade to ${plan.name}`}
+                      <Button disabled={changePlanMutation.isPending}>
+                        {changePlanMutation.variables === plan.id && changePlanMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                        {changePlanMutation.variables === plan.id && changePlanMutation.isPending ? "Upgrading…" : `Upgrade to ${plan.name}`}
                       </Button>
                     }
                     title={`Upgrade to ${plan.name}?`}
@@ -193,9 +207,9 @@ export default function ManagerSubscriptionPage() {
                 ) : (
                   <ConfirmDialog
                     trigger={
-                      <Button variant="outline" disabled={changing !== null}>
-                        {changing === plan.id && <Loader2 className="size-4 animate-spin" />}
-                        {changing === plan.id ? "Switching…" : `Downgrade to ${plan.name}`}
+                      <Button variant="outline" disabled={changePlanMutation.isPending}>
+                        {changePlanMutation.variables === plan.id && changePlanMutation.isPending && <Loader2 className="size-4 animate-spin" />}
+                        {changePlanMutation.variables === plan.id && changePlanMutation.isPending ? "Switching…" : `Downgrade to ${plan.name}`}
                       </Button>
                     }
                     title={`Downgrade to ${plan.name}?`}

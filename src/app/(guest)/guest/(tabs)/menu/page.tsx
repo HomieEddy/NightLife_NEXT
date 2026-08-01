@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Martini, QrCode, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -11,9 +11,10 @@ import { ClosureGate } from "@/components/guest/closure-gate";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
 import { PackageCard, type PackageWithQuote } from "@/components/guest/package-card";
 import { useGuest } from "@/context/guest-context";
-import { menuService } from "@/lib/services/menu-service";
-import { cn } from "@/lib/utils";
-import { Pagination, paginate } from "@/components/shared/pagination";
+import { menuService } from "@/features/menu/services";
+import { cn } from "@/features/shared/utils";
+import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
+import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
 export default function GuestMenuPage() {
@@ -25,7 +26,25 @@ export default function GuestMenuPage() {
   const [activeCategory, setActiveCategory] = useState<string>("packages");
   const [query, setQuery] = useState("");
   const [openItem, setOpenItem] = useState<MenuItem | null>(null);
-  const [page, setPage] = useState(1);
+  const [transitioning, setTransitioning] = useState(false);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const handleCategoryChange = (catId: string) => {
+    setActiveCategory(catId);
+    setTransitioning(true);
+    setTimeout(() => setTransitioning(false), 50);
+    const list = document.getElementById("menu-results");
+    list?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleSearchChange = (value: string) => {
+    setQuery(value);
+    clearTimeout(fadeTimer.current);
+    setTransitioning(true);
+    fadeTimer.current = setTimeout(() => setTransitioning(false), 50);
+    const list = document.getElementById("menu-results");
+    list?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +86,10 @@ export default function GuestMenuPage() {
     );
   }, [packages, query]);
 
+  const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
+
+  useEffect(() => { reset(); }, [query, activeCategory, reset]);
+
   if (!table) {
     return (
       <div className="p-6">
@@ -88,27 +111,30 @@ export default function GuestMenuPage() {
         <Input
           placeholder="Search drinks, bottles, bites…"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="h-11 pl-9"
         />
       </div>
 
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-        {[{ id: "packages", name: "Packages" }, { id: "all", name: "All bottles" }, ...categories].map((cat) => (
-          <button
-            key={cat.id}
-            type="button"
-            onClick={() => setActiveCategory(cat.id)}
-            className={cn(
-              "shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
-              activeCategory === cat.id
-                ? "border-gold/60 bg-gold/12 text-gold-deep dark:text-gold"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {cat.name}
-          </button>
-        ))}
+      <div className="relative">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+          {[{ id: "packages", name: "Packages" }, { id: "all", name: "All bottles" }, ...categories].map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => handleCategoryChange(cat.id)}
+              className={cn(
+                "shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
+                activeCategory === cat.id
+                  ? "border-gold/60 bg-gold/12 text-gold-deep dark:text-gold"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background to-transparent" />
       </div>
 
       {loading ? (
@@ -121,14 +147,19 @@ export default function GuestMenuPage() {
             description="Try a different search or category."
           />
         ) : (
-          <div key={`search-${query}`} className="space-y-3 stagger-children">
+          <div id="menu-results" key={`search-${query}`} className={cn("space-y-3 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
+            {query.trim() && (
+              <p className="text-xs text-muted-foreground">
+                {visiblePackages.length + visible.length} result{(visiblePackages.length + visible.length) !== 1 ? "s" : ""} for &ldquo;{query.trim()}&rdquo;
+              </p>
+            )}
             {visiblePackages.map((pkg, i) => (
               <PackageCard key={pkg.id} pkg={pkg} featured={i === 0} />
             ))}
-            {paginate(visible, page).map((item) => (
+            {sliced.map((item) => (
               <MenuItemCard key={item.id} item={item} onClick={() => setOpenItem(item)} />
             ))}
-            <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+            <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
           </div>
         )
       ) : activeCategory === "packages" ? (
@@ -139,7 +170,7 @@ export default function GuestMenuPage() {
             description="Browse the bottle list instead."
           />
         ) : (
-          <div key="packages" className="space-y-3 stagger-children">
+          <div id="menu-results" key="packages" className={cn("space-y-3 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
             {packages.map((pkg, i) => (
               <PackageCard key={pkg.id} pkg={pkg} featured={i === 0} />
             ))}
@@ -152,11 +183,11 @@ export default function GuestMenuPage() {
           description="Try a different search or category."
         />
       ) : (
-        <div key={`${activeCategory}-${query}`} className="space-y-2.5 stagger-children">
-          {paginate(visible, page).map((item) => (
+        <div id="menu-results" key={`${activeCategory}-${query}`} className={cn("space-y-2.5 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
+          {sliced.map((item) => (
             <MenuItemCard key={item.id} item={item} onClick={() => setOpenItem(item)} />
           ))}
-          <Pagination totalItems={visible.length} currentPage={page} onPageChange={setPage} className="mt-3" />
+          <InfiniteScrollSentinel onLoadMore={loadMore} hasMore={hasMore} />
         </div>
       )}
 

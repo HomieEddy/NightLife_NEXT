@@ -2,9 +2,10 @@
 
 // Plan 10 graduates this demo-only surface.
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Activity, ArrowLeft, Ban, Building2, CircleDollarSign, MapPin, Play, Receipt, Table2, Trash2, Users,
 } from "lucide-react";
@@ -28,50 +29,66 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { adminService } from "@/lib/services/admin-service";
-import { formatDate, formatMoney, timeAgo } from "@/lib/format";
-import type { Tenant, TenantPlan, TenantStatus } from "@/lib/types";
+import { adminService } from "@/features/platform/admin-service";
+import { adminKeys } from "@/features/platform/query-keys";
+import { formatDate, formatMoney, timeAgo } from "@/features/shared/format";
+import type { TenantPlan, TenantStatus } from "@/lib/types";
 
 const PLAN_IDS: TenantPlan[] = ["starter", "pro", "enterprise"];
 
 export default function AdminTenantDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const [tenant, setTenant] = useState<Tenant | null | undefined>(undefined);
+  const queryClient = useQueryClient();
   const [pendingPlan, setPendingPlan] = useState<TenantPlan | null>(null);
-  const [applyingPlan, setApplyingPlan] = useState(false);
 
-  const refresh = useCallback(async () => {
-    setTenant(await adminService.getTenant(params.id));
-  }, [params.id]);
+  const { data: tenant } = useQuery({
+    queryKey: adminKeys.tenant(params.id),
+    queryFn: () => adminService.getTenant(params.id),
+    enabled: !!params.id,
+  });
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: adminKeys.tenant(params.id) });
+    queryClient.invalidateQueries({ queryKey: adminKeys.tenants });
+  };
 
-  async function confirmPlanChange() {
-    if (!tenant || !pendingPlan) return;
-    setApplyingPlan(true);
-    await adminService.updateTenant(tenant.id, { plan: pendingPlan });
-    toast.success(`${tenant.venueName} moved to ${pendingPlan}`);
-    setApplyingPlan(false);
-    setPendingPlan(null);
-    await refresh();
-  }
+  const planMutation = useMutation({
+    mutationFn: async () => {
+      if (!tenant || !pendingPlan) throw new Error("Missing data");
+      return adminService.updateTenant(tenant.id, { plan: pendingPlan });
+    },
+    onSuccess: () => {
+      if (!tenant || !pendingPlan) return;
+      toast.success(`${tenant.venueName} moved to ${pendingPlan}`);
+      setPendingPlan(null);
+      invalidate();
+    },
+  });
 
-  async function setStatus(status: TenantStatus) {
-    if (!tenant) return;
-    await adminService.updateTenant(tenant.id, { status });
-    toast.success(`${tenant.venueName} is now ${status}`);
-    await refresh();
-  }
+  const statusMutation = useMutation({
+    mutationFn: (status: TenantStatus) => {
+      if (!tenant) throw new Error("No tenant loaded");
+      return adminService.updateTenant(tenant.id, { status });
+    },
+    onSuccess: (_, status) => {
+      if (!tenant) return;
+      toast.success(`${tenant.venueName} is now ${status}`);
+      invalidate();
+    },
+  });
 
-  async function remove() {
-    if (!tenant) return;
-    await adminService.deleteTenant(tenant.id);
-    toast.info(`${tenant.venueName} deleted`);
-    router.push("/admin/venues");
-  }
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!tenant) throw new Error("No tenant loaded");
+      return adminService.deleteTenant(tenant.id);
+    },
+    onSuccess: () => {
+      if (!tenant) return;
+      toast.info(`${tenant.venueName} deleted`);
+      router.push("/admin/venues");
+    },
+  });
 
   if (tenant === undefined) {
     return (
@@ -124,7 +141,6 @@ export default function AdminTenantDetailPage() {
         }
       />
 
-      {/* Operational counts only — INV-P2: never the tenant's sales amounts. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <MetricCard label="Orders · 30d" value={m.orderCount30d.toLocaleString()} icon={Receipt} />
         <MetricCard label="Sessions · 30d" value={m.sessionCount30d.toLocaleString()} icon={Activity} hint={`active ${timeAgo(m.lastActivityAt)}`} />
@@ -221,7 +237,7 @@ export default function AdminTenantDetailPage() {
                 title={`Reactivate ${tenant.venueName}?`}
                 description="Billing resumes and their staff regain access immediately."
                 confirmLabel="Reactivate"
-                onConfirm={() => setStatus("active")}
+                onConfirm={() => statusMutation.mutate("active")}
               />
             ) : (
               <ConfirmDialog
@@ -234,7 +250,7 @@ export default function AdminTenantDetailPage() {
                 description="All venue panels are locked and billing pauses until reactivated."
                 confirmLabel="Suspend tenant"
                 destructive
-                onConfirm={() => setStatus("suspended")}
+                onConfirm={() => statusMutation.mutate("suspended")}
               />
             )}
             {tenant.status === "trial" && (
@@ -247,7 +263,7 @@ export default function AdminTenantDetailPage() {
                 title={`Activate ${tenant.venueName}?`}
                 description={`Ends the trial and starts billing on the ${tenant.plan} plan.`}
                 confirmLabel="Start billing"
-                onConfirm={() => setStatus("active")}
+                onConfirm={() => statusMutation.mutate("active")}
               />
             )}
             <ConfirmDialog
@@ -260,7 +276,7 @@ export default function AdminTenantDetailPage() {
               description="Removes the tenant and all venue data. This cannot be undone."
               confirmLabel="Delete permanently"
               destructive
-              onConfirm={remove}
+              onConfirm={() => deleteMutation.mutate()}
             />
           </CardContent>
         </Card>
@@ -317,11 +333,11 @@ export default function AdminTenantDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setPendingPlan(null)} disabled={applyingPlan}>
+            <Button variant="ghost" onClick={() => setPendingPlan(null)} disabled={planMutation.isPending}>
               Cancel
             </Button>
-            <Button onClick={confirmPlanChange} disabled={applyingPlan}>
-              {applyingPlan ? "Applying…" : "Change plan"}
+            <Button onClick={() => planMutation.mutate()} disabled={planMutation.isPending}>
+              {planMutation.isPending ? "Applying…" : "Change plan"}
             </Button>
           </DialogFooter>
         </DialogContent>

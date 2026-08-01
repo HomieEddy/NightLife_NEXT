@@ -1,15 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   businessDateFor,
+  canAdmitToZone,
   canApplyOccupancyDelta,
   canMarkNoShow,
+  canAdmitWithinCapacity,
+  checkAgeOnAdmission,
   computeOccupancy,
   countDeliveredAlcoholicDrinks,
   dedupeCandidates,
   isBanned,
+  isOfLegalAge,
   occupancyRatio,
   waitlistPosition,
-} from "./door";
+} from "@/lib/door";
 import type { GuestProfile, MenuItem, OccupancyEvent, Order, WaitlistEntry } from "@/lib/types";
 
 function profile(overrides: Partial<GuestProfile>): GuestProfile {
@@ -200,5 +204,106 @@ describe("business-date rollover (shared with tab ledger)", () => {
     // Venue nightEndHour 10 — a 03:00 close on Saturday still belongs to Friday's night.
     expect(businessDateFor("2026-07-25T03:00:00", 10)).toBe("2026-07-24");
     expect(businessDateFor("2026-07-25T11:00:00", 10)).toBe("2026-07-25");
+  });
+});
+
+// ---------- S-01: Age verification ----------
+
+describe("isOfLegalAge (S-01)", () => {
+  it("passes when the guest's year of birth meets the legal drinking age", () => {
+    // Current year 2026, age 18 needed → max birth year 2008.
+    const now = new Date(2026, 6, 26);
+    expect(isOfLegalAge(2008, 18, now)).toBe(true);
+    expect(isOfLegalAge(2007, 18, now)).toBe(true);
+    expect(isOfLegalAge(2009, 18, now)).toBe(false);
+  });
+
+  it("supports jurisdictions with a higher drinking age", () => {
+    const now = new Date(2026, 6, 26);
+    expect(isOfLegalAge(2005, 21, now)).toBe(true); // 21 years old
+    expect(isOfLegalAge(2006, 21, now)).toBe(false);
+  });
+});
+
+describe("checkAgeOnAdmission (S-01)", () => {
+  it("passes when the ID check year of birth proves legal age", () => {
+    expect(checkAgeOnAdmission(1990, 18, undefined)).toBeNull();
+  });
+
+  it("blocks an underage guest from ID check year-of-birth", () => {
+    const now = new Date(2026, 6, 26);
+    // The function uses Date.now() internally, so we'd need to adjust. Actually,
+    // checkAgeOnAdmission does NOT accept `now` — it uses Date.now() internally.
+    // Let me check the implementation...
+
+    // checkAgeOnAdmission computes `now.getFullYear()` internally. For a guest born
+    // in 2020 to be under 18, we'd need the current year to be ≤2037. But Date.now()
+    // is 2026, so a 2020 birth year IS underage (6 years old).
+    // So this test is time-stable: anyone born in the past 17 years is under 18.
+    const threshold = new Date().getFullYear() - 17; // oldest possible underage birth year
+    if (threshold >= 1900) {
+      expect(checkAgeOnAdmission(threshold, 18, undefined)).toBe("underage");
+    }
+  });
+
+  it("returns null when no age data is available (unverified)", () => {
+    expect(checkAgeOnAdmission(undefined, 18, undefined)).toBeNull();
+  });
+
+  it("falls back to guest profile dobYear when ID check year is absent", () => {
+    const legalYear = new Date().getFullYear() - 25; // 25 years old — clearly legal
+    expect(checkAgeOnAdmission(undefined, 18, legalYear)).toBeNull();
+  });
+});
+
+// ---------- S-13: Legal capacity enforcement ----------
+
+describe("canAdmitWithinCapacity (S-13)", () => {
+  it("allows admission when there's room", () => {
+    expect(canAdmitWithinCapacity(200, 4, 400)).toBe(true);
+  });
+
+  it("blocks admission when at capacity", () => {
+    expect(canAdmitWithinCapacity(400, 1, 400)).toBe(false);
+  });
+
+  it("blocks admission when over capacity", () => {
+    expect(canAdmitWithinCapacity(398, 4, 400)).toBe(false);
+  });
+
+  it("always passes when legalCapacity is zero (unset)", () => {
+    expect(canAdmitWithinCapacity(999, 50, 0)).toBe(true);
+  });
+
+  it("allows exactly filling the last spot", () => {
+    expect(canAdmitWithinCapacity(396, 4, 400)).toBe(true);
+  });
+});
+
+// ---------- VM-02 + DO-06: Per-zone capacity enforcement ----------
+
+describe("canAdmitToZone (VM-02)", () => {
+  it("allows admission when zone has room", () => {
+    expect(canAdmitToZone(30, 4, 60)).toBe(true);
+  });
+
+  it("blocks admission when zone is at capacity", () => {
+    expect(canAdmitToZone(60, 1, 60)).toBe(false);
+  });
+
+  it("blocks admission when party would exceed capacity", () => {
+    expect(canAdmitToZone(58, 4, 60)).toBe(false);
+  });
+
+  it("allows exactly filling the last spot", () => {
+    expect(canAdmitToZone(56, 4, 60)).toBe(true);
+  });
+
+  it("always passes when capacity is null (uncapped zone)", () => {
+    expect(canAdmitToZone(999, 50, null)).toBe(true);
+  });
+
+  it("always passes when capacity is zero (unset)", () => {
+    expect(canAdmitToZone(999, 50, 0)).toBe(true);
   });
 });

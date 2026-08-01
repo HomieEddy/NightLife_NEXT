@@ -1,6 +1,7 @@
 # 09 — Analytics & Report Engine · PLAN
 
-**Status: complete except scheduled email delivery** — cron handlers + Resend
+**Status: complete.** Scheduled email delivery landed with plan 25 (dispatch)
+and `/api/jobs/report-schedules`. Original note: cron handlers + Resend
 never landed (rollups, due-selection and `job_runs` exist); see ROADMAP
 parking lot.
 
@@ -48,7 +49,7 @@ orders, sessions and movements carry months of… nothing — so the plan includ
 3. Rollup table + job + backfill; `getHistorical` swap; analytics page against
    real ranges.
 4. Report engine: schema, run path, CSV endpoint, swaps, cron schedule, email.
-5. Renames; delete analytics/report TODOs. (`mock-chart` swap-for-recharts TODO
+5. Renames; delete analytics/report TODOs. (`mock-chart` swap-for-recharts — done 2026-07-28)
    explicitly **stays** — Phase 3 parking lot.)
 
 ## Testing
