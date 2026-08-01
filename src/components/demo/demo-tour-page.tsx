@@ -101,12 +101,12 @@ export default function DemoTourPage() {
                     id={featureAnchorId(f)}
                     className="scroll-mt-24 bg-card/60 py-5 backdrop-blur sm:col-span-2"
                   >
-                    <CardContent className="flex flex-wrap items-center gap-5 px-5">
+                    <CardContent className="flex flex-col items-start gap-4 px-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-5">
                       <DemoQr
                         path={f.href}
                         className="size-24 shrink-0 overflow-hidden rounded-lg border bg-white p-1.5 [&_svg]:size-full"
                       />
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 w-full sm:w-auto sm:flex-1">
                         <div className="flex items-center gap-2">
                           <f.icon className="size-4 text-gold-deep dark:text-gold" />
                           <h3 className="font-semibold">{f.title}</h3>
