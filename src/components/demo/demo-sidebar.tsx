@@ -318,8 +318,11 @@ export function DemoSidebar() {
 
   return (
     <>
-      {/* ── Desktop: persistent sidebar ── */}
-      <aside className="hidden lg:flex lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:shrink-0 lg:flex-col lg:border-r lg:border-border/60 lg:bg-card/30 lg:backdrop-blur">
+      {/* ── Desktop: persistent sidebar ──
+          top-14 + the matching height reduction dock this below the public
+          layout's own sticky h-14 header instead of both sticking to y:0 —
+          same fix as the mobile bar below, same root cause. */}
+      <aside className="hidden lg:flex lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:w-64 lg:shrink-0 lg:flex-col lg:border-r lg:border-border/60 lg:bg-card/30 lg:backdrop-blur">
         <div className="flex items-center gap-2 border-b border-border/40 px-4 py-3.5">
           <Link href="/demo" className="label-luxe text-gold-deep hover:text-gold dark:text-gold">
             NightLifeNext
@@ -329,8 +332,13 @@ export function DemoSidebar() {
         <SidebarNav query={query} onQueryChange={setQuery} activeAnchor={activeAnchor} />
       </aside>
 
-      {/* ── Mobile: Sheet drawer ── */}
-      <div className="fixed inset-x-0 top-0 z-40 flex items-center gap-3 border-b border-border/40 bg-background/90 px-4 py-2.5 backdrop-blur lg:hidden">
+      {/* ── Mobile: Sheet drawer ──
+          sticky, not fixed — this page nests inside (public)/layout.tsx's
+          own sticky h-14 header (logo, Log in, theme toggle). `fixed top-0`
+          pinned this bar to the literal viewport top regardless of that
+          header, covering the login button. `top-14` docks it flush below
+          the header instead, matching the header's height. */}
+      <div className="sticky top-14 z-30 flex w-full shrink-0 items-center gap-3 border-b border-border/40 bg-background/90 px-4 py-2.5 backdrop-blur lg:hidden">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="size-8" aria-label="Open demo guide menu">
@@ -351,9 +359,6 @@ export function DemoSidebar() {
         </Link>
         <span className="text-[0.6rem] text-muted-foreground">Demo Guide</span>
       </div>
-
-      {/* ── Mobile top spacer so content clears the fixed bar ── */}
-      <div className="h-11 lg:hidden" aria-hidden="true" />
     </>
   );
 }
