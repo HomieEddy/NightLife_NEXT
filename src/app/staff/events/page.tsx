@@ -135,7 +135,11 @@ export default function StaffEventsPage() {
       </div>
 
       {visible && visible.length === 0 && (
-        <EmptyState icon={PartyPopper} title="No events this month" />
+        <EmptyState
+          icon={PartyPopper}
+          title="No events this month"
+          description="Switch months to browse other nights, or check back once the manager schedules one."
+        />
       )}
 
       {visible?.map((evt) => (

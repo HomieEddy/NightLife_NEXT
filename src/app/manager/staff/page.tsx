@@ -162,7 +162,7 @@ function StaffContent() {
             <EmptyState
               icon={Users}
               title={zoneFilter === "all" ? "No staff yet" : "No staff assigned to this zone"}
-              description={zoneFilter === "all" ? "Add your first team member to get started." : undefined}
+              description={zoneFilter === "all" ? "Add your first team member to get started." : "Assign staff to this zone, or switch the zone filter to see everyone."}
             />
           ) : (
             <>
