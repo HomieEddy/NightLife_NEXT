@@ -90,9 +90,15 @@ describe("canDo — ownership-scoped actions", () => {
 });
 
 describe("canDo — help:respond zone scoping", () => {
-  it("manager/host (scope all) can respond to any request", () => {
+  it("manager (scope all) can respond to any request", () => {
     expect(getHelpScope("manager")).toBe("all");
-    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "host", "help:respond", { actor, resource: { zoneId: "z-other", helpType: "security" } })).toBe(true);
+    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "manager", "help:respond", { actor, resource: { zoneId: "z-other", helpType: "security" } })).toBe(true);
+  });
+
+  it("host, bartender, runner cannot respond — only security and manager", () => {
+    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "host", "help:respond")).toBe(false);
+    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "bartender", "help:respond")).toBe(false);
+    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "runner", "help:respond")).toBe(false);
   });
 
   it("security (scope security-only) responds only to security requests", () => {
@@ -101,10 +107,9 @@ describe("canDo — help:respond zone scoping", () => {
     expect(canDo(DEFAULT_ROLE_PERMISSIONS, "security", "help:respond", { actor, resource: { zoneId: "z-x", helpType: "call-waiter" } })).toBe(false);
   });
 
-  it("runner (scope assigned-zones) responds only within their zones and never to security", () => {
+  it("runner (scope assigned-zones) lacks help:respond entirely", () => {
     expect(getHelpScope("runner")).toBe("assigned-zones");
-    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "runner", "help:respond", { actor, resource: { zoneId: "z-main", helpType: "call-waiter" } })).toBe(true);
-    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "runner", "help:respond", { actor, resource: { zoneId: "z-elsewhere", helpType: "call-waiter" } })).toBe(false);
-    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "runner", "help:respond", { actor, resource: { zoneId: "z-main", helpType: "security" } })).toBe(false);
+    // Runner no longer holds help:respond — only security and manager do.
+    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "runner", "help:respond")).toBe(false);
   });
 });

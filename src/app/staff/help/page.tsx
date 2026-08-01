@@ -14,6 +14,7 @@ import { staffService } from "@/features/workforce/staff-service";
 import { helpRequestKeys } from "@/features/guests/query-keys";
 import { staffKeys } from "@/features/workforce/query-keys";
 import { getHelpScope } from "@/features/shared/role-capabilities";
+import { canDo, DEFAULT_ROLE_PERMISSIONS } from "@/features/shared/permissions";
 import { timeAgo } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
@@ -79,6 +80,7 @@ export default function StaffHelpPage() {
   const open = scoped.filter((r) => r.status !== "resolved");
   const resolved = scoped.filter((r) => r.status === "resolved").slice(0, 5);
   const isSecurityRole = me?.role === "security";
+  const canResolve = me ? canDo(DEFAULT_ROLE_PERMISSIONS, me.role, "help:respond") : false;
 
   return (
     <div className="animate-fade-in space-y-5 p-4">
@@ -131,6 +133,7 @@ export default function StaffHelpPage() {
                       </span>
                     </div>
                   </div>
+                  {canResolve && (
                   <div className="flex gap-2">
                     {request.status === "open" && (
                       <ConfirmDialog
@@ -165,6 +168,7 @@ export default function StaffHelpPage() {
                       }
                     />
                   </div>
+                  )}
                 </CardContent>
               </Card>
             );

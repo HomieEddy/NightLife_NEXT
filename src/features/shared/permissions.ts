@@ -421,16 +421,14 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   ],
   host: [
     "order:accept", "order:claim", "order:release", "order:transition", "order:gift",
-    "session:approve", "session:deny", "help:respond",
+    "session:approve", "session:deny",
     "tab:void", "tab:comp", "tab:transfer", "tab:merge",
-    "door:count", "door:admit", "door:id-check", "waitlist:manage",
     "incident:create", "guest:read-profile", "service:refuse",
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
     "stocktake:count", "inventory:waste", "inventory:86",
   ],
   bartender: [
     "order:accept", "order:claim", "order:release", "order:transition",
-    "help:respond",
     "tab:void", "cashout:close",
     "incident:create", "service:refuse",
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
@@ -439,14 +437,13 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   // Fulfillment only — can move orders forward but cannot accept new ones.
   runner: [
     "order:claim", "order:release", "order:transition",
-    "help:respond",
     "incident:create",
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
   ],
   // Security — the door, incidents and flags-only guest lookups; no order/session/tab authority.
   security: [
     "help:respond",
-    "door:count", "door:admit", "door:id-check",
+    "door:count", "door:admit", "door:id-check", "waitlist:manage",
     "incident:create", "incident:read-all", "incident:mark-reportable",
     "guest:read-profile", // flags only — the UI hides visit/lifetime detail for this role
     "service:refuse",

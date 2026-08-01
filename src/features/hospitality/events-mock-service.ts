@@ -61,7 +61,7 @@ export const mockEventsService = {
     eventId: string;
     name: string;
     partySize: number;
-    /** Set when the door/host resolves a repeat guestlist name to a known regular (plan 17). */
+    /** Set when the door/security resolves a repeat guestlist name to a known regular (plan 17). */
     guestProfileId?: string;
     /** PR-02: Staff promoter ID ÔÇö required for quota enforcement. */
     promoterId?: string;
