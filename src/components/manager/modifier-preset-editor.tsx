@@ -2,6 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -94,15 +95,14 @@ export function ModifierPresetEditor({
               />
               Required
             </label>
-            <Button
+            <TooltipIconButton
               type="button"
               variant="ghost"
-              size="icon"
               onClick={() => onChange(value.filter((_, position) => position !== groupIndex))}
-              aria-label={`Remove ${group.name}`}
+              tooltip={`Remove ${group.name}`}
             >
               <Trash2 className="size-4" />
-            </Button>
+            </TooltipIconButton>
           </div>
 
           <p className="text-xs text-muted-foreground">
@@ -171,15 +171,14 @@ export function ModifierPresetEditor({
                     </SelectContent>
                   </Select>
                 ) : <div />}
-                <Button
+                <TooltipIconButton
                   type="button"
                   variant="ghost"
-                  size="icon"
                   onClick={() => updateGroup(groupIndex, { options: group.options.filter((_, position) => position !== optionIndex) })}
-                  aria-label={`Remove ${option.name || "option"}`}
+                  tooltip={`Remove ${option.name || "option"}`}
                 >
                   <Trash2 className="size-4" />
-                </Button>
+                </TooltipIconButton>
               </div>
             ))}
             <Button

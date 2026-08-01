@@ -5,6 +5,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import {
   Dialog,
   DialogContent,
@@ -176,16 +177,15 @@ export function PackageEditor({
                   {...register(`components.${index}.quantity`, { valueAsNumber: true })}
                   aria-label="Quantity"
                 />
-                <Button
+                <TooltipIconButton
                   type="button"
                   variant="ghost"
-                  size="icon"
                   className="shrink-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                   onClick={() => remove(index)}
-                  aria-label="Remove bottle"
+                  tooltip="Remove bottle"
                 >
                   <Trash2 className="size-4" />
-                </Button>
+                </TooltipIconButton>
               </div>
             ))}
             {errors.components?.root && <p className="text-xs text-destructive">{errors.components.root.message}</p>}

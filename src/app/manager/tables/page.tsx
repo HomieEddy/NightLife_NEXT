@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -260,9 +261,9 @@ function TablesContent() {
                       ))}
                     </div>
                     <div className="flex shrink-0 items-center">
-                      <Button variant="ghost" size="icon" className="size-7" aria-label="Edit table" onClick={() => openEdit(table)}>
+                      <TooltipIconButton variant="ghost" className="size-7" tooltip="Edit table" onClick={() => openEdit(table)}>
                         <Pencil className="size-3.5" />
-                      </Button>
+                      </TooltipIconButton>
                       <ConfirmDialog
                         trigger={
                           <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-red-600 dark:hover:text-red-400" aria-label="Delete table">

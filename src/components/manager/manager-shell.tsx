@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { RequireAuth } from "@/components/shared/require-auth";
+import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { isManagerOnboarded } from "@/lib/onboarding";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -302,13 +303,14 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
         <div className="flex h-14 items-center gap-1 border-b px-3">
           <BrandLogo href="/manager" />
           <div className="flex-1" />
-          <button
+          <TooltipIconButton
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setPaletteOpen(true)}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            aria-label="Search"
+            tooltip="Search"
           >
             <Search className="size-4" />
-          </button>
+          </TooltipIconButton>
           <Sheet open={attentionSheetOpen} onOpenChange={setAttentionSheetOpen}>
             <SheetTrigger asChild>
               <button className="relative rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Attention feed">
@@ -346,13 +348,14 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
           <div className="flex h-12 items-center justify-between px-3">
             <BrandLogo href="/manager" variant="mark" />
             <div className="flex items-center gap-1">
-              <button
+              <TooltipIconButton
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => setPaletteOpen(true)}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent"
-                aria-label="Search"
+                tooltip="Search"
               >
                 <Search className="size-4" />
-              </button>
+              </TooltipIconButton>
               <Sheet open={attentionSheetOpen} onOpenChange={setAttentionSheetOpen}>
                 <SheetTrigger asChild>
                   <button className="relative rounded-md p-1.5 text-muted-foreground hover:bg-accent" aria-label="Attention">
