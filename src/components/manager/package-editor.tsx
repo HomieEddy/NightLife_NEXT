@@ -205,7 +205,7 @@ export function PackageEditor({
 
           <ModifierPresetEditor
             value={modifierGroups ?? []}
-            onChange={(v) => setValue("modifierGroups", v as any)}
+            onChange={(v) => setValue("modifierGroups", v as unknown as ModifierGroup[])}
             inventoryItems={items}
           />
 

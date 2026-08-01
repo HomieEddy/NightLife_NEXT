@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Gift, Loader2, Martini, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -65,6 +65,11 @@ function MenuContent() {
     name: z.string().min(1, "Name is required"),
     description: z.string().default(""),
     price: z.number().positive("Price must be positive"),
+    isAlcoholic: z.boolean().default(true),
+    // Blank ABV is legitimate (unknown), so an empty string parses to undefined
+    // rather than failing validation.
+    abv: z.union([z.number().min(0).max(100), z.nan()]).optional(),
+    allergens: z.string().default(""),
   });
 
   const categoryForm = useForm({
@@ -74,7 +79,7 @@ function MenuContent() {
 
   const itemForm = useForm({
     resolver: zodResolver(zItemEditForm),
-    defaultValues: { name: "", description: "", price: 0 },
+    defaultValues: { name: "", description: "", price: 0, isAlcoholic: true, abv: undefined, allergens: "" },
   });
 
   const { data: categories } = useQuery({
@@ -112,7 +117,7 @@ function MenuContent() {
   const saveCategoryMutation = useMutation({
     mutationFn: async (data: z.infer<typeof zCategoryForm>) => {
       const draft = {
-        venueId: editingCategory?.venueId ?? "venue-1",
+        venueId: editingCategory?.venueId ?? venueId,
         name: data.name.trim(),
         description: data.description,
         sortOrder: data.sortOrder,
@@ -163,6 +168,12 @@ function MenuContent() {
         name: data.name,
         description: data.description,
         price: data.price,
+        isAlcoholic: data.isAlcoholic,
+        abv: Number.isNaN(data.abv) || data.abv === undefined ? undefined : data.abv,
+        allergens: data.allergens
+          .split(",")
+          .map((a) => a.trim())
+          .filter(Boolean),
       });
     },
     onSuccess: () => {
@@ -175,11 +186,11 @@ function MenuContent() {
   // Package mutations
   const savePackageMutation = useMutation({
     mutationFn: async (draft: PackageDraft) => {
-      const payload = { ...draft, price: draft.priceCents / 100 } as any;
+      const payload = { ...draft, price: draft.priceCents / 100 } as unknown as Omit<BottlePackage, "id">;
       if (editingPackage) {
-        return menuService.updatePackage(editingPackage.id, payload as any);
+        return menuService.updatePackage(editingPackage.id, payload);
       } else {
-        return menuService.createPackage({ venueId: "venue-1", ...payload } as any);
+        return menuService.createPackage({ ...payload, venueId: venueId });
       }
     },
     onSuccess: (_, draft) => {
@@ -330,7 +341,7 @@ function MenuContent() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => { setEditing(item); itemForm.reset({ name: item.name, description: item.description, price: item.price }); }}
+                          onClick={() => { setEditing(item); itemForm.reset({ name: item.name, description: item.description, price: item.price, isAlcoholic: item.isAlcoholic, abv: item.abv, allergens: item.allergens.join(", ") }); }}
                           aria-label="Edit item"
                         >
                           <Pencil className="size-4" />
@@ -540,6 +551,45 @@ function MenuContent() {
                 <Label htmlFor="edit-price">Price ($ CAD)</Label>
                 <Input id="edit-price" type="number" min={0} step={5} {...itemForm.register("price", { valueAsNumber: true })} />
                 {itemForm.formState.errors.price && <p className="text-xs text-destructive">{itemForm.formState.errors.price.message}</p>}
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5 pr-4">
+                  <Label htmlFor="edit-alcoholic">Contains alcohol</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Counts toward each guest&apos;s responsible-service drink total.
+                  </p>
+                </div>
+                <Controller
+                  control={itemForm.control}
+                  name="isAlcoholic"
+                  render={({ field }) => (
+                    <Switch
+                      id="edit-alcoholic"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      aria-label="Contains alcohol"
+                    />
+                  )}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-abv">ABV (%)</Label>
+                <Input
+                  id="edit-abv"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  placeholder="e.g. 40"
+                  {...itemForm.register("abv", { valueAsNumber: true })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-allergens">Allergens</Label>
+                <Input id="edit-allergens" placeholder="nuts, dairy" {...itemForm.register("allergens")} />
+                <p className="text-xs text-muted-foreground">
+                  Comma-separated. Shown to guests on the item — leave blank if none are declared.
+                </p>
               </div>
               <p className="text-xs text-muted-foreground">
                 Stock levels are managed in Inventory — restocks and corrections happen there.

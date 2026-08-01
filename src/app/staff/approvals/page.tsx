@@ -16,11 +16,9 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { guestsService } from "@/features/guests/services";
 import { reservationService } from "@/features/hospitality/reservation-service";
 import { staffService } from "@/features/workforce/staff-service";
-import { canDo } from "@/features/shared/permissions";
-import { permissionService } from "@/features/platform/permission-service";
+import { usePermissions } from "@/features/platform/use-permissions";
 import { sessionsKeys } from "@/features/guests/query-keys";
 import { staffKeys } from "@/features/workforce/query-keys";
-import { permissionsKeys, } from "@/features/platform/query-keys";
 import { reservationsKeys } from "@/features/hospitality/query-keys";
 import { useAuth } from "@/context/auth-context";
 import { timeAgo } from "@/features/shared/format";
@@ -43,11 +41,7 @@ export default function StaffApprovalsPage() {
     enabled: !!venueId,
   });
 
-  const { data: permissions } = useQuery({
-    queryKey: permissionsKeys.role(venueId),
-    queryFn: () => permissionService.getRolePermissions("venue-1"),
-    enabled: !!venueId,
-  });
+  const { can, isLoading: permsLoading } = usePermissions();
 
   const { data: allSessions, isLoading } = useQuery({
     queryKey: sessionsKeys.all(venueId),
@@ -115,7 +109,7 @@ export default function StaffApprovalsPage() {
     .filter((s) => !["pending", "closure-requested"].includes(s.status))
     .slice(0, 6);
 
-  if (me && permissions && !canDo(permissions, me.role, "session:approve")) {
+  if (!permsLoading && !can("session:approve")) {
     return (
       <div className="p-4">
         <EmptyState

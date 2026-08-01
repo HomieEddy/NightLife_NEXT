@@ -19,15 +19,13 @@ async function liveGET() {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { sendBroadcast } = await import("@/features/realtime/floor-core");
 
-  const auth = await requireApiArea("manager");
+  const auth = await requirePermission("staff", "broadcast:send");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const body = await request.json();
   const message = body.message as string;
   const sentBy = body.sentBy as string;

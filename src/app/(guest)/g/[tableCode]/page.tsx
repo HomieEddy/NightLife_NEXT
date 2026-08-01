@@ -53,22 +53,29 @@ export default function QrEntryPage({
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      let tableResult: { table: VenueTable; zone: Zone; venue: Venue } | null = null;
       try {
-        const tableResult = await venueService.getTableBySlug(tableCode);
-        if (cancelled) return;
-        setResult(tableResult);
+        tableResult = await venueService.getTableBySlug(tableCode);
+      } catch {
+        tableResult = null;
+      }
+      if (cancelled) return;
+      setResult(tableResult);
 
-        if (tableResult) {
+      // The PIN gate is a separate read: if it fails, the guest still gets the
+      // table. Folding it into the lookup above once turned any gate-check
+      // error into a bogus "Table not found" for every scan.
+      if (tableResult) {
+        try {
           const reservation = await reservationService.getActiveReservationForTable(
             tableResult.table.id,
           );
           if (!cancelled) setActiveReservation(reservation);
+        } catch {
+          if (!cancelled) setActiveReservation(null);
         }
-      } catch {
-        if (!cancelled) setResult(null);
-      } finally {
-        if (!cancelled) setLoading(false);
       }
+      if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;

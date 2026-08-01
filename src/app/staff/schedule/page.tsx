@@ -93,7 +93,7 @@ export default function StaffSchedulePage() {
   const timeOffMutation = useMutation({
     mutationFn: async () => {
       await timeService.requestTimeOff({
-        venueId: "venue-1", staffId: me!.id, startDate: toStart, endDate: toEnd, reason: toReason,
+        venueId: venueId, staffId: me!.id, startDate: toStart, endDate: toEnd, reason: toReason,
       });
     },
     onSuccess: () => {

@@ -9,6 +9,8 @@ const FIXTURE: HistoricalAnalytics = {
   totalRevenue: 84000,
   totalOrders: 800,
   avgOrderValue: 105,
+  pourCostPercent: 30.0,
+  grossMarginPercent: 70.0,
   bestNight: { label: "7/12", revenue: 18000, orders: 170 },
   series: [
     { label: "7/7", revenue: 12000, orders: 110 },

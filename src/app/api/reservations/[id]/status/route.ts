@@ -34,6 +34,8 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
       const { dispatch } = await import("@/features/notifications/dispatch");
       const { normalizePhone } = await import("@/lib/phone");
       const prisma = getRawPrisma();
+      const org = await prisma.organization.findUnique({ where: { id: venueId }, select: { name: true } });
+      const orgName = org?.name ?? venueId;
       const r = result.reservation as unknown as Record<string, unknown>;
       const phone = hasPhone ? normalizePhone(r.guestPhone as string) : undefined;
       await dispatch(prisma, {
@@ -44,7 +46,7 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
           phone: phone ?? undefined,
         }],
         data: {
-          venueName: venueId, // ponytail: TODO fetch org name via prisma.organization
+          venueName: orgName,
           guestName: r.guestName,
           date: new Date(r.startsAt as string).toLocaleDateString("en-CA", { weekday: "long", year: "numeric", month: "long", day: "numeric" }),
           time: new Date(r.startsAt as string).toLocaleTimeString("en-CA", { hour: "2-digit", minute: "2-digit" }),

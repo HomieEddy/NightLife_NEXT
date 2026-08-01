@@ -5,7 +5,7 @@ settled on the demo track before it is graduated to live. Production hardening
 and delivery automation are the last two phases — automate the delivery of a
 complete product, not a work-in-progress.
 
-**Last updated:** 2026-07-30
+**Last updated:** 2026-07-31
 **Supersedes:** the 2026-07-27 roadmap. This realignment absorbed and retired
 six documents whose content now lives here: the business logic audit, the MVP
 implementation-gaps report, the TODO audit, the traceability matrix, the UX
@@ -17,26 +17,30 @@ requirements, architecture and domain references.
 
 ## WHERE WE ARE
 
-Phases 1–6 are complete. The product is **feature-complete on the demo track**:
-every operational workflow a VIP bottle-service nightclub needs exists as mock
-data → mock service → UI, drivable end-to-end in the demo build.
+Phases 1–7 are complete. The product is feature-complete on **both** tracks:
+every operational workflow a VIP bottle-service nightclub needs runs against
+real Postgres, real auth and real tenant scoping in the live build, and the
+same workflows stay drivable in the permanent demo sandbox (AD-14).
 
-**The live build is behind.** Roughly half the feature surface still throws
-`"Not yet supported"` in live mode: eight modules are fully stubbed (door,
-waitlist, incidents, guest identity, workforce time/tips/commission, purchasing)
-and six more are partially stubbed. **Phase 7 closes that gap** — it is the only
-thing standing between today and an MVP a real venue can open its doors on.
+All 29 service selectors resolve to a real live implementation. A full night
+runs end-to-end in the live build, covered by a two-context Playwright suite
+(guest scan → order → delivery, and manager fee change → guest cart).
+
+**What remains before a venue signs is Phase 8, not more features.** Two of its
+items are legal rather than technical for the Quebec market: plan 34 (French UI,
+Charter of the French Language) and plan 35 (Law 25 / PIPEDA consent, retention
+and deletion). See `docs/PHASE-7-AUDIT.md` for the closing audit.
 
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Core Platform Foundation (plans 01–12) | **Complete** — live |
-| 2 | Core Nightclub Operations (plans 13–17, 25–26, S-01→S-04) | **Complete** — demo; live pending Phase 7 |
-| 3 | Business Logic Completion (plans 18–20, RV/OE/CRM) | **Complete** — demo; live pending Phase 7 |
+| 2 | Core Nightclub Operations (plans 13–17, 25–26, S-01→S-04) | **Complete** — demo + live |
+| 3 | Business Logic Completion (plans 18–20, RV/OE/CRM) | **Complete** — demo + live |
 | 4 | Automation & Intelligence (AI-01→AI-14, AM-01→AM-13) | **Complete** — live |
 | 5 | Mobile Experience: PWA + Push (plan 28) | **Complete** — live |
 | 6 | Foundation Modernization & Server State (plan 30 + TanStack Query) | **Complete** |
-| **7** | **Live Graduation to MVP** | **← CURRENT** |
-| 8 | Production Readiness (plans 31–35) | Not started |
+| **7** | **Live Graduation to MVP** | **Complete** — audited 2026-07-31, see `docs/PHASE-7-AUDIT.md` |
+| 8 | Production Readiness (plans 31–35) | **← CURRENT** |
 | 9 | CI/CD, Deployment & Release Automation (plan 36) | Not started |
 
 ---
@@ -72,7 +76,7 @@ tests against PGlite.
 
 ---
 
-## PHASE 2 — CORE NIGHTCLUB OPERATIONS · COMPLETE (DEMO TRACK)
+## PHASE 2 — CORE NIGHTCLUB OPERATIONS · COMPLETE
 
 Plans 13–17 plus the notification dispatch layer (25–26) and the four safety
 features. The venue can open its doors: the tab is a financial object, the door
@@ -81,15 +85,15 @@ reach staff.
 
 | Plan | Feature | Track status |
 |------|---------|--------------|
-| 13 | Embedded reservations & reserved-table QR gate (PIN gating, public booking page) | Demo · live pending (WS-3) |
-| 14 | Promoters: role, mobile panel & attribution analytics | Demo · live pending (WS-3) |
-| 15 | Floor-role capability matrix & security panel | Demo · live pending (WS-6) |
-| 16 | Tab ledger: comp/void/discount with reason codes, minimum spend, transfer/merge/split, shift cash-out, audit trail | Demo · live pending (WS-1) |
-| 17 | Door surface, guest profiles, incidents, ejection, safety enforcement | Demo · live pending (WS-2) |
+| 13 | Embedded reservations & reserved-table QR gate (PIN gating, public booking page) | Demo · **live (WS-3)** |
+| 14 | Promoters: role, mobile panel & attribution analytics | Demo · **live (WS-3)** |
+| 15 | Floor-role capability matrix & security panel | Demo · **live (WS-6)** — server-enforced permissions, nav derived from the matrix |
+| 16 | Tab ledger: comp/void/discount with reason codes, minimum spend, transfer/merge/split, shift cash-out, audit trail | Demo · **live (WS-1)** |
+| 17 | Door surface, guest profiles, incidents, ejection, safety enforcement | Demo · **live (WS-2)** — incl. S-04 certifications |
 | 25 | Notification dispatch core (Resend email, React Email templates, `NotificationLog`, BullMQ/cron) | **Live** |
 | 26 | SMS notifications (Twilio) | **Live** |
 
-**Safety features (S-01→S-04)** — all shipped on the demo track inside plan 17:
+**Safety features (S-01→S-04)** — shipped inside plan 17, live as of WS-2:
 age verification with DOB calculation and denied-entry recording (S-01),
 mandatory incident reporting with reportable flag and regulatory deadline (S-02),
 emergency evacuation mode with headcount ledger (S-03), and certification
@@ -97,7 +101,7 @@ tracking with scheduling enforcement (S-04).
 
 ---
 
-## PHASE 3 — BUSINESS LOGIC COMPLETION · COMPLETE (DEMO TRACK)
+## PHASE 3 — BUSINESS LOGIC COMPLETION · COMPLETE
 
 Plans 18–20 plus the ~86 operational features from the business logic audit
 (2026-07-29), delivered across five MVP sprints and merged in
@@ -105,8 +109,8 @@ Plans 18–20 plus the ~86 operational features from the business logic audit
 
 | Plan | Feature | Track status |
 |------|---------|--------------|
-| 18 | Workforce: time clock, dated shifts, scheduling, tip pooling, promoter commissions | Demo · live pending (WS-4) |
-| 19 | Cost & supply: suppliers, purchase orders, par levels, stocktakes, waste, margin analytics | Demo · live pending (WS-5) |
+| 18 | Workforce: time clock, dated shifts, scheduling, tip pooling, promoter commissions | Demo · **live (WS-4)** |
+| 19 | Cost & supply: suppliers, purchase orders, par levels, stocktakes, waste, margin analytics | Demo · **live (WS-5)** |
 | 20 | Navigation & UX: grouped nav, command palette, global attention, URL-backed view state, keyboard model, undo-vs-confirm policy | **Live** |
 
 **Feature families delivered** (audit codes retained for traceability; each is
@@ -194,7 +198,7 @@ all client-side reads — a new page fetching in an effect is a pattern break.
 
 ---
 
-## PHASE 7 — LIVE GRADUATION TO MVP · CURRENT
+## PHASE 7 — LIVE GRADUATION TO MVP · COMPLETE
 
 **Goal:** every feature that works in the demo build works in the live build,
 against real Postgres, with real auth and real tenant scoping. When this phase
@@ -214,7 +218,7 @@ in what order. Update the plan file in the same PR if you depart from it.
 | **WS-3** | **Hospitality completion.** Public reservation API routes (plan 13 graduation), `markNoShow` (remove the `reservation-core.ts` guard — the Prisma enum already has the value), blackout dates, bump/upgrade, late-arrival grace, event guest status PATCH, event cancellation, talent management, promoter guestlist quota, public events route, promoter attribution filter. | 13, 14, 08 | `hospitality/reservation-live-service.ts`, `hospitality/events-live-service.ts`, `hospitality/events-mock-service.ts` | Med |
 | **WS-4** | **Workforce & incentives.** Time tracking (~15 methods: clock in/out, breaks, dated shifts, time off, swaps), tip pool rules and distributions, commission rules and statements, table assignments, shift handoffs, and the shift-reminder scheduled job. New routes under `/api/workforce/*`. | 18 | `workforce/time-live-service.ts`, `workforce/tips-live-service.ts`, `workforce/commission-live-service.ts`, `workforce/staff-live-service.ts` | Med |
 | **WS-5** | **Cost, supply & profitability.** The purchasing module (~18 methods: suppliers, POs with unit costs, stocktakes with variance, 86-board, waste, profit targets, event costs, pre-/post-service checklists) and checklist graduation (templates as venue-scoped rows, runs append-only per business date). New routes under `/api/purchasing/*`. | 19 | `platform/purchasing-live-service.ts`, `venue/checklist-mock-service.ts` | Med |
-| **WS-6** | **Role permissions persistence.** `getRolePermissions` from a new `venue_role_permissions` table rather than the hardcoded default map, plus `setRolePermissions` and `resetRolePermissions` with an audit entry per change. | 15 | `platform/permission-live-service.ts`, `shared/permissions.ts` | Med |
+| **WS-6** | **Role permissions — persistence + enforcement (shipped).** `venue_role_permissions` table + delta persistence with an audit entry per change; plus the enforcement half: a `requirePermission()`/`requireStaffContext()` server guard adopted across ~47 route handlers (each `StaffAction` gated at the `"staff"` area with the action as authority), scoped `canDo(perms, role, action, ctx)` for ownership/zone actions, a fail-closed `usePermissions()` hook + `<Can>` replacing the hardcoded `"venue-1"` in 10 pages, and `getStaffNav` derived from the live matrix so nav can't drift. Reservations (dual manager/promoter authority) and config CRUD stay area-only. | 15 | `platform/permission-guard.ts`, `platform/permission-live-service.ts`, `shared/permissions.ts`, `platform/use-permissions.ts` | Med |
 | **WS-7** | **Notification residue.** Reservation PIN delivery via email/SMS on confirm, and the `venueName` fix in `/api/reservations/[id]/status` (fetch the org name instead of passing `venueId` as the name). | 25, 26 | `hospitality/reservation-mock-service.ts`, `app/api/reservations/[id]/status/route.ts` | Low |
 | **WS-8** | **Schema & type alignment.** `promoterId` FK on Reservation, nullable `photoUrl` column, `"merged"` added to the Prisma `SessionStatus` enum, `isAlcoholic`/`abv`/`allergens` columns on MenuItem, `reservationPin` stamped at seat time, `happyHourSnapshot` attribution column, and replacing the hardcoded `VENUE_ID = "venue-1"` in `app/manager/staff/page.tsx` with the session's venueId. | — (cross-cutting) | `lib/types.ts`, `features/sessions/core.ts`, `features/menu/core.ts` | Low |
 
@@ -232,9 +236,12 @@ WS-8 (schema/types) ─── incremental, any time
 
 ### Rules for this phase
 
-- **The mock is the contract.** Every live implementation `satisfies` the mock
-  service's type. No mock is edited to ship live behavior, no call site changes,
-  no `mockXService → xService` renames (R1, AD-14).
+- **The mock is the contract.** Every live implementation is type-checked
+  against the mock's type — in practice by the selector's annotation
+  (`export const xService: XService = … : liveOnlyService(liveXService)`),
+  which makes the live branch's assignability a compile error if it drifts.
+  No mock is edited to ship live behavior, no call site changes, no
+  `mockXService → xService` renames (R1, AD-14).
 - **Test-first for invariants.** Money math, state machines, ledgers and locks
   get the failing test before the code (AGENTS.md §7b.3). WS-1 is entirely in
   this category.
@@ -246,8 +253,11 @@ WS-8 (schema/types) ─── incremental, any time
 
 ### Exit criteria
 
-1. `grep -rn "Not yet supported" src/` returns nothing outside intentional
-   demo-only stubs.
+1. Every `*-service.ts` selector's live branch resolves to a real `live*Service`
+   — no selector returns the mock in live mode. (The old check grepped for
+   `"Not yet supported"`; that string stopped being the stub mechanism once
+   stubs became `demoOnlyService`/`liveOnlyService` proxies, so the grep passed
+   while a fully-stubbed module shipped. Check the selectors, not the string.)
 2. A GM can run a full night end-to-end **in the live build**: door count and
    admissions with age verification, seat a VIP table against its minimum, rush
    and comp a round, close and split the tab, reconcile the drawer, file an
@@ -261,7 +271,7 @@ WS-8 (schema/types) ─── incremental, any time
 
 ---
 
-## PHASE 8 — PRODUCTION READINESS · NOT STARTED
+## PHASE 8 — PRODUCTION READINESS · CURRENT
 
 Plans 31–35. No new product features — this phase makes the existing product
 production-safe before a real venue signs.
@@ -310,13 +320,13 @@ realignment so that all *remaining* work is numbered in ROADMAP order.
 | Plan | Feature | Phase | Status |
 |------|---------|-------|--------|
 | 01–12 | Foundation through platform admin & local dev | 1 | Live |
-| 13 | Embedded reservations & QR gate | 2 | Demo · WS-3 |
-| 14 | Promoters | 2 | Demo · WS-3 |
-| 15 | Floor-role capability matrix & security panel | 2 | Demo · WS-6 |
-| 16 | Tab ledger & adjustments | 2 | Demo · WS-1 |
-| 17 | Door, arrival, guest identity & safety | 2 | Demo · WS-2 |
-| 18 | Workforce: time, incentives | 3 | Demo · WS-4 |
-| 19 | Cost, supply & profitability | 3 | Demo · WS-5 |
+| 13 | Embedded reservations & QR gate | 2 | Live |
+| 14 | Promoters | 2 | Live |
+| 15 | Floor-role capability matrix & security panel | 2 | Live |
+| 16 | Tab ledger & adjustments | 2 | Live |
+| 17 | Door, arrival, guest identity & safety | 2 | Live |
+| 18 | Workforce: time, incentives | 3 | Live |
+| 19 | Cost, supply & profitability | 3 | Live |
 | 20 | Navigation & UX overhaul | 3 | Live |
 | 25 | Notification core & email (Resend) | 2 | Live |
 | 26 | SMS notifications (Twilio) | 2 | Live |
@@ -409,8 +419,29 @@ plan 30 for staging/prod, cron fallback for local live dev).
   production + Vercel demo).
 - **Work branches:** branch from `dev`, merge back via PR, delete after merge.
 - **Plan-numbered features:** `feature/NN-shortname`.
-- **Phase 7 workstreams:** `feature/ws-N-shortname` (e.g. `feature/ws-1-tab-ledger`).
 - **Release PRs:** `dev` → `master` when stable and QA'd on staging. The PR
   description is the release summary.
-</content>
-</invoke>
+
+### Phase 7 runs on an integration branch
+
+Phase 7 is eight workstreams spanning weeks, which is longer than the
+short-lived work branch AGENTS.md §10.8 assumes. It runs on one integration
+branch instead:
+
+```
+feature/ws-1-tab-ledger ──PR──┐
+feature/ws-2-door-safety ─PR──┤
+feature/ws-3-hospitality ─PR──┼──► feature/live-graduation ──PR──► dev ──► master
+feature/ws-4-workforce ───PR──┤       (integration branch)      (staging)  (prod)
+… WS-5 … WS-8 ────────────PR──┘
+```
+
+- Each workstream branches from `feature/live-graduation` and PRs back into it.
+- Rebase a workstream branch onto the integration branch before opening its PR
+  if the two have diverged.
+- The integration branch never merges into `dev` mid-phase. One release PR
+  closes the phase, and its description is the Phase 7 exit-criteria checklist.
+- Consequence to accept: staging sees nothing until the phase closes. Verify
+  workstreams locally against `npm run dev:pglite`, not on staging.
+- The integration branch is deleted when the phase closes. This pattern is for
+  Phase 7 only — normal work goes straight to `dev` per AGENTS.md §10.8.

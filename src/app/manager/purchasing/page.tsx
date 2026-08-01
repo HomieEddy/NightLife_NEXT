@@ -142,7 +142,7 @@ export default function ManagerPurchasingPage() {
     mutationFn: async (data: z.infer<typeof zSupplierInput>) => {
       const s: Supplier = {
         id: supEditing?.id ?? `sup-${Date.now()}`,
-        venueId: "venue-1",
+        venueId: venueId,
         name: data.name.trim(),
         contactName: data.contactName.trim() || undefined,
         email: data.email?.trim() || undefined,
@@ -167,7 +167,7 @@ export default function ManagerPurchasingPage() {
     mutationFn: async (data: { date: string }) => {
       const st: Stocktake = {
         id: `st-${data.date}`,
-        venueId: "venue-1",
+        venueId: venueId,
         businessDate: data.date,
         scope: "full",
         status: "open",
@@ -216,7 +216,7 @@ export default function ManagerPurchasingPage() {
       });
       const subtotal = lines.reduce((s, l) => s + l.lineTotalCents, 0);
       const po: PurchaseOrder = {
-        id: `po-${ts}`, venueId: "venue-1", supplierId: poSupplierId,
+        id: `po-${ts}`, venueId: venueId, supplierId: poSupplierId,
         code: `PO-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(ts % 1000).padStart(3, "0")}`,
         status: "draft", lines, subtotalCents: subtotal,
       };

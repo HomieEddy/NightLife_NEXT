@@ -193,6 +193,7 @@ model StaffProfile {
   tipPoolWeight   Float?   @default(1.0) @map("tip_pool_weight")
   employmentType  String?  @map("employment_type")
   commissionRuleId String? @map("commission_rule_id")
+  guestlistQuota   Int?    @map("guestlist_quota")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -230,6 +231,8 @@ model Venue {
   occupancyWarnRatio     Float    @default(0.9) @map("occupancy_warn_ratio")
   coatCheckEnabled       Boolean  @default(false) @map("coat_check_enabled")
   doorRequiresIdCheck    Boolean  @default(false) @map("door_requires_id_check")
+  legalDrinkingAge       Int      @default(18) @map("legal_drinking_age")
+  evacuationState        String   @default("normal") @map("evacuation_state")
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -253,8 +256,14 @@ model Venue {
   floorState     VenueFloorState?
   activeShow     ActiveShowLock?
   chatMessages   ChatMessage[]
-  nightlyRollups NightlyRollup[]
-  savedReports   SavedReport[]
+  nightlyRollups   NightlyRollup[]
+  savedReports     SavedReport[]
+  guests           GuestProfile[]
+  admissions       Admission[]
+  occupancyEvents  OccupancyEvent[]
+  waitlistEntries  WaitlistEntry[]
+  coatCheckTickets CoatCheckTicket[]
+  incidents        Incident[]
 
   @@map("venues")
 }
@@ -282,6 +291,8 @@ enum TableStatus {
   occupied
   reserved
   closed
+  held
+  out_of_service @map("out-of-service")
 }
 
 model VenueTable {
@@ -298,6 +309,9 @@ model VenueTable {
   mapY         Float?      @map("map_y")
   /// Reserved for plan 06 (signed QR tokens) — bumped to invalidate old QR codes.
   tokenVersion Int         @default(0) @map("token_version")
+  holdReason   String?     @map("hold_reason")
+  heldBy       String?     @map("held_by")
+  heldUntil    DateTime?   @map("held_until") @db.Timestamptz
   createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -509,6 +523,11 @@ model Order {
   promotionId        String?     @map("promotion_id")
   promotionCode      String?     @map("promotion_code")
   promotionCents     Int         @default(0) @map("promotion_cents")
+  isRushed           Boolean     @default(false) @map("is_rushed")
+  rushedBy           String?     @map("rushed_by")
+  rushedAt           DateTime?   @map("rushed_at") @db.Timestamptz
+  happyHourRuleId    String?     @map("happy_hour_rule_id")
+  happyHourCents     Int         @default(0) @map("happy_hour_cents")
 
   venue    Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
   session  GuestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
@@ -563,6 +582,7 @@ enum GuestSessionStatus {
   denied
   closure_requested @map("closure-requested")
   closed
+  merged
 }
 
 enum SettlementMethod {
@@ -589,6 +609,8 @@ model GuestSession {
   guestProfileId      String?  @map("guest_profile_id")
   serviceRefusedAt    DateTime? @map("service_refused_at") @db.Timestamptz
   serviceRefusedReason String? @map("service_refused_reason")
+  hostStaffId         String?  @map("host_staff_id")
+  hostStaffName       String?  @map("host_staff_name")
   createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -599,6 +621,53 @@ model GuestSession {
   @@index([venueId, status])
   @@index([tableId])
   @@map("guest_sessions")
+}
+
+// ── Session notes (plan 17) ─
+
+model SessionNote {
+  id                 String   @id @default(cuid())
+  venueId            String   @map("venue_id")
+  sessionId          String   @map("session_id")
+  note               String
+  createdByStaffId   String   @map("created_by_staff_id")
+  createdByStaffName String   @map("created_by_staff_name")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId, sessionId])
+  @@map("session_notes")
+}
+
+// ── Bar tabs (plan 17, CRM-11) ─
+
+model BarTab {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  guestProfileId  String?  @map("guest_profile_id")
+  guestName       String   @map("guest_name")
+  status          String   @default("open")
+  openedByStaffId String   @map("opened_by_staff_id")
+  openedByStaffName String @map("opened_by_staff_name")
+  openedAt        DateTime @map("opened_at") @db.Timestamptz
+  closedAt        DateTime? @map("closed_at") @db.Timestamptz
+
+  @@index([venueId, status])
+  @@map("bar_tabs")
+}
+
+// ── VIP tier benefits (plan 17, CRM-12) ─
+
+model VipTierBenefit {
+  id        String  @id @default(cuid())
+  venueId   String  @map("venue_id")
+  tier      String
+  benefit   String
+  category  String
+  sortOrder Int     @default(0) @map("sort_order")
+  active    Boolean @default(true)
+
+  @@index([venueId, tier])
+  @@map("vip_tier_benefits")
 }
 
 enum HelpRequestStatus {
@@ -744,6 +813,10 @@ model Reservation {
   cancellationPolicyNote String?   @map("cancellation_policy_note")
   seatingNumber   Int?             @map("seating_number")
   guestProfileId  String?          @map("guest_profile_id")
+  holdUntil       DateTime?         @map("hold_until") @db.Timestamptz
+  bumpedFromId    String?           @map("bumped_from_id")
+  bumpReason      String?           @map("bump_reason")
+  alternativeTableId String?        @map("alternative_table_id")
   createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -759,6 +832,7 @@ enum EventStatus {
   published
   live
   ended
+  cancelled
 }
 
 model VenueEvent {
@@ -772,6 +846,9 @@ model VenueEvent {
   capacity         Int
   status           EventStatus @default(draft)
   guestlistEnabled Boolean     @default(false) @map("guestlist_enabled")
+  ticketUrl        String?     @map("ticket_url")
+  cancellationReason String?   @map("cancellation_reason")
+  cancelledAt      DateTime?   @map("cancelled_at") @db.Timestamptz
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -783,17 +860,52 @@ model VenueEvent {
 }
 
 model EventGuest {
-  id        String   @id @default(cuid())
-  eventId   String   @map("event_id")
-  name      String
-  partySize Int      @map("party_size")
-  status    String   @default("invited")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id             String   @id @default(cuid())
+  eventId        String   @map("event_id")
+  name           String
+  partySize      Int      @map("party_size")
+  status         String   @default("invited")
+  guestProfileId String?  @map("guest_profile_id")
+  promoterId     String?  @map("promoter_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   event VenueEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
   @@map("event_guests")
+}
+
+/// RV-06: Dates the venue is closed or unavailable — blocks public reservations.
+model BlackoutDate {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  date      String   // YYYY-MM-DD
+  reason    String
+  zoneId    String?  @map("zone_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId, date])
+  @@map("blackout_dates")
+}
+
+/// EV-01: Artist/talent booked for a venue event.
+model EventTalent {
+  id          String   @id @default(cuid())
+  eventId     String   @map("event_id")
+  venueId     String   @map("venue_id")
+  name        String
+  role        String   // TalentRole: dj, mc, performer, host, dancer, musician, other
+  setTimes    Json     @default("[]") @map("set_times") // TalentSetTime[]
+  arrivalTime DateTime? @map("arrival_time") @db.Timestamptz
+  rider       String?
+  greenRoom   String?  @map("green_room")
+  status      String   @default("scheduled") // TalentStatus
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([eventId])
+  @@index([venueId])
+  @@map("event_talent")
 }
 
 /// Promotion status is derived from startsAt/endsAt — no stored status column.
@@ -838,6 +950,7 @@ model NightlyRollup {
   staffPerformance Json    @map("staff_performance")
   /// { v: 1, categories: [{ categoryId, categoryName, unitsSold }] }
   categoryDepletion Json   @map("category_depletion")
+  totalCostCents  Int      @default(0) @map("total_cost_cents")
   computedAt      DateTime @default(now()) @map("computed_at") @db.Timestamptz
 
   venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
@@ -1032,6 +1145,37 @@ model ShiftCashout {
   @@map("shift_cashouts")
 }
 
+// ── Order remakes & walkouts (plan 16) ──────────────────────────────
+
+model OrderRemake {
+  id                String   @id @default(cuid())
+  venueId           String   @map("venue_id")
+  oldOrderId        String   @map("old_order_id")
+  newOrderId        String   @map("new_order_id")
+  reason            String
+  remadeByStaffId   String   @map("remade_by_staff_id")
+  remadeByStaffName String   @map("remade_by_staff_name")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId])
+  @@index([oldOrderId])
+  @@map("order_remakes")
+}
+
+model WalkoutRecord {
+  id                  String   @id @default(cuid())
+  venueId             String   @map("venue_id")
+  sessionId           String   @map("session_id")
+  tableCode           String   @map("table_code")
+  description         String
+  reportedByStaffId   String   @map("reported_by_staff_id")
+  reportedByStaffName String   @map("reported_by_staff_name")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([venueId])
+  @@map("walkout_records")
+}
+
 // ── Door, arrival & guest identity (plan 17) ───────────────────────
 
 model GuestProfile {
@@ -1051,10 +1195,18 @@ model GuestProfile {
   bannedByStaffId String?  @map("banned_by_staff_id")
   notes           String?
   marketingConsent Json    @default("{\"email\":false,\"sms\":false,\"capturedAt\":\"\",\"source\":\"\"}") @map("marketing_consent")
+  photoUrl         String?  @map("photo_url")
+  preferences      Json?    @map("preferences")
+  valueScore       Int?     @map("value_score")
+  watchlist        Json?    @map("watchlist")
+  staffNotes       Json?    @map("staff_notes")
+  linkedProfileIds String[] @default([]) @map("linked_profile_ids")
   lastVisitAt     DateTime? @map("last_visit_at") @db.Timestamptz
   visitCount      Int      @default(0) @map("visit_count")
   lifetimeNetCents Int     @default(0) @map("lifetime_net_cents")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId])
   @@index([venueId, status])
@@ -1092,7 +1244,12 @@ model Admission {
   admittedByStaffName String   @map("admitted_by_staff_name")
   admittedAt          DateTime @map("admitted_at") @db.Timestamptz
   exitedAt            DateTime? @map("exited_at") @db.Timestamptz
-  reEntryOfAdmissionId String?  @map("re_entry_of_admission_id")
+  exitType            String?  @map("exit_type")
+  reEntryOfAdmissionId String? @map("re_entry_of_admission_id")
+  wristband           Json?    @map("wristband")
+  groupAdmissionId    String?  @map("group_admission_id")
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, businessDate])
   @@map("admissions")
@@ -1106,6 +1263,8 @@ model OccupancyEvent {
   reason       String
   staffId      String   @map("staff_id")
   at           DateTime @map("at") @db.Timestamptz
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, businessDate])
   @@map("occupancy_events")
@@ -1123,6 +1282,8 @@ model WaitlistEntry {
   joinedAt      DateTime @map("joined_at") @db.Timestamptz
   notifiedAt    DateTime? @map("notified_at") @db.Timestamptz
 
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
   @@index([venueId, status])
   @@map("waitlist_entries")
 }
@@ -1137,6 +1298,8 @@ model CoatCheckTicket {
   checkedInAt   DateTime @map("checked_in_at") @db.Timestamptz
   claimedAt     DateTime? @map("claimed_at") @db.Timestamptz
   staffId       String   @map("staff_id")
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, businessDate])
   @@map("coat_check_tickets")
@@ -1159,8 +1322,20 @@ model Incident {
   reportedByStaffId  String   @map("reported_by_staff_id")
   reportedByStaffName String  @map("reported_by_staff_name")
   status             String   @default("open")
+  locationDescription String? @map("location_description")
+  reportable         Boolean  @default(false)
+  regulatoryDeadline DateTime? @map("regulatory_deadline") @db.Timestamptz
+  regulatoryAuthority String? @map("regulatory_authority")
+  reportedToAuthorityAt DateTime? @map("reported_to_authority_at") @db.Timestamptz
+  escalationLevel    String?  @map("escalation_level")
+  witnesses          Json?    @map("witnesses")
+  cctvReference      String?  @map("cctv_reference")
+  medicalChecklist   Json?    @map("medical_checklist")
+  staffInjuryDetails Json?    @map("staff_injury_details")
 
   notes IncidentNote[]
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([venueId, businessDate])
   @@index([venueId, status])
@@ -1179,6 +1354,111 @@ model IncidentNote {
 
   @@index([incidentId])
   @@map("incident_notes")
+}
+
+// ── Door refusals (plan 17, DO-02) ─
+
+model DoorRefusal {
+  id                String   @id @default(cuid())
+  venueId           String   @map("venue_id")
+  businessDate      String   @map("business_date")
+  reason            String
+  description       String
+  partySize         Int      @map("party_size")
+  refusedByStaffId  String   @map("refused_by_staff_id")
+  refusedByStaffName String  @map("refused_by_staff_name")
+  timestamp         DateTime @map("timestamp") @db.Timestamptz
+
+  @@index([venueId, businessDate])
+  @@map("door_refusals")
+}
+
+// ── Coat check claims (plan 17, DO-10) ─
+
+model CoatCheckClaim {
+  id                 String   @id @default(cuid())
+  venueId            String   @map("venue_id")
+  claimType          String   @map("claim_type")
+  ticketId           String?  @map("ticket_id")
+  description        String
+  reportedByStaffName String  @map("reported_by_staff_name")
+  reportedAt         DateTime @map("reported_at") @db.Timestamptz
+  resolution         String?
+  resolvedAt         DateTime? @map("resolved_at") @db.Timestamptz
+  resolvedByStaffId  String?  @map("resolved_by_staff_id")
+
+  @@index([venueId])
+  @@map("coat_check_claims")
+}
+
+// ── Incident action items (plan 17, OE-32) ─
+
+model IncidentActionItem {
+  id                 String   @id @default(cuid())
+  venueId            String   @map("venue_id")
+  incidentId         String   @map("incident_id")
+  description        String
+  assignedToStaffId  String?  @map("assigned_to_staff_id")
+  status             String   @default("pending")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  completedAt        DateTime? @map("completed_at") @db.Timestamptz
+
+  @@index([venueId, incidentId])
+  @@map("incident_action_items")
+}
+
+// ── Incident quick-file templates (plan 17, SI-08) ─
+
+model IncidentTemplate {
+  id                  String  @id @default(cuid())
+  venueId             String  @map("venue_id")
+  label               String
+  type                String
+  severity            String
+  narrativeTemplate   String   @map("narrative_template")
+  actionsTakenTemplate String  @map("actions_taken_template")
+  isActive            Boolean  @default(true) @map("is_active")
+
+  @@index([venueId])
+  @@map("incident_templates")
+}
+
+// ── Staff certification tracking (plan 17, S-04) ─
+
+model Certification {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  staffId         String   @map("staff_id")
+  type            String
+  issuedAt        DateTime @map("issued_at") @db.Timestamptz
+  expiresAt       DateTime @map("expires_at") @db.Timestamptz
+  issuingBody     String?  @map("issuing_body")
+  referenceNumber String?  @map("reference_number")
+  documentUrl     String?  @map("document_url")
+  verifiedByStaffId String? @map("verified_by_staff_id")
+  verifiedAt      DateTime? @map("verified_at") @db.Timestamptz
+  status          String   @default("active")
+
+  @@index([venueId, staffId])
+  @@index([venueId, expiresAt])
+  @@map("certifications")
+}
+
+// ── Guest referrals (plan 17, CRM-06) ─
+
+model GuestReferral {
+  id                 String   @id @default(cuid())
+  venueId            String   @map("venue_id")
+  referrerProfileId  String   @map("referrer_profile_id")
+  referredProfileId  String   @map("referred_profile_id")
+  source             String
+  status             String   @default("pending")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  convertedAt        DateTime? @map("converted_at") @db.Timestamptz
+
+  @@index([venueId])
+  @@index([referrerProfileId])
+  @@map("guest_referrals")
 }
 
 // ── Workforce: time clock, scheduling, tips & commissions (plan 18) ─
@@ -1231,7 +1511,12 @@ model TimeEntry {
   editReason      String?  @map("edit_reason")
   minutesWorked   Int?     @map("minutes_worked")
 
-  @@unique([venueId, staffId, clockInAt])
+  // No uniqueness on (venueId, staffId, clockInAt): INV-W3's append-only edit
+  // creates a new row with the same clockInAt as the row it supersedes, so a
+  // constraint here would 409 the most common manager edit (correcting
+  // clockOutAt/minutesWorked without touching clockInAt). "At most one open
+  // entry per staff member" (INV-W1) is enforced in clockIn() at the
+  // application layer, not by a DB constraint on this column.
   @@index([venueId, staffId])
   @@map("time_entries")
 }
@@ -1320,6 +1605,42 @@ model CommissionStatement {
 
   @@index([venueId, staffId])
   @@map("commission_statements")
+}
+
+// ── Staff table assignments & handoffs (plan 18) ─────────────────
+
+model StaffTableAssignment {
+  id         String   @id @default(cuid())
+  venueId    String   @map("venue_id")
+  staffId    String   @map("staff_id")
+  tableIds   String[] @map("table_ids")
+  zoneId     String   @map("zone_id")
+  shiftId    String?  @map("shift_id")
+  assignedAt DateTime @default(now()) @map("assigned_at") @db.Timestamptz
+
+  @@index([venueId, staffId])
+  @@map("staff_table_assignments")
+}
+
+model ShiftHandoff {
+  id                     String   @id @default(cuid())
+  venueId                String   @map("venue_id")
+  businessDate           String   @map("business_date")
+  fromStaffId            String   @map("from_staff_id")
+  fromStaffName          String   @map("from_staff_name")
+  toStaffId              String?  @map("to_staff_id")
+  toStaffName            String?  @map("to_staff_name")
+  openIncidents          String[] @default([]) @map("open_incidents")
+  vipNotes               String   @default("") @map("vip_notes")
+  inventoryAlerts        String   @default("") @map("inventory_alerts")
+  specialInstructions    String   @default("") @map("special_instructions")
+  generatedAt            DateTime @default(now()) @map("generated_at") @db.Timestamptz
+  acknowledgedByStaffId  String?  @map("acknowledged_by_staff_id")
+  acknowledgedByStaffName String? @map("acknowledged_by_staff_name")
+  acknowledgedAt         DateTime? @map("acknowledged_at") @db.Timestamptz
+
+  @@index([venueId, businessDate])
+  @@map("shift_handoffs")
 }
 
 // ── Cost, supply chain & profitability (plan 19) ───────────────────
@@ -1435,6 +1756,54 @@ model EventCost {
   @@map("event_costs")
 }
 
+/// Plan 19: Event run sheet — timeline entries for a night's event (OE-19).
+model EventRunSheet {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  eventId   String   @map("event_id") @unique
+  entries   Json     @default("[]")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([venueId])
+  @@map("event_run_sheets")
+}
+
+/// Plan 19: Checklist template — venue-scoped, reusable (VM-05).
+model ChecklistTemplate {
+  id      String  @id @default(cuid())
+  venueId String  @map("venue_id")
+  name    String
+  type    String  // "opening" | "closing"
+  active  Boolean @default(true)
+  items   Json    @default("[]") // ChecklistTemplateItem[]
+
+  @@index([venueId])
+  @@map("checklist_templates")
+}
+
+/// Plan 19: Checklist run — append-only per business date (VM-05).
+model ChecklistRun {
+  id                   String   @id @default(cuid())
+  venueId              String   @map("venue_id")
+  templateId           String   @map("template_id")
+  templateName         String   @map("template_name")
+  type                 String   // "opening" | "closing"
+  businessDate         String   @map("business_date")
+  status               String   @default("in-progress") // "in-progress" | "completed" | "skipped"
+  items                Json     @default("[]") // ChecklistRunItem[]
+  startedAt            DateTime @map("started_at") @db.Timestamptz
+  startedByStaffId     String   @map("started_by_staff_id")
+  startedByStaffName   String   @map("started_by_staff_name")
+  completedAt          DateTime? @map("completed_at") @db.Timestamptz
+  completedByStaffId   String?  @map("completed_by_staff_id")
+  completedByStaffName String?  @map("completed_by_staff_name")
+
+  @@index([venueId, businessDate])
+  @@index([venueId, type])
+  @@map("checklist_runs")
+}
+
 /// Append-only notification log (AD-8) — one row per delivery attempt.
 /// Email/SMS/Push transports each write here; the log is the idempotency check.
 model NotificationLog {
@@ -1544,4 +1913,53 @@ model AutomationExecution {
   @@index([venueId, triggeredAt(sort: Desc)])
   @@index([ruleId])
   @@map("automation_executions")
+}
+
+// ── Pulse attention items (plan 17, WS-2) ─
+
+model AttentionItem {
+  id          String   @id @default(cuid())
+  venueId     String   @map("venue_id")
+  type        String
+  severity    String
+  tableId     String   @map("table_id")
+  tableCode   String   @map("table_code")
+  zoneName    String   @map("zone_name")
+  message     String
+  ageMinutes  Int      @default(0) @map("age_minutes")
+  resolved    Boolean  @default(false)
+  resolvedByStaffId String? @map("resolved_by_staff_id")
+  resolvedAt  DateTime? @map("resolved_at") @db.Timestamptz
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  acknowledgments AttentionAcknowledgment[]
+
+  @@index([venueId, resolved])
+  @@map("attention_items")
+}
+
+model AttentionAcknowledgment {
+  id                       String   @id @default(cuid())
+  attentionItemId          String   @map("attention_item_id")
+  acknowledgedByStaffId    String   @map("acknowledged_by_staff_id")
+  acknowledgedByStaffName  String   @map("acknowledged_by_staff_name")
+  acknowledgedAt           DateTime @default(now()) @map("acknowledged_at") @db.Timestamptz
+  snoozedUntil             DateTime? @map("snoozed_until") @db.Timestamptz
+
+  attentionItem AttentionItem @relation(fields: [attentionItemId], references: [id], onDelete: Cascade)
+
+  @@index([attentionItemId])
+  @@map("attention_acknowledgments")
+}
+
+model VenueRolePermissions {
+  id        String   @id @default(cuid())
+  venueId   String   @map("venue_id")
+  role      StaffRole
+  actions   String[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([venueId, role])
+  @@map("venue_role_permissions")
 }

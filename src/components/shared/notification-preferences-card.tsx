@@ -88,10 +88,6 @@ function LivePreferencesCard() {
   const [pushEnabled, setPushEnabled] = useState(false);
   const [prefs, setPrefs] = useState<PrefRow[]>(buildDefaults());
 
-  useEffect(() => {
-    load();
-  }, []);
-
   async function load() {
     try {
       const res = await fetch("/api/notifications/preferences");
@@ -114,6 +110,10 @@ function LivePreferencesCard() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    load();
+  }, []);
 
   async function togglePush() {
     if (pushEnabled) {

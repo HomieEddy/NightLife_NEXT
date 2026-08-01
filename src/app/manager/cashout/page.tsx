@@ -17,13 +17,12 @@ import { ordersService } from "@/features/ordering/services";
 import { venueService } from "@/features/venue/services";
 import { staffService } from "@/features/workforce/staff-service";
 import { cashoutService } from "@/features/platform/cashout-service";
-import { permissionService } from "@/features/platform/permission-service";
-import { canDo } from "@/features/shared/permissions";
+import { usePermissions } from "@/features/platform/use-permissions";
 import { businessDateFor, computeCashoutVariance, emptyMethodTotals } from "@/lib/tab";
 import { formatMoney } from "@/features/shared/format";
 import { useAuth } from "@/context/auth-context";
 import { staffKeys } from "@/features/workforce/query-keys";
-import { permissionsKeys, cashoutKeys } from "@/features/platform/query-keys";
+import { cashoutKeys } from "@/features/platform/query-keys";
 import { venueKeys } from "@/features/venue/query-keys";
 import { sessionsKeys } from "@/features/guests/query-keys";
 import { ordersKeys } from "@/features/ordering/query-keys";
@@ -49,11 +48,7 @@ export default function CashoutPage() {
     enabled: !!venueId,
   });
 
-  const { data: permissions } = useQuery({
-    queryKey: permissionsKeys.role(venueId),
-    queryFn: () => permissionService.getRolePermissions("venue-1"),
-    enabled: !!venueId,
-  });
+  const { can } = usePermissions();
 
   const { data: venue } = useQuery({
     queryKey: venueKeys.snapshot(venueId),
@@ -95,7 +90,7 @@ export default function CashoutPage() {
     enabled: !!venueId && !!venue && sessions.length >= 0 && orders.length >= 0,
   });
 
-  const canClose = me && permissions ? canDo(permissions, me.role, "cashout:close") : false;
+  const canClose = can("cashout:close");
 
   const expectedByMethod = expected ?? emptyMethodTotals();
   const variance = useMemo(

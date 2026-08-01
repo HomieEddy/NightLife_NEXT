@@ -1,4 +1,4 @@
-import type { StaffRole } from "@/lib/types";
+import type { StaffRole, HelpRequestType } from "@/lib/types";
 
 // ---------- Action definitions ----------
 
@@ -390,7 +390,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
  * Serialisable capability record — suitable for DB storage and API transport.
  * Use arrays (not Sets) so values round-trip through JSON without loss.
  *
- * TODO(backend): backed by a venue_role_permissions table.
+ * Backed by the venue_role_permissions table.
  * Each row stores (venueId, role, actions[]) and is merged over DEFAULT_ROLE_PERMISSIONS
  * so tenants only need to record the delta from the defaults.
  */
@@ -460,18 +460,104 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   ],
 };
 
+// ---------- Help-request scope per floor role ----------
+// Lives here (not role-capabilities.ts) so the pure authz module stays free of
+// icon/UI imports; role-capabilities.ts re-exports these for its consumers.
+
+/** Which help requests a role can see and respond to. */
+export type HelpScope =
+  | "all"             // manager, host — see every request
+  | "assigned-zones"  // bartender, runner — requests in their assignedZoneIds (security type excluded)
+  | "security-only";  // security — only security-type requests
+
+const HELP_SCOPE: Record<StaffRole, HelpScope> = {
+  manager: "all",
+  host: "all",
+  bartender: "assigned-zones",
+  runner: "assigned-zones",
+  security: "security-only",
+  promoter: "all", // promoters don't have help:respond but see context
+};
+
+export function getHelpScope(role: StaffRole): HelpScope {
+  return HELP_SCOPE[role];
+}
+
 // ---------- Pure permission check ----------
+
+/** Who is asking. Resolved from StaffProfile on the server, from staffService.getCurrentStaff() on the client. */
+export interface ActorContext {
+  staffId: string;
+  assignedZoneIds: string[];
+}
+
+/** What is being acted on. Only the fields scoped actions actually read. */
+export interface ResourceContext {
+  ownerStaffId?: string | null;  // reservation.promoterId, tip.staffId, timeEntry.staffId
+  zoneId?: string | null;        // help request / order zone
+  helpType?: HelpRequestType | null; // help:respond security-only vs zone scoping
+}
+
+type ScopedPredicate = (
+  actor: ActorContext,
+  resource: ResourceContext | undefined,
+  role: StaffRole,
+) => boolean;
+
+const ownedByActor: ScopedPredicate = (actor, resource) =>
+  resource?.ownerStaffId != null && resource.ownerStaffId === actor.staffId;
+
+const notOwnedByActor: ScopedPredicate = (actor, resource) =>
+  resource?.ownerStaffId != null && resource.ownerStaffId !== actor.staffId;
+
+/**
+ * Actions whose grant depends on the resource, not just the role. Absent from
+ * this table ⇒ the action is matrix-only (holding it is sufficient). Note
+ * `incident:read-all` is deliberately NOT here — holding it grants reading every
+ * incident; the "own reports only" fallback for roles that lack it is route
+ * logic (filter by reportedBy), not a canDo predicate.
+ */
+const SCOPED_PREDICATES: Partial<Record<StaffAction, ScopedPredicate>> = {
+  "reservation:edit-own": ownedByActor,
+  "reservation:cancel-own": ownedByActor,
+  "reservation:confirm-own": ownedByActor,
+  "tips:read-own": ownedByActor,
+  "time:clock-self": ownedByActor,
+  "time:edit-others": notOwnedByActor,
+  "help:respond": (actor, resource, role) => {
+    const scope = getHelpScope(role);
+    if (scope === "all") return true;
+    if (scope === "security-only") return resource?.helpType === "security";
+    // assigned-zones: within my zones, security-type excluded (security handles those)
+    return (
+      resource?.helpType !== "security" &&
+      resource?.zoneId != null &&
+      actor.assignedZoneIds.includes(resource.zoneId)
+    );
+  },
+};
 
 /**
  * Returns true if `role` has `action` in the provided permission set.
  *
  * Pure and synchronous — pass the RolePermissions loaded from permissionService
  * so the check reflects any per-tenant overrides.
+ *
+ * `ctx` is optional and source-compatible: the 3-arg form gates only *whether*
+ * the role may perform the action at all. Pass `ctx` to additionally enforce a
+ * resource predicate for ownership/zone-scoped actions (the `*-own` family,
+ * `time:*`, `help:respond`). An action with no predicate ignores `ctx`.
  */
 export function canDo(
   permissions: RolePermissions,
   role: StaffRole,
   action: StaffAction,
+  ctx?: { actor: ActorContext; resource?: ResourceContext },
 ): boolean {
-  return permissions[role]?.includes(action) ?? false;
+  const hasAction = permissions[role]?.includes(action) ?? false;
+  if (!hasAction) return false;
+  if (!ctx) return true;
+  const predicate = SCOPED_PREDICATES[action];
+  if (!predicate) return true;
+  return predicate(ctx.actor, ctx.resource, role);
 }

@@ -20,12 +20,14 @@ async function liveGET(request: NextRequest) {
   const status = url.searchParams.getAll("status");
   const zoneIds = url.searchParams.getAll("zoneId");
   const date = url.searchParams.get("date") ?? undefined;
+  const promoterId = url.searchParams.get("promoterId") ?? undefined;
 
   return NextResponse.json(
     await listReservations(db, {
       status: status.length ? status as never[] : undefined,
       zoneIds: zoneIds.length ? zoneIds : undefined,
       date,
+      promoterId,
     }),
   );
 }

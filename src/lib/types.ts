@@ -516,7 +516,7 @@ export interface Order {
   promotionId?: string;
   promotionCode?: string;
   promotionCents?: number;
-  // TODO(backend): becomes a real column — happy-hour attribution snapshot.
+  /** Happy-hour rule + discount applied at order time — persisted snapshot. */
   happyHourRuleId?: string;
   happyHourCents?: number;
   /** RV-05: Computed priority score (zone weight × minimum spend × session age × order type). Higher = fulfill first. */
@@ -810,6 +810,8 @@ export interface AnalyticsSummary {
   inventoryDepth?: InventoryDepthAnalytics;
   promoters?: PromoterAnalytics;
   adjustments?: AdjustmentAnalytics;
+  pourCostPercent?: number;
+  grossMarginPercent?: number;
 }
 
 export interface HistoricalAnalytics {
@@ -819,6 +821,8 @@ export interface HistoricalAnalytics {
   totalRevenue: number;
   totalOrders: number;
   avgOrderValue: number;
+  pourCostPercent: number;
+  grossMarginPercent: number;
   bestNight: RevenuePoint;
   series: RevenuePoint[];
   revenueByZone: { zoneId: string; zoneName: string; revenue: number }[];
@@ -1040,7 +1044,6 @@ export interface Reservation {
   guestEmail?: string;
   guestPhone?: string;
   reservationPin?: string;
-  // TODO(backend): FK to staff_profiles; set when a promoter creates the reservation or assigned by manager
   promoterId?: string;
   /** Bottle-service term negotiated at booking time — makes BottlePackage reachable pre-seating. */
   packageId?: string;
@@ -1099,7 +1102,6 @@ export interface VenueEvent {
   capacity: number;
   status: EventStatus;
   guestlistEnabled: boolean;
-  // TODO(backend): stored as nullable text column; validated as URL by the API layer.
   ticketUrl?: string;
   /** EV-03: Reason for cancellation — set when status moves to 'cancelled'. */
   cancellationReason?: string;
@@ -1116,6 +1118,8 @@ export interface EventGuest {
   status: "invited" | "confirmed" | "checked-in";
   /** Set when a repeat guestlist name resolves to a known GuestProfile (plan 17). */
   guestProfileId?: string;
+  /** PR-02: Staff promoter ID for quota enforcement. */
+  promoterId?: string;
 }
 
 /** EV-01: Artist/talent booked for an event — DJ, MC, performer, host, etc. */
@@ -1625,6 +1629,14 @@ export interface SupplierItem {
 }
 
 export type PurchaseOrderStatus = "draft" | "submitted" | "partially-received" | "received" | "cancelled";
+
+export interface PriceChange {
+  menuItemId: string;
+  itemName: string;
+  previousUnitCostCents: number;
+  newUnitCostCents: number;
+  changePercent: number; // signed, e.g. +20 = 20% increase
+}
 
 export interface PurchaseOrderLine {
   id: string;

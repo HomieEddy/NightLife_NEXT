@@ -108,12 +108,12 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
   const publishMutation = useMutation({
     mutationFn: async () => {
       const templates = await staffService.listShifts();
-      const shiftTemplates = templates.map((t) => ({ ...t, venueId: "venue-1", active: true }));
+      const shiftTemplates = templates.map((t) => ({ ...t, venueId: venueId, active: true }));
       const allStaff = staff;
       const monday = new Date();
       monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
       const weekStart = monday.toISOString().slice(0, 10);
-      const generated = generateWeekFromTemplates(shiftTemplates, allStaff, weekStart, "venue-1");
+      const generated = generateWeekFromTemplates(shiftTemplates, allStaff, weekStart, venueId);
       return timeService.publishShifts(generated);
     },
     onSuccess: () => {

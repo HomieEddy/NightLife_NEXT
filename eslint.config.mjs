@@ -39,33 +39,25 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  // getPlatformDb restricted to src/server/platform/ only
+  // The UI component layer must never reach the database directly — it goes
+  // through the service selector / TanStack Query hooks. Forbidding the DB
+  // clients here is the app-layer tenant-scoping tripwire in lieu of RLS
+  // (ARD AD-3): a component that imported the unscoped client could leak across
+  // tenants. Route handlers and feature-core code legitimately use these
+  // clients (many models bypass the tenant extension), so the rule is scoped to
+  // components, not all of src.
   {
-    files: ["src/**/*.ts", "src/**/*.tsx"],
-    ignores: ["src/server/platform/**"],
+    files: ["src/components/**/*.ts", "src/components/**/*.tsx"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
-          patterns: [
-            {
-              group: [
-                "@/lib/mock-services/*",
-                "*/mock-services/*",
-                "@/lib/mock-data/*",
-                "*/mock-data/*",
-                "@/components/demo/*",
-              ],
-              message:
-                "Live UI must use service selectors and shared mode wrappers, never mock/demo modules directly.",
-            },
-          ],
           paths: [
             {
-              name: "@/server/db",
-              importNames: ["getPlatformDb"],
+              name: "@/features/shared/db",
+              importNames: ["getDb", "getRawPrisma", "getPlatformDb"],
               message:
-                "getPlatformDb is restricted to src/server/platform/. Use getDb(session) for tenant-scoped access.",
+                "UI components must not access the database directly. Use a feature service (services.ts) via TanStack Query, never getDb/getRawPrisma/getPlatformDb.",
             },
           ],
         },

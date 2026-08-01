@@ -136,7 +136,7 @@ export const mockMenuService = {
   ): Promise<MenuItem[]> {
     await delay();
     const lowerExclude = exclude.map((a) => a.toLowerCase());
-    let pool = categoryId ? items.filter((i) => i.categoryId === categoryId) : items;
+    const pool = categoryId ? items.filter((i) => i.categoryId === categoryId) : items;
     const result = pool.filter(
       (item) =>
         !item.allergens.some((a) => lowerExclude.includes(a.toLowerCase())),

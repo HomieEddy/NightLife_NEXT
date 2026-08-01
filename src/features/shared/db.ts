@@ -51,6 +51,11 @@ export function getDb(session: SessionContext) {
           "EventGuest",
           "ReportRun",
           "NotificationLog",
+          "IncidentNote",
+          // Purchasing: scoped via parent Supplier, not own venueId.
+          "SupplierItem",
+          // Pulse (WS-2): scoped via parent AttentionItem, not own venueId.
+          "AttentionAcknowledgment",
         ];
         if (platformModels.includes(model)) return query(args);
 
@@ -88,9 +93,16 @@ export function getDb(session: SessionContext) {
   });
 }
 
+/** The venueId-scoped Prisma client returned by getDb. */
+export type ScopedDb = ReturnType<typeof getDb>;
+
 /**
- * Unscoped client for platform-admin operations (tenants, billing, leads).
- * Import restricted to src/server/platform/ by ESLint rule.
+ * Unscoped client for genuinely cross-tenant / pre-session work: platform-admin
+ * (tenants, billing, leads), entitlement limit checks that count across a
+ * venue's own rows, public and cron endpoints with no session, and the guest
+ * bootstrap before a venue is resolved. It performs NO venueId scoping — every
+ * caller must scope by hand. Tenant-scoped handlers use getDb(session) instead;
+ * UI components must never import either (enforced by ESLint).
  */
 export function getPlatformDb(): PrismaClient {
   return getRawPrisma();

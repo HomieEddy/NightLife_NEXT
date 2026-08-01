@@ -11,6 +11,13 @@ import type { PlanConfig } from "@/lib/types";
 
 export const metadata = { title: "Pricing" };
 
+/**
+ * Plans come from the PlanConfig table, which admins edit at runtime. Static
+ * prerendering would freeze prices at build time and make the production build
+ * require a reachable, migrated database.
+ */
+export const dynamic = "force-dynamic";
+
 const TRIAL = {
   name: "Trial",
   price: "Free",

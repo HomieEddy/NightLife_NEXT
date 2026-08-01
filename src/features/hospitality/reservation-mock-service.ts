@@ -211,7 +211,6 @@ export const mockReservationService = {
         startsAtDate.setMinutes(startsAtDate.getMinutes() + graceMin);
         res.holdUntil = startsAtDate.toISOString();
         res.reservationPin = generatePin(res.id);
-        // TODO(backend): send PIN via email/SMS on confirm
       } else if (["seated", "cancelled", "completed", "no-show"].includes(newStatus)) {
         res.reservationPin = undefined;
       }

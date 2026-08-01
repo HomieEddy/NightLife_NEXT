@@ -24,7 +24,18 @@ export type DomainEventType =
   | "LastCallStarted"
   | "LastCallEnded"
   | "ShowStarted"
-  | "ShowFinished";
+  | "ShowFinished"
+  | "TabAdjusted"
+  | "SessionTransferred"
+  | "SessionsMerged"
+  | "CashoutClosed"
+  | "OrdersReassigned"
+  | "WalkoutReported"
+  | "PurchaseOrderSubmitted"
+  | "StockReceived"
+  | "StocktakeCommitted"
+  | "WasteRecorded"
+  | "TargetBreached";
 
 export interface DomainEvent {
   type: DomainEventType;

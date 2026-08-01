@@ -9,20 +9,15 @@ async function livePATCH(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { claimOrder } = await import("@/features/ordering/core");
-  const { getRawPrisma } = await import("@/features/shared/db");
-  const { getCurrentStaff } = await import("@/features/workforce/staff-core");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "order:claim");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db, staff } = auth;
   const { id } = await params;
-  const staff = await getCurrentStaff(getRawPrisma(), venueId, auth.session.user.id);
-  if (!staff) return NextResponse.json({ error: "Staff profile not found" }, { status: 403 });
+
   const result = await claimOrder(db, venueId, id, staff.id, staff.name);
 
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 409 });

@@ -51,6 +51,9 @@ interface OrderRow {
   promotionId: string | null;
   promotionCode: string | null;
   promotionCents: number;
+  isRushed: boolean;
+  rushedBy: string | null;
+  rushedAt: Date | null;
   items: {
     id: string;
     menuItemId: string;
@@ -133,6 +136,9 @@ function toOrder(row: OrderRow): Order {
     promotionId: row.promotionId ?? undefined,
     promotionCode: row.promotionCode ?? undefined,
     promotionCents: row.promotionCents || undefined,
+    isRushed: row.isRushed ?? undefined,
+    rushedBy: row.rushedBy ?? undefined,
+    rushedAt: row.rushedAt?.toISOString() ?? undefined,
   };
 }
 
@@ -405,6 +411,8 @@ export async function submitOrder(
           promotionId: promoRow?.id ?? null,
           promotionCode: promoRow?.code ?? null,
           promotionCents: pricing.promotionCents,
+          happyHourRuleId: pricing.happyHourRuleId ?? null,
+          happyHourCents: pricing.discountCents,
           status: "pending",
           items: {
             create: resolvedLines.map((line) => {
