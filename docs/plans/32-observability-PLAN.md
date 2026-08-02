@@ -9,9 +9,10 @@ from a venue's angry text, and can see what happened from structured logs
 and error traces. Ships: JSON logging with request ids, error tracking,
 a health endpoint, uptime monitoring with alerting, and log rotation.
 
-Preconditions: none hard; pairs naturally after plan 15 (its generic-error
-work wants the request id this plan introduces) and before go-live. Branch
-`chore/16-observability`.
+Preconditions: none hard; pairs naturally **after plan 31** — plan 31
+introduces the `apiError()` route-handler seam (there is none today; all
+224 handlers build their own responses) and this plan hangs the request id
+off it. Before go-live. Branch `chore/32-observability`.
 
 ## Reasoning
 
@@ -30,10 +31,15 @@ Tool choices favor boring and self-hostable per AD-15's cost logic:
 
 - **pino** for logging — the standard, fast, structured, redaction built in.
 - **Sentry** for errors — free tier is ample at this scale; deployment- and
-  release-aware grouping is exactly the checklist's ask. (GlitchTip
-  self-hosted is the fallback if data-residency review in plan 35 objects
-  to Sentry's hosting; the SDK is API-compatible, so the choice is
-  swappable and noted in SECURITY.md.)
+  release-aware grouping is exactly the checklist's ask. **Residency caveat:
+  decide this before wiring, not after.** AD-15 puts data in Quebec for
+  Law 25/PIPEDA, and error payloads carry request context (user ids, venue
+  ids, sometimes guest fields). Either (a) self-host GlitchTip via Coolify
+  on the same VPS — API-compatible SDK, keeps everything in Canada, and is
+  the default recommendation here, or (b) use hosted Sentry with
+  `sendDefaultPii: false`, aggressive `beforeSend` scrubbing, and a
+  transfer assessment recorded in plan 35's data inventory. Whichever is
+  chosen, record it in `docs/SECURITY.md` and the inventory.
 - **Uptime Kuma** self-hosted via Coolify one-click — external-ish ping
   (separate container, same host; a truly external free pinger like
   UptimeRobot on top costs nothing and covers the host-down case — use
@@ -41,14 +47,22 @@ Tool choices favor boring and self-hostable per AD-15's cost logic:
 
 ## Design choices
 
-- **Logger:** `src/server/log.ts` exports a configured pino instance —
-  JSON always, level from `LOG_LEVEL` (info default in staging/prod),
-  redaction paths for the known PII/secret fields (email, phone,
-  authorization headers, cookies, PIN, tokens). Server-only module; the
-  demo build never imports it (resource-guard pattern).
-- **Request ids + access logs:** a small wrapper around route handlers (the
-  repo already has a shared handler-error seam from plan 15 — extend it,
-  don't parallel it) generates/propagates `x-request-id`, logs one line per
+- **Logger: upgrade the existing module in place.**
+  `src/features/shared/logger.ts` already exports a hand-rolled
+  `{info,warn,error}` JSON-to-console wrapper (marked `ponytail: swap for
+  structured transport if needed` — this is that moment). Swap its internals
+  for a configured pino instance and **keep the import path and the call
+  signature** so existing call sites don't churn; don't add a parallel
+  `src/server/log.ts`. JSON always, level from `LOG_LEVEL` (info default in
+  staging/prod), redaction paths for the known PII/secret fields (email,
+  phone, authorization headers, cookies, PIN, tokens). Server-only from here
+  on — today's nine importers (the three `/api/jobs/*` routes, the
+  reservation-status route, the email/sms/push dispatchers, and the two
+  queue modules) are all server-side, so the swap is safe; re-check with
+  `grep -rln "shared/logger" src/` before doing it.
+- **Request ids + access logs:** a small wrapper around route handlers —
+  extend plan 31's `apiError()`/handler seam, don't parallel it —
+  generates/propagates `x-request-id`, logs one line per
   request: id, userId (when authed), venueId, method, path, status,
   duration_ms. The id returns in responses and error payloads so a
   support screenshot maps to logs. SSE routes log open/close, not
@@ -58,9 +72,13 @@ Tool choices favor boring and self-hostable per AD-15's cost logic:
   build (Coolify provides it), environment tag staging/production. Alert
   rules configured in-product: new issue, and error-rate spike; routed to
   email now, plan 25/26 channels later if wanted.
-- **Health:** `GET /api/health` — 200 with `{status, uptime, checks: {db}}`;
+- **Health:** `GET /api/health` (`src/app/api/health/route.ts` — no such
+  route exists today) — 200 with `{status, uptime, checks: {db}}`;
   the DB check is a `SELECT 1` with a short timeout; DB-down returns 503.
-  Unauthenticated but rate-limited (plan 15's limiter) and deliberately
+  Add a `checks.queue` line only if BullMQ/Redis is configured
+  (`REDIS_URL` is optional — the cron fallback is a valid topology, so an
+  absent queue is healthy, not degraded).
+  Unauthenticated but rate-limited (plan 31's limiter) and deliberately
   free of version/config detail. The demo build's health is static-ok (no
   DB to check; resource guard).
 - **Uptime:** Kuma monitors `/api/health` on staging + prod and the demo's
@@ -71,26 +89,36 @@ Tool choices favor boring and self-hostable per AD-15's cost logic:
   solved at the container layer, no logrotate on the app). Search =
   `docker logs` + grep by request id, adequate at one process; Loki is the
   named upgrade when multi-service search hurts.
-- **Audit trail:** plan 10 already ships the platform audit log; plan 25's
-  `NotificationLog` covers sends. This plan adds auth-event logging (login
+- **Job observability:** the `JobRun` model already records cron executions
+  for the three `/api/jobs/*` handlers. Log one structured line per run
+  (job name, duration, rows touched, outcome) and add a Kuma
+  "last successful run is stale" check per job — a silently dead
+  reservation-reminder job is invisible to a health endpoint.
+- **Audit trail:** plan 10 already ships the platform `AuditEntry` log;
+  plan 25's `NotificationLog` covers sends. This plan adds auth-event logging (login
   success/failure, logout, invite accept) via the pino logger — queryable
   by the request-id pipeline, satisfying the checklist's auth-events row
   without a new table.
 
 ## Implementation strategy
 
-1. `log.ts` + redaction config + unit tests (redaction actually redacts).
+1. pino inside `features/shared/logger.ts` + redaction config + unit tests
+   (redaction actually redacts); existing call sites unchanged.
 2. Handler wrapper: request id, access line, error path integration (plan
-   17's generic error + id); SSE open/close lines.
-3. Auth event log lines in the Better Auth hook seam.
+   31's `apiError()` + id); SSE open/close lines on `/api/live/*`.
+3. Auth event log lines in the Better Auth hook seam; `JobRun` log lines.
 4. Sentry init (server/client), release/env tags, no-DSN no-op verified;
    one deliberate test error captured on staging.
 5. `/api/health` + tests (200, DB-down 503 via PGlite teardown trick,
    rate-limited).
 6. Coolify: log rotation opts; Kuma deployed + monitors + email alerts;
    UptimeRobot externally.
-7. RUNBOOK.md: "app is down/erroring/slow" triage flows keyed to these
-   tools; escalation contacts.
+7. **Create `docs/RUNBOOK.md`** — it does not exist yet; the only runbook
+   today is `docs/RUNBOOK-VPS-SETUP.md` (provisioning, not operations).
+   This is the operations runbook plans 33 and 35 also append to
+   (§restore, §privacy-requests, §incident-response). Ships with "app is
+   down/erroring/slow" triage flows keyed to these tools, plus escalation
+   contacts. Link it from HOSTING.md.
 
 ## Testing
 

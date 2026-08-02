@@ -278,11 +278,18 @@ production-safe before a real venue signs.
 
 | Plan | Feature | Depends on | Risk |
 |------|---------|-----------|------|
-| 31 | Security hardening: rate limits, headers, CSP report-only, secrets scan, cookie flags | Phase 7 | Med |
-| 32 | Observability: structured logging (pino), error tracking (Sentry), health checks, uptime monitoring | 31 pairs well | Low-Med |
-| 33 | Database operations: automated backups, restore drill, connection pooling, index audit | 12, staging DB | Med |
-| 34 | i18n: full French/English UI chrome, locale toggle, `guestLocale` on venue, French variants for every notification template | — (35 renders through it) | Med |
-| 35 | Compliance & privacy (Law 25 / PIPEDA): consent management, retention policies, deletion paths, breach register, published policy pages | 25, 34; 17 supplies guest/incident data | Med |
+| 31 | Security hardening: shared `apiError()` seam, rate limits across the 224 handlers, headers with the `/r` + `/e` embed exception, CSP report-only, secrets scan, cookie flags, **raw-SQL tenant-scoping audit** | Phase 7 | Med |
+| 32 | Observability: pino inside the existing `shared/logger.ts`, error tracking (residency-reviewed), `/api/health`, uptime monitoring, `docs/RUNBOOK.md` | **31** (owns the handler seam it extends) | Low-Med |
+| 33 | Database operations: automated backups, restore drill, pool sizing on the `PrismaPg` adapter, index audit starting with the raw-SQL analytics, schema-vs-migration drift check | 12, staging DB | Med |
+| 34 | i18n: full French/English UI chrome, locale toggle on all 10 shells, `guestLocale` on venue, French variants for email/SMS/push templates | — (35 renders through it) | Med |
+| 35 | Compliance & privacy (Law 25 / PIPEDA): consent management, retention job, hard-erasure path, tenant offboarding, breach register, published policy pages | 25, **34**; 17 supplies guest/incident/door data | Med |
+
+**Ordering:** 31 → 32 (32 extends 31's error seam), 34 → 35 (35's pages
+render through 34's locale plumbing). 33 is independent. The one finding
+that surfaced during the Phase 8 plan review and changed a plan's shape:
+~50 `$queryRawUnsafe` sites run on `getRawPrisma()`, which bypasses the
+tenant-scoping client extension — plan 31 now owns auditing every one for a
+`venue_id` predicate, and plan 33 indexes the same queries.
 
 **Exit criteria:** Security scan clean. Backup restore drill passed. Health
 checks green. French UI complete for guest and public surfaces (ops French can
