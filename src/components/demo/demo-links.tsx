@@ -36,7 +36,7 @@ export function DemoPublicNav() {
   return (
     <>
       {pathname !== "/demo" && (
-        <Button variant="ghost" size="sm" asChild>
+        <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
           <Link href="/demo"><ArrowLeft className="size-4" /> Back to demo</Link>
         </Button>
       )}

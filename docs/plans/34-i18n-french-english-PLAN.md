@@ -13,9 +13,10 @@ policy's language. The guest ordering flow is where the legal and product
 pressure concentrates — a francophone guest scanning a QR must get French.
 
 Preconditions: none hard. Land before or alongside plan 35 (its `/privacy`
-and `/terms` render through this plan's locale plumbing); plans 25/26 gain
-localized templates here if they've shipped, or ship bilingual from birth if
-this lands first. Branch `feature/34-i18n`.
+and `/terms` render through this plan's locale plumbing). Plans 25/26 are
+**already live** (Resend email + React Email templates, Twilio SMS), so
+their templates get localized here — this is work, not an if.
+Branch `feature/34-i18n`.
 
 ## Reasoning
 
@@ -40,9 +41,9 @@ this lands first. Branch `feature/34-i18n`.
    zero benefit — this is an authenticated ops app, not a content site.
    Locale lives in a cookie (`nln-locale`), readable by server components,
    set by the toggle. Two exceptions get a `?lang=` query override that
-   *sets* the cookie on arrival: the `/r/[venueSlug]` embed (a venue's
-   French website embeds `?lang=fr`) and links inside notification
-   emails/SMS (a guest who booked in French opens a French page). The
+   *sets* the cookie on arrival: the `/r/[venueSlug]` and `/e/[venueSlug]`
+   embeds (a venue's French website embeds `?lang=fr`) and links inside
+   notification emails/SMS (a guest who booked in French opens a French page). The
    marketing landing reads `Accept-Language` for its first-visit default;
    everywhere else defaults follow the venue (below).
 4. **Who decides the default:** staff/manager/admin — their own toggle
@@ -69,24 +70,32 @@ left in the code.
   (`guest.cart.*`, `manager.orders.*`, `shared.confirm.*`), typed via
   next-intl's TS augmentation so a key present in `en` and missing in `fr`
   is a build error — the two files cannot drift silently. French is
-  written by the owner (a francophone), not machine-glossed; the plan-22
-  review rule ("real French") applies to every string.
+  written by the owner (a francophone), not machine-glossed; the "real
+  French, owner-read" rule in the review checklist below applies to every
+  string (it also binds plan 35's policy text).
 - **`LocaleToggle`** in `src/components/shared/locale-toggle.tsx`, built as
   `ThemeToggle`'s sibling: ghost icon button (`Languages` from lucide),
   same mounted-guard pattern, `aria-label` bilingual-safe, shows the
   *target* locale ("FR" when in English, "EN" when in French — the
-  convention QC users know). Placed beside `ThemeToggle` in
-  `ManagerShell`, `StaffShell`, admin shell, guest tabs layout, and the
-  public/`/r` layouts — grep for `ThemeToggle` usage and pair every
-  instance. Toggling sets the cookie and refreshes; no full reload (demo
+  convention QC users know). `ThemeToggle` has **ten** mount sites today —
+  pair every one: `manager/manager-shell.tsx`, `staff/staff-shell.tsx`,
+  `shared/admin-shell-client.tsx`, `demo/admin-layout.tsx`,
+  `(guest)/guest/(tabs)/layout.tsx`, `(public)/layout.tsx`, `r/layout.tsx`,
+  `e/layout.tsx`, `login/page.tsx`, `invite/accept/page.tsx`. Grep, don't
+  sample. Toggling sets the cookie and refreshes; no full reload (demo
   mock state must survive the switch, §3.5).
-- **`format.ts` goes locale-aware:** `formatMoney` maps CAD → `fr-CA` /
+- **`src/features/shared/format.ts` goes locale-aware:** `formatMoney` maps CAD → `fr-CA` /
   `en-CA` by active locale (`1 234,56 $` vs `$1,234.56`); date/time
   helpers take the locale instead of hardcoded `en-GB`. Signatures keep
   working via a locale-context accessor so ~every call site doesn't
   change; `tabular-nums` and cents-rounding rules (§4.4) are untouched.
-- **Notification templates (plans 25/26) localize by recipient:**
-  reservation confirmations/PIN SMS follow the locale the guest booked in
+- **Notification templates (plans 25/26, live) localize by recipient:**
+  the React Email templates and SMS bodies under `src/features/notifications/`
+  are English-only today and dispatch runs through the single dispatcher
+  (`dispatch.ts`, AD-22) — that dispatcher is the one place to resolve the
+  recipient locale, across all three channels (email, SMS, **push** — plan
+  28's payloads are user-facing strings too and are easy to forget).
+  Reservation confirmations/PIN SMS follow the locale the guest booked in
   (captured on the reservation — new field, defaulted from venue
   `guestLocale`); staff invites follow the inviting venue's admin locale.
   Templates become per-locale variants in the same files; dispatch picks.
@@ -110,7 +119,9 @@ Each numbered step is a commit-sized workstream with the ladder run (§2.3):
 2. Shared primitives: ConfirmDialog defaults, empty-state/skeleton copy,
    toasts in `src/components/shared/`, nav labels.
 3. Guest area sweep + French (+ venue `guestLocale` setting in manager
-   settings, reservation locale capture, `?lang=` on `/r/[slug]`).
+   settings — a Prisma migration in the same commit per the appendix rule,
+   plus `bookingLocale` on Reservation — and `?lang=` on `/r/[slug]` and
+   `/e/[slug]`).
 4. Public/marketing + `/privacy`/`/terms` wiring (plan 35 rendezvous) +
    login/invite pages.
 5. Manager area sweep + French.
@@ -118,7 +129,8 @@ Each numbered step is a commit-sized workstream with the ladder run (§2.3):
 7. Admin area sweep + French (platform admin may stay lower-polish
    English-first if scope demands — it's internal; note the call in the
    PR if taken).
-8. Notification template variants (or fold into 18/19 if unshipped).
+8. Notification template variants across email, SMS and push, resolved in
+   `notifications/dispatch.ts` by recipient locale.
 
 ## Testing
 
@@ -147,7 +159,8 @@ Each numbered step is a commit-sized workstream with the ladder run (§2.3):
 - No layout breakage from French string length in chips, badges, buttons,
   and the floor map (drive them, don't eyeball the JSON).
 - French is idiomatic Québécois product French (courriel, not e-mail;
-  commande, not ordre) — owner-read, per the plan-22 rule.
+  commande, not ordre) — owner-read, never machine-glossed. This rule is
+  the one plan 35 cites for its policy text.
 - Money/date formatting locale-correct while cents math and
   `tabular-nums` stay untouched.
 - Toggling never resets demo mock state or the guest cart.

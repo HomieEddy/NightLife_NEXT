@@ -12,7 +12,7 @@ backup you haven't restored is not a backup.
 Preconditions: plan 12 (compose stack — the restore-drill sandbox); a
 provisioned Coolify Postgres for staging (first deploy can precede this plan,
 but nothing real goes into that DB until this plan's backup leg is done).
-Branch `chore/17-database-operations`.
+Branch `chore/33-database-operations`.
 
 ## Reasoning
 
@@ -42,7 +42,8 @@ it somewhere readable.
   script. Staging backs up too (smaller retention) because staging is where
   the restore drill runs monthly.
 - **The restore drill is a documented, executed procedure**, not prose:
-  `docs/RUNBOOK.md` §restore walks download → decrypt → restore into a
+  `docs/RUNBOOK.md` (created by plan 32; if 33 lands first, create it here)
+  §restore walks download → decrypt → restore into a
   scratch compose-stack Postgres → row-count and spot-check assertions →
   teardown. Executed once in this plan (with evidence pasted into the PR)
   and scheduled as a recurring calendar item. A backup script change without
@@ -55,7 +56,13 @@ it somewhere readable.
   config reflects that split. `sslmode=require` for any connection crossing
   a network boundary.
 - **Pooling:** one shared Prisma client (already the pattern via the scoped
-  client) with an explicit `connection_limit` sized to the VPS
+  client). Note the mechanism already exists and is *unconfigured*, not
+  missing: `src/features/shared/db.ts` builds a `PrismaPg` driver adapter
+  and passes `max` from an env var when set, falling back to the adapter
+  default otherwise. So this plan's work is choosing and documenting the
+  number and observing it — not new plumbing, and **not** a
+  `?connection_limit=` connection-string param (that's the non-adapter
+  Prisma path and would be silently ignored here). Size it to the VPS
   (`connections ≈ (cores × 2) + spindle`, minus headroom for LISTEN/NOTIFY
   channels and the migrate step — concretely: start at 10 app + documented
   reserve, tune from `pg_stat_activity` observation on staging). PgBouncer
@@ -72,6 +79,18 @@ it somewhere readable.
   rollups. Indexes land as a normal Prisma migration with the EXPLAIN
   evidence in the commit body. No speculative indexes: every one cites a
   query.
+  **Start with the raw-SQL surface, not the Prisma one:** ~30 of the
+  hand-written aggregations live in `features/analytics/analytics-depth.ts`
+  (plus `tab/core.ts` and `ordering/core.ts`), and they read
+  `nightly_rollups`, orders and admissions directly. Those queries are both
+  the heaviest and the ones Prisma's own index heuristics never saw. Plan 31
+  audits the same call sites for tenant scoping — read its findings list
+  rather than re-enumerating them.
+- **Migration hygiene check (cheap, do it first):** every model must have a
+  `CREATE TABLE` under `prisma/migrations/*/migration.sql`. Five models
+  shipped without one during Phase 7 and only failed at runtime (AGENTS.md
+  appendix). A one-shot script that diffs `schema.prisma` model names against
+  the migration SQL belongs in this plan, and plan 36 can later run it in CI.
 - **Pagination caps:** sweep list endpoints for unbounded reads; enforce a
   server-side max page size (the UI already pages or bounds most lists —
   the cap is the backstop against a scripted `?limit=1000000`).
@@ -85,10 +104,13 @@ it somewhere readable.
 3. Roles migration: `nightlife_app`/`nightlife_migrate` grants script (SQL,
    idempotent, checked in); Coolify env split; verify the app boots and a
    deploy migrates with the split creds.
-4. Prisma client `connection_limit` + a startup log line stating pool size;
-   observe `pg_stat_activity` on staging under SSE load.
-5. `pg_stat_statements` + slow-query logging on; drive the heavy pages;
-   index migration with EXPLAIN evidence.
+4. Set and document the adapter `max` + a startup log line stating pool
+   size; observe `pg_stat_activity` on staging under SSE load.
+5. `pg_stat_statements` + slow-query logging on; drive the heavy pages
+   *and* the raw-SQL analytics endpoints; index migration with EXPLAIN
+   evidence.
+5b. Schema-vs-migration drift check script (every model has a
+   `CREATE TABLE`); run it, fix anything it finds.
 6. Pagination-cap sweep with tests for one representative endpoint.
 
 ## Testing

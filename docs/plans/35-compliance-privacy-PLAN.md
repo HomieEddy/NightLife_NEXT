@@ -10,8 +10,11 @@ with an enforcement job, account/tenant deletion, and an incident-response
 procedure. Staging can run without this; **production cannot onboard a real
 venue before it** — that's the gate this plan defines.
 
-Preconditions: plan 25 (the retention job rides the cron infra; breach
-notification uses the email channel). Legal-document *review* by an actual
+Preconditions: plan 25 (**live** — the retention job rides the existing
+`/api/jobs/*` + `CRON_SECRET` + `JobRun` pattern, alongside nightly-rollup,
+report-schedules and reservation-reminders; breach notification uses the
+email channel) and plan 34 (the policy pages render through its locale
+plumbing). Legal-document *review* by an actual
 lawyer is recommended and explicitly outside what code review can approve.
 Branch `feature/35-compliance-privacy`.
 
@@ -25,9 +28,26 @@ the foundation of everything else, and a first pass from the schema:
 - **Guests:** transient QR sessions; reservations carry `guestName`,
   `guestEmail`, `guestPhone`, PIN (plans 08/13); orders tie to sessions.
   Guests are the volume and the sensitivity: consumers, not businesses.
+- **Guest profiles (plan 17, live):** the heaviest class and the one the
+  original inventory understated — persistent identity with photo
+  (`photoUrl`), staff notes, linked profiles, preferences, visit/spend
+  history, watchlist tier, bans and refusals, plus **incident records**
+  naming guests, staff and witnesses. Some of this is arguably sensitive
+  personal information under Law 25 (health details in the medical
+  checklist, biometrically-adjacent photos, allegations of misconduct) and
+  needs its own retention line, its own consent/transparency statement, and
+  the tightest deletion path.
+- **Door & safety (plan 17, live):** admissions with age verification (DOB),
+  denied entries, ejections, evacuation headcounts, coat check, lost items.
+- **Staff operational data (plan 18, live):** time entries, breaks, shift
+  records, tip distributions, commission statements — employment records
+  with their own statutory retention (Quebec labour law), which is *longer*
+  than the privacy-minimization instinct; do not let the retention job
+  shorten it.
 - **Leads:** contact info from the public form (plan 10).
-- **Derived:** `NotificationLog` recipients (plan 25/26), auth event logs
-  (plan 32), backups (plan 33).
+- **Derived:** `NotificationLog` recipients (plan 25/26), `AuditEntry`
+  (plan 10/16), `JobRun`, auth + request logs (plan 32), error-tracker
+  payloads (plan 32 — see its residency caveat), backups (plan 33).
 
 Law 25's teeth relevant at this scale: a designated privacy officer
 (published contact), transparency at collection (state purpose, no
@@ -61,8 +81,9 @@ banner would be cargo cult; documented in the policy instead).
   Guest QR join collects nothing identifying beyond the session — stated
   in the policy as the privacy-by-default posture.
 - **Retention enforced by a cron job**, not by promise:
-  `/api/jobs/data-retention` (plan 25 pattern: `CRON_SECRET`, `job_runs`,
-  idempotent) applying the inventory's schedule — e.g. closed guest
+  `/api/jobs/data-retention` (the shipped pattern: `CRON_SECRET` bearer,
+  `JobRun` row, idempotent — copy `nightly-rollup/route.ts`) applying the
+  inventory's schedule — e.g. closed guest
   sessions and their PII-bearing fields anonymized after N days (aggregates
   and rollups keep the numbers, lose the person — analytics, plan 09/09c,
   must survive anonymization by design: verify rollups don't join back to
@@ -70,6 +91,13 @@ banner would be cargo cult; documented in the policy instead).
   truncated after M days, auth logs per plan 32's retention. N/M values
   proposed in the inventory, decided by the owner, recorded there.
 - **Deletion paths, two shapes:**
+  - **Soft-delete is not erasure.** `features/guests/core.ts` already ships
+    a CRM-07 profile *soft* delete (covered by an integration test). That
+    satisfies an operator's "remove this guest from my list"; it does not
+    satisfy a Law 25 erasure request, which must also reach notes,
+    incidents-by-reference, photos, notification logs and reservations.
+    State the distinction in the inventory and make the erase script the
+    hard path.
   - **Individual (staff user or guest request):** a documented DSAR
     procedure (RUNBOOK.md §privacy-requests: verify identity → locate via
     email/phone across the inventory → delete/anonymize → confirm within
@@ -77,12 +105,19 @@ banner would be cargo cult; documented in the policy instead).
     mechanical part. No self-serve UI yet — request volume won't justify
     it; the script keeps the 30-day clock honest.
   - **Tenant offboarding:** plan 10's admin area gains a
-    confirm-dialog-gated tenant deletion that cascades the venue's data
-    (schema already hangs everything off `venueId`), with a grace-period
+    confirm-dialog-gated tenant deletion — no such method exists in
+    `features/platform/` today, so this is new service + route + UI, and
+    per AGENTS.md §4.8 it needs all three. It cascades the venue's data
+    (schema hangs everything off `venueId`, **except** the models on
+    `getDb()`'s `platformModels` list and the child tables scoped through a
+    parent FK — `IncidentNote`, `SupplierItem`, `AttentionAcknowledgment` —
+    which the cascade must reach through their parents). Grace-period
     soft-disable first (export window for the venue), then hard delete
     including a note that backups age out per plan 33's retention — stated
     honestly in the ToS.
-- **Breach procedure:** RUNBOOK.md §incident-response — contain, assess
+- **Breach procedure:** `docs/RUNBOOK.md` §incident-response (the ops
+  runbook plan 32 creates — distinct from the in-app *venue* incident
+  workflow of plan 17, and distinct from `RUNBOOK-VPS-SETUP.md`) — contain, assess
   "risk of serious injury", CAI + affected-person notification templates,
   and the Law 25-required internal breach register
   (`docs/legal/BREACH-REGISTER.md`, empty but existing). Privacy officer
@@ -90,8 +125,11 @@ banner would be cargo cult; documented in the policy instead).
 
 ## Implementation strategy
 
-1. Data inventory first — walk the Prisma schema and plans 23–28's new
-   stores; owner signs off retention numbers.
+1. Data inventory first — walk `prisma/schema.prisma` model by model (it is
+   the source of truth now that every service is live) plus the new stores
+   from plans 31–33 (auth/request logs, error tracker, backups); owner signs
+   off retention numbers, including the *longer* statutory floors for
+   employment records.
 2. Privacy policy + ToS drafts (FR/EN) from the inventory; `/privacy` and
    `/terms` pages on the live build; footer links; demo cross-links.
 3. Consent touchpoints: signup, lead, public reservation forms — purpose

@@ -317,7 +317,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
           </TooltipIconButton>
           <Sheet open={attentionSheetOpen} onOpenChange={setAttentionSheetOpen}>
             <SheetTrigger asChild>
-              <button className="relative rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Attention feed">
+              <button className="relative rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Attention feed">
                 <Bell className="size-4" />
                 {attentionCount > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[8px] font-bold text-destructive-foreground">
@@ -362,7 +362,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
               </TooltipIconButton>
               <Sheet open={attentionSheetOpen} onOpenChange={setAttentionSheetOpen}>
                 <SheetTrigger asChild>
-                  <button className="relative rounded-md p-1.5 text-muted-foreground hover:bg-accent" aria-label="Attention">
+                  <button className="relative rounded-md p-2 text-muted-foreground hover:bg-accent" aria-label="Attention">
                     <Bell className="size-4" />
                     {attentionCount > 0 && (
                       <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[8px] font-bold text-destructive-foreground">
@@ -402,7 +402,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative flex flex-col items-center gap-0.5 min-w-0 py-1 px-2 text-xs transition-colors",
+                    "relative flex min-h-14 flex-col items-center justify-center gap-0.5 min-w-0 py-1 px-2 text-xs transition-colors",
                     active ? "text-primary" : "text-muted-foreground",
                   )}
                 >
@@ -420,7 +420,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
               <SheetTrigger asChild>
                 <button
                   aria-label="More navigation"
-                  className={cn("flex flex-col items-center gap-0.5 min-w-0 py-1 px-2 text-xs text-muted-foreground transition-colors")}
+                  className={cn("flex min-h-14 flex-col items-center justify-center gap-0.5 min-w-0 py-1 px-2 text-xs text-muted-foreground transition-colors")}
                 >
                   <Menu className="size-5" />
                   <span className="truncate max-w-[64px]">More</span>

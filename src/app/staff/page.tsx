@@ -88,7 +88,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
           <Card className="h-full py-4 transition-colors hover:border-primary/50">
             <CardContent className="px-4">
               <DoorOpen className="size-4 text-primary" />
-              <p className="mt-2 text-3xl font-semibold tabular-nums">
+              <p className="mt-2 text-2xl sm:text-3xl font-semibold tabular-nums">
                 {occupancy ? occupancy.current : "…"}
               </p>
               <p className="text-xs text-muted-foreground">
@@ -104,7 +104,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
                 <AlertTriangle className="size-4 text-primary" />
                 {openIncidentCount > 0 && <span className="size-2 animate-pulse rounded-full bg-amber-400" />}
               </div>
-              <p className="mt-2 text-3xl font-semibold tabular-nums">{openIncidentCount}</p>
+              <p className="mt-2 text-2xl sm:text-3xl font-semibold tabular-nums">{openIncidentCount}</p>
               <p className="text-xs text-muted-foreground">Open incidents</p>
             </CardContent>
           </Card>
@@ -122,7 +122,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
                   <span className="size-2 animate-pulse rounded-full bg-red-400" />
                 )}
               </div>
-              <p className="mt-2 text-3xl font-semibold tabular-nums">{openSecurityCount}</p>
+              <p className="mt-2 text-2xl sm:text-3xl font-semibold tabular-nums">{openSecurityCount}</p>
               <p className="text-xs text-muted-foreground">Open security requests</p>
             </div>
             <ArrowRight className="size-4 text-muted-foreground" />
@@ -382,7 +382,7 @@ export default function StaffHomePage() {
                       <span className="size-2 animate-pulse rounded-full bg-amber-400" />
                     )}
                   </div>
-                  <p className="mt-3 text-3xl font-semibold tabular-nums"><CountUp value={tile.count} startOnMount /></p>
+                  <p className="mt-3 text-2xl sm:text-3xl font-semibold tabular-nums"><CountUp value={tile.count} startOnMount /></p>
                   <p className="text-xs text-muted-foreground">{tile.label}</p>
                 </CardContent>
               </Card>
