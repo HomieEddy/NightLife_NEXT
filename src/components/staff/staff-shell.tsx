@@ -84,9 +84,9 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                   {me?.avatarInitials ?? "…"}
                 </AvatarFallback>
               </Avatar>
-              <div className="leading-tight">
-                <p className="text-sm font-semibold">{me?.name ?? "Loading…"}</p>
-                <p className="text-[11px] text-muted-foreground">{venueName ?? "…"} · Staff panel</p>
+              <div className="min-w-0 leading-tight">
+                <p className="truncate text-sm font-semibold">{me?.name ?? "Loading…"}</p>
+                <p className="truncate text-[11px] text-muted-foreground">{venueName ?? "…"} · Staff panel</p>
               </div>
             </div>
             <div className="flex items-center gap-1">

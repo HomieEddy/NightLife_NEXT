@@ -55,6 +55,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const [attentionSheetOpen, setAttentionSheetOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const {
     items: attentionItems,
@@ -137,11 +138,12 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Esc → closes any open state (palette, attention, shortcut help)
+      // Esc → closes any open state (palette, attention, shortcut help, more nav)
       if (e.key === "Escape") {
         setPaletteOpen(false);
         setShortcutHelpOpen(false);
         setAttentionSheetOpen(false);
+        setMoreOpen(false);
         return;
       }
 
@@ -207,12 +209,14 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
     item: { href: string; label: string; icon: React.ComponentType<{ className?: string }> },
     badge?: number,
     extraClasses?: string,
+    onClick?: () => void,
   ) {
     const active = isNavActive(pathname, item.href);
     return (
       <Link
         key={item.href}
         href={item.href}
+        onClick={onClick}
         aria-current={active ? "page" : undefined}
         className={cn(
           "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
@@ -233,7 +237,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  function groupedNav() {
+  function groupedNav(onNav?: () => void) {
     return (
       <>
         {groups.map((group) => {
@@ -256,7 +260,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                       : item.href === "/manager/inventory" ? badgeCounts.inventory
                       : item.href === "/manager/staff" ? badgeCounts.staff
                       : undefined;
-                    return navItemLink(item, badge);
+                    return navItemLink(item, badge, undefined, onNav);
                   })}
                 </div>
               )}
@@ -412,7 +416,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
-            <Sheet>
+            <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
               <SheetTrigger asChild>
                 <button
                   aria-label="More navigation"
@@ -424,7 +428,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
               </SheetTrigger>
               <SheetContent side="bottom" className="h-[75dvh] overflow-y-auto rounded-t-xl">
                 <div className="space-y-3 pt-4">
-                  {groupedNav()}
+                  {groupedNav(() => setMoreOpen(false))}
                   <hr />
                   {footerBlock()}
                 </div>
