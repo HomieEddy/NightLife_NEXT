@@ -54,9 +54,16 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Mobile interaction — eliminate 300ms tap delay, suppress default tap highlight */
+html {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Ember system: warm charcoal ground, amber-orange brand, gold→ember gradients.
    Zone/persona colors (violet, cyan, fuchsia…) are data colors and stay cool. */
 :root {
+  color-scheme: light;
   --background: oklch(0.98 0.008 80);
   --foreground: oklch(0.22 0.03 50);
   --card: oklch(0.995 0.004 80);
@@ -98,6 +105,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.135 0.016 60);
   --foreground: oklch(0.96 0.012 75);
   --card: oklch(0.185 0.024 66);
