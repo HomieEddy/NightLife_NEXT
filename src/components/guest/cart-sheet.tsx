@@ -45,6 +45,7 @@ export function CartSheet() {
           id="cart-pill"
           ref={pillRef}
           type="button"
+          // 3.5rem mirrors min-h-14 (56px) on MobileBottomNav — keep in sync if nav height changes
           className="foil foil-shimmer glow-gold !fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.5rem)] z-40 mx-auto flex w-[calc(100%-2rem)] max-w-md items-center justify-between rounded-full px-5 py-3.5 font-semibold transition-transform active:scale-[0.98] animate-pop-in will-change-transform"
         >
           <span className="flex items-center gap-2">

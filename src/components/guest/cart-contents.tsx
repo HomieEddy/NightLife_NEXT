@@ -200,7 +200,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
                     <TooltipIconButton
                       tooltip="Decrease"
                       variant="ghost"
-                      className="size-8"
+                      className="size-9"
                       onClick={() => updateQuantity(line.lineId, line.quantity - 1)}
                     >
                       <Minus className="size-3.5" />
@@ -211,7 +211,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
                     <TooltipIconButton
                       tooltip="Increase"
                       variant="ghost"
-                      className="size-8"
+                      className="size-9"
                       onClick={() => updateQuantity(line.lineId, line.quantity + 1)}
                     >
                       <Plus className="size-3.5" />
@@ -279,7 +279,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
               <TooltipIconButton
                 tooltip="Decrease tip"
                 variant="ghost"
-                className="size-8"
+                className="size-9"
                 onClick={() => setCustomTipPct((prev) => Math.max(0, prev - 1))}
               >
                 <Minus className="size-3.5" />
@@ -290,7 +290,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
               <TooltipIconButton
                 tooltip="Increase tip"
                 variant="ghost"
-                className="size-8"
+                className="size-9"
                 onClick={() => setCustomTipPct((prev) => prev + 1)}
               >
                 <Plus className="size-3.5" />
