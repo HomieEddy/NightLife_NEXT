@@ -47,21 +47,106 @@
     }
   },
   "guest": {
+    "qr": {
+      "tableNotFound": "Table introuvable",
+      "tableNotFoundDemo": "Aucune table ne correspond au code « {code} ». Essayez la table de démo.",
+      "tableNotFoundLive": "Aucune table ne correspond au code « {code} ». Demandez un code QR valide au personnel.",
+      "welcomeTo": "Bienvenue au",
+      "backToDemo": "Retour à la démo",
+      "tableReserved": "Table réservée",
+      "tableReservedDesc": "Cette table a une réservation active. Entrez le NIP à 6 chiffres pour continuer.",
+      "demoPin": "NIP démo :",
+      "reservationPin": "NIP de réservation",
+      "verifying": "Vérification…",
+      "unlockTable": "Déverrouiller la table",
+      "pinConfirmed": "Réservation confirmée — bienvenue !",
+      "tooManyAttempts": "Trop de tentatives. Demandez de l'aide au personnel.",
+      "invalidPin": "NIP invalide",
+      "pinError": "Impossible de vérifier le NIP. Réessayez.",
+      "firstName": "Votre prénom",
+      "firstNamePlaceholder": "ex. Alex",
+      "firstNameRequired": "Dites-nous votre prénom pour que le personnel sache qui chercher.",
+      "partySize": "Taille du groupe",
+      "fewerPeople": "Moins de personnes",
+      "morePeople": "Plus de personnes",
+      "tableSeats": "Cette table peut accueillir jusqu'à {seats} personnes.",
+      "joinTable": "Rejoindre cette table",
+      "requesting": "Demande en cours…",
+      "joinError": "Impossible de rejoindre cette table. Réessayez.",
+      "hostApproval": "Un hôte doit approuver votre table avant que vous puissiez commander."
+    },
+    "waiting": {
+      "title": "Presque là",
+      "subtitle": "Un hôte approuvera votre table sous peu.",
+      "tableInfo": "Vous êtes à {table} dans {zone}",
+      "pendingHelp": "Besoin de quelque chose ? Appuyez sur Aide ci-dessous.",
+      "noTable": "Aucune table rejointe",
+      "noTableDesc": "Scannez le code QR sur votre table pour commencer.",
+      "welcomeBack": "Bienvenue, {name} !",
+      "approvedDesc": "Vous êtes installé à {table} dans {zone}. Appuyez ci-dessous pour parcourir le menu et commander.",
+      "browseMenu": "Parcourir le menu",
+      "hangTight": "Patientez, {name}",
+      "confirmingTable": "Votre hôte confirme {table} dans {zone}. Cela prend généralement moins d'une minute.",
+      "waitingApproval": "En attente d'approbation…"
+    },
     "cart": {
-      "title": "Panier",
+      "title": "Votre panier",
+      "description": "Révisez, ajoutez un pourboire et passez votre commande.",
       "empty": "Votre panier est vide.",
       "checkout": "Passer la commande",
-      "total": "Total"
+      "total": "Total",
+      "subtotal": "Sous-total",
+      "tip": "Pourboire",
+      "fees": "Frais et taxes",
+      "tipPlaceholder": "Personnalisé"
     },
     "menu": {
       "title": "Menu",
       "search": "Rechercher dans le menu…",
-      "noResults": "Aucun article ne correspond à votre recherche."
+      "noResults": "Aucun article ne correspond à votre recherche.",
+      "packages": "Forfaits",
+      "all": "Tout"
     },
     "order": {
+      "title": "Mes commandes",
       "placed": "Commande passée !",
+      "placedDesc": "Votre commande est en chemin.",
       "status": "État de la commande",
-      "delivered": "Livré"
+      "delivered": "Livré",
+      "steps": {
+        "pending": "Envoyée",
+        "accepted": "Acceptée",
+        "preparing": "En préparation",
+        "ready": "En route",
+        "delivered": "Livrée"
+      },
+      "eta": "Arrivée prévue : {eta}",
+      "total": "Total",
+      "viewReceipt": "Voir le reçu",
+      "noOrders": "Aucune commande",
+      "noOrdersDesc": "Allez au menu pour commencer à commander."
+    },
+    "help": {
+      "title": "Aide",
+      "requestSent": "Demande envoyée",
+      "requestSentDesc": "Le personnel sera à votre table sous peu.",
+      "callRunner": "Appeler un runner",
+      "callHost": "Appeler un hôte",
+      "callBartender": "Appeler un barman"
+    },
+    "receipt": {
+      "title": "Reçu",
+      "orderNumber": "Commande nº {id}",
+      "items": "Articles",
+      "subtotal": "Sous-total",
+      "tip": "Pourboire",
+      "fees": "Frais et taxes",
+      "total": "Total",
+      "paid": "Payé"
+    },
+    "gift": {
+      "title": "Envoyer un cadeau",
+      "comingSoon": "Envoi de cadeaux à venir."
     }
   },
   "manager": {
@@ -95,7 +180,7 @@
   "auth": {
     "login": "Se connecter",
     "logout": "Se déconnecter",
-    "logoutTitle": "Se déconnecter?",
+    "logoutTitle": "Se déconnecter ?",
     "logoutDescription": "Vous devrez vous reconnecter pour accéder à votre tableau de bord.",
     "invite": "Accepter l'invitation"
   }

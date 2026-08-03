@@ -47,21 +47,106 @@
     }
   },
   "guest": {
+    "qr": {
+      "tableNotFound": "Table not found",
+      "tableNotFoundDemo": "No table matches the code \"{code}\". Try the demo table instead.",
+      "tableNotFoundLive": "No table matches the code \"{code}\". Ask venue staff for a current QR code.",
+      "welcomeTo": "Welcome to",
+      "backToDemo": "Back to demo",
+      "tableReserved": "Table reserved",
+      "tableReservedDesc": "This table has an active reservation. Enter the 6-digit PIN to proceed.",
+      "demoPin": "Demo PIN:",
+      "reservationPin": "Reservation PIN",
+      "verifying": "Verifying…",
+      "unlockTable": "Unlock table",
+      "pinConfirmed": "Reservation confirmed — welcome!",
+      "tooManyAttempts": "Too many attempts. Ask venue staff for help.",
+      "invalidPin": "Invalid PIN",
+      "pinError": "Could not verify PIN. Try again.",
+      "firstName": "Your first name",
+      "firstNamePlaceholder": "e.g. Alex",
+      "firstNameRequired": "Tell us your first name so staff know who to look for.",
+      "partySize": "Party size",
+      "fewerPeople": "Fewer people",
+      "morePeople": "More people",
+      "tableSeats": "This table seats up to {seats}.",
+      "joinTable": "Join this table",
+      "requesting": "Requesting…",
+      "joinError": "Could not join this table. Try again.",
+      "hostApproval": "A host will approve your table before you can order."
+    },
+    "waiting": {
+      "title": "Almost there",
+      "subtitle": "A host will approve your table shortly.",
+      "tableInfo": "You're at {table} in {zone}",
+      "pendingHelp": "Need something? Tap Help below.",
+      "noTable": "No table joined",
+      "noTableDesc": "Scan the QR code on your table to get started.",
+      "welcomeBack": "Welcome, {name}!",
+      "approvedDesc": "You're all set at {table} in {zone}. Tap below to browse the menu and order.",
+      "browseMenu": "Browse the menu",
+      "hangTight": "Hang tight, {name}",
+      "confirmingTable": "Your host is confirming {table} in {zone}. This usually takes under a minute.",
+      "waitingApproval": "Waiting for approval…"
+    },
     "cart": {
-      "title": "Cart",
+      "title": "Your cart",
+      "description": "Review, tip and place your order.",
       "empty": "Your cart is empty.",
       "checkout": "Place Order",
-      "total": "Total"
+      "total": "Total",
+      "subtotal": "Subtotal",
+      "tip": "Tip",
+      "fees": "Fees & taxes",
+      "tipPlaceholder": "Custom"
     },
     "menu": {
       "title": "Menu",
       "search": "Search menu…",
-      "noResults": "No items match your search."
+      "noResults": "No items match your search.",
+      "packages": "Packages",
+      "all": "All"
     },
     "order": {
+      "title": "My Orders",
       "placed": "Order placed!",
+      "placedDesc": "Your order is on its way.",
       "status": "Order Status",
-      "delivered": "Delivered"
+      "delivered": "Delivered",
+      "steps": {
+        "pending": "Sent",
+        "accepted": "Accepted",
+        "preparing": "Preparing",
+        "ready": "On its way",
+        "delivered": "Delivered"
+      },
+      "eta": "ETA: {eta}",
+      "total": "Total",
+      "viewReceipt": "View receipt",
+      "noOrders": "No orders yet",
+      "noOrdersDesc": "Head to the menu to start ordering."
+    },
+    "help": {
+      "title": "Help",
+      "requestSent": "Request sent",
+      "requestSentDesc": "Staff will be at your table shortly.",
+      "callRunner": "Call runner",
+      "callHost": "Call host",
+      "callBartender": "Call bartender"
+    },
+    "receipt": {
+      "title": "Receipt",
+      "orderNumber": "Order #{id}",
+      "items": "Items",
+      "subtotal": "Subtotal",
+      "tip": "Tip",
+      "fees": "Fees & taxes",
+      "total": "Total",
+      "paid": "Paid"
+    },
+    "gift": {
+      "title": "Send a gift",
+      "comingSoon": "Gift ordering coming soon."
     }
   },
   "manager": {
