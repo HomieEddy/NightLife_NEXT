@@ -27,14 +27,15 @@ function getLocaleFromCookie(): Locale {
 
 /**
  * Ghost icon button showing target locale ("FR" when English, "EN" when French).
- * Mirrors ThemeToggle's mounted-guard pattern. Sets `nln-locale` cookie, then
- * soft-reloads so server components pick up the new locale without losing demo state.
+ * Always renders the same Button element to match ThemeToggle's pattern — no DOM
+ * swap on mount, no layout shift in flex containers. Sets `nln-locale` cookie,
+ * then hard-reloads so server components pick up the new locale.
  */
 export function LocaleToggle({ className }: { className?: string }) {
   const intlLocale = useLocale();
   const [mounted, setMounted] = useState(false);
   const current =
-    mounted && intlLocale === "fr" ? "fr" : (getLocaleFromCookie());
+    mounted && intlLocale === "fr" ? "fr" : getLocaleFromCookie();
   const target = opposite[current];
 
   useEffect(() => setMounted(true), []);
@@ -42,22 +43,29 @@ export function LocaleToggle({ className }: { className?: string }) {
   function handleToggle() {
     setLocaleCookie(target);
     if (typeof location !== "undefined") {
-      // Soft navigation — preserve demo mock state (§3.5)
       location.reload();
     }
   }
-
-  if (!mounted) return <div className={cn("size-9", className)} aria-hidden />;
 
   return (
     <Button
       variant="ghost"
       size="icon"
       className={cn("text-muted-foreground hover:text-foreground", className)}
-      aria-label={target === "fr" ? "Switch to French" : "Switch to English"}
+      aria-label={
+        mounted
+          ? target === "fr"
+            ? "Switch to French"
+            : "Switch to English"
+          : "Change language"
+      }
       onClick={handleToggle}
     >
-      <span className="text-xs font-bold tabular-nums">{label[target]}</span>
+      {mounted ? (
+        <span className="text-xs font-bold tabular-nums">{label[target]}</span>
+      ) : (
+        <Languages className="size-4" />
+      )}
     </Button>
   );
 }
