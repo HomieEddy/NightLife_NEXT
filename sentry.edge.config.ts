@@ -6,7 +6,7 @@ if (dsn) {
     dsn,
     environment:
       process.env.SENTRY_ENV ??
-      (process.env.APP_MODE === "live" ? "production" : "development"),
+      (process.env.NEXT_PUBLIC_APP_MODE === "live" ? "production" : "development"),
     release: process.env.SENTRY_RELEASE,
     tracesSampleRate: 0,
     sendDefaultPii: false,
