@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import type { ZodError } from "zod";
 import { logger } from "@/features/shared/logger";
+import { getRequestId } from "@/features/shared/request-id";
 
 interface ApiErrorOpts {
   /** Logged for 5xx; ignored for 4xx. */
@@ -25,17 +26,19 @@ export function apiError(
   message: string,
   opts?: ApiErrorOpts,
 ): NextResponse<{ error: string }> {
+  const requestId = getRequestId();
+  const headers: Record<string, string> = {};
+  if (requestId) headers["x-request-id"] = requestId;
+  if (opts?.headers) Object.assign(headers, opts.headers);
+
   if (status >= 500) {
-    logger.error(message, { detail: opts?.detail });
+    logger.error(message, { detail: opts?.detail, requestId });
     return NextResponse.json(
       { error: "Internal server error" },
-      { status, headers: opts?.headers },
+      { status, headers },
     );
   }
-  return NextResponse.json(
-    { error: message },
-    { status, headers: opts?.headers },
-  );
+  return NextResponse.json({ error: message }, { status, headers });
 }
 
 /** Convenience wrapper for Zod validation errors — field-level detail is UX. */

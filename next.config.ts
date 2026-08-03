@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 import { buildDirectoryForMode, parseAppMode } from "./src/features/shared/app-mode";
 
 const appMode = parseAppMode(process.env.NEXT_PUBLIC_APP_MODE);
+const hasSentry = Boolean(
+  process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN,
+);
 
 const demoResourceAliases = {
   "@/features/shared/db": "./src/features/shared/demo-resource-stub.ts",
@@ -119,4 +122,15 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Conditionally wrap with Sentry — no-op when SENTRY_DSN is absent.
+// Dynamic require avoids loading the Sentry SDK into the demo bundle at all.
+let finalConfig: NextConfig = nextConfig;
+if (hasSentry) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { withSentryConfig } = require("@sentry/nextjs") as {
+    withSentryConfig: (c: NextConfig) => NextConfig;
+  };
+  finalConfig = withSentryConfig(nextConfig);
+}
+
+export default finalConfig;
