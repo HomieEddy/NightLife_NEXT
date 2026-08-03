@@ -579,28 +579,40 @@ export async function saveStocktake(db: ScopedDb, st: Stocktake): Promise<Stockt
 }
 
 export async function commitStocktake(db: ScopedDb, stId: string): Promise<Stocktake> {
-  const st = await db.stocktake.findUnique({ where: { id: stId } });
-  assertRow(st);
-  if (st.status !== "counting") throw new Error("Only a stocktake in 'counting' status can be committed.");
-  const stLines = (st.lines as Array<Row>) as {
-    id: string; menuItemId: string; varianceQty: number; varianceCents: number;
-  }[];
-  for (const line of stLines) {
-    if (line.varianceQty === 0) continue;
-    const item = await db.menuItem.findUnique({ where: { id: line.menuItemId } });
-    const itemName = item?.name ?? line.menuItemId;
-    await db.stockMovement.create({
-      data: { menuItemId: line.menuItemId, itemName, type: "adjustment", delta: line.varianceQty, note: `Stocktake ${st.businessDate} — count variance`, stocktakeId: stId },
-    } as Row);
-    if (item) {
-      await db.menuItem.update({ where: { id: line.menuItemId }, data: { inventory: { increment: line.varianceQty } } });
+  // One transaction: every movement, inventory update and the status flip
+  // commit together, or none do. The final CAS (status → committed) is the
+  // concurrency guard — a second concurrent commit reads the old status,
+  // applies its movements, then claims 0 rows and rolls the whole batch back.
+  return db.$transaction(async (tx) => {
+    const st = await tx.stocktake.findUnique({ where: { id: stId } });
+    assertRow(st);
+    if (st.status !== "counting") throw new Error("Only a stocktake in 'counting' status can be committed.");
+    const stLines = (st.lines as Array<Row>) as {
+      id: string; menuItemId: string; varianceQty: number; varianceCents: number;
+    }[];
+    for (const line of stLines) {
+      if (line.varianceQty === 0) continue;
+      const item = await tx.menuItem.findUnique({ where: { id: line.menuItemId } });
+      const itemName = item?.name ?? line.menuItemId;
+      await tx.stockMovement.create({
+        data: { menuItemId: line.menuItemId, itemName, type: "adjustment", delta: line.varianceQty, note: `Stocktake ${st.businessDate} — count variance`, stocktakeId: stId },
+      } as Row);
+      if (item) {
+        await tx.menuItem.update({ where: { id: line.menuItemId }, data: { inventory: { increment: line.varianceQty } } });
+      }
     }
-  }
-  const totalVarianceCents = stLines.reduce((sum, l) => sum + (l.varianceCents ?? 0), 0);
-  await db.stocktake.update({ where: { id: stId }, data: { status: "committed", committedAt: new Date(), totalVarianceCents } });
-  const updated = await db.stocktake.findUnique({ where: { id: stId } });
-  assertRow(updated);
-  return stRowToDTO(updated);
+    const totalVarianceCents = stLines.reduce((sum, l) => sum + (l.varianceCents ?? 0), 0);
+    const claimed = await tx.stocktake.updateMany({
+      where: { id: stId, status: "counting" },
+      data: { status: "committed", committedAt: new Date(), totalVarianceCents },
+    });
+    if (claimed.count === 0) {
+      throw new Error("Stocktake was already committed by another process.");
+    }
+    const updated = await tx.stocktake.findUnique({ where: { id: stId } });
+    assertRow(updated);
+    return stRowToDTO(updated);
+  });
 }
 
 // ── Eighty-six entries ───────────────────────────────────────────────
