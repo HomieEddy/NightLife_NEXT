@@ -39,6 +39,71 @@ const nextConfig: NextConfig = {
   distDir: process.env.VERCEL ? ".next" : buildDirectoryForMode(appMode),
   reactCompiler: true,
   devIndicators: false,
+
+  // ── Security headers (plan 31) ──────────────────────────────────────
+  async headers() {
+    const isProduction = process.env.NODE_ENV === "production";
+
+    // CSP frame-ancestors: deny everywhere except the embeddable shells
+    // (/r/[venueSlug] and /e/[venueSlug]) which are designed to be iframed
+    // by venue websites. See plan 13 and plan 31.
+    const cspBase = "frame-ancestors 'none';";
+    const cspEmbed = "frame-ancestors *;";
+    // Report-only script CSP — enforced CSP with Next inline runtime chunks
+    // is its own project (plan 31 defers it). Report violations so we can
+    // measure the gap without breaking the app.
+    const cspReportOnly = [
+      "default-src 'self';",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline';",
+      "style-src 'self' 'unsafe-inline';",
+      "img-src 'self' data: blob: https:;",
+      "font-src 'self';",
+      "connect-src 'self';",
+      "report-uri /api/csp-report;",
+    ].join(" ");
+
+    return [
+      // ── All routes: baseline security headers ───────────────────────
+      {
+        source: "/((?!r|e).*)", // everything except /r/* and /e/*
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Content-Security-Policy", value: cspBase },
+          { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+          ...(isProduction
+            ? [{ key: "Strict-Transport-Security", value: "max-age=86400; includeSubDomains" }]
+            : []),
+        ],
+      },
+      // ── Embeddable shells: allow framing from any origin ─────────────
+      {
+        source: "/r/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Content-Security-Policy", value: cspEmbed },
+          { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+          ...(isProduction
+            ? [{ key: "Strict-Transport-Security", value: "max-age=86400; includeSubDomains" }]
+            : []),
+        ],
+      },
+      {
+        source: "/e/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Content-Security-Policy", value: cspEmbed },
+          { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+          ...(isProduction
+            ? [{ key: "Strict-Transport-Security", value: "max-age=86400; includeSubDomains" }]
+            : []),
+        ],
+      },
+    ];
+  },
   turbopack: {
     resolveAlias: appMode === "live"
       ? {
