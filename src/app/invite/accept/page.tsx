@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, Loader2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
@@ -28,11 +29,12 @@ function AcceptContent() {
     name: z.string().min(1, t("fullName")),
     password: z.string().min(8, t("password")),
     confirm: z.string().min(1, t("confirmPassword")),
+    consent: z.literal(true, { message: t("consentRequired") }),
   }).refine((d) => d.password === d.confirm, { message: t("passwordsDontMatch"), path: ["confirm"] }), [t]);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(zAcceptInvite),
-    defaultValues: { name: "", password: "", confirm: "" },
+    defaultValues: { name: "", password: "", confirm: "", consent: false as unknown as true },
   });
 
   const onSubmit = handleSubmit(async (data) => {
@@ -128,6 +130,19 @@ function AcceptContent() {
                     <Input id="invite-confirm" type="password" autoComplete="new-password" placeholder="Same password again" {...register("confirm")} />
                     {errors.confirm && <p className="text-xs text-red-600">{errors.confirm.message}</p>}
                   </div>
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="invite-consent"
+                      type="checkbox"
+                      className="mt-1 size-4 accent-primary"
+                      {...register("consent")}
+                    />
+                    <Label htmlFor="invite-consent" className="text-sm font-normal leading-relaxed">
+                      {t("consentText")}{" "}
+                      <Link href="/privacy" target="_blank" className="text-primary underline">Privacy Policy</Link>
+                    </Label>
+                  </div>
+                  {errors.consent && <p className="text-xs text-red-600">{errors.consent.message}</p>}
                   <Button type="submit" className="w-full" disabled={isSubmitting}>
                     {isSubmitting && <Loader2 className="size-4 animate-spin" />}
                     {isSubmitting ? t("creatingAccount") : t("acceptInvite")}

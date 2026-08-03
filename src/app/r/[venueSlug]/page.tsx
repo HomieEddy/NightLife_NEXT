@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, use, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
@@ -24,6 +25,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FloorMapCanvas } from "@/components/shared/floor-map-canvas";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { LIVE_APP_URL } from "@/features/shared/app-origins";
 import { reservationService } from "@/features/hospitality/reservation-service";
 import { reservationsKeys } from "@/features/hospitality/query-keys";
 import { formatMoney } from "@/features/shared/format";
@@ -325,6 +328,16 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
                         <Plus className="size-4" />
                       </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Your email and phone are used only for reservation confirmation and PIN delivery.{" "}
+                      <Link
+                        href={isDemoMode() ? `${LIVE_APP_URL}/privacy` : "/privacy"}
+                        target="_blank"
+                        className="text-primary underline"
+                      >
+                        Privacy Policy
+                      </Link>
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="pub-email">Email</Label>

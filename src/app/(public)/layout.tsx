@@ -5,6 +5,7 @@ import { DemoPublicFooter, DemoPublicNav } from "@/components/shared/demo-links"
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { LocaleToggle } from "@/components/shared/locale-toggle";
 import { isDemoMode } from "@/features/shared/app-mode";
+import { LIVE_APP_URL } from "@/features/shared/app-origins";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -28,7 +29,20 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <footer className="border-t py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-muted-foreground sm:flex-row">
           <BrandLogo href={isDemoMode() ? "/demo" : "/"} className="text-sm" />
-          <p>© {new Date().getFullYear()} NightLifeNext.</p>
+          <div className="flex items-center gap-4">
+            {isDemoMode() ? (
+              <>
+                <Link href={`${LIVE_APP_URL}/privacy`} className="hover:text-foreground transition-colors">Privacy</Link>
+                <Link href={`${LIVE_APP_URL}/terms`} className="hover:text-foreground transition-colors">Terms</Link>
+              </>
+            ) : (
+              <>
+                <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+                <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+              </>
+            )}
+            <p>© {new Date().getFullYear()} NightLifeNext.</p>
+          </div>
           <DemoPublicFooter />
         </div>
       </footer>
