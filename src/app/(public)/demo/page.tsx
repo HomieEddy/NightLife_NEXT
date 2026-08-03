@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { DemoTourPage } from "@/components/shared/demo-tour-page";
 
-export const metadata: Metadata = {
-  title: "Live demo tour",
-  description:
-    "A guided tour of the NightLifeNext demo — manager, staff, guest and admin surfaces, with links into every feature.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("demo.meta");
+  return {
+    title: t("title"),
+    description: t("description"),
+  };
+}
 
 export default DemoTourPage;
