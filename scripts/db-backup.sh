@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -euo pipefail
 
 # db-backup.sh — NightLifeNext nightly Postgres backup
