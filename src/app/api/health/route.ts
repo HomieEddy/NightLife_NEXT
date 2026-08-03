@@ -59,9 +59,11 @@ async function liveHandler(request: NextRequest): Promise<NextResponse<HealthRes
     windowMs: 60_000,
   });
   if (!rl.allowed) {
+    // Rate-limited requests are healthy — a monitor keying on the body must
+    // not flag a 429 as an outage.
     return NextResponse.json(
       {
-        status: "degraded",
+        status: "ok",
         uptime: Math.round((process.uptime() - startTime) * 100) / 100,
         checks: { db: "ok" },
       },
@@ -82,21 +84,32 @@ async function liveHandler(request: NextRequest): Promise<NextResponse<HealthRes
     checks: { db },
   };
 
-  if (process.env.REDIS_URL) {
+  // Skip the queue probe when the DB is already down — no point opening a
+  // Redis connection during an outage.
+  if (db === "ok" && process.env.REDIS_URL) {
     try {
       const { default: Redis } = await import("ioredis");
       const client = new Redis(process.env.REDIS_URL, {
         lazyConnect: true,
         maxRetriesPerRequest: 0,
+        // One-shot probe: never reconnect, or a down Redis leaks a socket
+        // and reconnects forever on every poll.
+        retryStrategy: () => null,
       });
-      const pong = await Promise.race([
-        client.ping(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Redis timeout")), 2000),
-        ),
-      ]);
-      res.checks.queue = pong === "PONG" ? "ok" : "error";
-      await client.quit().catch(() => {});
+      try {
+        const pong = await Promise.race([
+          client.ping(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Redis timeout")), 2000),
+          ),
+        ]);
+        res.checks.queue = pong === "PONG" ? "ok" : "error";
+      } catch {
+        res.checks.queue = "error";
+        res.status = "degraded";
+      } finally {
+        client.disconnect();
+      }
     } catch {
       res.checks.queue = "error";
       res.status = "degraded";
