@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Gift, Loader2, Minus, Plus, QrCode, Search } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -31,6 +32,7 @@ interface GiftLine {
 }
 
 export default function GuestGiftPage() {
+  const t = useTranslations("guest.gift");
   const router = useRouter();
   const { table, guestName, sessionId } = useGuest();
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -104,7 +106,7 @@ export default function GuestGiftPage() {
       note: note.trim() || undefined,
     });
     setSending(false);
-    toast.success(`Sent to ${selectedTable.code} — it's on your tab tonight`);
+    toast.success(t("sentToast", { table: selectedTable.code }));
     router.push("/guest/orders");
   }
 
@@ -113,8 +115,8 @@ export default function GuestGiftPage() {
       <div className="p-6">
         <EmptyState
           icon={QrCode}
-          title="No table joined"
-          description="Scan the QR code on your table first."
+          title={t("noTable")}
+          description={t("noTableDesc")}
           action={<DemoQrScanAction />}
         />
       </div>
@@ -125,13 +127,13 @@ export default function GuestGiftPage() {
     <ClosureGate>
     <div className="space-y-5 p-4 animate-fade-in">
       <PageHeader
-        title="Send a bottle"
-        description="Surprise another table — it's billed to you, they just get the delivery."
+        title={t("heading")}
+        description={t("description")}
       />
 
       {lines.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium">Your gift</p>
+          <p className="text-sm font-medium">{t("yourGift")}</p>
           <ul className="space-y-1.5">
             {lines.map((line) => (
               <li key={line.menuItem.id} className="flex items-center gap-2 rounded-lg border p-2">
@@ -144,7 +146,7 @@ export default function GuestGiftPage() {
                 </div>
                 <div className="flex items-center gap-1 rounded-md border">
                   <TooltipIconButton
-                    tooltip="Decrease"
+                    tooltip={t("decrease")}
                     variant="ghost"
                     className="size-7"
                     onClick={() => updateLineQty(line.menuItem.id, line.quantity - 1)}
@@ -155,7 +157,7 @@ export default function GuestGiftPage() {
                     {line.quantity}
                   </span>
                   <TooltipIconButton
-                    tooltip="Increase"
+                    tooltip={t("increase")}
                     variant="ghost"
                     className="size-7"
                     onClick={() => updateLineQty(line.menuItem.id, line.quantity + 1)}
@@ -167,7 +169,7 @@ export default function GuestGiftPage() {
             ))}
           </ul>
           <div className="flex justify-between text-sm font-medium">
-            <span>Subtotal</span>
+            <span>{t("subtotal")}</span>
             <span className="tabular-nums">{formatMoney(subtotal)}</span>
           </div>
           <Separator />
@@ -175,18 +177,18 @@ export default function GuestGiftPage() {
       )}
 
       <div className="space-y-2">
-        <p className="text-sm font-medium">Add items</p>
+        <p className="text-sm font-medium">{t("addItems")}</p>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search bottles…"
+            placeholder={t("searchBottles")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="h-10 pl-9"
           />
         </div>
         {visible.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing giftable in stock right now.</p>
+          <p className="text-sm text-muted-foreground">{t("nothingGiftable")}</p>
         ) : (
           <div className="grid grid-cols-2 gap-2">
             {visible.map((item) => {
@@ -208,7 +210,7 @@ export default function GuestGiftPage() {
                     <p className="truncate text-sm font-medium">{item.name}</p>
                     <p className="text-xs text-muted-foreground">{formatMoney(item.price)}</p>
                     {inCart && (
-                      <p className="text-xs font-medium text-primary">{inCart.quantity} in gift</p>
+                      <p className="text-xs font-medium text-primary">{t("inGift", { count: inCart.quantity })}</p>
                     )}
                   </div>
                 </button>
@@ -219,9 +221,9 @@ export default function GuestGiftPage() {
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-medium">Send it to</p>
+        <p className="text-sm font-medium">{t("sendTo")}</p>
         {tables.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No other occupied tables right now.</p>
+          <p className="text-sm text-muted-foreground">{t("noOccupiedTables")}</p>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {tables.map((t) => (
@@ -244,9 +246,9 @@ export default function GuestGiftPage() {
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-medium">Add a note (optional)</p>
+        <p className="text-sm font-medium">{t("addNote")}</p>
         <Textarea
-          placeholder="e.g. From a secret admirer 😉"
+          placeholder={t("notePlaceholder")}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={2}
@@ -254,13 +256,13 @@ export default function GuestGiftPage() {
       </div>
 
       <ConfirmDialog
-        title="Send this gift?"
+        title={t("sendGiftConfirm")}
         description={
           lines.length > 0 && selectedTable
-            ? `${lines.map((l) => `${l.quantity}× ${l.menuItem.name}`).join(", ")} (${formatMoney(subtotal)}) goes on your tab, delivered to ${selectedTable.code}.`
-            : "Pick at least one item and a table first."
+            ? t("giftSummary", { items: lines.map((l) => `${l.quantity}× ${l.menuItem.name}`).join(", "), total: formatMoney(subtotal), table: selectedTable.code })
+            : t("pickItemsFirst")
         }
-        confirmLabel="Send gift"
+        confirmLabel={t("sendGift")}
         onConfirm={send}
         trigger={
           <Button
@@ -270,10 +272,10 @@ export default function GuestGiftPage() {
           >
             {sending ? <Loader2 className="size-4 animate-spin" /> : <Gift className="size-4" />}
             {sending
-              ? "Sending…"
+              ? t("sending")
               : lines.length === 0
-                ? "Add items to send"
-                : `Send gift · ${formatMoney(subtotal)}`}
+                ? t("addItemsToSend")
+                : t("sendGiftTotal", { total: formatMoney(subtotal) })}
           </Button>
         }
       />
