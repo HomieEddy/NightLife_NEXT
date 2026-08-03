@@ -179,91 +179,114 @@ async function locateByGuestId(prisma: PrismaClient, guestId: string): Promise<P
 async function eraseGuestData(prisma: PrismaClient, match: PersonMatch): Promise<string[]> {
   const actions: string[] = [];
 
-  // 1. Anonymize guest sessions (don't delete — operational record)
-  if (match.guestSessions.length > 0) {
-    const result = await prisma.guestSession.updateMany({
-      where: { id: { in: match.guestSessions } },
-      data: { displayName: "", guestProfileId: null },
-    });
-    actions.push(`Anonymized ${result.count} guest sessions`);
-  }
+  // All-or-nothing: a mid-way failure must not leave the subject half-erased.
+  await prisma.$transaction(async (tx) => {
+    // 1. Anonymize guest sessions (don't delete — operational record)
+    if (match.guestSessions.length > 0) {
+      const result = await tx.guestSession.updateMany({
+        where: { id: { in: match.guestSessions } },
+        data: { displayName: "", guestProfileId: null },
+      });
+      actions.push(`Anonymized ${result.count} guest sessions`);
+    }
 
-  // 2. Anonymize reservations
-  if (match.reservations.length > 0) {
-    const result = await prisma.reservation.updateMany({
-      where: { id: { in: match.reservations } },
-      data: { guestName: "[erased]", guestEmail: null, guestPhone: null },
-    });
-    actions.push(`Anonymized ${result.count} reservations`);
-  }
+    // 1b. Scrub guestName on the subject's orders — money rows survive, the
+    //     identity does not. Orders link via sessionId (plan 06 backfilled all
+    //     live history, so sessionId is the complete linkage).
+    if (match.guestSessions.length > 0) {
+      const result = await tx.order.updateMany({
+        where: { sessionId: { in: match.guestSessions } },
+        data: { guestName: "[erased]" },
+      });
+      actions.push(`Scrubbed guestName on ${result.count} orders`);
+    }
 
-  // 3. Delete leads
-  if (match.leads.length > 0) {
-    const result = await prisma.lead.deleteMany({
-      where: { id: { in: match.leads } },
-    });
-    actions.push(`Deleted ${result.count} leads`);
-  }
+    // 1c. Same for bar tabs, linked via the profile.
+    if (match.guestProfiles.length > 0) {
+      const result = await tx.barTab.updateMany({
+        where: { guestProfileId: { in: match.guestProfiles } },
+        data: { guestName: "[erased]" },
+      });
+      actions.push(`Scrubbed guestName on ${result.count} bar tabs`);
+    }
 
-  // 4. Anonymize incidents — scrub narrative + null guest link;
-  //    statutory record survives (3/7 years)
-  if (match.incidents.length > 0) {
-    const result = await prisma.incident.updateMany({
-      where: { id: { in: match.incidents } },
-      data: {
-        guestProfileId: null,
-        involvedStaffIds: [],
-        narrative: "[erased — DSAR]",
-      },
-    });
-    actions.push(`Anonymized ${result.count} incidents`);
-  }
+    // 2. Anonymize reservations
+    if (match.reservations.length > 0) {
+      const result = await tx.reservation.updateMany({
+        where: { id: { in: match.reservations } },
+        data: { guestName: "[erased]", guestEmail: null, guestPhone: null },
+      });
+      actions.push(`Anonymized ${result.count} reservations`);
+    }
 
-  // 5. Anonymize admissions — null guestProfileId + idCheck (may contain DOB)
-  if (match.admissions.length > 0) {
-    const result = await prisma.admission.updateMany({
-      where: { id: { in: match.admissions } },
-      data: {
-        guestProfileId: null,
-        idCheck: Prisma.DbNull,
-      },
-    });
-    actions.push(`Anonymized ${result.count} admissions`);
-  }
+    // 3. Delete leads
+    if (match.leads.length > 0) {
+      const result = await tx.lead.deleteMany({
+        where: { id: { in: match.leads } },
+      });
+      actions.push(`Deleted ${result.count} leads`);
+    }
 
-  // 6. Delete waitlist entries
-  if (match.waitlist.length > 0) {
-    const result = await prisma.waitlistEntry.deleteMany({
-      where: { id: { in: match.waitlist } },
-    });
-    actions.push(`Deleted ${result.count} waitlist entries`);
-  }
+    // 4. Anonymize incidents — scrub narrative + null guest link;
+    //    statutory record survives (3/7 years)
+    if (match.incidents.length > 0) {
+      const result = await tx.incident.updateMany({
+        where: { id: { in: match.incidents } },
+        data: {
+          guestProfileId: null,
+          involvedStaffIds: [],
+          narrative: "[erased — DSAR]",
+        },
+      });
+      actions.push(`Anonymized ${result.count} incidents`);
+    }
 
-  // 7. Delete event guest records
-  if (match.eventGuests.length > 0) {
-    const result = await prisma.eventGuest.deleteMany({
-      where: { id: { in: match.eventGuests } },
-    });
-    actions.push(`Deleted ${result.count} event guest records`);
-  }
+    // 5. Anonymize admissions — null guestProfileId + idCheck (may contain DOB)
+    if (match.admissions.length > 0) {
+      const result = await tx.admission.updateMany({
+        where: { id: { in: match.admissions } },
+        data: {
+          guestProfileId: null,
+          idCheck: Prisma.DbNull,
+        },
+      });
+      actions.push(`Anonymized ${result.count} admissions`);
+    }
 
-  // 8. Truncate notification log recipients — scoped to THIS subject's
-  //    recipient value only, never every tenant's logs.
-  if (match.notificationLogs > 0 && match.notificationRecipient) {
-    const result = await prisma.notificationLog.updateMany({
-      where: { recipient: match.notificationRecipient },
-      data: { recipient: "" },
-    });
-    actions.push(`Truncated recipient in ${result.count} notification logs`);
-  }
+    // 6. Delete waitlist entries
+    if (match.waitlist.length > 0) {
+      const result = await tx.waitlistEntry.deleteMany({
+        where: { id: { in: match.waitlist } },
+      });
+      actions.push(`Deleted ${result.count} waitlist entries`);
+    }
 
-  // 9. Delete guest profiles LAST (after FK references are cleared)
-  if (match.guestProfiles.length > 0) {
-    const result = await prisma.guestProfile.deleteMany({
-      where: { id: { in: match.guestProfiles } },
-    });
-    actions.push(`Deleted ${result.count} guest profiles`);
-  }
+    // 7. Delete event guest records
+    if (match.eventGuests.length > 0) {
+      const result = await tx.eventGuest.deleteMany({
+        where: { id: { in: match.eventGuests } },
+      });
+      actions.push(`Deleted ${result.count} event guest records`);
+    }
+
+    // 8. Truncate notification log recipients — scoped to THIS subject's
+    //    recipient value only, never every tenant's logs.
+    if (match.notificationLogs > 0 && match.notificationRecipient) {
+      const result = await tx.notificationLog.updateMany({
+        where: { recipient: match.notificationRecipient },
+        data: { recipient: "" },
+      });
+      actions.push(`Truncated recipient in ${result.count} notification logs`);
+    }
+
+    // 9. Delete guest profiles LAST (after FK references are cleared)
+    if (match.guestProfiles.length > 0) {
+      const result = await tx.guestProfile.deleteMany({
+        where: { id: { in: match.guestProfiles } },
+      });
+      actions.push(`Deleted ${result.count} guest profiles`);
+    }
+  });
 
   return actions;
 }
