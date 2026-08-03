@@ -265,15 +265,196 @@ point — you'll re-apply whatever damaged the original DB. The restore replaces
 all data; any writes between the backup and the incident are lost. Communicate
 the data-loss window to the venue before starting.
 
-### §privacy-requests (plan 35)
+### §privacy-requests
 
-DSAR fulfilment procedure: verify identity → locate data across tables →
-export or erase. Populated by plan 35.
+**Trigger:** a data subject (guest, staff member, lead) requests access,
+rectification, or erasure under Law 25 / PIPEDA.
 
-### §incident-response (plan 35)
+**Legal clock:** 30 calendar days from verified request receipt.
+Acknowledge within 5 business days; the clock pauses if you need additional
+identity verification.
 
-Data breach response: contain, assess scope, notify affected parties within
-72 hours (Law 25), notify CAI, post-mortem. Populated by plan 35.
+**Privacy officer:** [TBD — designate before go-live]. All DSARs route
+through the privacy officer; the developer on call executes the technical
+parts.
+
+#### 1. Access (export)
+
+1. **Verify identity.** Confirm the requestor owns the email/phone they
+   claim. For a guest: ask for the venue name and approximate date of their
+   last visit — match against the DB. For a staff member: have their manager
+   confirm. Document the verification steps.
+2. **Locate data.** Run `scripts/privacy-erase.ts` without `--confirm` (dry-run
+   mode) — it prints every record by table. The data inventory
+   (`docs/legal/DATA-INVENTORY.md`) is the cross-reference for what each
+   table holds and why.
+3. **Export.** Extract the located rows as a structured JSON or CSV export.
+   Include: which tables, which fields, the purpose of collection (from the
+   inventory), and any third parties the data was shared with (from the
+   privacy policy §5).
+4. **Respond.** Send the export within the 30-day window. Record the
+   response date and the requestor's acknowledgment.
+
+#### 2. Erasure (right to be forgotten)
+
+**When it applies:** the data is no longer necessary for the purpose it was
+collected, consent is withdrawn and there is no other legal basis, or the
+data was unlawfully processed. Does **not** apply to data that must be
+retained by law (incidents under Quebec labour law: 3/7 years, financial
+records, etc.) — those are anonymized, not deleted.
+
+1. **Verify identity** (same as access above).
+2. **Dry-run:** `npm run db:privacy-erase -- --email <email>` — inspect the
+   output. The script reports every record it would touch and whether each
+   will be anonymized or deleted.
+   ```bash
+   # Against production — always dry-run first:
+   npm run db:privacy-erase -- --email jean@example.com
+
+   # By phone:
+   npm run db:privacy-erase -- --phone "+1 514 555 0100"
+
+   # By guest profile ID (from a prior access request):
+   npm run db:privacy-erase -- --guest-id <cuid>
+   ```
+3. **Decide scope.** Incidents are anonymized (narrative scrubbed,
+   `guestProfileId` nulled) — the statutory retention period overrides
+   erasure. Reservations and guest sessions are anonymized (operational
+   record survives). Guest profiles, leads, waitlist entries are deleted.
+   If the requestor demands full deletion of an incident, escalate to the
+   privacy officer — this is a legal question, not a technical one.
+4. **Execute:** add `--confirm` and run again.
+   ```bash
+   npm run db:privacy-erase -- --email jean@example.com --confirm
+   ```
+5. **Record.** Log the erasure in `docs/legal/BREACH-REGISTER.md` under
+   "DSAR erasures" (date, search criteria, records affected, operator who
+   ran it). This is your paper trail if the CAI asks.
+6. **Respond.** Confirm to the requestor within 30 days. State what was
+   erased and what was anonymized (and why — cite the statutory retention
+   obligation if applicable).
+
+#### 3. Rectification
+
+1. **Verify identity.**
+2. **Locate the record.**
+3. **Correct the field.** If the field is in a venue-scoped table, use the
+   admin area (the requestor can't self-serve yet). If it's a platform table
+   (Lead, User), update directly via the DB or a platform admin route.
+4. **Respond** within 30 days confirming the correction.
+
+#### 4. Staff member erasure
+
+Staff member erasure is more complex — the User row cascades to Member,
+StaffProfile, sessions, audit entries (which reference `actorStaffId`).
+The privacy-erase script detects staff records and stops (it warns rather
+than touches them). To erase a staff member:
+
+1. **Verify identity** with the venue owner/manager.
+2. **Check the employment record.** Quebec labour law requires 3-year
+   retention of payroll records from termination. If the staff member was
+   employed within the last 3 years, their staff record must survive in
+   anonymized form (scrub name, phone, hourly rate, email → anonymize the
+   User and StaffProfile rows rather than deleting).
+3. **Delete the User row** — Better Auth cascades to sessions, accounts,
+   verifications, and organization memberships. This must be done via the
+   platform admin area or directly in the DB with the privacy officer's
+   explicit approval.
+4. **Record** the erasure.
+
+### §incident-response
+
+**Trigger:** suspected or confirmed personal information breach — a security
+incident that may involve unauthorized access, use, disclosure, or loss of
+personal information.
+
+**Legal clocks (Law 25):**
+- **Containment:** immediately upon discovery.
+- **Risk assessment:** within days, not weeks.
+- **Notification to affected individuals:** without undue delay, maximum
+  72 hours after the incident is confirmed to pose a risk of serious injury.
+- **Notification to the CAI (Commission d'accès à l'information):** same
+  72-hour window if the incident poses a risk of serious injury. Even if
+  the risk is assessed as low, you must still register the incident — the
+  CAI notification is mandatory for any breach involving personal
+  information.
+- **Breach register entry:** within 24 hours of discovery — record the
+  facts while they are fresh. Update as the investigation progresses.
+
+#### 1. Contain
+
+1. **Isolate the affected system(s).** If the breach is from a compromised
+   credential: rotate all secrets (DATABASE_URL, CRON_SECRET, AUTH_SECRET,
+   QR_TOKEN_SECRET, Stripe keys, Resend API key, etc.). If from a code
+   vulnerability: take the affected route offline (Coolify → stop the
+   container, or deploy a fix immediately).
+2. **Preserve evidence.** Take a snapshot of logs (`docker logs <container>
+   --tail 20000 > breach-logs-$(date -I).txt`), DB state (pg_dump of the
+   affected tables), and access logs. Do NOT delete or rotate logs during
+   the investigation — you may destroy evidence the CAI needs.
+3. **Stop the exfiltration.** If data is actively being exfiltrated: block
+   the source IP at the VPS firewall level, revoke the compromised token,
+   or take the app offline. Containment is more important than uptime.
+
+#### 2. Assess
+
+1. **What data?** Cross-reference the affected tables against
+   `docs/legal/DATA-INVENTORY.md`. Quantify: how many rows, how many
+   individuals.
+2. **What harm?** Law 25 uses "risk of serious injury" as the threshold for
+   mandatory notification. Factors: identity theft risk, financial data
+   exposure, health data (incident `medicalChecklist`), staff home addresses,
+   guest contact details. When in doubt, treat it as serious — under-
+   notification is a regulatory violation; over-notification is a
+   reputational cost you can recover from.
+3. **Root cause.** Was it a misconfigured access control? A dependency
+   vulnerability? A human error (wrong recipient on a data export)? Document
+   the root cause — it determines the fix and the CAI wants it.
+
+#### 3. Notify
+
+1. **Affected individuals** (if risk of serious injury): email each affected
+   person. The notification must include:
+   - Description of the incident and the personal information involved.
+   - The date or period of the incident.
+   - Steps taken to contain and mitigate.
+   - Steps the individual should take to protect themselves.
+   - Contact information for the privacy officer.
+2. **CAI** (mandatory for any breach): use the CAI's online breach
+   notification form (https://www.cai.gouv.qc.ca/). Include the breach
+   register entry, scope assessment, and remediation steps.
+3. **Affected venues** (B2B obligation): notify the venue owner. Their data
+   was exposed; they may have their own Law 25 notification obligations to
+   their guests.
+
+#### 4. Remediate
+
+1. **Fix the root cause.** Deploy the fix (hotfix branch → master → deploy).
+2. **Verify the fix.** Penetration test the same vector if feasible; at
+   minimum, confirm the specific exploit no longer works.
+3. **Rotate all secrets** that were potentially exposed.
+4. **Update the breach register** with the post-mortem.
+
+#### 5. Post-mortem
+
+Within 7 days: a written post-mortem covering:
+- Timeline (discovery → containment → notification → fix).
+- Root cause analysis.
+- What data was affected (rows, individuals, data classes).
+- What controls failed and why.
+- What controls are being added to prevent recurrence.
+
+Attach the post-mortem to the breach register entry. Review it with the
+privacy officer and the lead developer.
+
+#### Contacts
+
+| Role | Who | Contact |
+|---|---|---|
+| Privacy Officer | [TBD] | [TBD] |
+| Lead Developer | Eddy | [TBD] |
+| CAI breach notification | — | https://www.cai.gouv.qc.ca/ |
+| OVHcloud abuse (if VPS compromised) | — | OVHcloud console → support |
 
 ### §deploy (plan 36)
 
