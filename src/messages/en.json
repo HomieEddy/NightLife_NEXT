@@ -3059,6 +3059,8 @@
     "inviteExpired": "Invitation expired or already used.",
     "couldNotCreate": "Could not create the account",
     "couldNotAccept": "Could not accept the invitation",
-    "accountCreated": "Account created! Redirecting to staff…"
+    "accountCreated": "Account created! Redirecting to staff…",
+    "consentText": "I have read and agree to the",
+    "consentRequired": "You must accept the privacy policy"
   }
 }

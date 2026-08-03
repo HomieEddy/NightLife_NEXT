@@ -3059,6 +3059,8 @@
     "inviteExpired": "Invitation expirée ou déjà utilisée.",
     "couldNotCreate": "Impossible de créer le compte",
     "couldNotAccept": "Impossible d'accepter l'invitation",
-    "accountCreated": "Compte créé ! Redirection vers le personnel…"
+    "accountCreated": "Compte créé ! Redirection vers le personnel…",
+    "consentText": "J'ai lu et j'accepte la",
+    "consentRequired": "Vous devez accepter la politique de confidentialité"
   }
 }
