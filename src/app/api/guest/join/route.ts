@@ -15,24 +15,14 @@ async function livePOST(request: NextRequest) {
   const ip = getClientIp(request);
   const body = await request.json();
   const token = body.token as string | undefined;
-  const tableId = body.tableId as string | undefined;
 
-  // Rate limit: per-IP burst (general abuse) and per-table burst (QR spam).
+  // Rate limit: per-IP burst (general abuse).
   const ipRl = checkRateLimit(`guest-join:ip:${ip}`, { maxTokens: 10, refillRate: 10, windowMs: 60_000 });
   if (!ipRl.allowed) {
     return NextResponse.json(
       { error: "Too many requests" },
       { status: 429, headers: { "Retry-After": String(Math.ceil(ipRl.retryAfterMs / 1000)) } },
     );
-  }
-  if (tableId) {
-    const tableRl = checkRateLimit(`guest-join:table:${tableId}`, { maxTokens: 20, refillRate: 20, windowMs: 300_000 });
-    if (!tableRl.allowed) {
-      return NextResponse.json(
-        { error: "Too many requests" },
-        { status: 429, headers: { "Retry-After": String(Math.ceil(tableRl.retryAfterMs / 1000)) } },
-      );
-    }
   }
 
   if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
@@ -53,6 +43,16 @@ async function livePOST(request: NextRequest) {
     tableId === table.id ? table.tokenVersion : null,
   );
   if (!verified.valid) return NextResponse.json({ error: "Invalid or revoked QR code" }, { status: 403 });
+
+  // Per-table burst (QR spam) — keyed on the verified table, so an attacker
+  // holding one QR can't burn another table's quota.
+  const tableRl = checkRateLimit(`guest-join:table:${table.id}`, { maxTokens: 20, refillRate: 20, windowMs: 300_000 });
+  if (!tableRl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(tableRl.retryAfterMs / 1000)) } },
+    );
+  }
 
   // Check venue auto-approve setting
   const venue = await platformDb.venue.findUnique({ where: { id: table.venueId } });
