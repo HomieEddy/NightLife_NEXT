@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Anton, Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -49,28 +51,33 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
     <html
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        {/* Dark is the brand default; light is opt-in via the header toggle. */}
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <AppModeBanner />
-          <TooltipProvider>
-            <QueryProvider>
-              <AuthProvider>{children}</AuthProvider>
-            </QueryProvider>
-          </TooltipProvider>
-          <Toaster position="top-center" richColors />
-        </ThemeProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {/* Dark is the brand default; light is opt-in via the header toggle. */}
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+            <AppModeBanner />
+            <TooltipProvider>
+              <QueryProvider>
+                <AuthProvider>{children}</AuthProvider>
+              </QueryProvider>
+            </TooltipProvider>
+            <Toaster position="top-center" richColors />
+          </ThemeProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

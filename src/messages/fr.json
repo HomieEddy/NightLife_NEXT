@@ -1,0 +1,99 @@
+{
+  "shared": {
+    "locale": {
+      "toggleLabel": "Passer à l'anglais",
+      "target": "EN"
+    },
+    "theme": {
+      "toggleLabel": "Basculer mode clair/sombre"
+    },
+    "confirm": {
+      "title": "Confirmer",
+      "description": "Cette action est irréversible.",
+      "cancel": "Annuler",
+      "confirm": "Confirmer"
+    },
+    "empty": {
+      "noResults": "Aucun résultat trouvé.",
+      "noData": "Aucune donnée disponible."
+    },
+    "actions": {
+      "save": "Enregistrer",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "create": "Créer",
+      "search": "Rechercher",
+      "close": "Fermer",
+      "back": "Retour",
+      "next": "Suivant",
+      "loading": "Chargement…"
+    },
+    "error": {
+      "generic": "Une erreur est survenue. Veuillez réessayer.",
+      "notFound": "Introuvable."
+    },
+    "nav": {
+      "more": "Plus",
+      "attention": "Fil d'attention",
+      "search": "Rechercher",
+      "shortcuts": "Raccourcis"
+    },
+    "time": {
+      "justNow": "à l'instant",
+      "minutesAgo": "il y a {minutes} min",
+      "hoursAgo": "il y a {hours} h",
+      "daysAgo": "il y a {days} j"
+    }
+  },
+  "guest": {
+    "cart": {
+      "title": "Panier",
+      "empty": "Votre panier est vide.",
+      "checkout": "Passer la commande",
+      "total": "Total"
+    },
+    "menu": {
+      "title": "Menu",
+      "search": "Rechercher dans le menu…",
+      "noResults": "Aucun article ne correspond à votre recherche."
+    },
+    "order": {
+      "placed": "Commande passée !",
+      "status": "État de la commande",
+      "delivered": "Livré"
+    }
+  },
+  "manager": {
+    "dashboard": {
+      "title": "Tableau de bord"
+    },
+    "orders": {
+      "title": "Commandes"
+    },
+    "settings": {
+      "title": "Paramètres",
+      "guestLocale": {
+        "label": "Langue côté client",
+        "description": "Langue par défaut pour les commandes QR et les pages publiques.",
+        "french": "Français",
+        "english": "Anglais"
+      }
+    }
+  },
+  "staff": {
+    "title": "Personnel"
+  },
+  "admin": {
+    "title": "Admin"
+  },
+  "public": {
+    "pricing": "Tarification",
+    "privacy": "Politique de confidentialité",
+    "terms": "Conditions d'utilisation"
+  },
+  "auth": {
+    "login": "Se connecter",
+    "logout": "Se déconnecter",
+    "invite": "Accepter l'invitation"
+  }
+}

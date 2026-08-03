@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { RequireAuth } from "@/components/shared/require-auth";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
 import { isDemoMode } from "@/features/shared/app-mode";
 import { ADMIN_DEMO_PASSWORD, isAdminUnlocked, setAdminUnlocked } from "@/lib/admin-gate";
@@ -48,6 +49,7 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
       <header className="flex h-14 items-center justify-between px-4">
         <BrandLogo />
         <ThemeToggle />
+        <LocaleToggle />
       </header>
       <main className="flex flex-1 items-center justify-center p-4">
         <Card className="w-full max-w-sm">
@@ -119,6 +121,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center gap-2">
             <AuthBanner />
             <ThemeToggle />
+            <LocaleToggle />
           </div>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">

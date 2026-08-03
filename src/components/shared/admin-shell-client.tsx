@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
 import { ADMIN_NAV, isNavActive } from "@/features/shared/navigation";
 import { cn } from "@/features/shared/utils";
@@ -25,6 +26,7 @@ export default function AdminShellClient({ children }: { children: React.ReactNo
           <div className="flex items-center gap-2">
             <AuthBanner />
             <ThemeToggle />
+            <LocaleToggle />
           </div>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none]">

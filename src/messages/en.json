@@ -1,0 +1,99 @@
+{
+  "shared": {
+    "locale": {
+      "toggleLabel": "Switch to French",
+      "target": "FR"
+    },
+    "theme": {
+      "toggleLabel": "Toggle light/dark mode"
+    },
+    "confirm": {
+      "title": "Are you sure?",
+      "description": "This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    },
+    "empty": {
+      "noResults": "No results found.",
+      "noData": "No data available."
+    },
+    "actions": {
+      "save": "Save",
+      "edit": "Edit",
+      "delete": "Delete",
+      "create": "Create",
+      "search": "Search",
+      "close": "Close",
+      "back": "Back",
+      "next": "Next",
+      "loading": "Loading…"
+    },
+    "error": {
+      "generic": "Something went wrong. Please try again.",
+      "notFound": "Not found."
+    },
+    "nav": {
+      "more": "More",
+      "attention": "Attention feed",
+      "search": "Search",
+      "shortcuts": "Shortcuts"
+    },
+    "time": {
+      "justNow": "just now",
+      "minutesAgo": "{minutes}m ago",
+      "hoursAgo": "{hours}h ago",
+      "daysAgo": "{days}d ago"
+    }
+  },
+  "guest": {
+    "cart": {
+      "title": "Cart",
+      "empty": "Your cart is empty.",
+      "checkout": "Place Order",
+      "total": "Total"
+    },
+    "menu": {
+      "title": "Menu",
+      "search": "Search menu…",
+      "noResults": "No items match your search."
+    },
+    "order": {
+      "placed": "Order placed!",
+      "status": "Order Status",
+      "delivered": "Delivered"
+    }
+  },
+  "manager": {
+    "dashboard": {
+      "title": "Dashboard"
+    },
+    "orders": {
+      "title": "Orders"
+    },
+    "settings": {
+      "title": "Settings",
+      "guestLocale": {
+        "label": "Guest-facing language",
+        "description": "Default language for guest QR ordering and public pages.",
+        "french": "French",
+        "english": "English"
+      }
+    }
+  },
+  "staff": {
+    "title": "Staff"
+  },
+  "admin": {
+    "title": "Admin"
+  },
+  "public": {
+    "pricing": "Pricing",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service"
+  },
+  "auth": {
+    "login": "Sign In",
+    "logout": "Sign Out",
+    "invite": "Accept Invitation"
+  }
+}

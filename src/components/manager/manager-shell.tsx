@@ -20,6 +20,7 @@ import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { isManagerOnboarded } from "@/lib/onboarding";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
 import { CommandPalette } from "@/components/shared/command-palette";
 import { ShortcutHelp } from "@/components/shared/shortcut-help";
@@ -197,6 +198,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
               <BrandLogo href="/manager/onboarding" />
               <ThemeToggle />
+              <LocaleToggle />
             </div>
           </header>
           <main className="mx-auto w-full max-w-5xl p-4 sm:p-6">{children}</main>
@@ -339,6 +341,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
           <ThemeToggle />
+          <LocaleToggle />
         </div>
         <nav className="flex-1 overflow-y-auto p-3">
           {groupedNav()}
@@ -385,6 +388,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
               </Sheet>
               <RoleBadge role="manager" clickable />
               <ThemeToggle />
+              <LocaleToggle />
             </div>
           </div>
         </header>

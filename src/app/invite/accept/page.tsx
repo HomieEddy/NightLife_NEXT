@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
 import { authClient } from "@/lib/auth-client";
 import { z } from "zod";
 
@@ -65,6 +66,7 @@ function AcceptContent() {
         <header className="flex h-14 items-center justify-between px-4">
           <BrandLogo />
           <ThemeToggle />
+          <LocaleToggle />
         </header>
         <main className="flex flex-1 items-center justify-center p-4">
           <Card className="w-full max-w-sm">

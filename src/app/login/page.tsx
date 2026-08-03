@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
 import { useAuth } from "@/context/auth-context";
 import { authService } from "@/features/platform/auth-service";
 import { isDemoMode } from "@/features/shared/app-mode";
@@ -37,6 +38,7 @@ function LoginShell({ children, homeHref }: { children: React.ReactNode; homeHre
       <header className="flex h-14 items-center justify-between px-4">
         <BrandLogo href={homeHref} />
         <ThemeToggle />
+        <LocaleToggle />
       </header>
       <main className="flex flex-1 items-center justify-center p-4">
         {children}

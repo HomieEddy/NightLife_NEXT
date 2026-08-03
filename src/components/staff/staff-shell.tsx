@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
 import { type BottomNavItem } from "@/components/shared/mobile-bottom-nav";
 import { RequireAuth } from "@/components/shared/require-auth";
@@ -93,6 +94,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
               {me && <RoleBadge role={me.role} clickable />}
               <AuthBanner />
               <ThemeToggle />
+              <LocaleToggle />
             </div>
           </div>
         </header>
