@@ -38,6 +38,7 @@ async function livePOST(request: NextRequest) {
     deleteExpiredVerifications,
     deleteExpiredInvitations,
   } = await import("@/features/compliance/retention-core");
+  const { claimJobRun, completeJobRun, failJobRun } = await import("@/features/shared/job-claim");
 
   const prisma = getRawPrisma();
   const tenants = await prisma.tenant.findMany({ select: { id: true } });
@@ -54,19 +55,7 @@ async function livePOST(request: NextRequest) {
   for (const tenant of tenants) {
     const jobKey = `data-retention:${tenant.id}:${today}`;
     try {
-      const existing = await prisma.jobRun.findFirst({
-        where: { tenantId: tenant.id, jobName: jobKey, status: "completed" },
-      });
-      if (existing) continue;
-
-      await prisma.jobRun.create({
-        data: {
-          tenantId: tenant.id,
-          jobName: jobKey,
-          status: "running",
-          startedAt: new Date(),
-        },
-      });
+      if (!(await claimJobRun(prisma, tenant.id, jobKey))) continue;
 
       const db = getDb({ venueId: tenant.id });
       const result = await runTenantRetention(db, tenant.id);
@@ -76,18 +65,10 @@ async function livePOST(request: NextRequest) {
       deletedAuditEntries += result.deletedAuditEntries;
       if (result.errors.length > 0) errors.push(...result.errors);
 
-      // Idempotency: mark completed
-      const run = await prisma.jobRun.findFirst({
-        where: { tenantId: tenant.id, jobName: jobKey, status: "running" },
-      });
-      if (run) {
-        await prisma.jobRun.update({
-          where: { id: run.id },
-          data: { status: "completed", endedAt: new Date() },
-        });
-      }
+      await completeJobRun(prisma, tenant.id, jobKey);
     } catch (err) {
       logger.error(`[data-retention] Tenant ${tenant.id}:`, { error: String(err) });
+      await failJobRun(prisma, tenant.id, jobKey);
     }
   }
 

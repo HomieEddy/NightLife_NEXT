@@ -40,7 +40,9 @@ model JobRun {
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
-  @@index([tenantId, jobName])
+  // One run per (tenant, job, date) — jobKeys embed the date. The unique
+  // constraint is the atomic overrun claim (createMany skipDuplicates).
+  @@unique([tenantId, jobName])
   @@map("job_runs")
 }
 

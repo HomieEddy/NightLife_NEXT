@@ -26,26 +26,21 @@ async function livePOST(request: NextRequest) {
   const { getRawPrisma } = await import("@/features/shared/db");
   const { dispatch } = await import("@/features/notifications/dispatch");
   const { normalizePhone } = await import("@/lib/phone");
+  const { claimJobRun, completeJobRun, failJobRun } = await import("@/features/shared/job-claim");
   await import("@/features/notifications/templates");
 
   const prisma = getRawPrisma();
-  const tenants = await prisma.tenant.findMany({ select: { id: true } });
+  const tenants = await prisma.tenant.findMany({ select: { id: true, name: true } });
   let sent = 0;
   const now = new Date();
 
   for (const tenant of tenants) {
+    let jobKey = "";
     try {
       const todayIso = now.toISOString().slice(0, 10);
-      const jobKey = `reservation-reminders:${tenant.id}:${todayIso}`;
+      jobKey = `reservation-reminders:${tenant.id}:${todayIso}`;
 
-      const existing = await prisma.jobRun.findFirst({
-        where: { tenantId: tenant.id, jobName: jobKey, status: "completed" },
-      });
-      if (existing) continue;
-
-      await prisma.jobRun.create({
-        data: { tenantId: tenant.id, jobName: jobKey, status: "running", startedAt: new Date() },
-      });
+      if (!(await claimJobRun(prisma, tenant.id, jobKey))) continue;
 
       // Find confirmed reservations starting in the next 2 hours
       const windowStart = new Date(now.getTime() + 60 * 60_000); // 1 hour from now
@@ -73,7 +68,7 @@ async function livePOST(request: NextRequest) {
           template: "reservation-reminder",
           recipients: [recipient],
           data: {
-            venueName: tenant.id,
+            venueName: tenant.name,
             guestName: res.guestName,
             time: startTime,
             partySize: res.partySize,
@@ -84,10 +79,10 @@ async function livePOST(request: NextRequest) {
         sent += result.sent;
       }
 
-      const run = await prisma.jobRun.findFirst({ where: { tenantId: tenant.id, jobName: jobKey, status: "running" } });
-      if (run) await prisma.jobRun.update({ where: { id: run.id }, data: { status: "completed", endedAt: new Date() } });
+      await completeJobRun(prisma, tenant.id, jobKey);
     } catch (err) {
       logger.error(`[reservation-reminders] Tenant ${tenant.id}:`, { error: String(err) });
+      await failJobRun(prisma, tenant.id, jobKey);
     }
   }
 
