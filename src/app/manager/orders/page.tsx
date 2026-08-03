@@ -36,24 +36,27 @@ import { sessionsKeys } from "@/features/guests/query-keys";
 import { cn } from "@/features/shared/utils";
 import { DateFilter, isInDateRange, type DateRange } from "@/components/shared/date-filter";
 import { DateRangePicker, getDefaultDateRange, isInCustomDateRange, type DateRangeValue } from "@/components/shared/date-range-picker";
+import { useTranslations } from "next-intl";
 import type {
   GuestSession, MenuCategory, MenuItem, Order, OrderStatus, StaffMember, TabAdjustmentKind, VenueTable, Zone,
 } from "@/lib/types";
 
-const STATUS_FILTERS: { id: "all" | "active" | OrderStatus; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "active", label: "Active" },
-  { id: "pending", label: "Pending" },
-  { id: "preparing", label: "Preparing" },
-  { id: "ready", label: "Ready" },
-  { id: "delivered", label: "Delivered" },
-  { id: "cancelled", label: "Cancelled" },
-];
-
 export default function ManagerOrdersPage() {
+  const t = useTranslations("manager.orders");
+  const ts = useTranslations("shared");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
+
+  const STATUS_FILTERS: { id: "all" | "active" | OrderStatus; label: string }[] = [
+    { id: "all", label: t("status.all") },
+    { id: "active", label: t("status.active") },
+    { id: "pending", label: t("status.pending") },
+    { id: "preparing", label: t("status.preparing") },
+    { id: "ready", label: t("status.ready") },
+    { id: "delivered", label: t("status.delivered") },
+    { id: "cancelled", label: t("status.cancelled") },
+  ];
 
   const [view, setView] = useState<"orders" | "sessions">("orders");
 
@@ -223,14 +226,14 @@ export default function ManagerOrdersPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Orders"
+        title={t("title")}
         description={
           orders
-            ? `${visible.length} of ${orders.length} orders · ${formatMoney(visibleTotal)}`
-            : "Loading the feed…"
+            ? `${t("orderCount", { visible: visible.length, total: orders.length })} · ${formatMoney(visibleTotal)}`
+            : t("loadingFeed")
         }
         actions={
-          <TooltipIconButton variant="ghost" onClick={refresh} tooltip="Refresh">
+          <TooltipIconButton variant="ghost" onClick={refresh} tooltip={ts("actions.refresh")}>
             <RefreshCw className="size-4" />
           </TooltipIconButton>
         }
@@ -248,7 +251,7 @@ export default function ManagerOrdersPage() {
               view === v ? "border-primary bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {v === "orders" ? "Order feed" : "Sessions"}
+            {v === "orders" ? t("orderFeed") : t("sessions")}
           </button>
         ))}
       </div>
@@ -261,11 +264,11 @@ export default function ManagerOrdersPage() {
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center justify-between text-base">
                 <span className="flex items-center gap-2">
-                  <ListFilter className="size-4 text-primary" /> Filters
+                  <ListFilter className="size-4 text-primary" /> {t("filters")}
                 </span>
                 {hasFilters && (
                   <Button variant="ghost" size="sm" onClick={clearFilters}>
-                    <X className="size-3.5" /> Clear all
+                    <X className="size-3.5" /> {t("clearAll")}
                   </Button>
                 )}
               </CardTitle>
@@ -274,7 +277,7 @@ export default function ManagerOrdersPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by order code, table, guest or item…"
+                  placeholder={t("searchPlaceholder")}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="pl-9"
@@ -312,10 +315,10 @@ export default function ManagerOrdersPage() {
                   }}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Zone" />
+                    <SelectValue placeholder={t("zone")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All zones</SelectItem>
+                    <SelectItem value="all">{t("allZones")}</SelectItem>
                     {zones.map((zone: Zone) => (
                       <SelectItem key={zone.id} value={zone.id}>
                         {zone.name}
@@ -326,10 +329,10 @@ export default function ManagerOrdersPage() {
 
                 <Select value={tableFilter} onValueChange={setTableFilter}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Table" />
+                    <SelectValue placeholder={t("table")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All tables</SelectItem>
+                    <SelectItem value="all">{t("allTables")}</SelectItem>
                     {zoneTables.map((table: VenueTable) => (
                       <SelectItem key={table.id} value={table.id}>
                         {table.code} · {table.label}
@@ -340,10 +343,10 @@ export default function ManagerOrdersPage() {
 
                 <Select value={staffFilter} onValueChange={setStaffFilter}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Staff" />
+                    <SelectValue placeholder={t("staff")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All staff</SelectItem>
+                    <SelectItem value="all">{t("allStaff")}</SelectItem>
                     {staff
                       .filter((s: StaffMember) => s.assignedZoneIds.length > 0)
                       .map((member: StaffMember) => (
@@ -356,10 +359,10 @@ export default function ManagerOrdersPage() {
 
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Category" />
+                    <SelectValue placeholder={t("category")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
+                    <SelectItem value="all">{t("allCategories")}</SelectItem>
                     {categories.map((cat: MenuCategory) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
@@ -370,10 +373,10 @@ export default function ManagerOrdersPage() {
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Staff filter shows orders in that team member&apos;s assigned zones.{" "}
+                {t("staffFilterNote")}{" "}
                 {hasFilters && (
                   <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px]">
-                    {visible.length} matches
+                    {t("matchesCount", { count: visible.length })}
                   </Badge>
                 )}
               </p>
@@ -385,8 +388,8 @@ export default function ManagerOrdersPage() {
           ) : visible.length === 0 ? (
             <EmptyState
               icon={Inbox}
-              title="No orders match"
-              description={hasFilters ? "Try adjusting the filters above." : "The night is young."}
+              title={t("noOrdersMatch")}
+              description={hasFilters ? t("adjustFilters") : t("nightIsYoung")}
             />
           ) : (
             <>
@@ -412,7 +415,7 @@ export default function ManagerOrdersPage() {
                           onDone={refresh}
                           trigger={
                             <Button variant="outline" size="sm" className="w-full">
-                              <Wallet className="size-3.5" /> Adjust tab
+                              <Wallet className="size-3.5" /> {t("adjustTab")}
                             </Button>
                           }
                         />

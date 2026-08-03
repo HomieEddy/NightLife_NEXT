@@ -367,7 +367,37 @@
       }
     },
     "orders": {
-      "title": "Orders"
+      "title": "Orders",
+      "orderCount": "{visible} of {total} orders",
+      "loadingFeed": "Loading the feed…",
+      "orderFeed": "Order feed",
+      "sessions": "Sessions",
+      "filters": "Filters",
+      "clearAll": "Clear all",
+      "searchPlaceholder": "Search by order code, table, guest or item…",
+      "zone": "Zone",
+      "allZones": "All zones",
+      "table": "Table",
+      "allTables": "All tables",
+      "staff": "Staff",
+      "allStaff": "All staff",
+      "category": "Category",
+      "allCategories": "All categories",
+      "staffFilterNote": "Staff filter shows orders in that team member's assigned zones.",
+      "matchesCount": "{count} matches",
+      "noOrdersMatch": "No orders match",
+      "adjustFilters": "Try adjusting the filters above.",
+      "nightIsYoung": "The night is young.",
+      "adjustTab": "Adjust tab",
+      "status": {
+        "all": "All",
+        "active": "Active",
+        "pending": "Pending",
+        "preparing": "Preparing",
+        "ready": "Ready",
+        "delivered": "Delivered",
+        "cancelled": "Cancelled"
+      }
     },
     "audit": {
       "title": "Audit trail",

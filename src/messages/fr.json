@@ -367,7 +367,37 @@
       }
     },
     "orders": {
-      "title": "Commandes"
+      "title": "Commandes",
+      "orderCount": "{visible} sur {total} commandes",
+      "loadingFeed": "Chargement du fil…",
+      "orderFeed": "Fil des commandes",
+      "sessions": "Sessions",
+      "filters": "Filtres",
+      "clearAll": "Tout effacer",
+      "searchPlaceholder": "Rechercher par code, table, client ou article…",
+      "zone": "Zone",
+      "allZones": "Toutes les zones",
+      "table": "Table",
+      "allTables": "Toutes les tables",
+      "staff": "Personnel",
+      "allStaff": "Tout le personnel",
+      "category": "Catégorie",
+      "allCategories": "Toutes les catégories",
+      "staffFilterNote": "Le filtre personnel montre les commandes des zones assignées à ce membre.",
+      "matchesCount": "{count} correspondances",
+      "noOrdersMatch": "Aucune commande correspondante",
+      "adjustFilters": "Essayez d'ajuster les filtres ci-dessus.",
+      "nightIsYoung": "La nuit est jeune.",
+      "adjustTab": "Ajuster la note",
+      "status": {
+        "all": "Toutes",
+        "active": "Actives",
+        "pending": "En attente",
+        "preparing": "En préparation",
+        "ready": "Prêtes",
+        "delivered": "Livrées",
+        "cancelled": "Annulées"
+      }
     },
     "audit": {
       "title": "Piste de vérification",
