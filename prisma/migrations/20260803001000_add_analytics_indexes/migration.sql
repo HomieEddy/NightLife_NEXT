@@ -10,13 +10,9 @@
 CREATE INDEX IF NOT EXISTS "idx_stock_movements_venue_created"
   ON "stock_movements" ("venue_id", "created_at");
 
--- 2. staff_profiles (venue_id, role)
---    Query: getPromoterPerformanceReport (analytics-depth.ts:627)
---      WHERE p.venue_id = $1 AND p.role = 'promoter'
---    Without index: Seq Scan filtering promoters from all staff
---    With index: Index Scan on (venue_id, role)
-CREATE INDEX IF NOT EXISTS "idx_staff_profiles_venue_role"
-  ON "staff_profiles" ("venue_id", "role");
+-- 2. staff_profiles (venue_id, role) — REMOVED: staff_profiles has no venue_id
+--    column. Promoters are scoped through Member.venueId, not a denormalized FK.
+--    The analytics query uses a JOIN through Member, so the index lives on Member.
 
 -- 3. reservations (venue_id, promoter_id)
 --    Query: getPromoterPerformanceReport (analytics-depth.ts:607-609)
