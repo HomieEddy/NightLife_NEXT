@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle, ArrowDown, Beer, CircleDollarSign, Clock, ClipboardList, DoorOpen,
   Gauge, Megaphone, PartyPopper, Percent, Receipt, Shield,
@@ -53,13 +53,24 @@ const isoDaysAgo = (days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
+/**
+ * Tab analytics through TanStack Query — cached per endpoint, so switching
+ * tabs (and back) never refetches. Replaces the per-tab useEffect + setData.
+ */
+function useAnalytics<T>(method: string, fn: () => Promise<T>): T | null {
+  const { data } = useQuery({
+    queryKey: ["analytics-depth", method],
+    queryFn: fn,
+  });
+  return data ?? null;
+}
+
 // ---------- Each AI tab gets its own loader + render ----------
 
 /** AI-01: Night-over-night comparison. */
 export function ComparisonTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<NightComparison | null>(null);
-  useEffect(() => { analyticsService.getNightComparison().then(setData); }, []);
+  const data = useAnalytics("getNightComparison", () => analyticsService.getNightComparison());
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   const { current, reference, deltas, referenceLabel } = data;
   const deltaColor = (v: number) => v >= 0 ? "text-emerald-400" : "text-rose-400";
@@ -100,8 +111,7 @@ export function ComparisonTab() {
 /** AI-02: Night forecast / projection. */
 export function ForecastTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<NightForecast | null>(null);
-  useEffect(() => { analyticsService.getNightForecast().then(setData); }, []);
+  const data = useAnalytics("getNightForecast", () => analyticsService.getNightForecast());
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   const progressPct = data.hoursTotal > 0 ? (data.hoursElapsed / data.hoursTotal) * 100 : 0;
   const deltaColor = data.variancePct >= 0 ? "text-emerald-400" : "text-rose-400";
@@ -141,9 +151,8 @@ export function ForecastTab() {
 /** AI-03: Per-hour breakdown. */
 export function PerHourTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<PerHourAnalytics | null>(null);
+  const data = useAnalytics("getPerHourAnalytics", () => analyticsService.getPerHourAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
-  useEffect(() => { analyticsService.getPerHourAnalytics(from, to).then(setData); }, [from, to]);
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -198,9 +207,8 @@ export function PerHourTab() {
 /** AI-04: Door-to-table conversion funnel. */
 export function FunnelTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<DoorToTableFunnel | null>(null);
+  const data = useAnalytics("getDoorToTableFunnel", () => analyticsService.getDoorToTableFunnel(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
-  useEffect(() => { analyticsService.getDoorToTableFunnel(from, to).then(setData); }, [from, to]);
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   const { rates } = data;
   return (
@@ -241,9 +249,8 @@ export function FunnelTab() {
 /** AI-05: Table-turn analytics. */
 export function TableTurnTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<TableTurnAnalytics | null>(null);
+  const data = useAnalytics("getTableTurnAnalytics", () => analyticsService.getTableTurnAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
-  useEffect(() => { analyticsService.getTableTurnAnalytics(from, to).then(setData); }, [from, to]);
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -291,9 +298,8 @@ export function TableTurnTab() {
 /** AI-06: Order SLA / time-to-serve analytics. */
 export function SlaTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<OrderSlaAnalytics | null>(null);
+  const data = useAnalytics("getOrderSlaAnalytics", () => analyticsService.getOrderSlaAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
-  useEffect(() => { analyticsService.getOrderSlaAnalytics(from, to).then(setData); }, [from, to]);
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   const maxDist = Math.max(...data.distribution.map((d) => d.count));
   return (
@@ -343,9 +349,8 @@ export function SlaTab() {
 /** AI-07: Comp/void ratio monitoring. */
 export function CompVoidTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<CompVoidRatioAnalytics | null>(null);
+  const data = useAnalytics("getCompVoidRatioAnalytics", () => analyticsService.getCompVoidRatioAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
-  useEffect(() => { analyticsService.getCompVoidRatioAnalytics(from, to).then(setData); }, [from, to]);
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -400,9 +405,8 @@ export function CompVoidTab() {
 /** AI-09: Promoter performance report. */
 export function PromoterPerformanceTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<PromoterPerformanceReport[] | null>(null);
+  const data = useAnalytics("getPromoterPerformanceReport", () => analyticsService.getPromoterPerformanceReport(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
-  useEffect(() => { analyticsService.getPromoterPerformanceReport(from, to).then(setData); }, [from, to]);
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   const totalRev = data.reduce((s, p) => s + p.attributedRevenue, 0);
   return (
@@ -457,9 +461,8 @@ export function PromoterPerformanceTab() {
 /** AI-10: Security incident pattern report. */
 export function IncidentPatternTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<IncidentPatternReport | null>(null);
+  const data = useAnalytics("getIncidentPatternReport", () => analyticsService.getIncidentPatternReport(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
-  useEffect(() => { analyticsService.getIncidentPatternReport(from, to).then(setData); }, [from, to]);
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -524,9 +527,8 @@ export function IncidentPatternTab() {
 /** AI-11: Guest retention metrics. */
 export function GuestRetentionTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<GuestRetentionMetrics | null>(null);
+  const data = useAnalytics("getGuestRetentionMetrics", () => analyticsService.getGuestRetentionMetrics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
-  useEffect(() => { analyticsService.getGuestRetentionMetrics(from, to).then(setData); }, [from, to]);
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -556,9 +558,8 @@ export function GuestRetentionTab() {
 /** AI-12: Bottle service utilization. */
 export function BottleServiceTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<BottleServiceAnalytics | null>(null);
+  const data = useAnalytics("getBottleServiceAnalytics", () => analyticsService.getBottleServiceAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
-  useEffect(() => { analyticsService.getBottleServiceAnalytics(from, to).then(setData); }, [from, to]);
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -603,9 +604,8 @@ export function BottleServiceTab() {
 /** AI-13: Capacity utilization. */
 export function CapacityUtilizationTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<CapacityUtilizationAnalytics | null>(null);
+  const data = useAnalytics("getCapacityUtilizationAnalytics", () => analyticsService.getCapacityUtilizationAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
-  useEffect(() => { analyticsService.getCapacityUtilizationAnalytics(from, to).then(setData); }, [from, to]);
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -647,9 +647,8 @@ export function CapacityUtilizationTab() {
 /** AI-14: Night summary — executive summary. */
 export function NightSummaryTab() {
   const t = useTranslations("shared");
-  const [data, setData] = useState<NightSummary | null>(null);
   const today = new Date().toISOString().slice(0, 10);
-  useEffect(() => { analyticsService.getNightSummary(today).then(setData); }, [today]);
+  const data = useAnalytics("getNightSummary", () => analyticsService.getNightSummary(today));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">

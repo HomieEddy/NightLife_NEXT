@@ -7,8 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoQrScanAction, deniedSessionPath } from "@/components/shared/demo-links";
-import { ClubLights } from "@/components/fx/club-lights";
+import dynamic from "next/dynamic";
 import { useGuest } from "@/context/guest-context";
+
+// THREE.js is ~170KB gzip — code-split it out of the guest screens.
+const ClubLights = dynamic(() => import("@/components/fx/club-lights").then((m) => m.ClubLights), {
+  ssr: false,
+});
 import { isDemoMode } from "@/features/shared/app-mode";
 import { guestsService } from "@/features/guests/services";
 import { useLiveEvents } from "@/lib/use-live-events";

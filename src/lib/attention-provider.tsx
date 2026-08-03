@@ -90,9 +90,22 @@ export function AttentionProvider({ children }: { children: React.ReactNode }) {
   attentionRef.current = refreshAttention;
 
   useEffect(() => { refreshAttention(); }, [refreshAttention]);
+
+  // Only events that can change attention items trigger the (expensive)
+  // 11-service recompute — broadcast, gift and show events don't affect
+  // attention, and refreshing on them re-rendered every nav badge for nothing.
+  const ATTENTION_REFRESH_EVENTS = new Set<string>([
+    "OrderPlaced", "OrderStatusChanged", "OrderClaimed", "OrderReleased",
+    "SessionRequested", "SessionApproved", "SessionDenied", "ClosureRequested", "SessionClosed",
+    "HelpRequested", "HelpStatusChanged",
+    "SoldOut", "StockRestocked",
+    "LastCallStarted", "LastCallEnded",
+  ]);
   useLiveEvents({
     scope: "manager",
-    onEvent: () => attentionRef.current(),
+    onEvent: (event) => {
+      if (ATTENTION_REFRESH_EVENTS.has(event.type)) attentionRef.current();
+    },
     fallbackMs: 8000,
     fallbackRefresh: () => attentionRef.current(),
   });

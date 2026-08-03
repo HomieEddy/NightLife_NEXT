@@ -83,8 +83,19 @@ export function GuestProvider({ children }: { children: ReactNode }) {
     setHydrated(true);
   }, []);
 
+  // Persist debounced — the cart holds full MenuItem objects and steppers
+  // fire per keystroke; writing JSON.stringify(state) on every change was a
+  // per-keystroke serialization of the whole cart.
   useEffect(() => {
-    if (hydrated) sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (!hydrated) return;
+    const t = setTimeout(() => {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch {
+        // quota exceeded — ignore, state still lives in memory
+      }
+    }, 500);
+    return () => clearTimeout(t);
   }, [state, hydrated]);
 
   const startSession = useCallback(

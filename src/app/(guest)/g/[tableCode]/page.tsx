@@ -15,8 +15,13 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoOpenTableAction } from "@/components/shared/demo-links";
 import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
-import { ClubLights } from "@/components/fx/club-lights";
+import dynamic from "next/dynamic";
 import { useGuest } from "@/context/guest-context";
+
+// THREE.js is ~170KB gzip — code-split it out of the first screen a guest loads.
+const ClubLights = dynamic(() => import("@/components/fx/club-lights").then((m) => m.ClubLights), {
+  ssr: false,
+});
 import { defaultLocale, getLocaleCookie, setLocaleCookie } from "@/i18n/config";
 import { isDemoMode } from "@/features/shared/app-mode";
 import { guestsService } from "@/features/guests/services";
