@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { Copy, Download, Printer, QrCode, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,7 +38,11 @@ function QrSvg({ url, className }: { url: string; className?: string }) {
   );
 }
 
+const STATUS_FILTER_VALUES = ["all", "open", "occupied", "reserved", "closed"] as const;
+
 export default function ManagerQrPage() {
+  const t = useTranslations("manager.qr");
+  const ts = useTranslations("shared");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const [zoneFilter, setZoneFilter] = useState("all");
@@ -65,8 +70,8 @@ export default function ManagerQrPage() {
 
   function copyLink(table: VenueTable) {
     navigator.clipboard.writeText(tableUrl(table)).then(
-      () => toast.success(`Link for ${table.code} copied`),
-      () => toast.error("Could not copy link"),
+      () => toast.success(t("linkCopied", { code: table.code })),
+      () => toast.error(t("couldNotCopyLink")),
     );
   }
 
@@ -77,18 +82,18 @@ export default function ManagerQrPage() {
       a.href = dataUrl;
       a.download = `qr-${table.code.toLowerCase()}.png`;
       a.click();
-      toast.success(`QR for ${table.code} downloaded`);
+      toast.success(t("qrDownloaded", { code: table.code }));
     } catch {
-      toast.error(`Could not generate the QR for ${table.code}`);
+      toast.error(t("couldNotGenerateQr", { code: table.code }));
     }
   }
 
   async function regenerateToken(table: VenueTable) {
     try {
       await venueService.regenerateToken(table.id);
-      toast.success(`QR for ${table.code} regenerated — reprint the code to activate.`);
+      toast.success(t("qrRegenerated", { code: table.code }));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : `Could not regenerate ${table.code}`);
+      toast.error(error instanceof Error ? error.message : t("couldNotRegenerate", { code: table.code }));
     }
   }
 
@@ -110,16 +115,16 @@ export default function ManagerQrPage() {
     <>
       <div className="space-y-5 print:hidden">
         <PageHeader
-          title="QR codes"
-          description="Each table gets a unique QR. Guests scan to join and order."
+          title={t("title")}
+          description={t("description")}
           actions={
             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
               <Select value={zoneFilter} onValueChange={setZoneFilter}>
                 <SelectTrigger className="w-40">
-                  <SelectValue placeholder="All zones" />
+                  <SelectValue placeholder={t("allZones")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All zones</SelectItem>
+                  <SelectItem value="all">{t("allZones")}</SelectItem>
                   {zones.map((zone) => (
                     <SelectItem key={zone.id} value={zone.id}>
                       {zone.name}
@@ -128,7 +133,7 @@ export default function ManagerQrPage() {
                 </SelectContent>
               </Select>
               <Button variant="outline" onClick={() => window.print()}>
-                <Printer className="size-4" /> Print sheet
+                <Printer className="size-4" /> {t("printSheet")}
               </Button>
               <DemoManagerGuestFlowAction />
             </div>
@@ -139,11 +144,11 @@ export default function ManagerQrPage() {
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search tables…"
+            placeholder={t("searchPlaceholder")}
             className="w-full sm:w-56"
           />
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "open", "occupied", "reserved", "closed"] as const).map((s) => (
+            {STATUS_FILTER_VALUES.map((s) => (
               <button
                 key={s}
                 type="button"
@@ -155,7 +160,7 @@ export default function ManagerQrPage() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {s === "all" ? "All" : s}
+                {s === "all" ? ts("all") : s}
               </button>
             ))}
           </div>
@@ -166,7 +171,7 @@ export default function ManagerQrPage() {
         ) : visible.length === 0 ? (
           <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
             <QrCode className="mx-auto mb-2 size-8 opacity-30" />
-            No tables match the current filters.
+            {t("noTablesMatch")}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -183,19 +188,19 @@ export default function ManagerQrPage() {
                     <div className="flex items-center gap-0.5">
                       <ConfirmDialog
                         trigger={
-                          <Button variant="ghost" size="icon" className="size-8" aria-label={`Regenerate QR for ${table.code}`}>
+                          <Button variant="ghost" size="icon" className="size-8" aria-label={t("regenerateAria", { code: table.code })}>
                             <RefreshCw className="size-3.5" />
                           </Button>
                         }
-                        title="Regenerate token?"
-                        description="The old QR won't work anymore. The new code prints automatically."
-                        confirmLabel="Regenerate"
+                        title={t("regenerateToken")}
+                        description={t("regenerateDesc")}
+                        confirmLabel={t("regenerate")}
                         onConfirm={() => regenerateToken(table)}
                       />
-                      <Button variant="ghost" size="icon" className="size-8" onClick={() => copyLink(table)} aria-label={`Copy link for ${table.code}`}>
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => copyLink(table)} aria-label={t("copyLinkAria", { code: table.code })}>
                         <Copy className="size-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="size-8" onClick={() => downloadPng(table)} aria-label={`Download QR for ${table.code}`}>
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => downloadPng(table)} aria-label={t("downloadAria", { code: table.code })}>
                         <Download className="size-3.5" />
                       </Button>
                     </div>
@@ -211,7 +216,7 @@ export default function ManagerQrPage() {
 
       {/* Print-friendly sheet */}
       <div className="hidden print:block">
-        <h2 className="mb-4 text-center text-lg font-bold">Table QR codes — Velvet Montréal</h2>
+        <h2 className="mb-4 text-center text-lg font-bold">{t("printHeading")}</h2>
         <div className="grid grid-cols-2 gap-4">
           {(tables ?? []).map((table) => (
             <div key={table.id} className="flex flex-col items-center gap-1 border p-3 text-center">

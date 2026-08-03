@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Calculator, Check, UserCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,15 +23,16 @@ import { staffKeys } from "@/features/workforce/query-keys";
 import { useAuth } from "@/context/auth-context";
 import type { CommissionStatement } from "@/lib/types";
 
-const BASIS_LABELS: Record<string, string> = {
-  "net-revenue": "Net revenue",
-  "table-minimum": "Table minimum",
-  "per-head": "Per head",
-  "per-reservation": "Per reservation",
-};
-
 function CommissionContent() {
+  const t = useTranslations("manager.commission");
   const searchParams = useSearchParams();
+
+  const BASIS_LABELS: Record<string, string> = {
+    "net-revenue": t("netRevenue"),
+    "table-minimum": t("tableMinimum"),
+    "per-head": t("perHead"),
+    "per-reservation": t("perReservation"),
+  };
   const staffFilter = searchParams.get("staff") ?? "";
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
@@ -71,11 +73,11 @@ function CommissionContent() {
       if (!rules) throw new Error("Rules not loaded");
       const staffMember = staff.find((s) => s.id === staffId);
       if (!staffMember?.commissionRuleId) {
-        toast.error("No commission rule assigned to this promoter.");
+        toast.error(t("noRuleAssigned"));
         return;
       }
       const rule = rules.find((r) => r.id === staffMember.commissionRuleId);
-      if (!rule) { toast.error("Commission rule not found."); return; }
+      if (!rule) { toast.error(t("ruleNotFound")); return; }
       const periodStart = "2026-07-20";
       const periodEnd = "2026-07-26";
       const items = [
@@ -86,10 +88,10 @@ function CommissionContent() {
       await commissionService.saveStatement(stmt);
     },
     onSuccess: () => {
-      toast.success("Statement generated");
+      toast.success(t("statementGenerated"));
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not generate"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("couldNotGenerate")),
   });
 
   const approveMutation = useMutation({
@@ -98,19 +100,19 @@ function CommissionContent() {
       return commissionService.approveStatement(stmt.id, me.id);
     },
     onSuccess: () => {
-      toast.success("Commission statement approved");
+      toast.success(t("commissionApproved"));
       invalidate();
     },
-    onError: () => toast.error("Could not approve"),
+    onError: () => toast.error(t("couldNotApprove")),
   });
 
   if (rules === undefined) return <ListSkeleton />;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Commission" description="Promoter commission rules and statements" breadcrumbs={[{ label: "Team", href: "/manager/staff" }, { label: "Commission" }]} />
+      <PageHeader title={t("title")} description={t("description")} breadcrumbs={[{ label: t("team"), href: "/manager/staff" }, { label: t("title") }]} />
       {promoterStaff.length === 0 ? (
-        <EmptyState icon={UserCheck} title="No promoters" description="Add a promoter to the team first." />
+        <EmptyState icon={UserCheck} title={t("noPromoters")} description={t("noPromotersDesc")} />
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2">
@@ -132,25 +134,25 @@ function CommissionContent() {
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium">Total: {formatMoney(stmt.totalCents, "CAD")}</span>
                             {stmt.status === "approved" ? (
-                              <Badge variant="outline"><Check className="size-3 mr-1" /> Approved</Badge>
+                              <Badge variant="outline"><Check className="size-3 mr-1" /> {t("approved")}</Badge>
                             ) : (
                               <ConfirmDialog
-                                trigger={<Button size="sm" disabled={!canApprove || approveMutation.isPending}>Approve</Button>}
-                                title="Approve commission statement?"
-                                description={`${promoter.name} will see ${formatMoney(stmt.totalCents, "CAD")} in earnings. Writes an audit entry.`}
-                                confirmLabel="Approve"
+                                trigger={<Button size="sm" disabled={!canApprove || approveMutation.isPending}>{t("approve")}</Button>}
+                                title={t("approveTitle")}
+                                description={t("approveDesc", { name: promoter.name, amount: formatMoney(stmt.totalCents, "CAD") })}
+                                confirmLabel={t("approve")}
                                 onConfirm={() => approveMutation.mutate(stmt)}
                               />
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">{stmt.lines.length} attributed items · {formatDate(stmt.periodStart)} – {formatDate(stmt.periodEnd)}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{t("attributedItems", { count: stmt.lines.length })} · {formatDate(stmt.periodStart)} – {formatDate(stmt.periodEnd)}</p>
                         </div>
                       ))
                     ) : (
-                      <p className="text-xs text-muted-foreground">No statements yet.</p>
+                      <p className="text-xs text-muted-foreground">{t("noStatements")}</p>
                     )}
                     <Button variant="outline" size="sm" className="w-full" onClick={() => generateMutation.mutate(promoter.id)} disabled={generateMutation.isPending}>
-                      <Calculator className="size-3.5 mr-1" /> Generate statement
+                      <Calculator className="size-3.5 mr-1" /> {t("generateStatement")}
                     </Button>
                   </CardContent>
                 </Card>
