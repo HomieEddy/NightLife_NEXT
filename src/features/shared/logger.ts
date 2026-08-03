@@ -20,6 +20,7 @@ const REDACT_PATHS = [
   "headers.cookie",
   "headers.*authorization",
   "headers.*cookie",
+  "endpoint",
 ];
 
 const instance = pino({

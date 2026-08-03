@@ -26,7 +26,8 @@ interface PushSendInput {
 
 export async function sendPush(input: PushSendInput): Promise<{ ok: boolean; error?: string }> {
   if (PUSH_DRIVER === "log") {
-    logger.info(`[push:log] To: ${input.subscription.endpoint} | Title: ${input.payload.title}`);
+    // endpoint identifies the device — structured field, redacted.
+    logger.info("[push:log]", { endpoint: input.subscription.endpoint, title: input.payload.title });
     return { ok: true };
   }
 
