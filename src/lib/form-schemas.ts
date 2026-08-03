@@ -139,6 +139,8 @@ export const zLeadInput = z.object({
   source: z.enum(["landing-page", "referral", "outbound", "event"]).default("landing-page"),
   dealValue: z.number().nonnegative().optional(),
   notes: z.string().default(""),
+  /** Evidence of privacy-policy consent — set by the public lead form only. */
+  consentAt: z.string().datetime().optional(),
 });
 
 export const zSupplierCatalogueInput = z.object({

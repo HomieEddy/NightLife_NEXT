@@ -43,6 +43,8 @@ export default function LeadPage() {
         source: "landing-page" as const,
         dealValue: 2988,
         notes: data.notes?.trim() ?? "",
+        // Consent evidence — the checkbox above is the opt-in (Law 25).
+        consentAt: new Date().toISOString(),
       };
       if (isDemoMode()) {
         await adminService.createLead(payload);

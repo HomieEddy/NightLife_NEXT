@@ -107,6 +107,8 @@ export const liveReservationService = {
     guestPhone?: string;
     note?: string;
     eventId?: string;
+    /** Law 25 affirmative consent — required by the public booking schema. */
+    consent: true;
   }): Promise<Reservation> {
     return api<Reservation>(`/api/public/reservations/${encodeURIComponent(input.venueSlug)}`, {
       method: "POST",

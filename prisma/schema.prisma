@@ -57,6 +57,8 @@ model User {
   banned          Boolean?
   banReason       String?   @map("ban_reason")
   banExpires      DateTime? @map("ban_expires") @db.Timestamptz
+  /// When the user accepted the privacy policy (invite-accept flow).
+  consentAt       DateTime? @map("consent_at") @db.Timestamptz
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -819,6 +821,8 @@ model Reservation {
   bumpReason      String?           @map("bump_reason")
   alternativeTableId String?        @map("alternative_table_id")
   bookingLocale       String          @default("en") @map("booking_locale")
+  /// When the guest accepted the privacy policy on the booking form.
+  consentAt           DateTime?       @map("consent_at") @db.Timestamptz
   createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -1011,6 +1015,8 @@ model Lead {
   source      String   @default("landing-page")
   dealValue   Int      @default(0) @map("deal_value")
   notes       String   @default("")
+  /// When the contact accepted the privacy policy on the lead form.
+  consentAt   DateTime? @map("consent_at") @db.Timestamptz
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
