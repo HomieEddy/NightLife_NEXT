@@ -31,6 +31,7 @@ export { getHelpScope } from "./permissions";
 export interface StaffNavItem {
   href: string;
   label: string;
+  labelKey?: string;
   icon: LucideIcon;
   feature?: FeatureKey;
   /**
@@ -45,18 +46,18 @@ export interface StaffNavItem {
 // One ordered list; per-role nav is this filtered by live permissions. The
 // first four surviving items become the bottom-nav; the rest go under "More".
 const ALL_NAV: StaffNavItem[] = [
-  { href: "/staff", label: "Home", icon: Home },
-  { href: "/staff/orders", label: "Orders", icon: Receipt, requiredAction: "order:claim" },
-  { href: "/staff/approvals", label: "Approvals", icon: UserCheck, requiredAction: "session:approve" },
-  { href: "/staff/door", label: "Door", icon: DoorOpen, feature: "door", requiredAction: "door:admit" },
-  { href: "/staff/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents", requiredAction: "incident:read-all" },
-  { href: "/staff/reservations", label: "Reservations", icon: CalendarCheck, requiredAction: "reservation:create-own" },
-  { href: "/staff/events", label: "Events", icon: PartyPopper, requiredAction: "reservation:create-own" },
-  { href: "/staff/help", label: "Help", icon: LifeBuoy },
-  { href: "/staff/schedule", label: "Schedule", icon: CalendarDays },
-  { href: "/staff/tips", label: "Tips", icon: DollarSign },
-  { href: "/staff/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
-  { href: "/staff/notifications", label: "Notifications", icon: BellRing },
+  { href: "/staff", label: "Home", labelKey: "nav.items.home", icon: Home },
+  { href: "/staff/orders", label: "Orders", labelKey: "nav.items.orders", icon: Receipt, requiredAction: "order:claim" },
+  { href: "/staff/approvals", label: "Approvals", labelKey: "nav.items.approvals", icon: UserCheck, requiredAction: "session:approve" },
+  { href: "/staff/door", label: "Door", labelKey: "nav.items.door", icon: DoorOpen, feature: "door", requiredAction: "door:admit" },
+  { href: "/staff/incidents", label: "Incidents", labelKey: "nav.items.incidents", icon: AlertTriangle, feature: "incidents", requiredAction: "incident:read-all" },
+  { href: "/staff/reservations", label: "Reservations", labelKey: "nav.items.reservations", icon: CalendarCheck, requiredAction: "reservation:create-own" },
+  { href: "/staff/events", label: "Events", labelKey: "nav.items.events", icon: PartyPopper, requiredAction: "reservation:create-own" },
+  { href: "/staff/help", label: "Help", labelKey: "nav.items.help", icon: LifeBuoy },
+  { href: "/staff/schedule", label: "Schedule", labelKey: "nav.items.schedule", icon: CalendarDays },
+  { href: "/staff/tips", label: "Tips", labelKey: "nav.items.tips", icon: DollarSign },
+  { href: "/staff/chat", label: "Chat", labelKey: "nav.items.chat", icon: MessageSquare, feature: "chat" },
+  { href: "/staff/notifications", label: "Notifications", labelKey: "nav.items.notifications", icon: BellRing },
 ];
 
 /**

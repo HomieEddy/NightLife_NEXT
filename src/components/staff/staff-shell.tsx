@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RoleBadge } from "@/components/shared/role-badge";
@@ -31,6 +32,7 @@ import { cn } from "@/features/shared/utils";
  * Demo uses the seeded runner persona; live mode resolves the authenticated staff profile.
  */
 export function StaffShell({ children }: { children: React.ReactNode }) {
+  const nt = useTranslations("shared");
   const pathname = usePathname();
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
@@ -86,8 +88,8 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0 leading-tight">
-                <p className="truncate text-sm font-semibold">{me?.name ?? "Loading…"}</p>
-                <p className="truncate text-[11px] text-muted-foreground">{venueName ?? "…"} · Staff panel</p>
+                <p className="truncate text-sm font-semibold">{me?.name ?? nt("actions.loading")}</p>
+                <p className="truncate text-[11px] text-muted-foreground">{venueName ?? "…"} · {nt("nav.staffPanel")}</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -128,7 +130,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                     </span>
                   )}
                 </span>
-                {item.label}
+                {nt((item as any).labelKey ?? item.label)}
                 {active && (
                   <span className="absolute inset-x-1/4 top-0 h-0.5 rounded-full bg-primary" />
                 )}
@@ -139,11 +141,11 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
             <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
               <SheetTrigger asChild>
                 <button
-                  aria-label="More navigation"
+                  aria-label={nt("nav.more")}
                   className="relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <Menu className="size-5" />
-                  More
+                  {nt("nav.more")}
                   {moreItems.some((item) =>
                     item.href === pathname || pathname.startsWith(item.href + "/"),
                   ) && (
@@ -154,7 +156,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
               <SheetContent side="bottom" className="mx-auto max-w-lg overflow-y-auto rounded-t-xl" style={{ maxHeight: "75dvh" }}>
                 <div className="space-y-1 pt-4">
                   <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    More
+                    {nt("nav.more")}
                   </p>
                   {moreItems.map((item) => {
                     const active = isNavActive(pathname, item.href);
@@ -172,7 +174,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         )}
                       >
                         <item.icon className="size-5" />
-                        <span>{item.label}</span>
+                        <span>{nt((item as any).labelKey ?? item.label)}</span>
                       </Link>
                     );
                   })}

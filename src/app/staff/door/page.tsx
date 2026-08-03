@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -60,17 +61,12 @@ const zAdmitForm = z.object({
 
 type AdmitFormValues = z.infer<typeof zAdmitForm>;
 
-const wlSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  partySize: z.number().int().min(1).default(2),
-  quotedMinutes: z.number().int().min(5).max(180).default(15),
-});
-
 function OccupancySkeleton() {
   return <div className="h-24 animate-pulse rounded-lg bg-muted" />;
 }
 
 export default function StaffDoorPage() {
+  const t = useTranslations("staff.door");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
@@ -98,6 +94,12 @@ export default function StaffDoorPage() {
     },
   });
   const { register: admitReg, handleSubmit: admitHandle, setValue: admitSet, watch: admitWatch } = admitForm;
+
+  const wlSchema = z.object({
+    name: z.string().min(1, t("nameRequired")),
+    partySize: z.number().int().min(1).default(2),
+    quotedMinutes: z.number().int().min(5).max(180).default(15),
+  });
 
   const wlForm = useForm({
     resolver: zodResolver(wlSchema),
@@ -203,14 +205,16 @@ export default function StaffDoorPage() {
         kind: "profile",
         id: `profile-${p.id}`,
         label: p.displayName,
-        sub: p.vipTier !== "none" ? `${p.vipTier.toUpperCase()} · ${p.visitCount} visits` : `${p.visitCount} visits`,
+        sub: p.vipTier !== "none"
+          ? t("profileSubVip", { tier: p.vipTier.toUpperCase(), visits: p.visitCount })
+          : t("profileSub", { visits: p.visitCount }),
         profile: p,
       })),
       ...matchingRes.map((r): SearchResult => ({
         kind: "reservation",
         id: `res-${r.id}`,
         label: r.guestName,
-        sub: `Reservation · party of ${r.partySize} · ${r.status}`,
+        sub: t("reservationSub", { partySize: r.partySize, status: r.status }),
         reservation: r,
       })),
     ]);
@@ -246,14 +250,14 @@ export default function StaffDoorPage() {
     },
     onSuccess: (res) => {
       if (!res.ok) {
-        toast.error(res.error ?? "Could not adjust occupancy");
+        toast.error(res.error ?? t("adjustOccupancyError"));
         return;
       }
       queryClient.setQueryData(doorKeys.occupancy(venueId), (prev: typeof occupancy) =>
         prev ? { ...prev, current: res.current } : prev,
       );
     },
-    onError: () => toast.error("Could not adjust occupancy"),
+    onError: () => toast.error(t("adjustOccupancyError")),
   });
 
   const admitMutation = useMutation({
@@ -279,7 +283,7 @@ export default function StaffDoorPage() {
       return { label: selected.label, partySize: data.partySize };
     },
     onSuccess: ({ label, partySize }) => {
-      toast.success(`Admitted ${label} — party of ${partySize}`);
+      toast.success(t("admittedToast", { name: label, size: partySize }));
       setSelected(null);
       setQuery("");
       setResults(null);
@@ -287,7 +291,7 @@ export default function StaffDoorPage() {
       invalidateDoor();
     },
     onError: (error) => {
-      const msg = error instanceof Error ? error.message : "Could not admit this party";
+      const msg = error instanceof Error ? error.message : t("admitError");
       setAdmitError(msg);
       toast.error(msg);
     },
@@ -297,7 +301,7 @@ export default function StaffDoorPage() {
     mutationFn: async () => {
       if (!me || !selectedProfile) throw new Error("Not ready");
       const reason = (admitWatch("overrideReason") ?? "").trim();
-      if (!reason) throw new Error("Override reason required");
+      if (!reason) throw new Error(t("overrideReasonRequired"));
       await doorService.admitBannedOverride({
         guestProfileId: selectedProfile.id,
         partySize: admitWatch("partySize") ?? 1,
@@ -308,13 +312,13 @@ export default function StaffDoorPage() {
       return selectedProfile.displayName;
     },
     onSuccess: (name) => {
-      toast.success(`Override recorded — ${name} admitted, incident logged`);
+      toast.success(t("overrideRecordedToast", { name }));
       setSelected(null);
       setQuery("");
       setResults(null);
       invalidateDoor();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not admit this party"),
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("admitError")),
   });
 
   const capacityOverrideMutation = useMutation({
@@ -331,13 +335,13 @@ export default function StaffDoorPage() {
       return { label: selected.label, partySize: admitWatch("partySize") ?? 1 };
     },
     onSuccess: ({ label, partySize }) => {
-      toast.success(`Capacity override — admitted ${label}, party of ${partySize}`);
+      toast.success(t("capacityOverrideToast", { name: label, size: partySize }));
       setSelected(null);
       setQuery("");
       setResults(null);
       invalidateDoor();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Override failed"),
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("overrideFailed")),
   });
 
   const recordExitMutation = useMutation({
@@ -347,11 +351,11 @@ export default function StaffDoorPage() {
       return selected?.label;
     },
     onSuccess: (label) => {
-      toast.success(`${label} marked as exited`);
+      toast.success(t("markedExitedToast", { name: label ?? "" }));
       setSelected(null);
       invalidateDoor();
     },
-    onError: () => toast.error("Could not record the exit"),
+    onError: () => toast.error(t("exitError")),
   });
 
   const reEnterMutation = useMutation({
@@ -361,11 +365,11 @@ export default function StaffDoorPage() {
       return selected?.label;
     },
     onSuccess: (label) => {
-      toast.success(`${label} re-admitted`);
+      toast.success(t("reAdmittedToast", { name: label ?? "" }));
       setSelected(null);
       invalidateDoor();
     },
-    onError: () => toast.error("Could not process the re-entry"),
+    onError: () => toast.error(t("reEntryError")),
   });
 
   const evacuateMutation = useMutation({
@@ -374,10 +378,10 @@ export default function StaffDoorPage() {
       return doorService.evacuate(me.id, me.name);
     },
     onSuccess: () => {
-      toast.success("Emergency evacuation triggered — occupancy zeroed");
+      toast.success(t("evacTriggeredToast"));
       invalidateDoor();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not trigger evacuation"),
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("evacError")),
   });
 
   const resumeEvacuationMutation = useMutation({
@@ -386,10 +390,10 @@ export default function StaffDoorPage() {
       return doorService.resumeEvacuation(me.id, me.name);
     },
     onSuccess: () => {
-      toast.success("Operations resumed — admissions re-enabled");
+      toast.success(t("resumeToast"));
       invalidateDoor();
     },
-    onError: (error) => toast.error(error instanceof Error ? error.message : "Could not resume"),
+    onError: (error) => toast.error(error instanceof Error ? error.message : t("resumeError")),
   });
 
   const joinWaitlistMutation = useMutation({
@@ -397,17 +401,17 @@ export default function StaffDoorPage() {
       waitlistService.join({ name: data.name.trim(), partySize: data.partySize, quotedMinutes: data.quotedMinutes }),
     onSuccess: (_, data) => {
       wlReset();
-      toast.success(`${data.name.trim()} added to the waitlist`);
+      toast.success(t("waitlistAddedToast", { name: data.name.trim() }));
       invalidateWaitlist();
     },
-    onError: () => toast.error("Could not add to the waitlist"),
+    onError: () => toast.error(t("waitlistAddError")),
   });
 
   const waitlistActionMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: "notified" | "left" | "seated" }) =>
       waitlistService.setStatus(id, status),
     onSuccess: () => invalidateWaitlist(),
-    onError: () => toast.error("Could not update the waitlist"),
+    onError: () => toast.error(t("waitlistUpdateError")),
   });
 
   const checkInCoatMutation = useMutation({
@@ -416,16 +420,16 @@ export default function StaffDoorPage() {
       return doorService.checkInCoat({ itemCount: 1, staffId: me.id });
     },
     onSuccess: (ticket) => {
-      toast.success(`Ticket #${ticket.ticketNumber} checked in`);
+      toast.success(t("coatCheckInToast", { number: ticket.ticketNumber }));
       queryClient.invalidateQueries({ queryKey: doorKeys.coatCheck(venueId) });
     },
-    onError: () => toast.error("Could not check in coat"),
+    onError: () => toast.error(t("coatCheckInError")),
   });
 
   const claimCoatMutation = useMutation({
     mutationFn: (ticketId: string) => doorService.claimCoat(ticketId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: doorKeys.coatCheck(venueId) }),
-    onError: () => toast.error("Could not claim coat"),
+    onError: () => toast.error(t("coatClaimError")),
   });
 
   const onAdmit = admitHandle((data) => admitMutation.mutate(data as AdmitFormValues));
@@ -446,8 +450,8 @@ export default function StaffDoorPage() {
       <div className="p-4">
         <EmptyState
           icon={ShieldOff}
-          title="Not available for your role"
-          description="The door is operated by security and managers."
+          title={t("notAvailableTitle")}
+          description={t("notAvailableDesc")}
         />
       </div>
     );
@@ -460,27 +464,27 @@ export default function StaffDoorPage() {
     <div className="animate-fade-in space-y-5 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
-          <DoorOpen className="size-5 text-primary" /> Door
+          <DoorOpen className="size-5 text-primary" /> {t("pageTitle")}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">Occupancy, arrivals and the waitlist</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t("pageSubtitle")}</p>
       </div>
 
       {evacState !== "normal" && (
         <Card className="border-red-500/40 bg-red-500/10 py-4">
           <CardContent className="space-y-3 px-5 text-center">
             <Siren className="mx-auto size-8 text-red-500" />
-            <p className="text-lg font-bold text-red-600 dark:text-red-400">Emergency Evacuation Active</p>
-            <p className="text-sm text-muted-foreground">Admissions are disabled. All staff and guests must exit.</p>
+            <p className="text-lg font-bold text-red-600 dark:text-red-400">{t("evacActive")}</p>
+            <p className="text-sm text-muted-foreground">{t("evacActiveDesc")}</p>
             {canResume && (
               <ConfirmDialog
                 trigger={
                   <Button variant="outline" className="border-red-500/50" disabled={resumeEvacuationMutation.isPending}>
-                    Resume normal operations
+                    {t("resumeNormalOps")}
                   </Button>
                 }
-                title="Resume normal operations?"
-                description="This ends the evacuation, restores the headcount, and re-enables admissions. This action is audited."
-                confirmLabel="Resume operations"
+                title={t("resumeNormalOpsTitle")}
+                description={t("resumeNormalOpsDesc")}
+                confirmLabel={t("resumeNormalOpsConfirm")}
                 onConfirm={() => resumeEvacuationMutation.mutate()}
               />
             )}
@@ -512,7 +516,7 @@ export default function StaffDoorPage() {
                     {occupancy.current}
                     <span className="text-lg font-normal text-muted-foreground"> / {occupancy.legalCapacity}</span>
                   </p>
-                  <p className="text-xs text-muted-foreground">Legal capacity</p>
+                  <p className="text-xs text-muted-foreground">{t("legalCapacity")}</p>
                 </div>
                 {capacityTone !== "ok" && (
                   <AlertOctagon
@@ -531,14 +535,14 @@ export default function StaffDoorPage() {
                     onClick={() => adjustMutation.mutate({ delta: -1 })}
                     disabled={adjustMutation.isPending}
                   >
-                    <Minus className="size-5" /> Out
+                    <Minus className="size-5" /> {t("out")}
                   </Button>
                   <Button
                     className="h-14 flex-1 text-base"
                     onClick={() => adjustMutation.mutate({ delta: 1 })}
                     disabled={adjustMutation.isPending}
                   >
-                    <Plus className="size-5" /> In
+                    <Plus className="size-5" /> {t("in")}
                   </Button>
                 </div>
               )}
@@ -553,14 +557,14 @@ export default function StaffDoorPage() {
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="h-12 pl-9 text-base"
-              placeholder="Search a name to admit…"
+              placeholder={t("searchPlaceholder")}
               value={query}
               onChange={(e) => runSearch(e.target.value)}
             />
           </div>
 
           {results !== null && results.length === 0 && (
-            <p className="px-1 text-sm text-muted-foreground">No match — admit as a new walk-in below.</p>
+            <p className="px-1 text-sm text-muted-foreground">{t("noMatchWalkIn")}</p>
           )}
 
           {results !== null && results.length > 0 && !selected && (
@@ -588,19 +592,18 @@ export default function StaffDoorPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
                       <ShieldOff className="size-5" />
-                      <p className="font-semibold">Refuse entry — banned</p>
+                      <p className="font-semibold">{t("banTitle")}</p>
                     </div>
                     <p className="text-sm">
-                      <span className="font-medium">{selectedProfile.displayName}</span> is banned:{" "}
-                      {selectedProfile.banReason}
+                      {t("banReason", { name: selectedProfile.displayName ?? "", reason: selectedProfile.banReason ?? "" })}
                     </p>
                     {canOverrideBan ? (
                       <div className="space-y-2 border-t pt-3">
-                        <Label htmlFor="override-reason">Manager override reason</Label>
+                        <Label htmlFor="override-reason">{t("overrideReasonLabel")}</Label>
                         <Textarea
                           id="override-reason"
                           {...admitReg("overrideReason")}
-                          placeholder="Why is this override justified?"
+                          placeholder={t("overrideReasonPlaceholder")}
                           rows={2}
                         />
                         <ConfirmDialog
@@ -610,65 +613,66 @@ export default function StaffDoorPage() {
                               className="h-12 w-full"
                               disabled={!(admitWatch("overrideReason") ?? "").trim() || overrideAndAdmitMutation.isPending}
                             >
-                              Override ban and admit anyway
+                              {t("overrideBanButton")}
                             </Button>
                           }
-                          title="Override this ban?"
-                          description="This admits a banned guest and writes a permanent audit entry — it cannot be undone silently."
-                          confirmLabel="Override and admit"
+                          title={t("overrideBanTitle")}
+                          description={t("overrideBanDesc")}
+                          confirmLabel={t("overrideAndAdmit")}
                           destructive
                           onConfirm={() => overrideAndAdmitMutation.mutate()}
                         />
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground">
-                        Only a manager can override a ban. Ask a manager to admit this guest if needed.
+                        {t("banManagerOnly")}
                       </p>
                     )}
                     <Button variant="ghost" className="w-full" onClick={() => setSelected(null)}>
-                      Dismiss
+                      {t("dismiss")}
                     </Button>
                   </div>
                 ) : openAdmission ? (
                   <div className="space-y-3">
                     <p className="text-sm">
-                      <span className="font-medium">{selected.label}</span> is already inside
-                      {" "}(admitted {timeAgo(openAdmission.admittedAt)}).
+                      {t("alreadyInside", { name: selected.label, time: timeAgo(openAdmission.admittedAt) })}
                     </p>
                     <Button className="h-12 w-full" disabled={recordExitMutation.isPending} onClick={() => recordExitMutation.mutate()}>
-                      <LogOut className="size-4" /> Record exit
+                      <LogOut className="size-4" /> {t("recordExit")}
                     </Button>
-                    <Button variant="ghost" className="w-full" onClick={() => setSelected(null)}>Cancel</Button>
+                    <Button variant="ghost" className="w-full" onClick={() => setSelected(null)}>{t("cancel")}</Button>
                   </div>
                 ) : exitedAdmission ? (
                   <div className="space-y-3">
                     <p className="text-sm">
-                      <span className="font-medium">{selected.label}</span> already visited tonight and exited
-                      {" "}{timeAgo(exitedAdmission.exitedAt!)}.
+                      {t("visitedExited", { name: selected.label, time: timeAgo(exitedAdmission.exitedAt!) })}
                     </p>
                     <Button className="h-12 w-full" disabled={reEnterMutation.isPending} onClick={() => reEnterMutation.mutate()}>
-                      <DoorOpen className="size-4" /> Re-entry
+                      <DoorOpen className="size-4" /> {t("reEntry")}
                     </Button>
-                    <Button variant="ghost" className="w-full" onClick={() => setSelected(null)}>Cancel</Button>
+                    <Button variant="ghost" className="w-full" onClick={() => setSelected(null)}>{t("cancel")}</Button>
                   </div>
                 ) : (
                   <form onSubmit={onAdmit}>
                     <p className="font-medium">{selected.label}</p>
                     {selectedProfile?.vipTier && selectedProfile.vipTier !== "none" && (
                       <p className="text-xs text-amber-600 dark:text-amber-400">
-                        {selectedProfile.vipTier.toUpperCase()} · {selectedProfile.visitCount} visits ·{" "}
-                        {formatMoney(selectedProfile.lifetimeNetCents / 100)} lifetime
+                        {t("vipLifetime", {
+                          tier: selectedProfile.vipTier.toUpperCase(),
+                          visits: selectedProfile.visitCount,
+                          lifetime: formatMoney(selectedProfile.lifetimeNetCents / 100),
+                        })}
                       </p>
                     )}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label>Party size</Label>
+                        <Label>{t("partySize")}</Label>
                         <div className="flex items-center gap-2">
                           <TooltipIconButton
                             type="button"
                             variant="outline"
                             className="size-11"
-                            tooltip="Decrease party size"
+                            tooltip={t("decreasePartySize")}
                             onClick={() => admitSet("partySize", Math.max(1, (admitWatch("partySize") ?? 1) - 1))}
                           >
                             <Minus className="size-4" />
@@ -678,7 +682,7 @@ export default function StaffDoorPage() {
                             type="button"
                             variant="outline"
                             className="size-11"
-                            tooltip="Increase party size"
+                            tooltip={t("increasePartySize")}
                             onClick={() => admitSet("partySize", (admitWatch("partySize") ?? 1) + 1)}
                           >
                             <Plus className="size-4" />
@@ -686,24 +690,24 @@ export default function StaffDoorPage() {
                         </div>
                       </div>
                       <div className="space-y-1.5">
-                        <Label>Admission type</Label>
+                        <Label>{t("admissionType")}</Label>
                         <Select value={admitWatch("admissionType")} onValueChange={(v) => admitSet("admissionType", v as AdmissionType)}>
                           <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="cover">Cover</SelectItem>
-                            <SelectItem value="comp">Comp</SelectItem>
-                            <SelectItem value="guestlist">Guestlist</SelectItem>
-                            <SelectItem value="reservation">Reservation</SelectItem>
-                            <SelectItem value="member">Member</SelectItem>
+                            <SelectItem value="cover">{t("admissionTypeCover")}</SelectItem>
+                            <SelectItem value="comp">{t("admissionTypeComp")}</SelectItem>
+                            <SelectItem value="guestlist">{t("admissionTypeGuestlist")}</SelectItem>
+                            <SelectItem value="reservation">{t("admissionTypeReservation")}</SelectItem>
+                            <SelectItem value="member">{t("admissionTypeMember")}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
                     <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
                       <div>
-                        <p className="text-sm font-medium">ID checked</p>
+                        <p className="text-sm font-medium">{t("idChecked")}</p>
                         <p className="text-xs text-muted-foreground">
-                          Records the check only — never a document number or scan
+                          {t("idCheckedDesc")}
                         </p>
                       </div>
                       <Switch checked={admitWatch("idChecked")} onCheckedChange={(v) => admitSet("idChecked", v)} />
@@ -711,18 +715,18 @@ export default function StaffDoorPage() {
                     {admitWatch("idChecked") && (
                       <>
                         <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-                          <p className="text-sm font-medium">Age verified 18+</p>
+                          <p className="text-sm font-medium">{t("ageVerified")}</p>
                           <Switch checked={admitWatch("dobVerified")} onCheckedChange={(v) => admitSet("dobVerified", v)} />
                         </div>
                         <div className="space-y-1.5">
-                          <Label htmlFor="yob">Year of birth (optional — never stored as a full date)</Label>
+                          <Label htmlFor="yob">{t("yearOfBirthLabel")}</Label>
                           <Input
                             id="yob"
                             type="number"
                             min={1900}
                             max={new Date().getFullYear()}
                             {...admitReg("yearOfBirth")}
-                            placeholder="e.g. 1996"
+                            placeholder={t("yearOfBirthPlaceholder")}
                             className="h-11"
                           />
                         </div>
@@ -730,12 +734,12 @@ export default function StaffDoorPage() {
                     )}
                     {admitError && admitError.includes("capacity") && canOverrideCapacity && (
                       <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
-                        <p className="text-sm font-medium text-amber-600 dark:text-amber-400">At capacity — manager override required</p>
-                        <Label htmlFor="override-reason-cap">Override reason</Label>
+                        <p className="text-sm font-medium text-amber-600 dark:text-amber-400">{t("atCapacityOverrideRequired")}</p>
+                        <Label htmlFor="override-reason-cap">{t("overrideReasonLabel")}</Label>
                         <Input
                           id="override-reason-cap"
                           {...admitReg("overrideReason")}
-                          placeholder="Why is this admission necessary?"
+                          placeholder={t("overrideCapacityPlaceholder")}
                           className="h-11"
                         />
                         <ConfirmDialog
@@ -745,22 +749,22 @@ export default function StaffDoorPage() {
                               className="h-11 w-full border-amber-500/50"
                               disabled={!(admitWatch("overrideReason") ?? "").trim() || capacityOverrideMutation.isPending}
                             >
-                              Override capacity and admit
+                              {t("overrideCapacityButton")}
                             </Button>
                           }
-                          title="Override legal capacity?"
-                          description={`This admits ${selected?.label} past the legal capacity limit — the reason is recorded in the audit trail and cannot be undone silently.`}
-                          confirmLabel="Override and admit"
+                          title={t("overrideCapacityTitle")}
+                          description={t("overrideCapacityDesc", { name: selected?.label })}
+                          confirmLabel={t("overrideAndAdmit")}
                           onConfirm={() => capacityOverrideMutation.mutate()}
                         />
                       </div>
                     )}
                     <div className="flex gap-2">
                       <Button type="button" variant="ghost" className="h-12 flex-1" onClick={() => setSelected(null)}>
-                        Cancel
+                        {t("cancel")}
                       </Button>
                       <Button type="submit" className="h-12 flex-1 text-base" disabled={doorBusy}>
-                        <Check className="size-4" /> Admit
+                        <Check className="size-4" /> {t("admit")}
                       </Button>
                     </div>
                   </form>
@@ -773,14 +777,14 @@ export default function StaffDoorPage() {
 
       <section className="space-y-3">
         <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-          <Users className="size-4" /> Waitlist
+          <Users className="size-4" /> {t("waitlistHeading")}
         </h2>
         {waitlist === undefined ? (
           <ListSkeleton rows={2} rowHeight="h-16" />
         ) : (
           <>
             {(waitlist as WaitlistEntryWithPosition[]).filter((w) => w.status === "waiting" || w.status === "notified").length === 0 ? (
-              <EmptyState icon={Users} title="No one waiting" description="Admissions and occupancy tracking will appear here when the venue opens." />
+              <EmptyState icon={Users} title={t("waitlistEmptyTitle")} description={t("waitlistEmptyDesc")} />
             ) : (
               <div className="stagger-children space-y-2">
                 {(waitlist as WaitlistEntryWithPosition[])
@@ -796,8 +800,8 @@ export default function StaffDoorPage() {
                               #{entry.position ?? "—"} {entry.name}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Party of {entry.partySize} · {elapsed}m elapsed, quoted {entry.quotedMinutes}m
-                              {entry.status === "notified" && " · notified"}
+                              {t("wlPartyElapsed", { size: entry.partySize, elapsed, quoted: entry.quotedMinutes })}
+                              {entry.status === "notified" && t("wlNotified")}
                             </p>
                           </div>
                           {canManageWaitlist && (
@@ -810,7 +814,7 @@ export default function StaffDoorPage() {
                                   onClick={() => waitlistActionMutation.mutate({ id: entry.id, status: "notified" })}
                                   disabled={waitlistActionMutation.isPending && waitlistActionMutation.variables?.id === entry.id}
                                 >
-                                  Notify
+                                  {t("notify")}
                                 </Button>
                               )}
                               <Button
@@ -820,7 +824,7 @@ export default function StaffDoorPage() {
                                 onClick={() => waitlistActionMutation.mutate({ id: entry.id, status: "left" })}
                                 disabled={waitlistActionMutation.isPending && waitlistActionMutation.variables?.id === entry.id}
                               >
-                                Leave
+                                {t("leave")}
                               </Button>
                             </div>
                           )}
@@ -835,23 +839,23 @@ export default function StaffDoorPage() {
               <Card>
                 <form onSubmit={onJoinWaitlist}>
                   <CardContent className="space-y-3 px-4 pt-4">
-                    <p className="text-sm font-medium">Add a walk-in</p>
-                    <Input placeholder="Name" {...wlReg("name")} className="h-11" />
+                    <p className="text-sm font-medium">{t("addWalkIn")}</p>
+                    <Input placeholder={t("namePlaceholder")} {...wlReg("name")} className="h-11" />
                     {wlForm.formState.errors.name && (
                       <p className="text-xs text-destructive">{wlForm.formState.errors.name.message}</p>
                     )}
                     <div className="flex items-center gap-2">
-                      <Label className="w-20 shrink-0 text-xs">Party</Label>
-                      <TooltipIconButton type="button" variant="outline" className="size-9" tooltip="Decrease party size" onClick={() => wlSet("partySize", Math.max(1, (wlWatch("partySize") ?? 2) - 1))}>
+                      <Label className="w-20 shrink-0 text-xs">{t("partyLabel")}</Label>
+                      <TooltipIconButton type="button" variant="outline" className="size-9" tooltip={t("decreasePartySize")} onClick={() => wlSet("partySize", Math.max(1, (wlWatch("partySize") ?? 2) - 1))}>
                         <Minus className="size-4" />
                       </TooltipIconButton>
                       <span className="w-6 text-center tabular-nums">{wlWatch("partySize") ?? 2}</span>
-                      <TooltipIconButton type="button" variant="outline" className="size-9" tooltip="Increase party size" onClick={() => wlSet("partySize", (wlWatch("partySize") ?? 2) + 1)}>
+                      <TooltipIconButton type="button" variant="outline" className="size-9" tooltip={t("increasePartySize")} onClick={() => wlSet("partySize", (wlWatch("partySize") ?? 2) + 1)}>
                         <Plus className="size-4" />
                       </TooltipIconButton>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Label className="w-20 shrink-0 text-xs">Quote</Label>
+                      <Label className="w-20 shrink-0 text-xs">{t("quoteLabel")}</Label>
                       <div className="flex gap-1.5">
                         {QUOTE_PRESETS.map((m) => (
                           <Button
@@ -872,7 +876,7 @@ export default function StaffDoorPage() {
                       className="h-11 w-full"
                       disabled={!wlWatch("name")?.trim() || joinWaitlistMutation.isPending}
                     >
-                      <UserPlus className="size-4" /> Add to waitlist
+                      <UserPlus className="size-4" /> {t("addToWaitlist")}
                     </Button>
                   </CardContent>
                 </form>
@@ -885,7 +889,7 @@ export default function StaffDoorPage() {
       {venue?.coatCheckEnabled && (
         <section className="space-y-3">
           <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-            <Shirt className="size-4" /> Coat check
+            <Shirt className="size-4" /> {t("coatCheckHeading")}
           </h2>
           <Button
             variant="outline"
@@ -893,7 +897,7 @@ export default function StaffDoorPage() {
             onClick={() => checkInCoatMutation.mutate()}
             disabled={checkInCoatMutation.isPending}
           >
-            <Plus className="size-4" /> Check in a coat
+            <Plus className="size-4" /> {t("checkInCoat")}
           </Button>
           {coatCheck && (coatCheck as CoatCheckTicket[]).filter((t) => !t.claimedAt).length > 0 && (
             <div className="stagger-children space-y-2">
@@ -902,7 +906,7 @@ export default function StaffDoorPage() {
                 .map((ticket) => (
                   <div key={ticket.id} className="flex items-center justify-between rounded-lg border px-4 py-2.5">
                     <p className="text-sm">
-                      Ticket <span className="font-semibold">#{ticket.ticketNumber}</span> · {ticket.itemCount} item(s)
+                      {t("ticketInfo", { number: ticket.ticketNumber, count: ticket.itemCount })}
                     </p>
                     <Button
                       size="sm"
@@ -911,7 +915,7 @@ export default function StaffDoorPage() {
                       onClick={() => claimCoatMutation.mutate(ticket.id)}
                       disabled={claimCoatMutation.isPending && claimCoatMutation.variables === ticket.id}
                     >
-                      Claim
+                      {t("claim")}
                     </Button>
                   </div>
                 ))}
@@ -925,24 +929,24 @@ export default function StaffDoorPage() {
           <ConfirmDialog
             trigger={
               <Button variant="destructive" className="h-14 w-full text-base" disabled={evacuateMutation.isPending}>
-                <Siren className="size-5" /> Trigger Emergency Evacuation
+                <Siren className="size-5" /> {t("evacuateButton")}
               </Button>
             }
-            title="Trigger emergency evacuation?"
-            description="This zeros occupancy, blocks all admissions, and creates a permanent audit entry. All staff will see the evacuation alert."
-            confirmLabel="Evacuate now"
+            title={t("evacuateTitle")}
+            description={t("evacuateDesc")}
+            confirmLabel={t("evacuateConfirm")}
             destructive
             onConfirm={() => evacuateMutation.mutate()}
           />
           <p className="text-center text-xs text-muted-foreground">
-            Only use in a real emergency — this is audited and cannot be undone silently.
+            {t("evacuateWarning")}
           </p>
         </section>
       )}
 
       {!canAdmit && !canCount && (
         <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
-          <Shield className="size-3.5" /> You have read-only access to the door.
+          <Shield className="size-3.5" /> {t("readOnlyAccess")}
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
@@ -72,14 +73,15 @@ interface SecurityHomeProps {
 }
 
 function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, occupancy, openIncidentCount }: SecurityHomeProps) {
+  const t = useTranslations("staff.dashboard");
   return (
     <div className="animate-fade-in space-y-5 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
-          Good evening, {me.name.split(" ")[0]}
+          {t("greetingName", { name: me.name.split(" ")[0] })}
           <Shield className="size-4 text-primary" />
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">Security · door + trouble + hours + radio</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t("securityTagline")}</p>
       </div>
 
       {/* Door + incidents — the actual job */}
@@ -92,7 +94,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
                 {occupancy ? occupancy.current : "…"}
               </p>
               <p className="text-xs text-muted-foreground">
-                Occupancy{occupancy ? ` / ${occupancy.legalCapacity}` : ""}
+                {t("occupancy")}{occupancy ? ` / ${occupancy.legalCapacity}` : ""}
               </p>
             </CardContent>
           </Card>
@@ -105,7 +107,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
                 {openIncidentCount > 0 && <span className="size-2 animate-pulse rounded-full bg-amber-400" />}
               </div>
               <p className="mt-2 text-2xl sm:text-3xl font-semibold tabular-nums">{openIncidentCount}</p>
-              <p className="text-xs text-muted-foreground">Open incidents</p>
+              <p className="text-xs text-muted-foreground">{t("openIncidents")}</p>
             </CardContent>
           </Card>
         </Link>
@@ -123,7 +125,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
                 )}
               </div>
               <p className="mt-2 text-2xl sm:text-3xl font-semibold tabular-nums">{openSecurityCount}</p>
-              <p className="text-xs text-muted-foreground">Open security requests</p>
+              <p className="text-xs text-muted-foreground">{t("openSecurityRequests")}</p>
             </div>
             <ArrowRight className="size-4 text-muted-foreground" />
           </CardContent>
@@ -134,10 +136,10 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
       <Card className="py-4">
         <CardContent className="space-y-2 px-4">
           <p className="flex items-center gap-1.5 text-sm font-medium">
-            <CalendarDays className="size-4 text-primary" /> Tonight&apos;s shift
+            <CalendarDays className="size-4 text-primary" /> {t("tonightsShift")}
           </p>
           {todayShifts.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No shift scheduled for today.</p>
+            <p className="text-xs text-muted-foreground">{t("noShiftToday")}</p>
           ) : (
             todayShifts.map((shift) => (
               <div key={shift.id} className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -147,7 +149,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
             ))
           )}
           <Button size="sm" variant="outline" asChild className="mt-1">
-            <Link href="/staff/schedule">Full schedule <ArrowRight className="size-3.5" /></Link>
+            <Link href="/staff/schedule">{t("fullSchedule")} <ArrowRight className="size-3.5" /></Link>
           </Button>
         </CardContent>
       </Card>
@@ -157,7 +159,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
         <Card className="py-4">
           <CardContent className="space-y-2 px-4">
             <p className="flex items-center gap-1.5 text-sm font-medium">
-              <MessageSquare className="size-4 text-primary" /> Security channel
+              <MessageSquare className="size-4 text-primary" /> {t("securityChannel")}
             </p>
             <ul className="space-y-2">
               {securityBroadcasts.map((msg) => (
@@ -170,7 +172,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
               ))}
             </ul>
             <Button size="sm" variant="outline" asChild className="mt-1">
-              <Link href="/staff/chat">Open chat <ArrowRight className="size-3.5" /></Link>
+              <Link href="/staff/chat">{t("openChat")} <ArrowRight className="size-3.5" /></Link>
             </Button>
           </CardContent>
         </Card>
@@ -182,6 +184,7 @@ function SecurityHome({ me, openSecurityCount, todayShifts, securityBroadcasts, 
 // ---------- Main home ----------
 
 export default function StaffHomePage() {
+  const t = useTranslations("staff.dashboard");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
@@ -331,16 +334,16 @@ export default function StaffHomePage() {
   const tiles = counts
     ? isPromoter && promoStats
       ? [
-          { href: "/staff/reservations", label: "Requested", value: String(promoStats.requested), count: promoStats.requested, icon: CalendarCheck, urgent: false },
-          { href: "/staff/reservations", label: "Confirmed", value: String(promoStats.confirmed), count: promoStats.confirmed, icon: CalendarCheck, urgent: false },
-          { href: "/staff/reservations", label: "Seated", value: String(promoStats.seated), count: promoStats.seated, icon: Users, urgent: false },
-          { href: "/staff/orders", label: "Revenue", value: formatMoney(promoStats.attributedRevenue), count: promoStats.attributedRevenue, icon: DollarSign, urgent: false },
+          { href: "/staff/reservations", label: t("tileRequested"), value: String(promoStats.requested), count: promoStats.requested, icon: CalendarCheck, urgent: false },
+          { href: "/staff/reservations", label: t("tileConfirmed"), value: String(promoStats.confirmed), count: promoStats.confirmed, icon: CalendarCheck, urgent: false },
+          { href: "/staff/reservations", label: t("tileSeated"), value: String(promoStats.seated), count: promoStats.seated, icon: Users, urgent: false },
+          { href: "/staff/orders", label: t("tileRevenue"), value: formatMoney(promoStats.attributedRevenue), count: promoStats.attributedRevenue, icon: DollarSign, urgent: false },
         ]
       : [
-          { href: "/staff/orders", label: "New orders", value: String(counts.pendingOrders), count: counts.pendingOrders, icon: Receipt, urgent: counts.pendingOrders > 0 },
-          { href: "/staff/orders", label: "In progress", value: String(counts.activeOrders), count: counts.activeOrders, icon: Receipt, urgent: false },
-          ...(!isRunner ? [{ href: "/staff/approvals", label: "Approvals", value: String(counts.pendingApprovals), count: counts.pendingApprovals, icon: UserCheck, urgent: counts.pendingApprovals > 0 }] : []),
-          { href: "/staff/help", label: "Help requests", value: String(counts.openHelp), count: counts.openHelp, icon: LifeBuoy, urgent: counts.openHelp > 0 },
+          { href: "/staff/orders", label: t("tileNewOrders"), value: String(counts.pendingOrders), count: counts.pendingOrders, icon: Receipt, urgent: counts.pendingOrders > 0 },
+          { href: "/staff/orders", label: t("tileInProgress"), value: String(counts.activeOrders), count: counts.activeOrders, icon: Receipt, urgent: false },
+          ...(!isRunner ? [{ href: "/staff/approvals", label: t("tileApprovals"), value: String(counts.pendingApprovals), count: counts.pendingApprovals, icon: UserCheck, urgent: counts.pendingApprovals > 0 }] : []),
+          { href: "/staff/help", label: t("tileHelpRequests"), value: String(counts.openHelp), count: counts.openHelp, icon: LifeBuoy, urgent: counts.openHelp > 0 },
         ]
     : [];
 
@@ -348,12 +351,12 @@ export default function StaffHomePage() {
     <div className="animate-fade-in space-y-5 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
-          Good evening{me ? `, ${me.name.split(" ")[0]}` : ""}
+          {me ? t("greetingName", { name: me.name.split(" ")[0] }) : t("greeting")}
           <Moon className="size-4 text-primary" />
         </h1>
         {myZones.length > 0 && (
           <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-            <MapPin className="size-3.5" /> Your zones: {myZones.join(", ")}
+            <MapPin className="size-3.5" /> {t("yourZones", { zones: myZones.join(", ") })}
           </p>
         )}
       </div>
@@ -396,15 +399,15 @@ export default function StaffHomePage() {
           <CardContent className="flex items-center justify-between px-4">
             <div>
               <p className="flex items-center gap-1.5 text-sm font-medium">
-                <Users className="size-4 text-primary" /> Guests in house
+                <Users className="size-4 text-primary" /> {t("guestsInHouse")}
               </p>
               <p className="text-xs text-muted-foreground">
-                {promoStats.guestsInHouse} from your reservations
+                {t("guestsFromReservations", { count: promoStats.guestsInHouse })}
               </p>
             </div>
             <Button size="sm" variant="outline" asChild>
               <Link href="/staff/orders">
-                Orders <ArrowRight className="size-3.5" />
+                {t("orders")} <ArrowRight className="size-3.5" />
               </Link>
             </Button>
           </CardContent>
@@ -415,14 +418,14 @@ export default function StaffHomePage() {
         <Card className="py-4">
           <CardContent className="flex items-center justify-between px-4">
             <div>
-              <p className="text-sm font-medium">My zones</p>
+              <p className="text-sm font-medium">{t("myZones")}</p>
               <p className="text-xs text-muted-foreground">
-                See only orders in your assigned zones
+                {t("myZonesDesc")}
               </p>
             </div>
             <Button size="sm" variant="outline" asChild>
               <Link href="/staff/orders?scope=mine">
-                Open <ArrowRight className="size-3.5" />
+                {t("open")} <ArrowRight className="size-3.5" />
               </Link>
             </Button>
           </CardContent>
@@ -434,7 +437,7 @@ export default function StaffHomePage() {
           <CardContent className="flex items-center justify-between px-4">
             <div>
               <p className="flex items-center gap-1.5 text-sm font-medium">
-                <PartyPopper className="size-4 text-primary" /> Show floor busy
+                <PartyPopper className="size-4 text-primary" /> {t("showFloorBusy")}
               </p>
               <p className="text-xs text-muted-foreground">
                 {activeShow.tableCode} · {activeShow.label} · {activeShow.staffName}
@@ -442,7 +445,7 @@ export default function StaffHomePage() {
             </div>
             <Button size="sm" variant="outline" asChild>
               <Link href="/staff/orders">
-                Open <ArrowRight className="size-3.5" />
+                {t("open")} <ArrowRight className="size-3.5" />
               </Link>
             </Button>
           </CardContent>
@@ -453,7 +456,7 @@ export default function StaffHomePage() {
         <Card className="border-red-500/30 py-4">
           <CardContent className="space-y-2 px-4">
             <p className="flex items-center gap-1.5 text-sm font-medium">
-              <AlertOctagon className="size-4 text-red-600 dark:text-red-400" /> 86&apos;d tonight
+              <AlertOctagon className="size-4 text-red-600 dark:text-red-400" /> {t("eightySixdTonight")}
             </p>
             <ul className="space-y-1">
               {(soldOut as SoldOutEvent[]).slice(0, 5).map((event) => (

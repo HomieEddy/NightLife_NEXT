@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck, ChevronLeft, ChevronRight, PartyPopper } from "lucide-react";
 import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
@@ -40,6 +41,7 @@ function shiftMonth(key: string, delta: number): string {
 }
 
 export default function StaffEventsPage() {
+  const t = useTranslations("staff.events");
   const router = useRouter();
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
@@ -108,10 +110,8 @@ export default function StaffEventsPage() {
   return (
     <div className="animate-fade-in stagger-children space-y-5 p-4">
       <div>
-        <h1 className="text-display text-xl">Events</h1>
-        <p className="text-sm text-muted-foreground">
-          Tonight&apos;s event — who&apos;s on the guestlist, what&apos;s different about the floor.
-        </p>
+        <h1 className="text-display text-xl">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
       </div>
 
       <div className="flex items-center justify-between">
@@ -119,7 +119,7 @@ export default function StaffEventsPage() {
           variant="ghost"
           className="size-8"
           onClick={() => setMonth((m) => shiftMonth(m, -1))}
-          tooltip="Previous month"
+          tooltip={t("prevMonth")}
         >
           <ChevronLeft className="size-4" />
         </TooltipIconButton>
@@ -128,7 +128,7 @@ export default function StaffEventsPage() {
           variant="ghost"
           className="size-8"
           onClick={() => setMonth((m) => shiftMonth(m, 1))}
-          tooltip="Next month"
+          tooltip={t("nextMonth")}
         >
           <ChevronRight className="size-4" />
         </TooltipIconButton>
@@ -137,8 +137,8 @@ export default function StaffEventsPage() {
       {visible && visible.length === 0 && (
         <EmptyState
           icon={PartyPopper}
-          title="No events this month"
-          description="Switch months to browse other nights, or check back once the manager schedules one."
+          title={t("emptyTitle")}
+          description={t("emptyDesc")}
         />
       )}
 
@@ -149,14 +149,14 @@ export default function StaffEventsPage() {
           detail={
             me.role === "promoter" ? (
               <p className="text-xs font-medium text-primary">
-                My reservations: {evt.myReservations}
+                {t("myReservations", { count: evt.myReservations })}
               </p>
             ) : undefined
           }
           actions={
             me.role === "promoter" && evt.status !== "ended" ? (
               <EventActionGold onClick={() => router.push(`/staff/reservations?newForEvent=${evt.id}`)}>
-                <CalendarCheck className="size-3.5" /> Book
+                <CalendarCheck className="size-3.5" /> {t("book")}
               </EventActionGold>
             ) : undefined
           }

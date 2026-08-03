@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Megaphone, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { pulseService } from "@/features/realtime/pulse-service";
 import { useLiveEvents } from "@/lib/use-live-events";
 import type { Broadcast } from "@/lib/types";
@@ -14,6 +15,7 @@ const BROADCAST_TTL_MS = 3 * 60_000;
  * Mounted once in staff/layout.tsx, above the header.
  */
 export function BroadcastBanner() {
+  const t = useTranslations("shared");
   const [broadcast, setBroadcast] = useState<Broadcast | null>(null);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const [lastCallActive, setLastCallActive] = useState(false);
@@ -60,7 +62,7 @@ export function BroadcastBanner() {
             type="button"
             onClick={() => setDismissedId(broadcast.id)}
             className="shrink-0 rounded-md p-1 hover:bg-white/20"
-            aria-label="Dismiss broadcast"
+            aria-label={t("pulse.dismissBroadcast")}
           >
             <X className="size-4" />
           </button>
@@ -68,7 +70,7 @@ export function BroadcastBanner() {
       )}
       {lastCallActive && (
         <div className="foil px-4 py-2 text-center text-sm font-semibold">
-          Last call — no new orders are being accepted
+          {t("pulse.lastCall")} — {t("pulse.lastCallActiveDesc")}
         </div>
       )}
     </div>
