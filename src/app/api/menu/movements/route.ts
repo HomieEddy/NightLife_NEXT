@@ -13,7 +13,8 @@ async function liveGET(request: NextRequest) {
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const limit = Number(request.nextUrl.searchParams.get("limit")) || 25;
+  const requested = Number(request.nextUrl.searchParams.get("limit")) || 25;
+  const limit = Math.min(requested, 200); // MAX_PAGE_SIZE backstop
   const { venueId } = sessionToDbContext(auth.session);
   const db = getDb({ venueId });
   return NextResponse.json(await listMovements(db, limit));

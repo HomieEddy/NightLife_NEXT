@@ -199,6 +199,7 @@ model StaffProfile {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([venueId, role])
   @@map("staff_profiles")
 }
 
@@ -413,6 +414,7 @@ model StockMovement {
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
   @@index([venueId])
+  @@index([venueId, createdAt])
   @@index([menuItemId])
   @@map("stock_movements")
 }
@@ -824,6 +826,7 @@ model Reservation {
 
   @@index([venueId, startsAt])
   @@index([venueId, status])
+  @@index([venueId, promoterId])
   @@map("reservations")
 }
 

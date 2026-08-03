@@ -353,9 +353,10 @@ export async function listMovements(
   db: ScopedDb,
   limit = 25,
 ): Promise<StockMovement[]> {
+  const capped = Math.min(limit, 200); // MAX_PAGE_SIZE backstop
   const rows = await db.stockMovement.findMany({
     orderBy: { createdAt: "desc" },
-    take: limit,
+    take: capped,
   });
   return rows.map(toMovement);
 }

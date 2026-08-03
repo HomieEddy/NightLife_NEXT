@@ -26,7 +26,7 @@ async function liveGET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = { venueId, hostStaffId };
     if (status) where.status = status;
-    const rows = await db.guestSession.findMany({ where, orderBy: { createdAt: "desc" } });
+    const rows = await db.guestSession.findMany({ where, orderBy: { createdAt: "desc" }, take: 200 });
     return NextResponse.json(rows);
   }
 

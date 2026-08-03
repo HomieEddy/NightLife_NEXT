@@ -14,7 +14,7 @@ async function liveGET(_request: NextRequest) {
   const { venueId } = sessionToDbContext(auth.session);
   const db = getDb({ venueId });
 
-  const entries = await db.waitlistEntry.findMany({ where: { venueId }, orderBy: { joinedAt: "asc" } });
+  const entries = await db.waitlistEntry.findMany({ where: { venueId }, orderBy: { joinedAt: "asc" }, take: 200 });
   return NextResponse.json(entries);
 }
 

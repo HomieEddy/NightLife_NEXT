@@ -161,10 +161,109 @@ phone that buzzes at 1 a.m.; email alone is not enough.
 
 ## Sections for future plans
 
-### §restore (plan 33)
+### §restore — Database backup restore
 
-Database backup and restore procedure. Populated by plan 33 after the first
-staged restore drill.
+**When:** monthly drill (staging), or on-demand when production data loss is
+suspected and the decision to restore has been made by the lead developer.
+
+**Preconditions:**
+- Access to the backup encryption private key (age identity file, stored in
+  password manager — not on the VPS).
+- Access to OVHcloud Object Storage (rclone config or AWS CLI with OVHcloud
+  S3 credentials).
+- A scratch environment: the local compose stack (`docker compose up db -d`)
+  or a fresh Postgres container. **Never restore into staging or production
+  directly** — restore into a scratch DB, verify, then decide the recovery
+  path.
+
+**Procedure:**
+
+1. **List available backups:**
+   ```bash
+   rclone ls ovh:nightlife-backups-staging/ | sort -k2
+   ```
+   Pick the backup to restore (latest = safest). Note the full filename.
+
+2. **Download and decrypt:**
+   ```bash
+   BACKUP_FILE="nightlife-2026-08-01T030000Z.sql.gz.age"
+   rclone copy "ovh:nightlife-backups-staging/${BACKUP_FILE}" .
+   age --decrypt -i /secure/path/to/age-key.txt -o "${BACKUP_FILE%.age}" "$BACKUP_FILE"
+   # If not encrypted, skip the age step — the file is just .sql.gz
+   gunzip "${BACKUP_FILE%.age}"
+   ```
+
+3. **Restore into a scratch Postgres:**
+   ```bash
+   # Option A: local compose stack
+   docker compose up db -d
+   sleep 3  # wait for PG to be ready
+   docker compose exec -T db psql -U nightlife -d nightlife < "${BACKUP_FILE%.age.gz}.sql"
+
+   # Option B: fresh container
+   docker run -d --name restore-pg -e POSTGRES_USER=nightlife \
+     -e POSTGRES_PASSWORD=nightlife -e POSTGRES_DB=nightlife \
+     -p 5439:5432 postgres:17-alpine
+   sleep 5
+   psql -h localhost -p 5439 -U nightlife -d nightlife < "${BACKUP_FILE%.age.gz}.sql"
+   ```
+
+4. **Verify — row counts.** At minimum, check the core tenant tables:
+   ```bash
+   PG="docker compose exec -T db psql -U nightlife -d nightlife"
+   # Or for Option B: PG="psql -h localhost -p 5439 -U nightlife -d nightlife"
+
+   TABLES="venues zones venue_tables orders menu_items guest_sessions reservations incidents nightly_rollups"
+   for t in $TABLES; do
+     $PG -c "SELECT '$t' AS table_name, count(*) FROM \"$t\";"
+   done
+   ```
+   All tables must return non-zero counts (except possibly `incidents` and
+   `nightly_rollups` on a fresh staging dump). The `nightly_rollups` row count
+   should roughly match `(number of operating nights) × (number of test venues)`.
+
+5. **Verify — spot checks:**
+   ```bash
+   # Venue names match expectations
+   $PG -c "SELECT id, city FROM venues;"
+
+   # A recent order exists
+   $PG -c "SELECT id, table_code, total_cents, placed_at FROM orders ORDER BY placed_at DESC LIMIT 5;"
+
+   # Menu items have inventory
+   $PG -c "SELECT count(*) FROM menu_items WHERE inventory > 0;"
+   ```
+
+6. **Teardown:**
+   ```bash
+   # Option A: compose stack
+   docker compose down -v db
+
+   # Option B: fresh container
+   docker rm -f restore-pg
+   ```
+
+   Clean up working files: `rm -f "$BACKUP_FILE" "${BACKUP_FILE%.age}" "${BACKUP_FILE%.age.gz}.sql"`
+
+**Success criteria:** all tables have expected row counts, spot-check queries
+return real data, no constraint-violation or missing-relation errors during
+restore.
+
+**If the restore fails:** check the `pg_restore` / `psql` error output.
+Common causes: the dump was taken with a different PG major version (use the
+same major — PG 17), the dump uses `COPY` and the target tables don't exist
+yet (ensure migrations ran first), or the dump includes extensions not
+available in the scratch DB. If the backup itself is corrupt, escalate to the
+lead developer and check the previous day's backup.
+
+**Recurring schedule:** execute this drill on staging on the first Monday of
+each month. The person on call owns it; paste row-count output into the team
+channel as evidence.
+
+**After a real production restore:** do not replay the WAL past the restore
+point — you'll re-apply whatever damaged the original DB. The restore replaces
+all data; any writes between the backup and the incident are lost. Communicate
+the data-loss window to the venue before starting.
 
 ### §privacy-requests (plan 35)
 

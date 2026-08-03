@@ -5,6 +5,11 @@
  * Live implementations map these contracts to Prisma models and API DTOs.
  */
 
+/** Server-side cap on list-endpoint page sizes — backstop against a scripted
+ *  ?limit=1000000. The UI already bounds most lists (paginated tables, virtual
+ *  scroll); this is the server enforcing the contract. */
+export const MAX_PAGE_SIZE = 200;
+
 // ---------- Venue ----------
 
 /** One configurable per-order charge — a tax, service charge or flat fee. */
