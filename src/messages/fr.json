@@ -248,7 +248,123 @@
   },
   "manager": {
     "dashboard": {
-      "title": "Tableau de bord"
+      "title": "Tableau de bord",
+      "tonightAt": "Ce soir au {venueName}",
+      "doorsLine": "{date} · Ouverture 22:00 — aperçu des opérations en direct",
+      "fullAnalytics": "Analytiques complètes",
+      "tabs": {
+        "tonight": "Ce soir",
+        "snapshot": "Aperçu",
+        "pulse": "Pouls"
+      },
+      "metrics": {
+        "revenue": "Revenus",
+        "revenueInfo": "Revenus totaux de toutes les commandes livrées ce soir, avant les frais.",
+        "orders": "Commandes",
+        "ordersInfo": "Nombre de commandes passées ce soir à toutes les tables.",
+        "avgOrder": "Commande moyenne",
+        "avgOrderInfo": "Revenus de ce soir divisés par le nombre de commandes.",
+        "activeTables": "Tables actives",
+        "activeTablesInfo": "Tables avec une session client active actuellement vs total des tables configurées.",
+        "acceptWait": "Attente acceptation",
+        "acceptWaitInfo": "Temps moyen entre la commande et son acceptation par un hôte ce soir.",
+        "prepDelivery": "Préparation et livraison",
+        "prepDeliveryInfo": "Temps moyen entre l'acceptation et la livraison à la table ce soir.",
+        "totalEta": "ETA total",
+        "totalEtaInfo": "Temps moyen de bout en bout, de la commande à la livraison ce soir."
+      },
+      "revenueByHour": "Revenus par heure",
+      "topSellers": "Meilleures ventes ce soir",
+      "recentOrders": "Commandes récentes",
+      "openOrderFeed": "Voir le fil des commandes",
+      "cards": {
+        "guestSessions": "Sessions clients",
+        "orderFunnel": "Entonnoir de commandes",
+        "reservations": "Réservations",
+        "happyHours": "5 à 7",
+        "events": "Événements",
+        "promotions": "Promotions",
+        "orderEta": "ETA des commandes",
+        "helpFulfilment": "Exécution de l'aide",
+        "inventoryDepth": "Profondeur d'inventaire"
+      },
+      "sessions": {
+        "sessions": "Sessions",
+        "sessionsInfo": "Total des sessions clients à table ce soir.",
+        "approval": "Approbation",
+        "approvalInfo": "Pourcentage des demandes d'accès approuvées par un hôte.",
+        "avgDuration": "Durée moyenne",
+        "avgDurationInfo": "Temps moyen du début de session à la fermeture de la note.",
+        "partySize": "Taille du groupe",
+        "partySizeInfo": "Nombre moyen de clients par session.",
+        "revPerSession": "Rev / session",
+        "revPerSessionInfo": "Revenus totaux divisés par le nombre de sessions.",
+        "revPerGuest": "Rev / client",
+        "revPerGuestInfo": "Revenus totaux divisés par le nombre total de clients."
+      },
+      "orderFunnel": {
+        "placed": "Passées",
+        "placedInfo": "Commandes soumises par les clients ce soir.",
+        "delivered": "Livrées",
+        "deliveredInfo": "Commandes marquées livrées par un runner.",
+        "cancelled": "Annulées",
+        "cancelledInfo": "Commandes annulées avant livraison, affiché avec le taux d'annulation.",
+        "tipRate": "Taux de pourboire",
+        "tipRateInfo": "Pourcentage des commandes avec un pourboire.",
+        "feeRevenue": "Revenus de frais",
+        "feeRevenueInfo": "Total des frais de service perçus sur toutes les commandes ce soir.",
+        "giftOrders": "Commandes cadeaux",
+        "giftOrdersInfo": "Bouteilles envoyées à une autre table en cadeau."
+      },
+      "reservations": {
+        "reservations": "Réservations",
+        "requested": "Demandées",
+        "requestedInfo": "Total des demandes de réservation reçues ce soir.",
+        "seated": "Placées",
+        "seatedInfo": "Clients qui se sont enregistrés et ont été placés.",
+        "noShows": "Non-présentations",
+        "noShowsInfo": "Réservations confirmées où le client n'est jamais arrivé, en pourcentage des confirmées.",
+        "covers": "Couverts",
+        "coversInfo": "Total des clients pour toutes les réservations placées.",
+        "cancelled": "Annulées",
+        "cancelledInfo": "Réservations annulées avant l'arrivée, en pourcentage des demandées.",
+        "avgLead": "Délai moyen",
+        "avgLeadInfo": "Nombre moyen de jours entre la réservation et la date prévue."
+      },
+      "happyHours": {
+        "hhOrders": "Commandes HH",
+        "hhOrdersInfo": "Commandes passées pendant les fenêtres de 5 à 7 actives.",
+        "hhRevenue": "Revenus HH",
+        "hhRevenueInfo": "Revenus des commandes passées pendant le 5 à 7 (à prix réduits).",
+        "discountGiven": "Rabais accordé",
+        "discountGivenInfo": "Montant total des rabais appliqués par les règles du 5 à 7."
+      },
+      "events": {
+        "eventsTonight": "Événements ce soir",
+        "eventsTonightInfo": "Nombre d'événements programmés ce soir.",
+        "avgUtilization": "Utilisation moyenne",
+        "avgUtilizationInfo": "Nombre d'enregistrements moyen divisé par la capacité des événements ce soir."
+      },
+      "promotions": {
+        "redemptions": "Utilisations",
+        "redemptionsInfo": "Nombre total de codes promo utilisés ce soir.",
+        "discountCost": "Coût des rabais",
+        "discountCostInfo": "Valeur totale des rabais appliqués par codes promo ce soir."
+      },
+      "helpFulfilment": {
+        "helpResolved": "Aides résolues",
+        "helpResolvedInfo": "Total des demandes d'aide client résolues par les runners ce soir.",
+        "avgHelpTime": "Temps d'aide moyen",
+        "avgHelpTimeInfo": "Moyenne pondérée des minutes pour résoudre une demande d'aide client."
+      },
+      "inventoryDepth": {
+        "soldOutEvents": "Ruptures de stock",
+        "soldOutEventsInfo": "Nombre de fois qu'un article est tombé en rupture de stock ce soir.",
+        "soldOutMin": "Minutes en rupture",
+        "soldOutMinInfo": "Total des minutes où des articles étaient indisponibles avant réapprovisionnement ce soir.",
+        "deadItems": "Articles dormants",
+        "deadItemsInfo": "Articles en stock sans aucune commande ce soir — gonflement potentiel du menu."
+      }
     },
     "orders": {
       "title": "Commandes"
@@ -261,6 +377,13 @@
         "french": "Français",
         "english": "Anglais"
       }
+    },
+    "shell": {
+      "search": "Rechercher",
+      "attentionFeed": "Fil d'attention",
+      "attention": "Attention",
+      "more": "Plus",
+      "lastCallStarted": "Dernier appel lancé"
     }
   },
   "staff": {

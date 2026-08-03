@@ -248,7 +248,123 @@
   },
   "manager": {
     "dashboard": {
-      "title": "Dashboard"
+      "title": "Dashboard",
+      "tonightAt": "Tonight at {venueName}",
+      "doorsLine": "{date} · Doors 22:00 — live operations overview",
+      "fullAnalytics": "Full analytics",
+      "tabs": {
+        "tonight": "Tonight",
+        "snapshot": "Snapshot",
+        "pulse": "Pulse"
+      },
+      "metrics": {
+        "revenue": "Revenue",
+        "revenueInfo": "Total revenue from all delivered orders tonight, before fees.",
+        "orders": "Orders",
+        "ordersInfo": "Count of orders placed tonight across all tables.",
+        "avgOrder": "Avg order",
+        "avgOrderInfo": "Tonight's revenue divided by number of orders.",
+        "activeTables": "Active tables",
+        "activeTablesInfo": "Tables with an active guest session right now vs total configured tables.",
+        "acceptWait": "Accept wait",
+        "acceptWaitInfo": "Average time from order placed to a host accepting it tonight.",
+        "prepDelivery": "Prep & delivery",
+        "prepDeliveryInfo": "Average time from order accepted to delivered at the table tonight.",
+        "totalEta": "Total ETA",
+        "totalEtaInfo": "Average end-to-end time from order placed to delivered tonight."
+      },
+      "revenueByHour": "Revenue by hour",
+      "topSellers": "Top sellers tonight",
+      "recentOrders": "Recent orders",
+      "openOrderFeed": "Open order feed",
+      "cards": {
+        "guestSessions": "Guest sessions",
+        "orderFunnel": "Order funnel",
+        "reservations": "Reservations",
+        "happyHours": "Happy hours",
+        "events": "Events",
+        "promotions": "Promotions",
+        "orderEta": "Order ETA",
+        "helpFulfilment": "Help fulfilment",
+        "inventoryDepth": "Inventory depth"
+      },
+      "sessions": {
+        "sessions": "Sessions",
+        "sessionsInfo": "Total guest table sessions tonight.",
+        "approval": "Approval",
+        "approvalInfo": "Percentage of join requests approved by a host.",
+        "avgDuration": "Avg duration",
+        "avgDurationInfo": "Average time from session start to tab closure.",
+        "partySize": "Party size",
+        "partySizeInfo": "Average number of guests per session.",
+        "revPerSession": "Rev / session",
+        "revPerSessionInfo": "Total revenue divided by number of sessions.",
+        "revPerGuest": "Rev / guest",
+        "revPerGuestInfo": "Total revenue divided by total guests across all sessions."
+      },
+      "orderFunnel": {
+        "placed": "Placed",
+        "placedInfo": "Orders submitted by guests tonight.",
+        "delivered": "Delivered",
+        "deliveredInfo": "Orders marked delivered by a runner.",
+        "cancelled": "Cancelled",
+        "cancelledInfo": "Orders cancelled before delivery, shown with cancellation rate.",
+        "tipRate": "Tip rate",
+        "tipRateInfo": "Percentage of orders that included a tip.",
+        "feeRevenue": "Fee revenue",
+        "feeRevenueInfo": "Total service fees collected across all orders tonight.",
+        "giftOrders": "Gift orders",
+        "giftOrdersInfo": "Bottles sent to another table as a gift."
+      },
+      "reservations": {
+        "reservations": "Reservations",
+        "requested": "Requested",
+        "requestedInfo": "Total reservation requests received tonight.",
+        "seated": "Seated",
+        "seatedInfo": "Guests who checked in and were seated.",
+        "noShows": "No-shows",
+        "noShowsInfo": "Confirmed reservations where the guest never arrived, as a percentage of confirmed.",
+        "covers": "Covers",
+        "coversInfo": "Total guests across all seated reservations.",
+        "cancelled": "Cancelled",
+        "cancelledInfo": "Reservations cancelled before arrival, as a percentage of requested.",
+        "avgLead": "Avg lead",
+        "avgLeadInfo": "Average days between booking and the reservation date."
+      },
+      "happyHours": {
+        "hhOrders": "HH orders",
+        "hhOrdersInfo": "Orders placed during active happy hour windows.",
+        "hhRevenue": "HH revenue",
+        "hhRevenueInfo": "Revenue from orders placed during happy hour (at discounted prices).",
+        "discountGiven": "Discount given",
+        "discountGivenInfo": "Total discount amount applied by happy hour rules."
+      },
+      "events": {
+        "eventsTonight": "Events tonight",
+        "eventsTonightInfo": "Number of scheduled events running tonight.",
+        "avgUtilization": "Avg utilization",
+        "avgUtilizationInfo": "Average check-in count divided by event capacity across tonight's events."
+      },
+      "promotions": {
+        "redemptions": "Redemptions",
+        "redemptionsInfo": "Total number of promo codes redeemed tonight.",
+        "discountCost": "Discount cost",
+        "discountCostInfo": "Total value of discounts applied via promo codes tonight."
+      },
+      "helpFulfilment": {
+        "helpResolved": "Help resolved",
+        "helpResolvedInfo": "Total guest help requests resolved by runners tonight.",
+        "avgHelpTime": "Avg help time",
+        "avgHelpTimeInfo": "Weighted average minutes to resolve a guest help request."
+      },
+      "inventoryDepth": {
+        "soldOutEvents": "Sold-out events",
+        "soldOutEventsInfo": "Number of times an item went out of stock during tonight's service.",
+        "soldOutMin": "Sold-out min",
+        "soldOutMinInfo": "Total minutes items were unavailable before restock tonight.",
+        "deadItems": "Dead items",
+        "deadItemsInfo": "Stocked items with zero orders tonight — potential menu bloat."
+      }
     },
     "orders": {
       "title": "Orders"
@@ -261,6 +377,13 @@
         "french": "French",
         "english": "English"
       }
+    },
+    "shell": {
+      "search": "Search",
+      "attentionFeed": "Attention feed",
+      "attention": "Attention",
+      "more": "More",
+      "lastCallStarted": "Last call started"
     }
   },
   "staff": {

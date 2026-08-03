@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Bell,
   ChevronDown,
@@ -47,6 +48,7 @@ import {
 } from "@/features/shared/navigation";
 
 export function ManagerShell({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("manager.shell");
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
@@ -101,7 +103,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
     switch (action.key) {
       case "last-call":
         toggleLastCall(managerName);
-        toast.success("Last call started");
+        toast.success(t("lastCallStarted"));
         break;
       case "broadcast":
         setAttentionSheetOpen(true);
@@ -313,13 +315,13 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             variant="ghost"
             size="icon-sm"
             onClick={() => setPaletteOpen(true)}
-            tooltip="Search"
+            tooltip={t("search")}
           >
             <Search className="size-4" />
           </TooltipIconButton>
           <Sheet open={attentionSheetOpen} onOpenChange={setAttentionSheetOpen}>
             <SheetTrigger asChild>
-              <button className="relative rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Attention feed">
+              <button className="relative rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label={t("attentionFeed")}>
                 <Bell className="size-4" />
                 {attentionCount > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[8px] font-bold text-destructive-foreground">
@@ -330,7 +332,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             </SheetTrigger>
             <SheetContent side="right" className="w-80 overflow-y-auto">
               <div className="p-4">
-                <h2 className="text-sm font-semibold mb-3">Attention feed</h2>
+                <h2 className="text-sm font-semibold mb-3">{t("attentionFeed")}</h2>
                 <PulseTab
                   items={attentionItems}
                   lastCallActive={lastCallActive}
@@ -359,13 +361,13 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => setPaletteOpen(true)}
-                tooltip="Search"
+                tooltip={t("search")}
               >
                 <Search className="size-4" />
               </TooltipIconButton>
               <Sheet open={attentionSheetOpen} onOpenChange={setAttentionSheetOpen}>
                 <SheetTrigger asChild>
-                  <button className="relative rounded-md p-2 text-muted-foreground hover:bg-accent" aria-label="Attention">
+                  <button className="relative rounded-md p-2 text-muted-foreground hover:bg-accent" aria-label={t("attention")}>
                     <Bell className="size-4" />
                     {attentionCount > 0 && (
                       <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[8px] font-bold text-destructive-foreground">
@@ -376,7 +378,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                 </SheetTrigger>
                 <SheetContent side="right" className="w-full max-w-sm overflow-y-auto">
                   <div className="p-4">
-                    <h2 className="text-sm font-semibold mb-3">Attention feed</h2>
+                    <h2 className="text-sm font-semibold mb-3">{t("attentionFeed")}</h2>
                     <PulseTab
                       items={attentionItems}
                       lastCallActive={lastCallActive}
@@ -423,11 +425,11 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
               <SheetTrigger asChild>
                 <button
-                  aria-label="More navigation"
+                  aria-label={t("more")}
                   className={cn("flex min-h-14 flex-col items-center justify-center gap-0.5 min-w-0 py-1 px-2 text-xs text-muted-foreground transition-colors")}
                 >
                   <Menu className="size-5" />
-                  <span className="truncate max-w-[64px]">More</span>
+                  <span className="truncate max-w-[64px]">{t("more")}</span>
                 </button>
               </SheetTrigger>
               <SheetContent side="bottom" className="h-[75dvh] overflow-y-auto rounded-t-xl">
