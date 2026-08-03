@@ -7,9 +7,18 @@
 import type { NextRequest } from "next/server";
 
 export function getClientIp(request: NextRequest): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    ?? request.headers.get("x-real-ip")
-    ?? "unknown";
+  // Trust the proxy (Coolify/Traefik sets x-real-ip) over the client-controllable
+  // XFF header. When only XFF exists, take the rightmost entry: the proxy
+  // appends the real client IP to whatever the client sent, so the last entry
+  // is the one the proxy wrote, not the attacker's.
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp;
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
+  return "unknown";
 }
 
 interface Bucket {

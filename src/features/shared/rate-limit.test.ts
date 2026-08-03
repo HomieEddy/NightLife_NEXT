@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { checkRateLimit, _resetBuckets } from "./rate-limit";
+import { NextRequest } from "next/server";
+import { checkRateLimit, getClientIp, _resetBuckets } from "./rate-limit";
 
 const OPTS = { maxTokens: 3, refillRate: 3, windowMs: 60_000 };
 
@@ -56,5 +57,33 @@ describe("rate limiter", () => {
     for (let i = 0; i < 5; i++) checkRateLimit("pin:table-1:10.0.0.1", PIN_OPTS);
     expect(checkRateLimit("pin:table-1:10.0.0.1", PIN_OPTS).allowed).toBe(false);
     expect(checkRateLimit("pin:table-1:10.0.0.2", PIN_OPTS).allowed).toBe(true);
+  });
+});
+
+describe("getClientIp", () => {
+  function req(headers: Record<string, string>): NextRequest {
+    return new NextRequest(new URL("http://localhost/api/test"), { headers });
+  }
+
+  it("prefers x-real-ip (proxy-set) over x-forwarded-for", () => {
+    expect(
+      getClientIp(req({ "x-real-ip": "10.1.1.1", "x-forwarded-for": "203.0.113.9, 10.1.1.1" })),
+    ).toBe("10.1.1.1");
+  });
+
+  it("takes the rightmost x-forwarded-for entry — the one the proxy appended", () => {
+    expect(getClientIp(req({ "x-forwarded-for": "1.2.3.4, 203.0.113.9" }))).toBe("203.0.113.9");
+    expect(getClientIp(req({ "x-forwarded-for": "1.2.3.4, 203.0.113.9, 198.51.100.7" }))).toBe(
+      "198.51.100.7",
+    );
+  });
+
+  it("never trusts the client-supplied leftmost entry over the proxy's", () => {
+    // A spoofed inbound header plus the proxy-appended real IP.
+    expect(getClientIp(req({ "x-forwarded-for": "6.6.6.6, 203.0.113.9" }))).toBe("203.0.113.9");
+  });
+
+  it("falls back to unknown when no proxy headers exist", () => {
+    expect(getClientIp(req({}))).toBe("unknown");
   });
 });
