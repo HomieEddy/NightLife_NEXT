@@ -3062,5 +3062,441 @@
     "accountCreated": "Compte créé ! Redirection vers le personnel…",
     "consentText": "J'ai lu et j'accepte la",
     "consentRequired": "Vous devez accepter la politique de confidentialité"
+  },
+  "demo": {
+    "meta": {
+      "title": "Visite guidée de la démo",
+      "description": "Une visite guidée de la démo NightLifeNext — les surfaces gérant, personnel, client et admin, avec des liens vers chaque fonctionnalité."
+    },
+    "hero": {
+      "badge": "Entièrement interactif — données simulées, flux réels",
+      "titleTake": "Faites la",
+      "titleLiveDemo": "visite guidée",
+      "titleTour": "interactive",
+      "subtitle": "Trois interfaces, une boîte de nuit. Le gérant pilote l'établissement, le personnel travaille en salle, les clients commandent depuis leur table. Chaque fonctionnalité liée directement au bac à sable.",
+      "openGuestQr": "Ouvrir le QR client",
+      "open": "Ouvrir"
+    },
+    "chrome": {
+      "walkthroughTab": "Parcours",
+      "fiveMinute": "Parcours de cinq minutes",
+      "houseRules": "Règles du bac à sable",
+      "demoGuide": "Guide de démo",
+      "navAria": "Navigation du guide de démo",
+      "openMenu": "Ouvrir le menu du guide de démo",
+      "filterPlaceholder": "Filtrer les fonctionnalités…",
+      "filterAria": "Filtrer les fonctionnalités",
+      "clearFilter": "Effacer le filtre",
+      "noMatches": "Aucun résultat",
+      "featureCount": "{count, plural, one {# fonctionnalité} other {# fonctionnalités}}",
+      "tryIt": "Essayez :",
+      "open": "Ouvrir",
+      "surfaceManager": "Gérant",
+      "surfaceStaff": "Personnel",
+      "surfaceGuest": "Client",
+      "surfacePublic": "Public"
+    },
+    "groups": {
+      "getting-started": {
+        "label": "Pour commencer",
+        "intro": "La façon la plus rapide de vivre toute la boucle — une commande qui voyage du client au personnel au gérant, en cinq minutes. Utilisez les liens internes entre les étapes pour que la soirée ne se réinitialise pas."
+      },
+      "getting-started-extra": {
+        "label": "Pour commencer",
+        "intro": ""
+      },
+      "manager": {
+        "label": "Gérant",
+        "intro": "Toutes les surfaces d'exploitation dont un directeur de boîte de nuit a besoin — ordinateur d'abord, navigation latérale, assistant de configuration prérempli à la première visite."
+      },
+      "staff": {
+        "label": "Personnel",
+        "intro": "Application mobile d'abord pour l'équipe en salle — barre d'onglets en bas, grandes cibles tactiles, bannières de diffusion impossibles à manquer. Conçue comme une app de téléphone parce que c'en est une."
+      },
+      "guest": {
+        "label": "Client",
+        "intro": "Ce que voit la table après avoir scanné le QR — pas d'app, pas d'inscription, pas de compte. Juste un prénom et vous commandez."
+      },
+      "public": {
+        "label": "Public",
+        "intro": "Les surfaces destinées aux clients à l'extérieur de l'app — pages d'événements publiques et pages de réservation par établissement."
+      },
+      "how-it-works": {
+        "label": "Comment fonctionne la démo",
+        "intro": "Les règles du bac à sable — dix secondes à lire, ensuite allez jouer. Chaque visiteur reçoit une instance isolée qui se réinitialise toute seule."
+      }
+    },
+    "features": {
+      "guest-demo-qr-code": {
+        "title": "Code QR de démo",
+        "what": "Scannez ou cliquez pour entrer dans l'expérience client à la table de démo.",
+        "why": "Chaque table d'un vrai établissement a un QR unique. Les clients scannent, rejoignent et commandent sans télécharger d'app.",
+        "tryPath": "Scannez ci-dessous ou cliquez"
+      },
+      "manager-manager-panel": {
+        "title": "Panneau Gérant",
+        "what": "La salle de contrôle de l'établissement — navigation latérale, ordinateur d'abord, toutes les surfaces d'exploitation.",
+        "why": "Une seule personne mène la soirée d'ici : commandes, plan de salle, inventaire, personnel, argent. La première visite ouvre un assistant de configuration que vous pouvez sauter ou compléter.",
+        "tryPath": "Ouvrir /manager"
+      },
+      "staff-staff-panel": {
+        "title": "Application personnel",
+        "what": "App mobile d'abord pour l'équipe en salle — barre d'onglets en bas, grandes cibles tactiles, bannières de diffusion impossibles à manquer en plein service.",
+        "why": "Les serveurs de bouteilles, barmans, hôtes et agents de sécurité voient chacun la surface de leur rôle. Aucune formation requise — c'est une app de téléphone.",
+        "tryPath": "Ouvrir /staff"
+      },
+      "manager-dashboard": {
+        "title": "Tableau de bord",
+        "what": "La soirée en un coup d'œil — revenus, occupation, commandes ouvertes, personnel actif, éléments d'attention.",
+        "why": "Le premier écran du gérant à chaque quart. Les soirées culminent du jeudi au dimanche; le tableau de bord fait remonter ce qui exige de l'attention maintenant.",
+        "tryPath": "Barre latérale gérant > Tableau de bord"
+      },
+      "manager-pulse-live-attention-feed": {
+        "title": "Pouls — fil d'attention en direct",
+        "what": "File d'attente d'attention chronométrée selon les SLA avec escalade des retards, diffusions au personnel, dernier appel en un geste.",
+        "why": "Une commande en attente depuis 12 minutes tue l'expérience client. Pouls fait remonter ce qui est en retard avant que le client se plaigne.",
+        "tryPath": "Barre latérale gérant > Pouls"
+      },
+      "manager-orders-feed": {
+        "title": "Fil des commandes",
+        "what": "Chaque commande filtrable par zone, table et statut — onglets de session avec transferts, fusions et ajustements de note.",
+        "why": "Le service de bouteilles signifie des commandes à valeur élevée sur des dizaines de tables. Un seul fil garde le gérant de la salle en contrôle.",
+        "tryPath": "Barre latérale gérant > Commandes"
+      },
+      "manager-interactive-floor-map": {
+        "title": "Plan de salle interactif",
+        "what": "Touchez une table pour son statut en direct, sa session et son historique de commandes — glissez les tables pour reconfigurer la salle.",
+        "why": "La salle d'un club change chaque soir. Les sections VIP s'agrandissent pour les événements, les tables bougent pour les gros groupes. Le plan EST la configuration.",
+        "tryPath": "Barre latérale gérant > Plan de salle"
+      },
+      "manager-tables": {
+        "title": "Tables",
+        "what": "Liste des tables avec codes, zones, capacité, minimum de dépense et statut — filtrable et modifiable en lot.",
+        "why": "Les tables portent des engagements de dépense minimale. Une table VIP à 800 $ de minimum doit être suivie séparément du bar.",
+        "tryPath": "Barre latérale gérant > Tables"
+      },
+      "manager-zones": {
+        "title": "Zones",
+        "what": "Gestion des zones — VIP, salle principale, toit, terrasse — chacune avec sa capacité et ses règles de tarification.",
+        "why": "Les zones ont des économies différentes. Le toit peut avoir son propre minimum et sa marge sur les bouteilles.",
+        "tryPath": "Barre latérale gérant > Zones"
+      },
+      "manager-qr-codes": {
+        "title": "Codes QR",
+        "what": "Génération d'un code QR par table — copier, télécharger, imprimer la feuille pour les supports de table.",
+        "why": "Chaque table a un QR unique. Imprimez la feuille avant l'ouverture, remplacez les codes endommagés — les clients scannent et commandent.",
+        "tryPath": "Barre latérale gérant > Codes QR"
+      },
+      "manager-menu-packages": {
+        "title": "Menu et forfaits",
+        "what": "Bouteilles, forfaits choisis (Table Starter jusqu'à Legacy), modificateurs et gestion des catégories.",
+        "why": "La marge sur les bouteilles fait les revenus d'une boîte de nuit. Les forfaits regroupent des bouteilles à forte marge avec des mélangeurs à un prix unique.",
+        "tryPath": "Barre latérale gérant > Menu"
+      },
+      "manager-happy-hour": {
+        "title": "Happy hour",
+        "what": "Règles de rabais à fenêtre de temps — pourcentage, prix fixe ou 2 pour 1 — par jour de la semaine et plage horaire.",
+        "why": "Les rabais en début de soirée remplissent les tables avant le pic. Les règles se cumulent de façon prévisible et expirent automatiquement.",
+        "tryPath": "Barre latérale gérant > Happy hour"
+      },
+      "manager-promotions": {
+        "title": "Promotions",
+        "what": "Offres ciblées — rabais pour nouveaux clients, forfait d'anniversaire, codes promo liés aux événements.",
+        "why": "Les promotions attirent du monde les soirs calmes. Chaque promo suit ses rachats pour savoir ce qui fonctionne.",
+        "tryPath": "Barre latérale gérant > Promotions"
+      },
+      "manager-inventory": {
+        "title": "Inventaire",
+        "what": "Registre des bouteilles avec historique des mouvements, réapprovisionnement en lot, tableau 86 automatique pour les articles épuisés.",
+        "why": "Manquer une vodka populaire un samedi soir coûte des milliers de dollars. Le tableau 86 se met à jour au fil des ventes.",
+        "tryPath": "Barre latérale gérant > Inventaire"
+      },
+      "manager-purchasing": {
+        "title": "Achats",
+        "what": "Cycle de vie des bons de commande — commande suggérée selon les niveaux de par, envoi au fournisseur, réception et rapprochement.",
+        "why": "Les alertes de stock sous le par évitent les 86. Les bons suivent ce qui a été commandé, reçu et payé — une seule piste d'audit.",
+        "tryPath": "Barre latérale gérant > Achats"
+      },
+      "manager-stocktake-variance": {
+        "title": "Inventaire et écarts",
+        "what": "Feuilles de comptage par zone, validation au registre, rapport des écarts en dollars et des pertes.",
+        "why": "Les bouteilles disparaissent. Les inventaires mensuels attrapent les pertes — le rapport d'écarts montre exactement ce qui manque et sa valeur au détail.",
+        "tryPath": "Barre latérale gérant > Inventaire (onglet Inventaire)"
+      },
+      "manager-guests-crm": {
+        "title": "Invités et CRM",
+        "what": "Profils clients avec paliers VIP, historique des visites, dépenses à vie, interdictions, outil de dédoublonnage et de fusion.",
+        "why": "Un client qui dépense 2 000 $ chaque samedi est un VIP. Le CRM le suit — et signale les clients interdits à la porte.",
+        "tryPath": "Barre latérale gérant > Invités"
+      },
+      "manager-reservations": {
+        "title": "Réservations",
+        "what": "Tableau des réservations avec attribution des tables, gestion de la liste d'invités, suivi des absents, attribution aux promoteurs.",
+        "why": "Les réservations remplissent les tables avant l'ouverture des portes. Le suivi des absents et la perte du dépôt protègent les revenus.",
+        "tryPath": "Barre latérale gérant > Réservations"
+      },
+      "manager-events": {
+        "title": "Événements",
+        "what": "Calendrier des événements avec listes d'invités, attribution aux promoteurs, paliers de billets et configuration propre à la soirée.",
+        "why": "Une soirée DJ double les revenus. Les événements ont leur propre liste d'invités, tarification et configuration de la salle.",
+        "tryPath": "Barre latérale gérant > Événements"
+      },
+      "manager-incidents": {
+        "title": "Incidents",
+        "what": "Rapports d'incidents structurés — expulsion, refus, médical, altercation — avec gravité, signalement policier et suivi de la résolution.",
+        "why": "La documentation protège l'établissement. Un incident avec rapport de police exige un processus différent d'un refus mineur.",
+        "tryPath": "Barre latérale gérant > Incidents"
+      },
+      "manager-staff-scheduling": {
+        "title": "Personnel et horaires",
+        "what": "Registre de l'équipe, génération de la semaine à partir de modèles, registre d'arrivées et départs, alertes d'heures supplémentaires, certifications.",
+        "why": "Un quart du samedi a besoin de 3 serveurs de bouteilles, 2 barmans, 1 hôte et de la sécurité. Le modèle remplit la semaine; le registre suit la réalité.",
+        "tryPath": "Barre latérale gérant > Personnel"
+      },
+      "manager-tips": {
+        "title": "Pourboires",
+        "what": "Répartition de la cagnotte de pourboires pondérée par les heures — calculée par quart, clôturée, auditées.",
+        "why": "La répartition des pourboires est la mathématique la plus sensible de l'établissement. La pondération par les heures fait que l'ouverture et la fermeture reçoivent tous les deux une part équitable.",
+        "tryPath": "Barre latérale gérant > Pourboires"
+      },
+      "manager-commission": {
+        "title": "Commissions",
+        "what": "Suivi des commissions des promoteurs et du personnel — pourcentage des ventes référées, payé par période.",
+        "why": "Les promoteurs remplissent les listes d'invités à la commission. Suivez ce que chaque promoteur a amené et ce qui lui est dû.",
+        "tryPath": "Barre latérale gérant > Commissions"
+      },
+      "manager-cash-out": {
+        "title": "Caisse",
+        "what": "Rapprochement du quart par mode de règlement — comptant, carte, offert, annulé — avec piste d'audit à l'échelle de l'établissement.",
+        "why": "Chaque dollar à la fermeture doit avoir une maison. La caisse rapproche ce qui a été encaissé de ce qui a été enregistré.",
+        "tryPath": "Barre latérale gérant > Caisse"
+      },
+      "manager-analytics": {
+        "title": "Analytique",
+        "what": "Ventes, rendement du personnel, rotation des stocks, métriques de session, rendement des réservations — toute période.",
+        "why": "Revenus au pied carré, pourcentage du coût de service, classement des ventes par serveur — les chiffres qui font marcher l'entreprise.",
+        "tryPath": "Barre latérale gérant > Analytique"
+      },
+      "manager-reports": {
+        "title": "Rapports",
+        "what": "Composez des blocs de métriques, exportez des CSV, planifiez des exécutions récurrentes.",
+        "why": "Les propriétaires veulent un P&L hebdomadaire. Le moteur de rapports le crée une fois et l'envoie chaque lundi.",
+        "tryPath": "Barre latérale gérant > Rapports"
+      },
+      "manager-audit-trail": {
+        "title": "Piste de vérification",
+        "what": "Chaque changement d'état est journalisé — qui a fait quoi, quand, depuis quelle adresse IP — filtrable par entité et action.",
+        "why": "Quand l'argent bouge, la piste de vérification répond qui l'a autorisé. Immuable, exportable, prête à produire en justice.",
+        "tryPath": "Barre latérale gérant > Piste de vérification"
+      },
+      "manager-automations": {
+        "title": "Automatisations",
+        "what": "Moteur de règles — quand la condition, alors l'action — pour les escalades SLA, les 86 automatiques, les alertes de capacité.",
+        "why": "Ne surveillez pas Pouls toute la nuit. Les automatisations escaladent les commandes en retard et signalent les seuils de capacité automatiquement.",
+        "tryPath": "Barre latérale gérant > Automatisations"
+      },
+      "manager-team-chat": {
+        "title": "Messagerie d'équipe",
+        "what": "Canaux salle, bar et sécurité — communication en direct de l'équipe aux côtés de Pouls.",
+        "why": "Le gérant de la salle doit joindre un serveur de bouteilles sans quitter son bureau. Les canaux reflètent l'organisation de l'établissement.",
+        "tryPath": "Barre latérale gérant > Messagerie"
+      },
+      "manager-settings": {
+        "title": "Paramètres",
+        "what": "Frais et taxes empilés, réglage des SLA, préréglages de pourboires, limites de capacité, heures d'ouverture.",
+        "why": "Chaque établissement a ses économies. Les piles de frais, les taux de taxe et les fenêtres SLA sont une configuration propre à l'établissement.",
+        "tryPath": "Barre latérale gérant > Paramètres"
+      },
+      "manager-subscription": {
+        "title": "Abonnement",
+        "what": "Gestion du plan, historique de facturation, compteurs d'utilisation, mode de paiement.",
+        "why": "NightLifeNext est un SaaS. Le plan de l'établissement détermine l'accès aux fonctionnalités, les sièges du personnel et le nombre de tables.",
+        "tryPath": "Barre latérale gérant > Abonnement"
+      },
+      "manager-onboarding": {
+        "title": "Intégration",
+        "what": "Assistant de configuration — détails de l'établissement, zones, tables, import du menu, liste du personnel, configuration des frais.",
+        "why": "Un nouvel établissement ouvre en heures, pas en semaines. L'assistant préremplit des valeurs par défaut sensées et permet de tout sauter.",
+        "tryPath": "Barre latérale gérant > Paramètres > Relancer l'intégration"
+      },
+      "staff-home-queues-clock-86-board": {
+        "title": "Accueil — files, horloge et 86",
+        "what": "Compteurs en direct des files de commandes et d'aide, poinçonnage entrée/pause/sortie en un geste, tableau des articles épuisés ce soir.",
+        "why": "Le personnel ouvre un seul écran au début du quart. Tout ce qu'il faut savoir — ce qui attend, ce qui est épuisé — est là.",
+        "tryPath": "Barre du bas personnel > Accueil"
+      },
+      "staff-order-feed": {
+        "title": "Fil des commandes",
+        "what": "Réclamez une commande, faites-la passer d'en attente à livrée — pas de double attribution, propriété claire.",
+        "why": "Les serveurs de bouteilles livrent. La réclamation empêche deux serveurs de prendre la même commande; le client voit le suivi des étapes en direct.",
+        "tryPath": "Barre du bas personnel > Commandes"
+      },
+      "staff-door-occupancy-admissions": {
+        "title": "Porte — occupation et admissions",
+        "what": "Compteur d'occupation en direct +1/−1, sélecteur de taille de groupe, vérification d'identité, alerte d'interdiction automatique.",
+        "why": "Les limites de capacité, c'est du code incendie. Le contrôleur de porte admet les clients, vérifie les interdictions et garde le compte légal.",
+        "tryPath": "Barre du bas personnel > Porte"
+      },
+      "staff-approvals": {
+        "title": "Approbations",
+        "what": "Approuvez les demandes de connexion QR, consultez les profils clients et l'historique des visites avant d'installer.",
+        "why": "Un hôte approuve chaque connexion de table. L'écran d'approbation montre qui demande et s'il est déjà venu.",
+        "tryPath": "Barre du bas personnel > Approbations"
+      },
+      "staff-help-queue": {
+        "title": "File d'aide",
+        "what": "Demandes triées — glace, nettoyage, facture, sécurité — réclamées et résolues par le bon rôle.",
+        "why": "Un client veut de la glace, une table doit être débarrassée, une bouteille présentée. L'aide achemine chaque demande à la bonne personne.",
+        "tryPath": "Barre du bas personnel > Aide"
+      },
+      "staff-incidents": {
+        "title": "Incidents",
+        "what": "Signalez expulsions, cas médicaux, altercations — formulaire structuré avec gravité, description et signalement policier.",
+        "why": "La sécurité doit journaliser une expulsion en 30 secondes. Le formulaire structuré capture ce qui s'est passé avant que la soirée continue.",
+        "tryPath": "Barre du bas personnel > Incidents"
+      },
+      "staff-team-chat": {
+        "title": "Messagerie d'équipe",
+        "what": "Canaux salle, bar et sécurité — la même messagerie que le gérant, selon le rôle.",
+        "why": "Le barman doit dire au gérant de la salle qu'une bouteille est 86. La messagerie est plus rapide que traverser un club bruyant.",
+        "tryPath": "Barre du bas personnel > Messagerie"
+      },
+      "staff-schedule": {
+        "title": "Horaire",
+        "what": "Les quarts de la semaine — vos jours, vos heures, votre rôle par quart.",
+        "why": "Le personnel vérifie quand il travaille ensuite. La vue horaire est personnelle — seulement vos quarts.",
+        "tryPath": "Barre du bas personnel > Horaire"
+      },
+      "staff-tips": {
+        "title": "Pourboires",
+        "what": "Votre part de pourboires en détail — ce que vous avez gagné ce soir, comment la cagnotte a été répartie.",
+        "why": "Chaque membre du personnel voit sa propre part. Une répartition transparente bâtit la confiance.",
+        "tryPath": "Barre du bas personnel > Pourboires"
+      },
+      "staff-events": {
+        "title": "Événements",
+        "what": "L'événement de ce soir — qui est sur la liste d'invités, ce qui change sur la salle.",
+        "why": "Le personnel doit savoir quand un événement privé modifie la disposition habituelle des tables ou la tarification.",
+        "tryPath": "Barre du bas personnel > Événements"
+      },
+      "staff-reservations": {
+        "title": "Réservations",
+        "what": "Les réservations de ce soir — qui vient, quelle table, à quelle heure, demandes spéciales.",
+        "why": "La sécurité vérifie les réservations à la porte. Nom, taille du groupe, table et notes VIP dans une liste.",
+        "tryPath": "Barre du bas personnel > Réservations"
+      },
+      "staff-notifications": {
+        "title": "Notifications",
+        "what": "Historique des bannières de diffusion — alertes du gérant, dernier appel, avis d'urgence.",
+        "why": "Raté une diffusion pendant le rush? Les notifications gardent le journal pour que rien ne tombe dans l'oubli.",
+        "tryPath": "Barre du bas personnel > Notifications"
+      },
+      "guest-menu-ordering": {
+        "title": "Menu et commande",
+        "what": "Bouteilles, forfaits choisis, modificateurs — parcourez par catégorie, ajoutez au panier, les frais s'itemisent en direct.",
+        "why": "Le menu EST le moteur de revenus. Les forfaits de bouteilles avec présentation aux étincelles transforment une bouteille de 200 $ en expérience à 800 $.",
+        "tryPath": "Scannez la table de démo > Onglet Menu"
+      },
+      "guest-cart": {
+        "title": "Panier",
+        "what": "Articles avec modificateurs, frais empilés, total en direct — révisez avant de passer la commande.",
+        "why": "Les frais (frais de service, frais de bouteille, taxe) sont transparents avant la commande. Pas de surprise à la fermeture.",
+        "tryPath": "Scannez la table de démo > Onglet Panier"
+      },
+      "guest-orders": {
+        "title": "Commandes",
+        "what": "Historique des commandes avec suivi des étapes en direct et arrivée prévue par article.",
+        "why": "Les clients regardent leur bouteille passer de commandée à en préparation à livrée. L'arrivée prévue gère les attentes.",
+        "tryPath": "Scannez la table de démo > Onglet Commandes"
+      },
+      "guest-help": {
+        "title": "Aide",
+        "what": "Demandez de la glace, du nettoyage, la facture ou un serveur — acheminé au bon rôle du personnel.",
+        "why": "Personne ne veut intercepter un serveur de bouteilles dans un club bondé. Les demandes d'aide vont directement à la bonne personne.",
+        "tryPath": "Scannez la table de démo > Onglet Aide"
+      },
+      "guest-send-a-bottle": {
+        "title": "Envoyer une bouteille",
+        "what": "Envoyez une bouteille à une autre table — anonymement ou en signant.",
+        "why": "Offrir une bouteille à une autre table est une tradition de boîte de nuit. Le flux de cadeau le gère sans interrompre la note d'aucune des deux tables.",
+        "tryPath": "Scannez la table de démo > Onglet Cadeau"
+      },
+      "guest-receipt-tab-close": {
+        "title": "Reçu et fermeture de note",
+        "what": "Reçu de toute la soirée, anneau de progression de la dépense minimale, options de partage de l'addition.",
+        "why": "La fermeture devrait prendre quelques secondes. Le reçu montre tout — commandes, frais, paiements — en un défilement.",
+        "tryPath": "Scannez la table de démo > Onglet Reçu"
+      },
+      "guest-waiting-host-approval": {
+        "title": "En attente / approbation de l'hôte",
+        "what": "Écran après la connexion pendant que l'hôte examine et approuve la demande de connexion à la table.",
+        "why": "Chaque connexion QR passe par l'approbation de l'hôte. L'écran d'attente montre le statut — le client ne se demande pas ce qui se passe.",
+        "tryPath": "Scannez la table de démo > connexion > écran d'attente"
+      },
+      "guest-reservation-pin-gate": {
+        "title": "Porte NIP de réservation",
+        "what": "Les tables avec une réservation confirmée active exigent un NIP de 6 chiffres pour accéder à la commande par QR.",
+        "why": "Une table réservée est privée jusqu'à l'arrivée du réservant. Le NIP empêche quelqu'un d'autre de la réclamer.",
+        "tryPath": "Scannez la table de démo > invite NIP (tables réservées)"
+      },
+      "public-public-venue-page": {
+        "title": "Page publique de l'établissement",
+        "what": "Page d'atterrissage publique de l'établissement — heures, emplacement, événements à venir, lien de réservation.",
+        "why": "Chaque établissement a une page publique à /e/velvet-montreal. Les clients y découvrent les événements et réservent leur table.",
+        "tryPath": "Visitez /e/velvet-montreal"
+      },
+      "public-public-reservations": {
+        "title": "Réservations publiques",
+        "what": "Flux de réservation côté client — choisissez la date, la taille du groupe, la table, envoyez la demande.",
+        "why": "Les clients réservent leur table sans appeler l'établissement. La réservation atterrit dans le tableau du gérant.",
+        "tryPath": "Visitez /r/velvet-montreal"
+      }
+    },
+    "walkthrough": {
+      "order": {
+        "step": "Commander comme un client",
+        "detail": "Scannez la table de démo, rejoignez avec n'importe quel nom, approuvez-vous, parcourez les forfaits de bouteilles et passez une commande. Regardez les frais s'itemiser en direct dans le panier.",
+        "linkLabel": "QR client"
+      },
+      "staff": {
+        "step": "Travaillez-le comme personnel",
+        "detail": "Ouvrez le fil des commandes du personnel, réclamez la commande que vous venez de passer, poinçonnez et faites-la passer d'en attente à livrée — le client voit chaque étape.",
+        "linkLabel": "Commandes personnel"
+      },
+      "door": {
+        "step": "Travaillez la porte",
+        "detail": "Vérifiez le compteur d'occupation en direct, cherchez une réservation, admettez un client sans réservation avec vérification d'identité et sélecteur de taille de groupe.",
+        "linkLabel": "Porte personnel"
+      },
+      "pulse": {
+        "step": "Surveillez le Pouls comme gérant",
+        "detail": "Vérifiez Pouls pour tout ce qui est en retard — commandes en retard, incidents ouverts, avertissements de capacité, éléments d'attention chronométrés SLA.",
+        "linkLabel": "Pouls"
+      },
+      "money": {
+        "step": "Gérez l'argent",
+        "detail": "Offrez une bouteille, vérifiez le coût de service, faites un inventaire, fermez un quart et calculez la répartition des pourboires de ce soir.",
+        "linkLabel": "Caisse"
+      }
+    },
+    "houseRules": {
+      "signIn": {
+        "title": "Connectez-vous comme n'importe qui",
+        "line": "Personnages en un geste. N'importe quel NIP fonctionne — gérant, hôte, barman, serveur de bouteilles, sécurité, promoteur.",
+        "linkLabel": "Aller à la connexion"
+      },
+      "fresh": {
+        "title": "Nouveau à chaque visite",
+        "line": "Recharger réinitialise la soirée — utilisez les liens internes pour voyager entre les surfaces sans perdre l'état."
+      },
+      "playOtherSide": {
+        "title": "Jouez l'autre côté",
+        "line": "Les boutons « Simuler » remplacent l'approbation de l'hôte, la cuisine et les systèmes externes — des flux réels, des actions simulées."
+      },
+      "palette": {
+        "title": "Ctrl+K pour la palette de commandes",
+        "line": "Recherchez commandes, tables, personnel, menu, réservations — ou sautez directement à n'importe quelle page de la démo."
+      }
+    }
   }
 }
