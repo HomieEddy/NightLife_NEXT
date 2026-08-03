@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import type { NextRequest } from "next/server";
 import { createTestDb, type TestDb } from "@/features/shared/test-pglite";
 
 vi.mock("@/features/shared/app-mode", async (importOriginal) => ({
@@ -24,7 +25,7 @@ describe("GET /api/health (integration)", () => {
     return GET(
       new Request("http://localhost/api/health", {
         headers: { "x-real-ip": "203.0.113.1" },
-      }),
+      }) as unknown as NextRequest,
     );
   }
 
