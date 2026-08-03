@@ -6,6 +6,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import {
   Activity, ArrowLeft, Ban, Building2, CircleDollarSign, MapPin, Play, Receipt, Table2, Trash2, Users,
 } from "lucide-react";
@@ -37,6 +38,7 @@ import type { TenantPlan, TenantStatus } from "@/lib/types";
 const PLAN_IDS: TenantPlan[] = ["starter", "pro", "enterprise"];
 
 export default function AdminTenantDetailPage() {
+  const t = useTranslations("admin.tenantDetail");
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -60,7 +62,7 @@ export default function AdminTenantDetailPage() {
     },
     onSuccess: () => {
       if (!tenant || !pendingPlan) return;
-      toast.success(`${tenant.venueName} moved to ${pendingPlan}`);
+      toast.success(t("movedToast", { venue: tenant.venueName, plan: pendingPlan }));
       setPendingPlan(null);
       invalidate();
     },
@@ -73,7 +75,7 @@ export default function AdminTenantDetailPage() {
     },
     onSuccess: (_, status) => {
       if (!tenant) return;
-      toast.success(`${tenant.venueName} is now ${status}`);
+      toast.success(t("statusChangedToast", { venue: tenant.venueName, status }));
       invalidate();
     },
   });
@@ -85,7 +87,7 @@ export default function AdminTenantDetailPage() {
     },
     onSuccess: () => {
       if (!tenant) return;
-      toast.info(`${tenant.venueName} deleted`);
+      toast.info(t("deletedToast", { venue: tenant.venueName }));
       router.push("/admin/venues");
     },
   });
@@ -93,7 +95,7 @@ export default function AdminTenantDetailPage() {
   if (tenant === undefined) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Tenant" />
+        <PageHeader title={t("skeletonTitle")} />
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
@@ -108,12 +110,12 @@ export default function AdminTenantDetailPage() {
     return (
       <EmptyState
         icon={Building2}
-        title="Tenant not found"
-        description="It may have been deleted."
+        title={t("notFoundTitle")}
+        description={t("notFoundDesc")}
         action={
           <Button variant="outline" asChild>
             <Link href="/admin/venues">
-              <ArrowLeft className="size-4" /> Back to tenants
+              <ArrowLeft className="size-4" /> {t("backToTenants")}
             </Link>
           </Button>
         }
@@ -127,14 +129,14 @@ export default function AdminTenantDetailPage() {
     <div className="space-y-6">
       <PageHeader
         title={tenant.venueName}
-        description={`${tenant.slug} · ${tenant.city} · since ${formatDate(tenant.createdAt)}`}
+        description={`${tenant.slug} · ${tenant.city} · ${t("sinceLabel")} ${formatDate(tenant.createdAt)}`}
         actions={
           <div className="flex items-center gap-2">
             <StatusBadge status={tenant.status} />
             <Badge variant="outline" className="capitalize">{tenant.plan}</Badge>
             <Button variant="outline" size="sm" asChild>
               <Link href="/admin/venues">
-                <ArrowLeft className="size-4" /> All tenants
+                <ArrowLeft className="size-4" /> {t("allTenants")}
               </Link>
             </Button>
           </div>
@@ -142,11 +144,11 @@ export default function AdminTenantDetailPage() {
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <MetricCard label="Orders · 30d" value={m.orderCount30d.toLocaleString()} icon={Receipt} />
-        <MetricCard label="Sessions · 30d" value={m.sessionCount30d.toLocaleString()} icon={Activity} hint={`active ${timeAgo(m.lastActivityAt)}`} />
-        <MetricCard label="Tables" value={String(m.tableCount)} icon={Table2} hint={`${m.zoneCount} zones`} />
-        <MetricCard label="Staff" value={String(m.staffCount)} icon={Users} />
-        <MetricCard label="MRR" value={formatMoney(tenant.mrr)} icon={CircleDollarSign} hint="paid to platform" />
+        <MetricCard label={t("metricOrders")} value={m.orderCount30d.toLocaleString()} icon={Receipt} />
+        <MetricCard label={t("metricSessions")} value={m.sessionCount30d.toLocaleString()} icon={Activity} hint={`${t("activeHint")} ${timeAgo(m.lastActivityAt)}`} />
+        <MetricCard label={t("metricTables")} value={String(m.tableCount)} icon={Table2} hint={`${m.zoneCount} ${t("zonesHint")}`} />
+        <MetricCard label={t("metricStaff")} value={String(m.staffCount)} icon={Users} />
+        <MetricCard label={t("metricMrr")} value={formatMoney(tenant.mrr)} icon={CircleDollarSign} hint={t("mrrHint")} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -154,24 +156,24 @@ export default function AdminTenantDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <MapPin className="size-4 text-primary" /> Provisioning settings
+              <MapPin className="size-4 text-primary" /> {t("provisioningTitle")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <p className="text-xs text-muted-foreground">Timezone</p>
+                <p className="text-xs text-muted-foreground">{t("timezoneLabel")}</p>
                 <p className="font-medium">{tenant.provisioning.timezone}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Currency</p>
+                <p className="text-xs text-muted-foreground">{t("currencyLabel")}</p>
                 <p className="font-medium">{tenant.provisioning.currency}</p>
               </div>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Service fees</p>
+              <p className="text-xs text-muted-foreground">{t("serviceFeesLabel")}</p>
               {tenant.provisioning.serviceFees.length === 0 ? (
-                <p className="text-muted-foreground">None configured</p>
+                <p className="text-muted-foreground">{t("noneConfigured")}</p>
               ) : (
                 <ul className="mt-1 space-y-1">
                   {tenant.provisioning.serviceFees.map((fee) => (
@@ -186,7 +188,7 @@ export default function AdminTenantDetailPage() {
               )}
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Menu categories</p>
+              <p className="text-xs text-muted-foreground">{t("menuCategoriesLabel")}</p>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {tenant.provisioning.menuCategories.map((cat) => (
                   <Badge key={cat} variant="secondary">{cat}</Badge>
@@ -194,7 +196,7 @@ export default function AdminTenantDetailPage() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Snapshot from provisioning — the venue manages its own live settings.
+              {t("provisioningFootnote")}
             </p>
           </CardContent>
         </Card>
@@ -202,13 +204,13 @@ export default function AdminTenantDetailPage() {
         {/* ---------- Plan & status controls ---------- */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Plan & status</CardTitle>
+            <CardTitle className="text-base">{t("planStatusTitle")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
               <div>
-                <p className="text-sm font-medium">Plan</p>
-                <p className="text-xs text-muted-foreground">Billing follows the plan's configured price.</p>
+                <p className="text-sm font-medium">{t("planLabel")}</p>
+                <p className="text-xs text-muted-foreground">{t("planHint")}</p>
               </div>
               <Select
                 value={tenant.plan}
@@ -231,24 +233,24 @@ export default function AdminTenantDetailPage() {
               <ConfirmDialog
                 trigger={
                   <Button variant="outline" className="w-full">
-                    <Play className="size-4" /> Reactivate tenant
+                    <Play className="size-4" /> {t("reactivateButton")}
                   </Button>
                 }
-                title={`Reactivate ${tenant.venueName}?`}
-                description="Billing resumes and their staff regain access immediately."
-                confirmLabel="Reactivate"
+                title={t("reactivateTitle", { venue: tenant.venueName })}
+                description={t("reactivateDesc")}
+                confirmLabel={t("reactivateConfirm")}
                 onConfirm={() => statusMutation.mutate("active")}
               />
             ) : (
               <ConfirmDialog
                 trigger={
                   <Button variant="outline" className="w-full">
-                    <Ban className="size-4" /> Suspend tenant
+                    <Ban className="size-4" /> {t("suspendButton")}
                   </Button>
                 }
-                title={`Suspend ${tenant.venueName}?`}
-                description="All venue panels are locked and billing pauses until reactivated."
-                confirmLabel="Suspend tenant"
+                title={t("suspendTitle", { venue: tenant.venueName })}
+                description={t("suspendDesc")}
+                confirmLabel={t("suspendConfirm")}
                 destructive
                 onConfirm={() => statusMutation.mutate("suspended")}
               />
@@ -257,24 +259,24 @@ export default function AdminTenantDetailPage() {
               <ConfirmDialog
                 trigger={
                   <Button variant="outline" className="w-full">
-                    <Play className="size-4" /> Convert trial to paid
+                    <Play className="size-4" /> {t("convertTrialButton")}
                   </Button>
                 }
-                title={`Activate ${tenant.venueName}?`}
-                description={`Ends the trial and starts billing on the ${tenant.plan} plan.`}
-                confirmLabel="Start billing"
+                title={t("convertTrialTitle", { venue: tenant.venueName })}
+                description={t("convertTrialDesc", { plan: tenant.plan })}
+                confirmLabel={t("convertTrialConfirm")}
                 onConfirm={() => statusMutation.mutate("active")}
               />
             )}
             <ConfirmDialog
               trigger={
                 <Button variant="outline" className="w-full text-red-600 hover:text-red-600 dark:text-red-400">
-                  <Trash2 className="size-4" /> Delete tenant
+                  <Trash2 className="size-4" /> {t("deleteButton")}
                 </Button>
               }
-              title={`Delete ${tenant.venueName}?`}
-              description="Removes the tenant and all venue data. This cannot be undone."
-              confirmLabel="Delete permanently"
+              title={t("deleteTitle", { venue: tenant.venueName })}
+              description={t("deleteDesc")}
+              confirmLabel={t("deleteConfirm")}
               destructive
               onConfirm={() => deleteMutation.mutate()}
             />
@@ -286,24 +288,24 @@ export default function AdminTenantDetailPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Users className="size-4 text-primary" /> Staff ({tenant.staff.length})
+            <Users className="size-4 text-primary" /> {t("staffTitle", { count: tenant.staff.length })}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {tenant.staff.length === 0 ? (
             <EmptyState
               icon={Users}
-              title="No staff yet"
-              description="The invited manager appears here after provisioning."
+              title={t("noStaffTitle")}
+              description={t("noStaffDesc")}
             />
           ) : (
             <div className="overflow-x-auto rounded-xl border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>{t("staffNameHeader")}</TableHead>
+                    <TableHead>{t("staffRoleHeader")}</TableHead>
+                    <TableHead>{t("staffEmailHeader")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -326,18 +328,18 @@ export default function AdminTenantDetailPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              Move {tenant.venueName} to {pendingPlan}?
+              {t("planChangeTitle", { venue: tenant.venueName, plan: pendingPlan ?? "" })}
             </DialogTitle>
             <DialogDescription>
-              The plan changes at the next billing cycle; feature limits apply immediately.
+              {t("planChangeDesc")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setPendingPlan(null)} disabled={planMutation.isPending}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button onClick={() => planMutation.mutate()} disabled={planMutation.isPending}>
-              {planMutation.isPending ? "Applying…" : "Change plan"}
+              {planMutation.isPending ? t("applying") : t("changePlan")}
             </Button>
           </DialogFooter>
         </DialogContent>

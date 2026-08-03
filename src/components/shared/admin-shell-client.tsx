@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { LocaleToggle } from "@/components/shared/locale-toggle";
@@ -11,6 +12,7 @@ import { cn } from "@/features/shared/utils";
 import { ShieldCheck } from "lucide-react";
 
 export default function AdminShellClient({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("shared");
   const pathname = usePathname();
 
   return (
@@ -20,7 +22,7 @@ export default function AdminShellClient({ children }: { children: React.ReactNo
           <div className="flex items-center gap-3">
             <BrandLogo href="/admin" />
             <span className="flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-600 dark:text-red-400">
-              <ShieldCheck className="size-3" /> Platform admin
+              <ShieldCheck className="size-3" /> {t("nav.platformAdmin")}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -45,7 +47,7 @@ export default function AdminShellClient({ children }: { children: React.ReactNo
                 )}
               >
                 <item.icon className="size-3.5" />
-                {item.label}
+                {t(item.labelKey as any ?? item.label)}
               </Link>
             );
           })}

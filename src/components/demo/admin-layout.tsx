@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Building2, Filter, Layers, LayoutDashboard, LockKeyhole, Rocket, Settings, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,15 +22,16 @@ import { ADMIN_DEMO_PASSWORD, isAdminUnlocked, setAdminUnlocked } from "@/lib/ad
 import { cn } from "@/features/shared/utils";
 
 const NAV = [
-  { href: "/admin", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin/leads", label: "Lead pipeline", icon: Filter },
-  { href: "/admin/venues", label: "Tenants", icon: Building2 },
-  { href: "/admin/onboarding", label: "Provisioning", icon: Rocket },
-  { href: "/admin/plans", label: "Plans", icon: Layers },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin", label: "Overview", labelKey: "nav.items.overview", icon: LayoutDashboard },
+  { href: "/admin/leads", label: "Lead pipeline", labelKey: "nav.items.leadPipeline", icon: Filter },
+  { href: "/admin/venues", label: "Tenants", labelKey: "nav.items.tenants", icon: Building2 },
+  { href: "/admin/onboarding", label: "Provisioning", labelKey: "nav.items.provisioning", icon: Rocket },
+  { href: "/admin/plans", label: "Plans", labelKey: "nav.items.plans", icon: Layers },
+  { href: "/admin/settings", label: "Settings", labelKey: "nav.items.settings", icon: Settings },
 ];
 
 function AdminGate({ onUnlock }: { onUnlock: () => void }) {
+  const t = useTranslations("admin.gate");
   const [password, setPassword] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
@@ -39,7 +41,7 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
       setAdminUnlocked(true);
       onUnlock();
     } else {
-      toast.error("Wrong password.");
+      toast.error(t("wrongPassword"));
       setPassword("");
     }
   }
@@ -58,14 +60,14 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
               <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-red-500/15 text-red-600 dark:text-red-400">
                 <LockKeyhole className="size-5" />
               </div>
-              <h1 className="text-display text-xl">Platform admin</h1>
+              <h1 className="text-display text-xl">{t("heading")}</h1>
               <p className="text-sm text-muted-foreground">
-                This area is restricted in the live demo. Enter the access password to continue.
+                {t("description")}
               </p>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="admin-password">Password</Label>
+                <Label htmlFor="admin-password">{t("passwordLabel")}</Label>
                 <Input
                   id="admin-password"
                   type="password"
@@ -76,13 +78,13 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={!password.trim()}>
-                <LockKeyhole className="size-4" /> Unlock
+                <LockKeyhole className="size-4" /> {t("unlock")}
               </Button>
             </form>
             <p className="text-center text-xs text-muted-foreground">
-              Not part of the tour?{" "}
+              {t("notPartOfTour")}{" "}
               <Link href="/demo" className="text-primary hover:underline">
-                Back to the live demo
+                {t("backToDemo")}
               </Link>
             </p>
           </CardContent>
@@ -93,6 +95,7 @@ function AdminGate({ onUnlock }: { onUnlock: () => void }) {
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("shared");
   const pathname = usePathname();
   const demo = isDemoMode();
   const [unlocked, setUnlocked] = useState<boolean | null>(demo ? null : true);
@@ -115,7 +118,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center gap-3">
             <BrandLogo href="/admin" />
             <span className="flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-600 dark:text-red-400">
-              <ShieldCheck className="size-3" /> Platform admin
+              <ShieldCheck className="size-3" /> {t("nav.platformAdmin")}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -137,7 +140,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               )}
             >
               <item.icon className="size-3.5" />
-              {item.label}
+              {t(item.labelKey ?? item.label)}
             </Link>
           ))}
         </nav>
