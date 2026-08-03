@@ -23,6 +23,7 @@ export const zReservationInput = z.object({
   depositTermsNote: z.string().optional(),
   cancellationPolicyNote: z.string().optional(),
   seatingNumber: z.union([z.literal(1), z.literal(2)]).optional(),
+  bookingLocale: z.enum(["en", "fr"]).optional(),
 });
 
 export const zReservationPatch = z.object({
@@ -87,6 +88,8 @@ export const zPublicReservationInput = z.object({
   guestPhone: z.string().max(20).optional(),
   note: z.string().max(1000).optional(),
   eventId: z.string().max(30).optional(),
+  // Law 25: affirmative consent to the privacy policy before any PII is stored.
+  consent: z.literal(true, { message: "You must accept the privacy policy" }),
 });
 
 export const zValidatePinInput = z.object({

@@ -908,6 +908,7 @@ export interface Lead {
   /** Estimated annual contract value. */
   dealValue: number;
   notes: string;
+  consentAt?: string;
   activity: LeadActivity[];
   createdAt: string;
 }
@@ -1082,6 +1083,8 @@ export interface Reservation {
   alternativeTableId?: string;
   /** Locale the guest booked in — seeds the email/SMS notification language. Defaults to venue guestLocale. */
   bookingLocale?: "en" | "fr";
+  /** When the guest accepted the privacy policy on the booking form. */
+  consentAt?: string;
   createdAt: string; // ISO
 }
 
