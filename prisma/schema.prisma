@@ -1972,3 +1972,13 @@ model VenueRolePermissions {
   @@unique([venueId, role])
   @@map("venue_role_permissions")
 }
+
+/// Per-venue monotonic order-code sequence. Created lazily on first order;
+/// incremented atomically (INSERT ... ON CONFLICT) so concurrent orders never
+/// mint the same code. Seed value is 0; the first order of a venue gets seq 1.
+model VenueCounter {
+  venueId String @id @map("venue_id")
+  seq     Int    @default(0)
+
+  @@map("venue_counters")
+}

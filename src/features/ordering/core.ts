@@ -155,16 +155,24 @@ function venueFeeToInput(sf: ServiceFee): FeeInput {
 
 // ── Order counter (venue-scoped) ─────────────────────────────────────
 
+/**
+ * Atomically claims the next order-code sequence for the venue. The
+ * INSERT ... ON CONFLICT increment serializes concurrent orders — two
+ * transactions can never mint the same code (the old COUNT(*) approach
+ * was both an O(n) scan and racy under concurrency).
+ */
 async function nextOrderCode(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tx: any,
   venueId: string,
 ): Promise<string> {
-  const result: { cnt: bigint }[] = await tx.$queryRawUnsafe(
-    `SELECT COUNT(*) AS cnt FROM orders WHERE venue_id = $1`,
+  const result: { seq: number }[] = await tx.$queryRawUnsafe(
+    `INSERT INTO venue_counters (venue_id, seq) VALUES ($1, 1)
+     ON CONFLICT (venue_id) DO UPDATE SET seq = venue_counters.seq + 1
+     RETURNING seq`,
     venueId,
   );
-  const seq = Number(result[0].cnt) + 1;
+  const seq = Number(result[0].seq);
   return `A-${String(seq).padStart(3, "0")}`;
 }
 
@@ -205,7 +213,13 @@ export async function getOrder(
 export async function submitOrder(
   db: ScopedDb,
   venueId: string,
-  input: z.infer<typeof zSubmitOrder>,
+  input: z.infer<typeof zSubmitOrder> & {
+    /** Gift fields — stamped in the same transaction as the order (sendGift),
+     *  so a crash can never produce a gift-less order. */
+    giftToTableId?: string;
+    giftToTableCode?: string;
+    giftNote?: string | null;
+  },
 ): Promise<{ ok: true; order: Order } | { ok: false; error: string }> {
   const prisma = getRawPrisma();
 
@@ -413,6 +427,9 @@ export async function submitOrder(
           promotionCents: pricing.promotionCents,
           happyHourRuleId: pricing.happyHourRuleId ?? null,
           happyHourCents: pricing.discountCents,
+          giftToTableId: input.giftToTableId ?? null,
+          giftToTableCode: input.giftToTableCode ?? null,
+          giftNote: input.giftNote ?? null,
           status: "pending",
           items: {
             create: resolvedLines.map((line) => {
@@ -538,6 +555,8 @@ export async function sendGift(
   if (!menuItem) return { ok: false, error: "Menu item not found" };
   if (!menuItem.isAvailable) return { ok: false, error: `${menuItem.name} is not available` };
 
+  // Gift fields are stamped inside submitOrder's transaction — the order can
+  // never exist without its gift metadata.
   return submitOrder(db, venueId, {
     tableId: input.fromTableId,
     tableCode: input.fromTableCode,
@@ -551,18 +570,9 @@ export async function sendGift(
       modifiers: [],
     }],
     tipCents: 0,
-  }).then((result) => {
-    if (!result.ok) return result;
-    // Stamp gift fields — update the order row
-    return getRawPrisma().order.update({
-      where: { id: result.order.id },
-      data: {
-        giftToTableId: input.toTableId,
-        giftToTableCode: input.toTableCode,
-        giftNote: input.note ?? null,
-      },
-      include: ORDER_INCLUDE,
-    }).then((row) => ({ ok: true as const, order: toOrder(row) }));
+    giftToTableId: input.toTableId,
+    giftToTableCode: input.toTableCode,
+    giftNote: input.note ?? null,
   });
 }
 
@@ -592,11 +602,21 @@ export async function advanceOrder(
     }
   }
 
-  const updated = await db.order.update({
-    where: { id: orderId },
-    data,
-    include: ORDER_INCLUDE,
+  // CAS on the exact current status: a concurrent advance can't double-step
+  // the state machine (both read "pending" → both write "accepted"). The
+  // loser re-reads and returns the actual current state.
+  const updated = await db.$transaction(async (tx) => {
+    const transitioned = await tx.order.updateMany({
+      where: { id: orderId, status: row.status },
+      data,
+    });
+    if (transitioned.count === 0) return null;
+    return tx.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
   });
+  if (!updated) {
+    const current = await db.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
+    return current ? toOrder(current) : null;
+  }
   const order = toOrder(updated);
   await publish({
     type: "OrderStatusChanged",

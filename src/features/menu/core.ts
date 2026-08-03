@@ -431,12 +431,23 @@ export async function adjustInventory(
   const existing = await db.menuItem.findUnique({ where: { id: itemId } });
   if (!existing) return null;
 
-  const delta = input.newCount - existing.inventory;
-  if (delta === 0) return toItem(existing);
-
+  // Read the inventory INSIDE the transaction with a row lock — a concurrent
+  // sale between the read and the write used to compute a stale delta and
+  // clobber the new count (ledger divergence).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = await (db as any).$transaction(async (tx: any) => {
-    const item = await tx.menuItem.update({
+    const locked: { id: string; name: string; inventory: number }[] = await tx.$queryRawUnsafe(
+      `SELECT id, name, inventory FROM menu_items WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
+      itemId,
+      venueId,
+    );
+    if (locked.length === 0) return null;
+    const item = locked[0];
+
+    const delta = input.newCount - item.inventory;
+    if (delta === 0) return tx.menuItem.findUnique({ where: { id: itemId } });
+
+    const updated = await tx.menuItem.update({
       where: { id: itemId },
       data: { inventory: input.newCount },
     });
@@ -450,13 +461,14 @@ export async function adjustInventory(
         note: input.note,
       },
     });
-    if (existing.inventory > 0 && input.newCount === 0) {
+    if (item.inventory > 0 && input.newCount === 0) {
       await tx.soldOutEvent.create({
         data: { venueId, itemId, itemName: item.name },
       });
     }
-    return item;
+    return updated;
   });
+  if (!row) return null;
   return toItem(row);
 }
 

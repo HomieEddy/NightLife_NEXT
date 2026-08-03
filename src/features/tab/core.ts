@@ -284,6 +284,27 @@ export async function createAdjustment(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      // INV-T3 re-check inside the transaction, with the order row locked —
+      // two concurrent comps can no longer both pass the remaining check and
+      // both insert. The pre-read above is just for early error messages.
+      await tx.$queryRawUnsafe(
+        `SELECT id FROM orders WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
+        input.orderId,
+        venueId,
+      );
+      const currentRows = await tx.tabAdjustment.findMany({
+        where: {
+          orderId: input.orderId,
+          orderItemId: input.orderItemId ?? null,
+          reversedByAdjustmentId: null,
+        },
+      });
+      const current: TabAdjustment[] = currentRows.map(toTabAdjustment);
+      if (!isAdjustmentAmountValid(targetCents, targetCents, current)) {
+        const remaining = targetCents - current.reduce((s, a) => s + a.amountCents, 0);
+        throw new Error(`Cannot adjust: only ${(remaining / 100).toFixed(2)} remains un-adjusted on this target`);
+      }
+
       // INV-O4: for voids, lock the menu item rows for the items we're returning.
       if (input.kind === "void") {
         const itemIds = new Set<string>();

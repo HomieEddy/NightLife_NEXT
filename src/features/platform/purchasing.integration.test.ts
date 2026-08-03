@@ -316,7 +316,7 @@ describe("purchasing integration (plan 19)", () => {
     const menuItemId = "mi-waste";
     await rawClient.menuItem.create({ data: makeMenuItem(menuItemId, "Spoiled Item", { priceCents: 500, inventory: 10, unitOfMeasure: "can" }) });
 
-    const mvt = await recordWaste(db, menuItemId, 3, "Damaged in transit", "stf-1");
+    const mvt = await recordWaste(db, venueA, menuItemId, 3, "Damaged in transit", "stf-1");
     expect(mvt.type).toBe("waste");
     expect(mvt.delta).toBe(-3);
     expect(mvt.wasteReason).toBe("Damaged in transit");

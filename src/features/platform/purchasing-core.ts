@@ -634,18 +634,42 @@ export async function eightySixItem(db: ScopedDb, itemId: string, reason: string
 // ── Waste ────────────────────────────────────────────────────────────
 
 export async function recordWaste(
-  db: ScopedDb, itemId: string, quantity: number, reason: string, _staffId: string,
+  db: ScopedDb,
+  venueId: string,
+  itemId: string,
+  quantity: number,
+  reason: string,
+  _staffId: string,
 ): Promise<Row> {
   const absQty = Math.abs(quantity);
-  const item = await db.menuItem.findUnique({ where: { id: itemId } });
-  const itemName = item?.name ?? itemId;
-  const mvt = await db.stockMovement.create({
-    data: { menuItemId: itemId, itemName, type: "waste", delta: -absQty, wasteReason: reason, note: reason },
-  } as Row) as Row;
-  if (item) {
-    await db.menuItem.update({ where: { id: itemId }, data: { inventory: Math.max(0, item.inventory - absQty) } });
-  }
-  return { id: mvt.id, menuItemId: mvt.menuItemId ?? mvt.menu_item_id, itemName: mvt.itemName ?? mvt.item_name, type: mvt.type, delta: mvt.delta, note: mvt.note ?? reason, wasteReason: mvt.wasteReason ?? mvt.waste_reason ?? reason, createdAt: toISO(mvt.created_at ?? mvt.createdAt) };
+  // Movement and inventory update commit together with a locked read — the
+  // old version read inventory outside the tx and clamped at 0, letting the
+  // ledger diverge (movement -5, inventory only -3).
+  return db.$transaction(async (tx) => {
+    const locked = await tx.$queryRawUnsafe<{ id: string; name: string; inventory: number }[]>(
+      `SELECT id, name, inventory FROM menu_items WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
+      itemId,
+      venueId,
+    );
+    const item = locked[0];
+    const itemName = item?.name ?? itemId;
+    const mvt = await tx.stockMovement.create({
+      data: { venueId, menuItemId: itemId, itemName, type: "waste", delta: -absQty, wasteReason: reason, note: reason },
+    } as Row) as Row;
+    if (item) {
+      await tx.menuItem.update({ where: { id: itemId }, data: { inventory: item.inventory - absQty } });
+    }
+    return mvt;
+  }).then((mvt) => ({
+    id: mvt.id,
+    menuItemId: mvt.menuItemId ?? mvt.menu_item_id,
+    itemName: mvt.itemName ?? mvt.item_name,
+    type: mvt.type,
+    delta: mvt.delta,
+    note: mvt.note ?? reason,
+    wasteReason: mvt.wasteReason ?? mvt.waste_reason ?? reason,
+    createdAt: toISO(mvt.created_at ?? mvt.createdAt),
+  }));
 }
 
 // ── Profit targets ───────────────────────────────────────────────────
