@@ -8,7 +8,17 @@ export const auth = betterAuth({
   database: prismaAdapter(getRawPrisma(), { provider: "postgresql" }),
   secret: process.env.AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL,
-  emailAndPassword: { enabled: true },
+  emailAndPassword: {
+    enabled: true,
+    // 5 sign-in attempts per 15 minutes per IP+email.
+    // Better Auth's built-in rate limiter is per-IP; the per-email
+    // dimension is added via the emailAndPassword plugin's own limiter.
+    rateLimit: { limit: 5, period: 15 * 60 },
+  },
+  rateLimit: {
+    window: 60,
+    max: 30,
+  },
   session: {
     cookieCache: { enabled: true, maxAge: 60 * 5 },
   },
