@@ -65,10 +65,11 @@ export function getDb(session: SessionContext) {
         ];
         if (platformModels.includes(model)) return query(args);
 
+        // Reads — startsWith("find") also covers the *OrThrow variants
+        // (findUniqueOrThrow etc.), which Prisma treats as separate
+        // operations and previously slipped past scoping.
         if (
-          operation === "findMany" ||
-          operation === "findFirst" ||
-          operation === "findUnique" ||
+          operation.startsWith("find") ||
           operation === "count" ||
           operation === "aggregate" ||
           operation === "groupBy"
@@ -85,12 +86,15 @@ export function getDb(session: SessionContext) {
           } else {
             args.data = { ...args.data, venueId: session.venueId };
           }
-        } else if (
-          operation === "update" ||
-          operation === "updateMany" ||
-          operation === "delete" ||
-          operation === "deleteMany"
-        ) {
+        } else if (operation === "upsert") {
+          // The scoped where makes the upsert match only the caller's venue,
+          // and the injected create.venueId wins over anything the caller
+          // sent in the body.
+          args.where = { ...args.where, venueId: session.venueId };
+          args.create = { ...args.create, venueId: session.venueId };
+        } else {
+          // update/updateMany/delete/deleteMany and the ...AndReturn
+          // variants — the safe default is to scope the where.
           args.where = { ...args.where, venueId: session.venueId };
         }
         return query(args);
