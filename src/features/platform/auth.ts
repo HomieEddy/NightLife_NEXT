@@ -3,6 +3,7 @@ import { organization, admin } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { getRawPrisma } from "@/features/shared/db";
+import { logger } from "@/features/shared/logger";
 
 export const auth = betterAuth({
   database: prismaAdapter(getRawPrisma(), { provider: "postgresql" }),
@@ -29,6 +30,47 @@ export const auth = betterAuth({
         defaultValue: false,
         input: false,
       },
+    },
+  },
+  databaseHooks: {
+    session: {
+      create: {
+        after: async (session) => {
+          logger.info("auth:login", {
+            userId: session.userId,
+            sessionId: session.id,
+          });
+        },
+      },
+      delete: {
+        after: async (session) => {
+          logger.info("auth:logout", {
+            userId: session.userId,
+            sessionId: session.id,
+          });
+        },
+      },
+    },
+  },
+  hooks: {
+    after: async (ctx) => {
+      const url = (ctx as { request?: { url?: string } }).request?.url ?? "";
+      const isSignIn =
+        url.includes("/sign-in/email") || url.includes("/sign-in");
+      if (!isSignIn) return;
+      const authCtx = (ctx as { context?: { returned?: unknown } }).context;
+      const returned = authCtx?.returned;
+      if (
+        returned &&
+        typeof returned === "object" &&
+        "error" in (returned as Record<string, unknown>)
+      ) {
+        const r = returned as Record<string, unknown>;
+        logger.warn("auth:login-failure", {
+          error: r.error,
+          code: r.code,
+        });
+      }
     },
   },
   plugins: [
@@ -58,6 +100,11 @@ export const auth = betterAuth({
               },
             }),
           ]);
+          logger.info("auth:invite-accepted", {
+            userId: user.id,
+            email: user.email,
+            invitationId: invitation.id,
+          });
         },
       },
     }),
