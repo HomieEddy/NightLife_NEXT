@@ -17,13 +17,11 @@ async function livePOST(request: NextRequest, { params }: { params: Promise<{ ta
   const { getDb, getRawPrisma } = await import("@/features/shared/db");
   const { validatePinAndSeat } = await import("@/features/hospitality/reservation-core");
   const { zValidatePinInput } = await import("@/features/hospitality/reservation-schemas");
-  const { checkRateLimit } = await import("@/features/shared/rate-limit");
+  const { checkRateLimit, getClientIp } = await import("@/features/shared/rate-limit");
 
   const { tableId } = await params;
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    ?? request.headers.get("x-real-ip")
-    ?? "unknown";
+  const ip = getClientIp(request);
 
   const rl = checkRateLimit(`resv-pin:${tableId}:${ip}`, {
     maxTokens: 5,
