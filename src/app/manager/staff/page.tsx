@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CalendarDays, Pencil, ShieldCheck, ShieldPlus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -38,14 +39,15 @@ import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import type { StaffAccountStatus, StaffMember, StaffRole } from "@/lib/types";
 
-const ACCOUNT_BADGE: Record<StaffAccountStatus, { label: string; className: string } | null> = {
-  active: null,
-  invited: { label: "Invited", className: "border-cyan-500/40 text-cyan-600 dark:text-cyan-400" },
-  suspended: { label: "Suspended", className: "border-red-500/40 text-red-600 dark:text-red-400" },
-};
-
 function StaffContent() {
+  const t = useTranslations("manager.staff");
   const searchParams = useSearchParams();
+
+  const ACCOUNT_BADGE: Record<StaffAccountStatus, { label: string; className: string } | null> = {
+    active: null,
+    invited: { label: t("invited"), className: "border-cyan-500/40 text-cyan-600 dark:text-cyan-400" },
+    suspended: { label: t("suspended"), className: "border-red-500/40 text-red-600 dark:text-red-400" },
+  };
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
@@ -84,7 +86,7 @@ function StaffContent() {
   const removeMutation = useMutation({
     mutationFn: (member: StaffMember) => staffService.removeStaff(member.id),
     onSuccess: (_, member) => {
-      toast.info(`${member.name} removed`);
+      toast.info(t("removed", { name: member.name }));
       invalidateStaff();
     },
   });
@@ -108,16 +110,16 @@ function StaffContent() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Staff"
-        description={staff ? `${visible.length} team members · ${onShift} on shift` : "Loading…"}
-        breadcrumbs={[{ label: "Team", href: "/manager/staff" }, { label: "Staff" }]}
+        title={t("title")}
+        description={staff ? t("teamCount", { visible: visible.length, onShift }) : t("loading")}
+        breadcrumbs={[{ label: t("team"), href: "/manager/staff" }, { label: t("title") }]}
       />
 
       <div className="flex flex-wrap items-center gap-3">
         <SearchInput
           value={query}
           onChange={setQuery}
-          placeholder="Search staff…"
+          placeholder={t("searchPlaceholder")}
           className="w-full sm:w-56"
         />
         <div className="flex flex-wrap gap-1.5">
@@ -133,7 +135,7 @@ function StaffContent() {
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {r === "all" ? "All roles" : r}
+              {r === "all" ? t("allRoles") : r}
             </button>
           ))}
         </div>
@@ -142,16 +144,16 @@ function StaffContent() {
       <Tabs defaultValue="team">
         <TabsList>
           <TabsTrigger value="team">
-            <Users className="size-3.5" /> Team
+            <Users className="size-3.5" /> {t("team")}
           </TabsTrigger>
           <TabsTrigger value="schedule">
-            <CalendarDays className="size-3.5" /> Schedule
+            <CalendarDays className="size-3.5" /> {t("schedule")}
           </TabsTrigger>
           <TabsTrigger value="roles">
-            <ShieldCheck className="size-3.5" /> Roles &amp; Access
+            <ShieldCheck className="size-3.5" /> {t("rolesAccess")}
           </TabsTrigger>
           <TabsTrigger value="certifications">
-            <ShieldPlus className="size-3.5" /> Certifications
+            <ShieldPlus className="size-3.5" /> {t("certifications")}
           </TabsTrigger>
         </TabsList>
 
@@ -161,8 +163,8 @@ function StaffContent() {
           ) : visible.length === 0 ? (
             <EmptyState
               icon={Users}
-              title={zoneFilter === "all" ? "No staff yet" : "No staff assigned to this zone"}
-              description={zoneFilter === "all" ? "Add your first team member to get started." : "Assign staff to this zone, or switch the zone filter to see everyone."}
+              title={zoneFilter === "all" ? t("noStaff") : t("noStaffZone")}
+              description={zoneFilter === "all" ? t("noStaffDesc") : t("noStaffZoneDesc")}
             />
           ) : (
             <>
@@ -203,7 +205,7 @@ function StaffContent() {
                               ))}
                             </div>
                           ) : (
-                            <p className="truncate text-xs text-muted-foreground">No zone assigned</p>
+                            <p className="truncate text-xs text-muted-foreground">{t("noZone")}</p>
                           )}
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
@@ -211,19 +213,11 @@ function StaffContent() {
                             {isDemoMode() ? (
                               <ConfirmDialog
                                 trigger={
-                                  <Switch checked={member.isOnShift} aria-label="Toggle shift" />
+                                  <Switch checked={member.isOnShift} aria-label={t(member.isOnShift ? "clockOutConfirm" : "clockInConfirm")} />
                                 }
-                                title={
-                                  member.isOnShift
-                                    ? `Clock ${member.name} out?`
-                                    : `Clock ${member.name} in?`
-                                }
-                                description={
-                                  member.isOnShift
-                                    ? "They stop receiving orders from their zones."
-                                    : "They start receiving orders from their assigned zones."
-                                }
-                                confirmLabel={member.isOnShift ? "Clock out" : "Clock in"}
+                                title={member.isOnShift ? t("clockOut", { name: member.name }) : t("clockIn", { name: member.name })}
+                                description={member.isOnShift ? t("clockOutDesc") : t("clockInDesc")}
+                                confirmLabel={member.isOnShift ? t("clockOutConfirm") : t("clockInConfirm")}
                                 onConfirm={() => shiftMutation.mutate(member)}
                               />
                             ) : (
@@ -232,12 +226,12 @@ function StaffContent() {
                               />
                             )}
                             <span className="text-[10px] text-muted-foreground">
-                              {member.isOnShift ? "On shift" : "Off"}
+                              {member.isOnShift ? t("onShift") : t("off")}
                             </span>
                           </div>
                           <TooltipIconButton
                             variant="ghost"
-                            tooltip="Edit staff"
+                            tooltip={t("editStaff")}
                             onClick={() => {
                               setEditing(member);
                               setDialogOpen(true);
@@ -251,14 +245,14 @@ function StaffContent() {
                                 variant="ghost"
                                 size="icon"
                                 className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                                aria-label="Remove"
+                                aria-label={t("remove")}
                               >
                                 <Trash2 className="size-4" />
                               </Button>
                             }
-                            title={`Remove ${member.name}?`}
-                            description="They will lose access to the staff panel and be removed from the schedule."
-                            confirmLabel="Remove"
+                            title={t("removeTitle", { name: member.name })}
+                            description={t("removeDesc")}
+                            confirmLabel={t("removeConfirm")}
                             destructive
                             onConfirm={() => removeMutation.mutate(member)}
                           />
