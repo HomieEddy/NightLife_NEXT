@@ -33,6 +33,9 @@ interface PersonMatch {
   incidents: string[];
   admissions: string[];
   notificationLogs: number;
+  /** The normalised email/phone the logs were matched by — used to scope the
+   *  recipient truncation to this subject only. */
+  notificationRecipient?: string;
   waitlist: string[];
   eventGuests: string[];
   staffProfiles: string[];
@@ -101,6 +104,7 @@ async function locateByEmail(prisma: PrismaClient, email: string): Promise<Perso
   match.notificationLogs = await prisma.notificationLog.count({
     where: { recipient: normalised },
   });
+  match.notificationRecipient = normalised;
 
   const users = await prisma.user.findMany({
     where: { email: normalised },
@@ -140,6 +144,7 @@ async function locateByPhone(prisma: PrismaClient, phone: string): Promise<Perso
   match.notificationLogs = await prisma.notificationLog.count({
     where: { recipient: normalised },
   });
+  match.notificationRecipient = normalised;
 
   return match;
 }
@@ -242,10 +247,11 @@ async function eraseGuestData(prisma: PrismaClient, match: PersonMatch): Promise
     actions.push(`Deleted ${result.count} event guest records`);
   }
 
-  // 8. Truncate notification log recipients
-  if (match.notificationLogs > 0) {
+  // 8. Truncate notification log recipients — scoped to THIS subject's
+  //    recipient value only, never every tenant's logs.
+  if (match.notificationLogs > 0 && match.notificationRecipient) {
     const result = await prisma.notificationLog.updateMany({
-      where: { recipient: { not: "" } },
+      where: { recipient: match.notificationRecipient },
       data: { recipient: "" },
     });
     actions.push(`Truncated recipient in ${result.count} notification logs`);
