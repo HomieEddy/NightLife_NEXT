@@ -5,14 +5,14 @@
  *   rejections, "not found" — these are UX, not leakage).
  * - 5xx: the caller's message and detail are logged, but the response body
  *   always reads "Internal server error" — never leaks stack traces or DB
- *   internals. Plan 32 adds a request id header to 5xx responses.
+ *   internals. The proxy stamps `x-request-id` on every response, so a 5xx
+ *   body maps to its access-log line.
  * - 429: includes a `Retry-After` header when `retryAfterSec` is provided.
  */
 
 import { NextResponse } from "next/server";
 import type { ZodError } from "zod";
 import { logger } from "@/features/shared/logger";
-import { getRequestId } from "@/features/shared/request-id";
 
 interface ApiErrorOpts {
   /** Logged for 5xx; ignored for 4xx. */
@@ -26,13 +26,11 @@ export function apiError(
   message: string,
   opts?: ApiErrorOpts,
 ): NextResponse<{ error: string }> {
-  const requestId = getRequestId();
   const headers: Record<string, string> = {};
-  if (requestId) headers["x-request-id"] = requestId;
   if (opts?.headers) Object.assign(headers, opts.headers);
 
   if (status >= 500) {
-    logger.error(message, { detail: opts?.detail, requestId });
+    logger.error(message, { detail: opts?.detail });
     return NextResponse.json(
       { error: "Internal server error" },
       { status, headers },
