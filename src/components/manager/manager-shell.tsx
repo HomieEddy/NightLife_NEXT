@@ -49,6 +49,7 @@ import {
 
 export function ManagerShell({ children }: { children: React.ReactNode }) {
   const t = useTranslations("manager.shell");
+  const nt = useTranslations("shared");
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
@@ -210,7 +211,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
   }
 
   function navItemLink(
-    item: { href: string; label: string; icon: React.ComponentType<{ className?: string }> },
+    item: { href: string; label: string; labelKey?: string; icon: React.ComponentType<{ className?: string }> },
     badge?: number,
     extraClasses?: string,
     onClick?: () => void,
@@ -231,7 +232,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <item.icon className="size-4" />
-        <span className="flex-1">{item.label}</span>
+        <span className="flex-1">{nt(item.labelKey as any ?? item.label)}</span>
         {badge !== undefined && badge > 0 && (
           <span className="flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
             {badge > 9 ? "9+" : badge}
@@ -254,7 +255,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                 onClick={() => toggleCollapsed(group.label)}
               >
                 <ChevronDown className={cn("size-3 transition-transform", collapsed_ && "-rotate-90")} />
-                {group.label}
+                {nt(group.labelKey as any ?? group.label)}
               </button>
               {!collapsed_ && (
                 <div className="space-y-0.5">
@@ -285,7 +286,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <item.icon className="size-3.5" />
-            {item.label}
+            {nt(item.labelKey as any ?? item.label)}
           </Link>
         ))}
         <div className="mt-2 text-[11px] text-muted-foreground">
@@ -298,9 +299,9 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
 
   // Mobile bottom nav primaries
   const mobilePrimaries = [
-    { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/manager/orders", label: "Orders", icon: Receipt, badge: badgeCounts.orders },
-    { href: "/manager/floor-map", label: "Floor map", icon: Map },
+    { href: "/manager", label: "Dashboard", labelKey: "nav.items.dashboard", icon: LayoutDashboard },
+    { href: "/manager/orders", label: "Orders", labelKey: "nav.items.orders", icon: Receipt, badge: badgeCounts.orders },
+    { href: "/manager/floor-map", label: "Floor map", labelKey: "nav.items.floorMap", icon: Map },
   ];
 
   return (
@@ -418,7 +419,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                       {item.badge > 9 ? "9+" : item.badge}
                     </span>
                   )}
-                  <span className="truncate max-w-[64px]">{item.label}</span>
+                  <span className="truncate max-w-[64px]">{nt(item.labelKey as any ?? item.label)}</span>
                 </Link>
               );
             })}

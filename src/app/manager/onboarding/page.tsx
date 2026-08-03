@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, ArrowRight, Building2, Check, Loader2, Map, Martini, PartyPopper, Plus, Trash2, UserRound,
@@ -30,13 +31,6 @@ import { ZONE_SWATCH } from "@/features/shared/zone-colors";
 import { cn } from "@/features/shared/utils";
 import type { MenuCategory, ServiceFee, StaffMember, Venue, VenueTable, Zone } from "@/lib/types";
 
-const STEPS = [
-  { id: "venue", label: "Venue", icon: Building2 },
-  { id: "floor", label: "Floor", icon: Map },
-  { id: "menu", label: "Menu & fees", icon: Martini },
-  { id: "profile", label: "You & launch", icon: UserRound },
-] as const;
-
 const TIMEZONES = ["Europe/Paris", "Europe/London", "Europe/Berlin", "America/Montreal", "America/New_York"];
 
 interface ZoneDraft {
@@ -47,7 +41,14 @@ interface ZoneDraft {
 }
 
 export default function ManagerOnboardingPage() {
+  const t = useTranslations("manager.onboarding");
   const router = useRouter();
+  const STEPS = [
+    { id: "venue", label: t("steps.venue"), icon: Building2 },
+    { id: "floor", label: t("steps.floor"), icon: Map },
+    { id: "menu", label: t("steps.menuFees"), icon: Martini },
+    { id: "profile", label: t("steps.profile"), icon: UserRound },
+  ] as const;
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const [step, setStep] = useState(0);
@@ -172,7 +173,7 @@ export default function ManagerOnboardingPage() {
     }
     setManagerOnboarded(true);
     setLaunching(false);
-    toast.success(`${venueDraft.name} is set up — welcome to your dashboard!`, {
+    toast.success(t("toast.launched", { venueName: venueDraft.name }), {
       icon: <PartyPopper className="size-4" />,
     });
     router.replace("/manager");
@@ -186,7 +187,7 @@ export default function ManagerOnboardingPage() {
   if (!loaded || !venueDraft) {
     return (
       <div className="mx-auto max-w-3xl space-y-4">
-        <PageHeader title="Welcome to NightLifeNext" description="Loading your venue…" />
+        <PageHeader title={t("skeletonTitle")} description={t("skeletonDesc")} />
         <Skeleton className="h-80 rounded-xl" />
       </div>
     );
@@ -195,11 +196,11 @@ export default function ManagerOnboardingPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
-        title={`Welcome, let's set up ${venueDraft.name}`}
-        description="Everything is prefilled from your signup — review, tweak and launch."
+        title={t("welcomeTitle", { venueName: venueDraft.name })}
+        description={t("welcomeDesc")}
         actions={
           <Button variant="ghost" size="sm" onClick={skip}>
-            Skip for now
+            {t("skipForNow")}
           </Button>
         }
       />
@@ -233,7 +234,7 @@ export default function ManagerOnboardingPage() {
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="mb-name">Venue name *</Label>
+                  <Label htmlFor="mb-name">{t("venue.name")}</Label>
                   <Input
                     id="mb-name"
                     value={venueDraft.name}
@@ -241,7 +242,7 @@ export default function ManagerOnboardingPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="mb-city">City *</Label>
+                  <Label htmlFor="mb-city">{t("venue.city")}</Label>
                   <Input
                     id="mb-city"
                     value={venueDraft.city}
@@ -250,7 +251,7 @@ export default function ManagerOnboardingPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="mb-address">Address</Label>
+                <Label htmlFor="mb-address">{t("venue.address")}</Label>
                 <Input
                   id="mb-address"
                   value={venueDraft.address}
@@ -259,7 +260,7 @@ export default function ManagerOnboardingPage() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Timezone</Label>
+                  <Label>{t("venue.timezone")}</Label>
                   <Select
                     value={venueDraft.timezone}
                     onValueChange={(timezone) => setVenueDraft({ ...venueDraft, timezone })}
@@ -277,16 +278,16 @@ export default function ManagerOnboardingPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Currency</Label>
+                  <Label>{t("venue.currency")}</Label>
                   <Input value={venueDraft.currency} disabled />
-                  <p className="text-xs text-muted-foreground">Set by your subscription contract.</p>
+                  <p className="text-xs text-muted-foreground">{t("venue.currencyNote")}</p>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div>
-                  <p className="text-sm font-medium">Auto-approve guests</p>
+                  <p className="text-sm font-medium">{t("venue.autoApprove")}</p>
                   <p className="text-xs text-muted-foreground">
-                    Skip host approval — guests order the moment they scan.
+                    {t("venue.autoApproveDesc")}
                   </p>
                 </div>
                 <Switch
@@ -301,8 +302,7 @@ export default function ManagerOnboardingPage() {
           {step === 1 && (
             <>
               <p className="text-sm text-muted-foreground">
-                Your zones, seeded from signup. Rename or recolor them — tables and the floor map
-                are fine-tuned later on their own pages.
+                {t("floor.description")}
               </p>
               <div className="space-y-2">
                 {zones.map((zone) => (
@@ -311,7 +311,7 @@ export default function ManagerOnboardingPage() {
                       value={zone.name}
                       onChange={(e) => patchZone(zone.id, { name: e.target.value })}
                       className="w-40 flex-1"
-                      aria-label="Zone name"
+                      aria-label={t("floor.zoneName")}
                     />
                     <div className="flex gap-1">
                       {Object.keys(ZONE_SWATCH).map((color) => (
@@ -331,7 +331,7 @@ export default function ManagerOnboardingPage() {
                       ))}
                     </div>
                     <span className="text-xs tabular-nums text-muted-foreground">
-                      {zone.tableCount} tables
+                      {t("floor.tables", { count: zone.tableCount })}
                     </span>
                   </div>
                 ))}
@@ -343,7 +343,7 @@ export default function ManagerOnboardingPage() {
           {step === 2 && (
             <>
               <div className="space-y-1.5">
-                <Label>Active menu categories</Label>
+                <Label>{t("menu.activeCategories")}</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {categories.map((cat) => (
                     <button
@@ -362,13 +362,13 @@ export default function ManagerOnboardingPage() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Hidden categories keep their bottles but disappear from the guest menu.
+                  {t("menu.hiddenDesc")}
                 </p>
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label>Fees & taxes</Label>
+                  <Label>{t("menu.feesTaxes")}</Label>
                   <Button
                     variant="outline"
                     size="sm"
@@ -379,14 +379,14 @@ export default function ManagerOnboardingPage() {
                       ])
                     }
                   >
-                    <Plus className="size-3.5" /> Add fee
+                    <Plus className="size-3.5" /> {t("menu.addFee")}
                   </Button>
                 </div>
                 <div className="space-y-2">
                   {fees.map((fee) => (
                     <div key={fee.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2.5">
                       <Input
-                        placeholder="Name (e.g. TVQ)"
+                        placeholder={t("menu.namePlaceholder")}
                         value={fee.name}
                         onChange={(e) =>
                           setFees(fees.map((f) => (f.id === fee.id ? { ...f, name: e.target.value } : f)))
@@ -408,7 +408,7 @@ export default function ManagerOnboardingPage() {
                                 : "text-muted-foreground hover:text-foreground",
                             )}
                           >
-                            {type === "percentage" ? "%" : "$ flat"}
+                            {type === "percentage" ? "%" : t("menu.flatFee")}
                           </button>
                         ))}
                       </div>
@@ -425,11 +425,11 @@ export default function ManagerOnboardingPage() {
                           )
                         }
                         className="w-24 tabular-nums"
-                        aria-label="Fee value"
+                        aria-label={t("menu.feeValue")}
                       />
                       <TooltipIconButton
                         variant="ghost"
-                        tooltip="Remove fee"
+                        tooltip={t("menu.removeFee")}
                         className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                         onClick={() => setFees(fees.filter((f) => f.id !== fee.id))}
                       >
@@ -447,7 +447,7 @@ export default function ManagerOnboardingPage() {
             <>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="mb-mgr-name">Your name *</Label>
+                  <Label htmlFor="mb-mgr-name">{t("profile.yourName")}</Label>
                   <Input
                     id="mb-mgr-name"
                     value={me.name}
@@ -455,7 +455,7 @@ export default function ManagerOnboardingPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="mb-mgr-email">Your email *</Label>
+                  <Label htmlFor="mb-mgr-email">{t("profile.yourEmail")}</Label>
                   <Input
                     id="mb-mgr-email"
                     type="email"
@@ -466,29 +466,29 @@ export default function ManagerOnboardingPage() {
               </div>
 
               <div className="space-y-2 rounded-lg border p-4 text-sm">
-                <p className="font-medium">Review</p>
+                <p className="font-medium">{t("profile.review")}</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                  <p className="text-muted-foreground">Venue</p>
+                  <p className="text-muted-foreground">{t("profile.venueLabel")}</p>
                   <p>{venueDraft.name} · {venueDraft.city}</p>
-                  <p className="text-muted-foreground">Locale</p>
+                  <p className="text-muted-foreground">{t("profile.localeLabel")}</p>
                   <p>{venueDraft.timezone} · {venueDraft.currency}</p>
-                  <p className="text-muted-foreground">Floor</p>
+                  <p className="text-muted-foreground">{t("profile.floorLabel")}</p>
                   <p>
-                    {zones.length} zones · {zones.reduce((s, z) => s + z.tableCount, 0)} tables
+                    {t("profile.zonesTables", { zones: zones.length, tables: zones.reduce((s, z) => s + z.tableCount, 0) })}
                   </p>
-                  <p className="text-muted-foreground">Menu</p>
+                  <p className="text-muted-foreground">{t("profile.menuLabel")}</p>
                   <p>{categories.filter((c) => c.isActive).map((c) => c.name).join(", ")}</p>
-                  <p className="text-muted-foreground">Fees</p>
+                  <p className="text-muted-foreground">{t("profile.feesLabel")}</p>
                   <p>
                     {fees.filter((f) => f.name.trim()).length === 0
-                      ? "None"
+                      ? t("profile.none")
                       : fees
                           .filter((f) => f.name.trim())
                           .map((f) => `${f.name} ${f.type === "flat" ? `$${f.value}` : `${f.value}%`}`)
                           .join(" + ")}
                   </p>
-                  <p className="text-muted-foreground">Guests</p>
-                  <p>{venueDraft.autoApproveGuests ? "Auto-approved on scan" : "Host approves each table"}</p>
+                  <p className="text-muted-foreground">{t("profile.guestsLabel")}</p>
+                  <p>{venueDraft.autoApproveGuests ? t("profile.autoApproved") : t("profile.hostApproves")}</p>
                 </div>
               </div>
             </>
@@ -499,16 +499,16 @@ export default function ManagerOnboardingPage() {
       {/* ---------- Navigation ---------- */}
       <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={() => setStep(step - 1)} disabled={step === 0 || launching}>
-          <ArrowLeft className="size-4" /> Back
+          <ArrowLeft className="size-4" /> {t("nav.back")}
         </Button>
         {step < STEPS.length - 1 ? (
           <Button onClick={() => setStep(step + 1)} disabled={!stepValid}>
-            Continue <ArrowRight className="size-4" />
+            {t("nav.continue")} <ArrowRight className="size-4" />
           </Button>
         ) : (
           <Button onClick={launch} disabled={!stepValid || launching} className="glow-primary">
             {launching ? <Loader2 className="size-4 animate-spin" /> : <PartyPopper className="size-4" />}
-            {launching ? "Applying setup…" : "Finish setup"}
+            {launching ? t("nav.applying") : t("nav.finish")}
           </Button>
         )}
       </div>

@@ -55,6 +55,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
+import { useTranslations } from "next-intl";
 import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -64,6 +65,7 @@ import { menuKeys } from "@/features/menu/query-keys";
 import { inventoryKeys } from "@/features/inventory/query-keys";
 import { useAuth } from "@/context/auth-context";
 import { formatMoney, timeAgo } from "@/features/shared/format";
+import { z } from "zod";
 import { cn } from "@/features/shared/utils";
 import type { BottleIconKey, MenuCategory, MenuItem, StockMovement } from "@/lib/types";
 
@@ -80,36 +82,15 @@ const ICON_OPTIONS: { key: BottleIconKey; label: string }[] = [
 
 const MOVEMENT_META: Record<
   StockMovement["type"],
-  { label: string; className: string }
+  { labelKey: string; className: string }
 > = {
-  restock: { label: "Restock", className: "text-emerald-600 dark:text-emerald-400" },
-  sale: { label: "Sale", className: "text-muted-foreground" },
-  adjustment: { label: "Adjustment", className: "text-amber-600 dark:text-amber-400" },
-  waste: { label: "Waste", className: "text-red-600 dark:text-red-400" },
-  transfer: { label: "Transfer", className: "text-blue-600 dark:text-blue-400" },
-  return: { label: "Return", className: "text-orange-600 dark:text-orange-400" },
+  restock: { labelKey: "movementLabels.restock", className: "text-emerald-600 dark:text-emerald-400" },
+  sale: { labelKey: "movementLabels.sale", className: "text-muted-foreground" },
+  adjustment: { labelKey: "movementLabels.adjustment", className: "text-amber-600 dark:text-amber-400" },
+  waste: { labelKey: "movementLabels.waste", className: "text-red-600 dark:text-red-400" },
+  transfer: { labelKey: "movementLabels.transfer", className: "text-blue-600 dark:text-blue-400" },
+  return: { labelKey: "movementLabels.return", className: "text-orange-600 dark:text-orange-400" },
 };
-
-import { z } from "zod";
-
-const zItemForm = z.object({
-  name: z.string().min(1, "Name is required"),
-  description: z.string().default(""),
-  categoryId: z.string().min(1, "Category is required"),
-  icon: z.string().min(1, "Icon is required"),
-  price: z.number().positive("Price must be positive"),
-  initialStock: z.number().int().nonnegative().default(0),
-});
-
-const zAdjustForm = z.object({
-  count: z.string().min(1, "Count is required"),
-  note: z.string().default(""),
-});
-
-const zWasteForm = z.object({
-  quantity: z.string().min(1, "Quantity is required"),
-  reason: z.string().min(1, "Reason is required"),
-});
 
 export default function ManagerInventoryPage() {
   return (
@@ -120,6 +101,7 @@ export default function ManagerInventoryPage() {
 }
 
 function InventoryPageContent() {
+  const t = useTranslations("manager.inventory");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
@@ -133,6 +115,25 @@ function InventoryPageContent() {
 
   // Waste dialog
   const [wasteItem, setWasteItem] = useState<MenuItem | null>(null);
+
+  const zItemForm = z.object({
+    name: z.string().min(1, t("validation.nameRequired")),
+    description: z.string().default(""),
+    categoryId: z.string().min(1, t("validation.categoryRequired")),
+    icon: z.string().min(1, t("validation.iconRequired")),
+    price: z.number().positive(t("validation.pricePositive")),
+    initialStock: z.number().int().nonnegative().default(0),
+  });
+
+  const zAdjustForm = z.object({
+    count: z.string().min(1, t("validation.countRequired")),
+    note: z.string().default(""),
+  });
+
+  const zWasteForm = z.object({
+    quantity: z.string().min(1, t("validation.quantityRequired")),
+    reason: z.string().min(1, t("validation.reasonRequired")),
+  });
 
   const itemForm = useForm({
     resolver: zodResolver(zItemForm),
@@ -181,12 +182,12 @@ function InventoryPageContent() {
       return { count, name: adjusting.name };
     },
     onSuccess: ({ count, name }) => {
-      toast.success(`${name} set to ${count}`);
+      toast.success(t("toast.adjustedTo", { name, count }));
       setAdjusting(null);
       adjustForm.reset();
       invalidateAll();
     },
-    onError: () => toast.error("Could not adjust inventory"),
+    onError: () => toast.error(t("toast.adjustError")),
   });
 
   const saveMutation = useMutation({
@@ -199,7 +200,7 @@ function InventoryPageContent() {
           icon: data.icon as BottleIconKey,
           price: data.price,
         });
-        return `${data.name.trim()} updated`;
+        return t("toast.updated", { name: data.name.trim() });
       } else {
         await menuService.createItem({
           name: data.name.trim(),
@@ -213,7 +214,7 @@ function InventoryPageContent() {
           isAlcoholic: true,
           allergens: [],
         });
-        return `${data.name.trim()} added to inventory`;
+        return t("toast.added", { name: data.name.trim() });
       }
     },
     onSuccess: (message) => {
@@ -221,13 +222,13 @@ function InventoryPageContent() {
       setFormOpen(false);
       invalidateItems();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("toast.saveFailed")),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (item: MenuItem) => menuService.deleteItem(item.id),
     onSuccess: (_, item) => {
-      toast.info(`${item.name} removed from inventory`);
+      toast.info(t("toast.removed", { name: item.name }));
       invalidateItems();
     },
   });
@@ -239,22 +240,22 @@ function InventoryPageContent() {
       return { quantity: data.quantity, name: wasteItem.name, reason: data.reason };
     },
     onSuccess: ({ quantity, name, reason }) => {
-      toast.info(`${quantity} × ${name} recorded as waste (${reason})`);
+      toast.info(t("toast.wasted", { quantity, name, reason }));
       setWasteItem(null);
       wasteForm.reset();
       invalidateAll();
     },
-    onError: () => toast.error("Could not record waste"),
+    onError: () => toast.error(t("toast.wasteError")),
   });
 
   const eightySixMutation = useMutation({
     mutationFn: (item: MenuItem) =>
       purchasingService.eightySixItem(item.id, "Manual 86 from inventory", "staff-amara"),
     onSuccess: (_, item) => {
-      toast.info(`${item.name} marked as sold out`);
+      toast.info(t("toast.marked86d", { name: item.name }));
       invalidateAll();
     },
-    onError: () => toast.error("Could not mark as 86"),
+    onError: () => toast.error(t("toast.eightysixError")),
   });
 
   const visible = useMemo(() => {
@@ -309,18 +310,18 @@ function InventoryPageContent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Inventory"
-        description="Stock levels and adjustments — restocking is handled via Purchasing."
-        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Inventory" }]}
+        title={t("title")}
+        description={t("description")}
+        breadcrumbs={[{ label: t("breadcrumbCatalogue"), href: "/manager/menu" }, { label: t("breadcrumbInventory") }]}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" asChild>
               <Link href="/manager/purchasing">
-                <ShoppingCart className="size-4" /> Order stock
+                <ShoppingCart className="size-4" /> {t("orderStock")}
               </Link>
             </Button>
             <Button onClick={openCreate}>
-              <Plus className="size-4" /> Add bottle
+              <Plus className="size-4" /> {t("addBottle")}
             </Button>
           </div>
         }
@@ -331,17 +332,17 @@ function InventoryPageContent() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricCard label="Bottles in stock" value={String(totals.bottlesInStock)} icon={Boxes} />
-            <MetricCard label="Stock value" value={formatMoney(totals.stockValue)} icon={TrendingUp} hint="At menu prices" />
-            <MetricCard label="Low stock" value={String(totals.lowStock)} icon={AlertTriangle} hint="5 or fewer left" />
-            <MetricCard label="Sold out" value={String(totals.soldOut)} icon={TrendingDown} />
+            <MetricCard label={t("metrics.bottlesInStock")} value={String(totals.bottlesInStock)} icon={Boxes} />
+            <MetricCard label={t("metrics.stockValue")} value={formatMoney(totals.stockValue)} icon={TrendingUp} hint={t("metrics.stockValueHint")} />
+            <MetricCard label={t("metrics.lowStock")} value={String(totals.lowStock)} icon={AlertTriangle} hint={t("metrics.lowStockHint")} />
+            <MetricCard label={t("metrics.soldOut")} value={String(totals.soldOut)} icon={TrendingDown} />
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search bottles…"
+                placeholder={t("searchPlaceholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="pl-9"
@@ -352,7 +353,7 @@ function InventoryPageContent() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
+                <SelectItem value="all">{t("allCategories")}</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.name}
@@ -365,8 +366,8 @@ function InventoryPageContent() {
           {visible.length === 0 ? (
             <EmptyState
               icon={Boxes}
-              title="No bottles match"
-              description="Try a different search or category, or add a new bottle."
+              title={t("emptyTitle")}
+              description={t("emptyDesc")}
             />
           ) : (
             <>
@@ -394,23 +395,23 @@ function InventoryPageContent() {
                         low && "border-amber-500/40 text-amber-600 dark:text-amber-400",
                       )}
                     >
-                      {soldOut ? "Sold out" : `${item.inventory} left`}
+                      {soldOut ? t("soldOutBadge") : t("leftBadge", { count: item.inventory })}
                     </Badge>
                     <Button size="sm" variant="outline" className="shrink-0" asChild>
                       <Link href="/manager/purchasing">
                         <ShoppingCart className="size-3.5" />
-                        <span className="hidden sm:inline ml-1">Order</span>
+                        <span className="hidden sm:inline ml-1">{t("orderButton")}</span>
                       </Link>
                     </Button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="shrink-0" aria-label="More actions">
+                        <Button variant="ghost" size="icon" className="shrink-0" aria-label={t("moreActionsAria")}>
                           <MoreVertical className="size-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => openEdit(item)}>
-                          <Pencil className="size-4" /> Edit details
+                          <Pencil className="size-4" /> {t("editDetails")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
@@ -418,7 +419,7 @@ function InventoryPageContent() {
                             adjustForm.reset({ count: "", note: "" });
                           }}
                         >
-                          <SlidersHorizontal className="size-4" /> Adjust count
+                          <SlidersHorizontal className="size-4" /> {t("adjustCount")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
@@ -426,12 +427,12 @@ function InventoryPageContent() {
                             wasteForm.reset({ quantity: "", reason: "spill" });
                           }}
                         >
-                          <Trash2 className="size-4" /> Record waste
+                          <Trash2 className="size-4" /> {t("recordWaste")}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => eightySixMutation.mutate(item)}
                         >
-                          <AlertTriangle className="size-4" /> Mark 86'd
+                          <AlertTriangle className="size-4" /> {t("mark86d")}
                         </DropdownMenuItem>
                         <ConfirmDialog
                           trigger={
@@ -439,12 +440,12 @@ function InventoryPageContent() {
                               variant="destructive"
                               onSelect={(e) => e.preventDefault()}
                             >
-                              <Trash2 className="size-4" /> Delete bottle
+                              <Trash2 className="size-4" /> {t("deleteBottle")}
                             </DropdownMenuItem>
                           }
-                          title={`Delete ${item.name}?`}
-                          description="Removes it from inventory and the guest menu. Packages using it will show as out of stock."
-                          confirmLabel="Delete"
+                          title={t("delete.title", { name: item.name })}
+                          description={t("delete.desc")}
+                          confirmLabel={t("delete.confirm")}
                           destructive
                           onConfirm={() => deleteMutation.mutate(item)}
                         />
@@ -462,12 +463,12 @@ function InventoryPageContent() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <History className="size-4 text-primary" /> Recent stock movements
+                <History className="size-4 text-primary" /> {t("recentMovements")}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {movements.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No movements recorded yet.</p>
+                <p className="text-sm text-muted-foreground">{t("noMovements")}</p>
               ) : (
                 <ul className="space-y-2">
                   {movements.slice(0, 10).map((move) => {
@@ -480,7 +481,7 @@ function InventoryPageContent() {
                         <div className="min-w-0">
                           <p className="truncate">
                             <span className={cn("font-medium", meta.className)}>
-                              {meta.label}
+                              {t(meta.labelKey)}
                             </span>{" "}
                             · {move.itemName}
                           </p>
@@ -515,15 +516,14 @@ function InventoryPageContent() {
       <Dialog open={adjusting !== null} onOpenChange={(open) => { if (!open) { setAdjusting(null); adjustForm.reset(); }}}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Adjust {adjusting?.name}</DialogTitle>
+            <DialogTitle>{t("adjustTitle", { name: adjusting?.name ?? "" })}</DialogTitle>
             <DialogDescription>
-              For corrections — breakage, comps, recount. Currently {adjusting?.inventory} in
-              stock; the difference is logged as an adjustment.
+              {t("adjustDesc", { count: adjusting?.inventory ?? 0 })}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={adjustForm.handleSubmit((data) => adjustMutation.mutate(data))} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="adjust-count">Actual count</Label>
+              <Label htmlFor="adjust-count">{t("actualCount")}</Label>
               <Input
                 id="adjust-count"
                 type="number"
@@ -533,21 +533,21 @@ function InventoryPageContent() {
               {adjustForm.formState.errors.count && <p className="text-xs text-destructive">{adjustForm.formState.errors.count.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="adjust-note">Reason</Label>
+              <Label htmlFor="adjust-note">{t("reasonLabel")}</Label>
               <Textarea
                 id="adjust-note"
                 rows={2}
-                placeholder="e.g. Two bottles broken during setup"
+                placeholder={t("reasonPlaceholder")}
                 {...adjustForm.register("note")}
               />
             </div>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setAdjusting(null)} disabled={adjustMutation.isPending}>
-                Cancel
+                {t("cancel")}
               </Button>
               <Button type="submit" disabled={adjustMutation.isPending}>
                 {adjustMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                {adjustMutation.isPending ? "Saving…" : "Save count"}
+                {adjustMutation.isPending ? t("saving") : t("saveCount")}
               </Button>
             </DialogFooter>
           </form>
@@ -558,25 +558,25 @@ function InventoryPageContent() {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{formItem ? `Edit ${formItem.name}` : "Add a bottle"}</DialogTitle>
+            <DialogTitle>{formItem ? t("editTitle", { name: formItem.name }) : t("addBottleTitle")}</DialogTitle>
             {formItem && (
               <DialogDescription>
-                Stock changes are handled via Purchasing or the Adjust action, not here.
+                {t("editDesc")}
               </DialogDescription>
             )}
           </DialogHeader>
           <form onSubmit={itemForm.handleSubmit((data) => saveMutation.mutate(data))} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="item-name">Name</Label>
+              <Label htmlFor="item-name">{t("nameLabel")}</Label>
               <Input
                 id="item-name"
-                placeholder="e.g. Veuve Clicquot Brut"
+                placeholder={t("namePlaceholder")}
                 {...itemForm.register("name")}
               />
               {itemForm.formState.errors.name && <p className="text-xs text-destructive">{itemForm.formState.errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="item-desc">Description</Label>
+              <Label htmlFor="item-desc">{t("descriptionLabel")}</Label>
               <Textarea
                 id="item-desc"
                 rows={2}
@@ -585,7 +585,7 @@ function InventoryPageContent() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Category</Label>
+                <Label>{t("categoryLabel")}</Label>
                 <Select
                   value={itemForm.watch("categoryId")}
                   onValueChange={(value) => itemForm.setValue("categoryId", value)}
@@ -604,7 +604,7 @@ function InventoryPageContent() {
                 {itemForm.formState.errors.categoryId && <p className="text-xs text-destructive">{itemForm.formState.errors.categoryId.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>Icon</Label>
+                <Label>{t("iconLabel")}</Label>
                 <Select
                   value={itemForm.watch("icon")}
                   onValueChange={(value) => itemForm.setValue("icon", value)}
@@ -625,7 +625,7 @@ function InventoryPageContent() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="item-price">Price ($ CAD)</Label>
+                <Label htmlFor="item-price">{t("priceLabel")}</Label>
                 <Input
                   id="item-price"
                   type="number"
@@ -637,7 +637,7 @@ function InventoryPageContent() {
               </div>
               {!formItem && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="item-stock">Initial stock</Label>
+                  <Label htmlFor="item-stock">{t("initialStock")}</Label>
                   <Input
                     id="item-stock"
                     type="number"
@@ -649,11 +649,11 @@ function InventoryPageContent() {
             </div>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setFormOpen(false)} disabled={saveMutation.isPending}>
-                Cancel
+                {t("cancel")}
               </Button>
               <Button type="submit" disabled={saveMutation.isPending}>
                 {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                {saveMutation.isPending ? "Saving…" : formItem ? "Save changes" : "Add bottle"}
+                {saveMutation.isPending ? t("saving") : formItem ? t("saveChanges") : t("addBottle")}
               </Button>
             </DialogFooter>
           </form>
@@ -664,14 +664,14 @@ function InventoryPageContent() {
       <Dialog open={wasteItem !== null} onOpenChange={(open) => { if (!open) { setWasteItem(null); wasteForm.reset(); }}}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Record waste: {wasteItem?.name}</DialogTitle>
+            <DialogTitle>{t("wasteTitle", { name: wasteItem?.name ?? "" })}</DialogTitle>
             <DialogDescription>
-              Logs a waste event — shown in the movement log and reported separately from variance.
+              {t("wasteDesc")}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={wasteForm.handleSubmit((data) => wasteMutation.mutate(data))} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="waste-qty">Quantity wasted</Label>
+              <Label htmlFor="waste-qty">{t("quantityWasted")}</Label>
               <Input
                 id="waste-qty"
                 type="number"
@@ -682,24 +682,24 @@ function InventoryPageContent() {
               {wasteForm.formState.errors.quantity && <p className="text-xs text-destructive">{wasteForm.formState.errors.quantity.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="waste-reason">Reason</Label>
+              <Label htmlFor="waste-reason">{t("reasonLabel")}</Label>
               <Select value={wasteForm.watch("reason")} onValueChange={(v) => wasteForm.setValue("reason", v)}>
                 <SelectTrigger id="waste-reason"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="spill">Spill</SelectItem>
-                  <SelectItem value="breakage">Breakage</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                  <SelectItem value="comp-prep">Comp / prep</SelectItem>
-                  <SelectItem value="training">Training</SelectItem>
+                  <SelectItem value="spill">{t("wasteReasons.spill")}</SelectItem>
+                  <SelectItem value="breakage">{t("wasteReasons.breakage")}</SelectItem>
+                  <SelectItem value="expired">{t("wasteReasons.expired")}</SelectItem>
+                  <SelectItem value="comp-prep">{t("wasteReasons.compPrep")}</SelectItem>
+                  <SelectItem value="training">{t("wasteReasons.training")}</SelectItem>
                 </SelectContent>
               </Select>
               {wasteForm.formState.errors.reason && <p className="text-xs text-destructive">{wasteForm.formState.errors.reason.message}</p>}
             </div>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setWasteItem(null)} disabled={wasteMutation.isPending}>Cancel</Button>
+              <Button type="button" variant="ghost" onClick={() => setWasteItem(null)} disabled={wasteMutation.isPending}>{t("cancel")}</Button>
               <Button type="submit" disabled={wasteMutation.isPending}>
                 {wasteMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                {wasteMutation.isPending ? "Saving…" : "Record waste"}
+                {wasteMutation.isPending ? t("saving") : t("recordWasteButton")}
               </Button>
             </DialogFooter>
           </form>

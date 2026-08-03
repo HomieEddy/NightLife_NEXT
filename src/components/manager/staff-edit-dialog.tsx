@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { KeyRound, Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,6 +40,7 @@ export function StaffEditDialog({
   onDone: () => void;
 }) {
   const { user } = useAuth();
+  const t = useTranslations("shared");
   const venueId = user?.venueId ?? "";
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(zStaffInput),
@@ -85,7 +87,7 @@ export function StaffEditDialog({
           ...base,
           accountStatus: data.suspended ? "suspended" : member.accountStatus === "suspended" ? "active" : member.accountStatus,
         });
-        toast.success(`${base.name} updated`);
+        toast.success(t("staffEdit.updatedToast", { name: base.name }));
       } else {
         await staffService.addStaff({
           venueId,
@@ -93,12 +95,12 @@ export function StaffEditDialog({
           accountStatus: "invited",
           isOnShift: false,
         });
-        toast.success(`${base.name} invited to the team`);
+        toast.success(t("staffEdit.invitedToast", { name: base.name }));
       }
       onOpenChange(false);
       onDone();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save the team member.");
+      toast.error(error instanceof Error ? error.message : t("staffEdit.saveError"));
     }
   });
 
@@ -106,10 +108,10 @@ export function StaffEditDialog({
     if (!member) return;
     try {
       await staffService.resendInvite(member.id);
-      toast.success(`Invite resent to ${member.email}`);
+      toast.success(t("staffEdit.resendToast", { email: member.email }));
       onDone();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not resend the invitation.");
+      toast.error(error instanceof Error ? error.message : t("staffEdit.resendError"));
     }
   }
 
@@ -117,22 +119,22 @@ export function StaffEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{member ? `Edit ${member.name}` : "Add a team member"}</DialogTitle>
+          <DialogTitle>{member ? t("staffEdit.editTitle", { name: member.name }) : t("staffEdit.addTitle")}</DialogTitle>
           {!member && (
             <DialogDescription>
-              They&apos;ll get an email invite to set up their staff account.
+              {t("staffEdit.inviteDescription")}
             </DialogDescription>
           )}
         </DialogHeader>
         <form onSubmit={onSave} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="staff-name">Full name</Label>
-              <Input id="staff-name" placeholder="e.g. Marie Dupont" {...register("name")} />
+              <Label htmlFor="staff-name">{t("staffEdit.fullName")}</Label>
+              <Input id="staff-name" placeholder={t("staffEdit.fullNamePlaceholder")} {...register("name")} />
               {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Role</Label>
+                <Label>{t("staffEdit.role")}</Label>
                 <Select value={watch("role")} onValueChange={(v) => setValue("role", v as FormValues["role"])}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
@@ -147,17 +149,17 @@ export function StaffEditDialog({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="staff-phone">Phone</Label>
-                <Input id="staff-phone" placeholder="+33 6 …" {...register("phone")} />
+                <Label htmlFor="staff-phone">{t("staffEdit.phone")}</Label>
+                <Input id="staff-phone" placeholder={t("staffEdit.phonePlaceholder")} {...register("phone")} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="staff-email">Email (login)</Label>
-              <Input id="staff-email" type="email" placeholder="name@venue.club" {...register("email")} />
+              <Label htmlFor="staff-email">{t("staffEdit.emailLogin")}</Label>
+              <Input id="staff-email" type="email" placeholder={t("staffEdit.emailPlaceholder")} {...register("email")} />
               {errors.email && <p className="text-xs text-red-600">{errors.email.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label>Assigned zones</Label>
+              <Label>{t("staffEdit.assignedZones")}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {zones.map((zone) => (
                   <button
@@ -179,32 +181,32 @@ export function StaffEditDialog({
 
             {member && (
               <div className="space-y-3 rounded-lg border p-3">
-                <p className="text-sm font-medium">Account</p>
+                <p className="text-sm font-medium">{t("staffEdit.account")}</p>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm">Suspend access</p>
+                    <p className="text-sm">{t("staffEdit.suspendAccess")}</p>
                     <p className="text-xs text-muted-foreground">
-                      Blocks staff panel sign-in until re-activated.
+                      {t("staffEdit.suspendDescription")}
                     </p>
                   </div>
                   <Switch
                     checked={suspended}
                     onCheckedChange={(v) => setValue("suspended", v)}
-                    aria-label="Suspend account"
+                    aria-label={t("staffEdit.suspendAria")}
                   />
                 </div>
                 <Button variant="outline" size="sm" onClick={resetPin}>
-                  <KeyRound className="size-3.5" /> Reset sign-in PIN
+                  <KeyRound className="size-3.5" /> {t("staffEdit.resetPin")}
                 </Button>
               </div>
             )}
           <DialogFooter>
             <Button variant="ghost" type="button" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-              Cancel
+              {t("staffEdit.cancel")}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-              {isSubmitting ? "Saving…" : member ? "Save" : "Send invite"}
+              {isSubmitting ? t("staffEdit.saving") : member ? t("staffEdit.save") : t("staffEdit.sendInvite")}
             </Button>
           </DialogFooter>
         </form>
