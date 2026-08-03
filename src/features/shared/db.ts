@@ -10,6 +10,13 @@ function createClient(): PrismaClient {
   const adapter = Number.isInteger(configuredMax) && configuredMax > 0
     ? new PrismaPg({ connectionString: env.DATABASE_URL, max: configuredMax })
     : new PrismaPg(env.DATABASE_URL);
+  // ponytail: PrismaPg default is undefined (unlimited). Logging the actual
+  // size so every boot confirms the pool config — silent misconfiguration
+  // (forgot DATABASE_POOL_MAX) is the most common connection-exhaustion cause.
+  const poolSize = Number.isInteger(configuredMax) && configuredMax > 0
+    ? configuredMax
+    : "unlimited (adapter default)";
+  console.log(`[db] Prisma pool max: ${poolSize}`);
   return new PrismaClient({ adapter });
 }
 
