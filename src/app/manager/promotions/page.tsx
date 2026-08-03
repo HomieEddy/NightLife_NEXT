@@ -1,7 +1,7 @@
 "use client";
 
 import { FeatureGate } from "@/components/shared/feature-gate";
-
+import { useTranslations } from "next-intl";
 import { Suspense, useState } from "react";
 import { Loader2, Pencil, Plus, Tag, Trash2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
@@ -60,6 +60,7 @@ const EMPTY_VALUES: FormValues = {
 };
 
 function PromotionsContent() {
+  const t = useTranslations("manager.promotions");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
@@ -106,10 +107,10 @@ function PromotionsContent() {
       };
       if (editingId) {
         await promotionsService.updatePromotion(editingId, payload);
-        return "Promotion updated";
+        return t("updatedToast");
       } else {
         await promotionsService.createPromotion(payload);
-        return "Promotion created";
+        return t("createdToast");
       }
     },
     onSuccess: (message) => {
@@ -117,13 +118,13 @@ function PromotionsContent() {
       setDialogOpen(false);
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("saveFailed")),
   });
 
   const removeMutation = useMutation({
     mutationFn: (p: Promotion) => promotionsService.deletePromotion(p.id),
     onSuccess: (_, p) => {
-      toast.info(`${p.name} deleted`);
+      toast.info(t("deletedToast", { name: p.name }));
       invalidate();
     },
   });
@@ -133,8 +134,8 @@ function PromotionsContent() {
   async function runTestCode() {
     const result = await promotionsService.validateCode(testCode);
     setTestResult(result);
-    if (result) toast.success(`Valid: ${result.name}`);
-    else if (testCode.trim()) toast.error("No active promotion for that code.");
+    if (result) toast.success(t("testValid", { name: result.name }));
+    else if (testCode.trim()) toast.error(t("testNoMatchToast"));
   }
 
   function toggleCat(id: string) {
@@ -169,12 +170,12 @@ function PromotionsContent() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Promotions"
-        description="Promo codes and discounts applied at checkout."
-        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Promotions" }]}
+        title={t("title")}
+        description={t("description")}
+        breadcrumbs={[{ label: t("breadcrumbCatalogue"), href: "/manager/menu" }, { label: t("breadcrumbPromotions") }]}
         actions={
           <Button onClick={openCreate}>
-            <Plus className="size-4" /> New promotion
+            <Plus className="size-4" /> {t("newPromotion")}
           </Button>
         }
       />
@@ -182,10 +183,10 @@ function PromotionsContent() {
       <Card className="py-4">
         <CardContent className="flex flex-wrap items-end gap-2 px-4">
           <div className="flex-1 space-y-1.5">
-            <Label htmlFor="test-code">Test a code</Label>
+            <Label htmlFor="test-code">{t("testCode")}</Label>
             <Input
               id="test-code"
-              placeholder="e.g. WELCOME10"
+              placeholder={t("testPlaceholder")}
               value={testCode}
               onChange={(e) => {
                 setTestCode(e.target.value);
@@ -194,10 +195,10 @@ function PromotionsContent() {
             />
           </div>
           <Button onClick={runTestCode}>
-            <CheckCircle2 className="size-4" /> Validate
+            <CheckCircle2 className="size-4" /> {t("testButton")}
           </Button>
           {testResult === null && testCode.trim() && (
-            <span className="text-sm text-muted-foreground">No active promotion.</span>
+            <span className="text-sm text-muted-foreground">{t("testNoMatch")}</span>
           )}
           {testResult && (
             <span className="text-sm text-emerald-600 dark:text-emerald-400">
@@ -211,7 +212,7 @@ function PromotionsContent() {
         <SearchInput
           value={query}
           onChange={setQuery}
-          placeholder="Search by code or name…"
+          placeholder={t("searchPlaceholder")}
           className="w-full sm:w-56"
         />
         <div className="flex flex-wrap gap-1.5">
@@ -227,7 +228,7 @@ function PromotionsContent() {
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {s === "all" ? "All" : s}
+              {s === "all" ? t("all") : s === "active" ? t("active") : s === "scheduled" ? t("scheduled") : t("ended")}
             </button>
           ))}
         </div>
@@ -247,8 +248,8 @@ function PromotionsContent() {
         if (visible.length === 0) return (
           <EmptyState
             icon={Tag}
-            title="No promotions match"
-            description={promos.length === 0 ? "Create a promo code to discount orders at checkout." : "Try adjusting the filters."}
+            title={t("noMatch")}
+            description={promos.length === 0 ? t("emptyDesc") : t("noMatchDesc")}
           />
         );
         return (
@@ -269,24 +270,24 @@ function PromotionsContent() {
                     <StatusBadge status={p.status} />
                   </div>
                   <p className="text-sm">
-                    {p.type === "percentage" ? `−${p.value}%` : `−${p.value}$`} · {p.redemptionCount} redemptions
+                    {p.type === "percentage" ? `−${p.value}%` : `−${p.value}$`} · {t("usageCount", { count: p.redemptionCount })}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Applies to: {p.appliesToCategoryIds.length === 0 ? "All categories" : p.appliesToCategoryIds.map(catName).join(", ")}
+                    {t("appliesTo")} {p.appliesToCategoryIds.length === 0 ? t("allCategories") : p.appliesToCategoryIds.map(catName).join(", ")}
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5 border-t pt-2">
                     <Button size="sm" variant="ghost" onClick={() => openEdit(p)}>
-                      <Pencil className="size-3.5" /> Edit
+                      <Pencil className="size-3.5" /> {t("edit")}
                     </Button>
                     <ConfirmDialog
                       trigger={
                         <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400">
-                          <Trash2 className="size-3.5" /> Delete
+                          <Trash2 className="size-3.5" /> {t("delete")}
                         </Button>
                       }
-                      title={`Delete ${p.code}?`}
-                      description="The promo code stops applying immediately."
-                      confirmLabel="Delete promotion"
+                      title={t("deleteTitle", { code: p.code })}
+                      description={t("deleteDesc")}
+                      confirmLabel={t("deleteConfirm")}
                       destructive
                       onConfirm={() => removeMutation.mutate(p)}
                     />
@@ -301,54 +302,54 @@ function PromotionsContent() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit promotion" : "New promotion"}</DialogTitle>
+            <DialogTitle>{editingId ? t("editPromotionTitle") : t("newPromotionTitle")}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit((data) => saveMutation.mutate(data))} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="promo-code">Code</Label>
-                <Input id="promo-code" {...register("code")} placeholder="WELCOME10" />
+                <Label htmlFor="promo-code">{t("code")}</Label>
+                <Input id="promo-code" {...register("code")} placeholder={t("codePlaceholder")} />
                 {errors.code && <p className="text-xs text-red-600">{errors.code.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="promo-status">Status</Label>
+                <Label htmlFor="promo-status">{t("statusLabel")}</Label>
                 <select id="promo-status" className={selectCls} value={watch("status")} onChange={(e) => setValue("status", e.target.value as FormValues["status"])}>
-                  <option value="scheduled">Scheduled</option>
-                  <option value="active">Active</option>
-                  <option value="expired">Expired</option>
+                  <option value="scheduled">{t("scheduled")}</option>
+                  <option value="active">{t("active")}</option>
+                  <option value="expired">{t("ended")}</option>
                 </select>
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="promo-name">Name</Label>
+              <Label htmlFor="promo-name">{t("name")}</Label>
               <Input id="promo-name" {...register("name")} />
               {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="promo-type">Type</Label>
+                <Label htmlFor="promo-type">{t("type")}</Label>
                 <select id="promo-type" className={selectCls} value={watch("type")} onChange={(e) => setValue("type", e.target.value as FormValues["type"])}>
-                  <option value="pct">Percentage</option>
-                  <option value="flat">Flat amount</option>
+                  <option value="pct">{t("typePercentage")}</option>
+                  <option value="flat">{t("typeFlat")}</option>
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="promo-value">{watch("type") === "pct" ? "Percent" : "Amount ($)"}</Label>
+                <Label htmlFor="promo-value">{watch("type") === "pct" ? t("percent") : t("amount")}</Label>
                 <Input id="promo-value" type="number" min={0} {...register("value", { valueAsNumber: true })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="promo-start">Starts</Label>
+                <Label htmlFor="promo-start">{t("starts")}</Label>
                 <Input id="promo-start" type="datetime-local" {...register("startsAt")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="promo-end">Ends</Label>
+                <Label htmlFor="promo-end">{t("ends")}</Label>
                 <Input id="promo-end" type="datetime-local" {...register("endsAt")} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Applies to categories</Label>
+              <Label>{t("appliesToCategories")}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {categories.map((c) => (
                   <button
@@ -366,13 +367,13 @@ function PromotionsContent() {
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">None selected = applies to all categories.</p>
+              <p className="text-xs text-muted-foreground">{t("appliesToNone")}</p>
             </div>
             <DialogFooter>
-              <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>{t("cancel")}</Button>
               <Button type="submit" disabled={saveMutation.isPending}>
                 {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                {saveMutation.isPending ? "Saving…" : editingId ? "Save" : "Create promotion"}
+                {saveMutation.isPending ? t("saving") : editingId ? t("save") : t("createPromotion")}
               </Button>
             </DialogFooter>
           </form>
