@@ -28,7 +28,9 @@ export function AuthBanner({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex items-center gap-2 text-xs text-muted-foreground", className)}>
-      <span className="truncate">
+      {/* Hidden on phones — the shell header already shows the name next to
+          the avatar; keeping the text here would push the toggles off-screen. */}
+      <span className="hidden min-w-0 truncate sm:block">
         <span className="font-medium text-foreground">{user.name}</span> · {user.role}
       </span>
       <ConfirmDialog

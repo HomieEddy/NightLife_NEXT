@@ -81,7 +81,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
         <BroadcastBanner />
         <header className="border-b bg-background/90 backdrop-blur-lg">
           <div className="flex h-14 items-center justify-between px-4">
-            <div className="flex items-center gap-2.5">
+            <div className="flex min-w-0 items-center gap-2.5">
               <Avatar className="size-8">
                 <AvatarFallback className="bg-primary/20 text-xs font-semibold text-primary">
                   {me?.avatarInitials ?? "…"}
