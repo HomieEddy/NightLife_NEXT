@@ -66,46 +66,47 @@ if [ -n "${RCLONE_REMOTE:-}" ]; then
 fi
 
 # ── Prune local backups ────────────────────────────────────────────
+# Policy (matches the header): keep the newest DAILY_RETENTION backups,
+# then the newest WEEKLY_RETENTION Sunday dumps from what remains, then
+# the newest MONTHLY_RETENTION 1st-of-month dumps from what remains.
 
 echo "[db-backup] Pruning local backups..."
 
-# Daily: keep last N by filename (YYYY-MM-DD prefix sorts correctly)
-for prefix in $(ls -1 "${BACKUP_DIR}/${BACKUP_PREFIX}-"*.sql.gz* 2>/dev/null \
-  | sed "s/\(${BACKUP_PREFIX}-....-..-..\).*/\1/" | sort -u); do
-  ls -1t "${BACKUP_DIR}/${prefix}"* 2>/dev/null \
-    | tail -n +$((DAILY_RETENTION + 1)) \
-    | xargs rm -f 2>/dev/null || true
-done
+# Newest-first by filename — ISO timestamps sort lexicographically.
+ALL=$(ls -1 "${BACKUP_DIR}/${BACKUP_PREFIX}-"*.sql.gz* 2>/dev/null | sort -r || true)
 
-# Weekly: keep Sunday dumps only, retain last WEEKLY_RETENTION
-SUNDAYS=$(ls -1t "${BACKUP_DIR}/${BACKUP_PREFIX}-"*.sql.gz* 2>/dev/null \
-  | while read f; do
-    # Extract the date part (YYYY-MM-DD) from filename
-    base=$(basename "$f")
-    datepart=$(echo "$base" | grep -oP '\d{4}-\d{2}-\d{2}' | head -1)
-    if [ -n "$datepart" ]; then
-      dow=$(date -d "$datepart" +%u 2>/dev/null || echo "")
-      [ "$dow" = "7" ] && echo "$datepart"
+if [ -n "$ALL" ]; then
+  # 1. Daily: the newest DAILY_RETENTION backups, regardless of weekday.
+  KEEP=$(printf '%s\n' "$ALL" | head -n "$DAILY_RETENTION")
+  REST=$(printf '%s\n' "$ALL" | tail -n +$((DAILY_RETENTION + 1)))
+
+  # 2. Weekly: from the rest, the newest WEEKLY_RETENTION Sunday dumps.
+  #    (|| true: the match loop exits 1 on non-matching rows — set -e safe.)
+  WEEKLIES=$(printf '%s\n' "$REST" | while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    datepart=$(basename "$f" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+    [ -z "$datepart" ] && continue
+    [ "$(date -d "$datepart" +%u 2>/dev/null)" = "7" ] && printf '%s\n' "$f"
+  done | head -n "$WEEKLY_RETENTION" || true)
+  KEEP=$(printf '%s\n%s\n' "$KEEP" "$WEEKLIES")
+
+  # 3. Monthly: from what remains, the newest MONTHLY_RETENTION 1st-of-month dumps.
+  REST2=$(printf '%s\n' "$REST" | grep -vxF -f <(printf '%s\n' "$WEEKLIES") || true)
+  MONTHLIES=$(printf '%s\n' "$REST2" | while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    datepart=$(basename "$f" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+    [ -z "$datepart" ] && continue
+    [ "$(date -d "$datepart" +%d 2>/dev/null)" = "01" ] && printf '%s\n' "$f"
+  done | head -n "$MONTHLY_RETENTION" || true)
+  KEEP=$(printf '%s\n%s\n' "$KEEP" "$MONTHLIES")
+
+  # 4. Delete everything that isn't kept.
+  printf '%s\n' "$ALL" | while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    if ! printf '%s\n' "$KEEP" | grep -Fxq "$f"; then
+      rm -f "$f"
     fi
-  done | sort -u | tail -n +$((WEEKLY_RETENTION + 1)))
-
-for datepart in $SUNDAYS; do
-  rm -f "${BACKUP_DIR}/${BACKUP_PREFIX}-${datepart}"*.sql.gz* 2>/dev/null || true
-done
-
-# Monthly: keep 1st-of-month dumps, retain last MONTHLY_RETENTION
-FIRSTS=$(ls -1t "${BACKUP_DIR}/${BACKUP_PREFIX}-"*.sql.gz* 2>/dev/null \
-  | while read f; do
-    base=$(basename "$f")
-    datepart=$(echo "$base" | grep -oP '\d{4}-\d{2}-\d{2}' | head -1)
-    if [ -n "$datepart" ]; then
-      dom=$(date -d "$datepart" +%d 2>/dev/null || echo "")
-      [ "$dom" = "01" ] && echo "$datepart"
-    fi
-  done | sort -u | tail -n +$((MONTHLY_RETENTION + 1)))
-
-for datepart in $FIRSTS; do
-  rm -f "${BACKUP_DIR}/${BACKUP_PREFIX}-${datepart}"*.sql.gz* 2>/dev/null || true
-done
+  done
+fi
 
 echo "[db-backup] Done. File: ${DUMP_FILE}"
