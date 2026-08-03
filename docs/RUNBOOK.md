@@ -188,24 +188,33 @@ suspected and the decision to restore has been made by the lead developer.
    ```bash
    BACKUP_FILE="nightlife-2026-08-01T030000Z.sql.gz.age"
    rclone copy "ovh:nightlife-backups-staging/${BACKUP_FILE}" .
+   # Strip the .age suffix first — the file is ...sql.gz.age, so `${f%.age.gz}`
+   # would strip nothing.
    age --decrypt -i /secure/path/to/age-key.txt -o "${BACKUP_FILE%.age}" "$BACKUP_FILE"
    # If not encrypted, skip the age step — the file is just .sql.gz
-   gunzip "${BACKUP_FILE%.age}"
+   PLAIN_GZ="${BACKUP_FILE%.age}"
+   gunzip "$PLAIN_GZ"
+   PLAIN="${PLAIN_GZ%.gz}"   # the final plain .sql file to restore
    ```
 
-3. **Restore into a scratch Postgres:**
+3. **Restore into a fresh, EMPTY scratch Postgres:**
+   The dump is plain-format (`pg_dump` default): it carries its own `CREATE
+   TABLE`s **and** the `_prisma_migrations` history. Restore into a freshly
+   created database only — never one that already ran migrations, or every
+   `CREATE TABLE` fails with "relation already exists".
    ```bash
    # Option A: local compose stack
    docker compose up db -d
    sleep 3  # wait for PG to be ready
-   docker compose exec -T db psql -U nightlife -d nightlife < "${BACKUP_FILE%.age.gz}.sql"
+   docker compose exec -T db psql -U nightlife -d nightlife -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+   docker compose exec -T db psql -U nightlife -d nightlife < "$PLAIN"
 
-   # Option B: fresh container
+   # Option B: fresh container (already empty by construction)
    docker run -d --name restore-pg -e POSTGRES_USER=nightlife \
      -e POSTGRES_PASSWORD=nightlife -e POSTGRES_DB=nightlife \
      -p 5439:5432 postgres:17-alpine
    sleep 5
-   psql -h localhost -p 5439 -U nightlife -d nightlife < "${BACKUP_FILE%.age.gz}.sql"
+   psql -h localhost -p 5439 -U nightlife -d nightlife < "$PLAIN"
    ```
 
 4. **Verify — row counts.** At minimum, check the core tenant tables:
@@ -243,18 +252,18 @@ suspected and the decision to restore has been made by the lead developer.
    docker rm -f restore-pg
    ```
 
-   Clean up working files: `rm -f "$BACKUP_FILE" "${BACKUP_FILE%.age}" "${BACKUP_FILE%.age.gz}.sql"`
+   Clean up working files: `rm -f "$BACKUP_FILE" "$PLAIN_GZ" "$PLAIN"`
 
 **Success criteria:** all tables have expected row counts, spot-check queries
 return real data, no constraint-violation or missing-relation errors during
 restore.
 
-**If the restore fails:** check the `pg_restore` / `psql` error output.
-Common causes: the dump was taken with a different PG major version (use the
-same major — PG 17), the dump uses `COPY` and the target tables don't exist
-yet (ensure migrations ran first), or the dump includes extensions not
-available in the scratch DB. If the backup itself is corrupt, escalate to the
-lead developer and check the previous day's backup.
+**If the restore fails:** check the `psql` error output. Common causes: the
+dump was taken with a different PG major version (use the same major — PG
+17), the target database already has the schema (restore into a fresh, empty
+database only — see step 3), or the dump includes extensions not available in
+the scratch DB. If the backup itself is corrupt, escalate to the lead
+developer and check the previous day's backup.
 
 **Recurring schedule:** execute this drill on staging on the first Monday of
 each month. The person on call owns it; paste row-count output into the team
