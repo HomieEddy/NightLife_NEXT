@@ -30,4 +30,31 @@ describe("rate limiter", () => {
     const { retryAfterMs } = checkRateLimit("test", OPTS);
     expect(retryAfterMs).toBe(Math.ceil(60_000 / 3));
   });
+
+  // Plan 31: PIN attempt lockout math — 5 attempts per table+IP in 5 minutes.
+  it("PIN limit: 5 attempts allowed, 6th rejected with retryAfterMs", () => {
+    const PIN_OPTS = { maxTokens: 5, refillRate: 5, windowMs: 300_000 };
+    for (let i = 0; i < 5; i++) {
+      const r = checkRateLimit("pin:table-1:10.0.0.1", PIN_OPTS);
+      expect(r.allowed).toBe(true);
+    }
+    const rejected = checkRateLimit("pin:table-1:10.0.0.1", PIN_OPTS);
+    expect(rejected.allowed).toBe(false);
+    expect(rejected.retryAfterMs).toBe(Math.ceil(300_000 / 5));
+  });
+
+  it("PIN limit: different tables have independent buckets", () => {
+    const PIN_OPTS = { maxTokens: 5, refillRate: 5, windowMs: 300_000 };
+    for (let i = 0; i < 5; i++) checkRateLimit("pin:table-1:10.0.0.1", PIN_OPTS);
+    expect(checkRateLimit("pin:table-1:10.0.0.1", PIN_OPTS).allowed).toBe(false);
+    // Different table, same IP — still has tokens.
+    expect(checkRateLimit("pin:table-2:10.0.0.1", PIN_OPTS).allowed).toBe(true);
+  });
+
+  it("PIN limit: same table different IPs are independent", () => {
+    const PIN_OPTS = { maxTokens: 5, refillRate: 5, windowMs: 300_000 };
+    for (let i = 0; i < 5; i++) checkRateLimit("pin:table-1:10.0.0.1", PIN_OPTS);
+    expect(checkRateLimit("pin:table-1:10.0.0.1", PIN_OPTS).allowed).toBe(false);
+    expect(checkRateLimit("pin:table-1:10.0.0.2", PIN_OPTS).allowed).toBe(true);
+  });
 });

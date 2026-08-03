@@ -1,0 +1,16 @@
+# gitleaks config — NightLifeNext
+# Committed so plan 36 can run `gitleaks detect` in CI.
+# Rules reference: https://github.com/gitleaks/gitleaks?tab=readme-ov-file#configuration
+
+[allowlist]
+  description = "Global allowlist — test fixtures only, no production secrets."
+
+  paths = [
+    # Test fixtures contain deliberate placeholder secrets.
+    '''src/features/platform/auth\.integration\.test\.ts''',
+  ]
+
+  # Placeholder — rotate any real finding and record it here.
+  # commits = []
+
+# No custom rules needed yet; gitleaks built-in rules are sufficient.

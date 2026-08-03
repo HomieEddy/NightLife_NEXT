@@ -10,9 +10,31 @@ async function livePOST(request: NextRequest) {
   const { verifyTableToken } = await import("@/features/shared/table-token");
   const { createSession } = await import("@/features/sessions/core");
   const { zCreateSession } = await import("@/features/sessions/schemas");
+  const { checkRateLimit, getClientIp } = await import("@/features/shared/rate-limit");
 
+  const ip = getClientIp(request);
   const body = await request.json();
   const token = body.token as string | undefined;
+  const tableId = body.tableId as string | undefined;
+
+  // Rate limit: per-IP burst (general abuse) and per-table burst (QR spam).
+  const ipRl = checkRateLimit(`guest-join:ip:${ip}`, { maxTokens: 10, refillRate: 10, windowMs: 60_000 });
+  if (!ipRl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(ipRl.retryAfterMs / 1000)) } },
+    );
+  }
+  if (tableId) {
+    const tableRl = checkRateLimit(`guest-join:table:${tableId}`, { maxTokens: 20, refillRate: 20, windowMs: 300_000 });
+    if (!tableRl.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests" },
+        { status: 429, headers: { "Retry-After": String(Math.ceil(tableRl.retryAfterMs / 1000)) } },
+      );
+    }
+  }
+
   if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
 
   const parsed = zCreateSession.safeParse(body);

@@ -17,8 +17,19 @@ function demoHandler() {
 async function liveGET(_request: NextRequest, { params }: { params: Promise<{ tableId: string }> }) {
   const { getDb, getRawPrisma } = await import("@/features/shared/db");
   const { getActiveReservationForTable } = await import("@/features/hospitality/reservation-core");
+  const { checkRateLimit, getClientIp } = await import("@/features/shared/rate-limit");
 
   const { tableId } = await params;
+
+  // Rate limit: per-table+IP to prevent brute-force scanning.
+  const ip = getClientIp(_request);
+  const rl = checkRateLimit(`resv-active:${tableId}:${ip}`, { maxTokens: 10, refillRate: 10, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+    );
+  }
 
   // Resolve the tenant from the table itself — there is no session to read it from.
   const table = await getRawPrisma().venueTable.findUnique({

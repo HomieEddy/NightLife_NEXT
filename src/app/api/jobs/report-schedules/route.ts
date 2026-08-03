@@ -13,6 +13,16 @@ async function livePOST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { getClientIp, checkRateLimit } = await import("@/features/shared/rate-limit");
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`jobs:ip:${ip}`, { maxTokens: 5, refillRate: 5, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+    );
+  }
+
   const { getRawPrisma } = await import("@/features/shared/db");
   const { findDueReports } = await import("@/features/analytics/report-core");
   const { dispatch: notify } = await import("@/features/notifications/dispatch");

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
+import { logger } from "@/features/shared/logger";
 
 function demoHandler() {
   return NextResponse.json({ error: "Door routes are disabled in demo mode" }, { status: 404 });
@@ -35,7 +36,8 @@ async function livePOST(request: NextRequest) {
     const result = await evacuate(db, venueId, parsed.data.staffId, parsed.data.staffName);
     return NextResponse.json(result);
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 403 });
+    logger.error("Failed to evacuate", { error: String(e) });
+    return NextResponse.json({ error: "Operation failed" }, { status: 403 });
   }
 }
 
