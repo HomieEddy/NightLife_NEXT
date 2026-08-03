@@ -24,6 +24,15 @@ type RenderFn = (props: Record<string, unknown>) => ReturnType<typeof import("@r
 const templates: Record<string, { subject: string; render: RenderFn }> = {};
 const smsTemplateFns: Record<string, (data: Record<string, unknown>) => string> = {};
 
+/** Venue default language for recipients with no recorded locale. */
+async function resolveVenueLocale(prisma: PrismaClient, venueId: string): Promise<"en" | "fr"> {
+  const venue = await prisma.venue.findUnique({
+    where: { id: venueId },
+    select: { guestLocale: true },
+  });
+  return venue?.guestLocale === "fr" ? "fr" : "en";
+}
+
 export function registerTemplate(name: string, subject: string, render: RenderFn) {
   templates[name] = { subject, render };
 }
@@ -82,10 +91,10 @@ export async function dispatch(
   let sent = 0;
   let failed = 0;
   const hasTemplate = templates[payload.template];
+  const locale = payload.locale ?? (await resolveVenueLocale(prisma, payload.venueId));
 
   for (const recipient of payload.recipients) {
     const sendBoth = recipient.email && recipient.phone && payload.template === "reservation-confirmation";
-    const locale = payload.locale ?? "en";
 
     // Resolve template with locale fallback: "template:fr" → "template"
     const localeKey = `${payload.template}:${locale}`;
@@ -135,6 +144,7 @@ export async function dispatchPush(
 ): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
+  const locale = payload.locale ?? (await resolveVenueLocale(prisma, payload.venueId));
 
   const subscriptions = await prisma.pushSubscription.findMany({
     where: { venueId: payload.venueId, expired: false },
@@ -187,7 +197,7 @@ export async function dispatchPush(
       ok: result.ok,
       error: result.error,
       ik,
-      data: { title: payload.title, body: payload.body, url: payload.url },
+      data: { title: payload.title, body: payload.body, url: payload.url, locale },
     });
   }
 

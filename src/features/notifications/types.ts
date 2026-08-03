@@ -40,4 +40,6 @@ export interface PushDispatchPayload {
   tag?: string;
   requireInteraction?: boolean;
   idempotencyKey?: string;
+  /** Recipient locale for the payload strings. Falls back to the venue's guestLocale. */
+  locale?: "en" | "fr";
 }

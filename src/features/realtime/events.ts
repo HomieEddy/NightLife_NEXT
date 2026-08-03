@@ -81,49 +81,83 @@ async function dispatchPushForEvent(event: DomainEvent): Promise<void> {
   const prisma = getRawPrisma();
   const db = prisma;
 
-  const { title, body, url } = pushPayloadFor(event);
+  // Push payloads are user-facing strings — resolve the venue's language so
+  // staff at a francophone venue get French pushes (plan 34 workstream 8).
+  const venue = await prisma.venue.findUnique({
+    where: { id: event.venueId },
+    select: { guestLocale: true },
+  });
+  const locale: "en" | "fr" = venue?.guestLocale === "fr" ? "fr" : "en";
+
+  const { title, body, url } = pushPayloadFor(event, locale);
   await dispatchPush(db, {
     venueId: event.venueId,
     eventType: event.type,
     title,
     body,
     url,
+    locale,
     idempotencyKey: `event:${event.type}:${event.venueId}:${Date.now()}`,
   });
 }
 
 type PushPayload = { title: string; body?: string; url?: string };
 
-function pushPayloadFor(event: DomainEvent): PushPayload {
+function pushPayloadFor(event: DomainEvent, locale: "en" | "fr"): PushPayload {
   const v = event.venueId;
   const p = event.payload;
+  const fr = locale === "fr";
   switch (event.type) {
     case "OrderPlaced":
-      return { title: "New order", body: `New order for table ${p.tableCode ?? "?"} — ${p.itemCount ?? "items"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` };
+      return fr
+        ? { title: "Nouvelle commande", body: `Nouvelle commande pour la table ${p.tableCode ?? "?"} — ${p.itemCount ?? "articles"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` }
+        : { title: "New order", body: `New order for table ${p.tableCode ?? "?"} — ${p.itemCount ?? "items"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` };
     case "OrderStatusChanged":
-      return { title: "Order updated", body: `Order ${(p.orderId as string)?.slice(-6) ?? ""} → ${p.status ?? "updated"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` };
+      return fr
+        ? { title: "Commande mise à jour", body: `Commande ${(p.orderId as string)?.slice(-6) ?? ""} → ${p.status ?? "mise à jour"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` }
+        : { title: "Order updated", body: `Order ${(p.orderId as string)?.slice(-6) ?? ""} → ${p.status ?? "updated"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` };
     case "OrderClaimed":
-      return { title: "Order claimed", body: `${p.staffName ?? "A staff member"} claimed order ${(p.orderId as string)?.slice(-6) ?? ""}`, url: `/staff/orders?highlight=${p.orderId ?? ""}` };
+      return fr
+        ? { title: "Commande réclamée", body: `${p.staffName ?? "Un membre du personnel"} a réclamé la commande ${(p.orderId as string)?.slice(-6) ?? ""}`, url: `/staff/orders?highlight=${p.orderId ?? ""}` }
+        : { title: "Order claimed", body: `${p.staffName ?? "A staff member"} claimed order ${(p.orderId as string)?.slice(-6) ?? ""}`, url: `/staff/orders?highlight=${p.orderId ?? ""}` };
     case "OrderReleased":
-      return { title: "Order released", body: `Order ${(p.orderId as string)?.slice(-6) ?? ""} released back to pool`, url: `/staff/orders` };
+      return fr
+        ? { title: "Commande relâchée", body: `Commande ${(p.orderId as string)?.slice(-6) ?? ""} remise dans la file`, url: `/staff/orders` }
+        : { title: "Order released", body: `Order ${(p.orderId as string)?.slice(-6) ?? ""} released back to pool`, url: `/staff/orders` };
     case "HelpRequested":
-      return { title: "Help requested", body: `Table ${p.tableCode ?? "?"} needs help — ${p.note ?? ""}`, url: `/staff/help?highlight=${p.requestId ?? ""}` };
+      return fr
+        ? { title: "Aide demandée", body: `Table ${p.tableCode ?? "?"} a besoin d'aide — ${p.note ?? ""}`, url: `/staff/help?highlight=${p.requestId ?? ""}` }
+        : { title: "Help requested", body: `Table ${p.tableCode ?? "?"} needs help — ${p.note ?? ""}`, url: `/staff/help?highlight=${p.requestId ?? ""}` };
     case "SessionRequested":
-      return { title: "Session requested", body: `Table ${p.tableCode ?? "?"} wants to start a session`, url: `/staff/approvals` };
+      return fr
+        ? { title: "Session demandée", body: `Table ${p.tableCode ?? "?"} veut ouvrir une session`, url: `/staff/approvals` }
+        : { title: "Session requested", body: `Table ${p.tableCode ?? "?"} wants to start a session`, url: `/staff/approvals` };
     case "SessionApproved":
-      return { title: "Session approved", body: `Session for table ${p.tableCode ?? "?"} is now active`, url: `/manager/orders?sessionId=${p.sessionId ?? ""}` };
+      return fr
+        ? { title: "Session approuvée", body: `La session de la table ${p.tableCode ?? "?"} est active`, url: `/manager/orders?sessionId=${p.sessionId ?? ""}` }
+        : { title: "Session approved", body: `Session for table ${p.tableCode ?? "?"} is now active`, url: `/manager/orders?sessionId=${p.sessionId ?? ""}` };
     case "SessionDenied":
-      return { title: "Session denied", body: `Session for table ${p.tableCode ?? "?"} was denied`, url: `/manager/orders` };
+      return fr
+        ? { title: "Session refusée", body: `La session de la table ${p.tableCode ?? "?"} a été refusée`, url: `/manager/orders` }
+        : { title: "Session denied", body: `Session for table ${p.tableCode ?? "?"} was denied`, url: `/manager/orders` };
     case "BroadcastSent":
-      return { title: (p.title as string) ?? "Staff announcement", body: (p.body as string) ?? "", url: `/staff` };
+      return { title: (p.title as string) ?? (fr ? "Annonce au personnel" : "Staff announcement"), body: (p.body as string) ?? "", url: `/staff` };
     case "LastCallStarted":
-      return { title: "Last call", body: "Last call has started — no new orders accepted.", url: `/staff` };
+      return fr
+        ? { title: "Dernier appel", body: "Le dernier appel a commencé — plus aucune nouvelle commande acceptée.", url: `/staff` }
+        : { title: "Last call", body: "Last call has started — no new orders accepted.", url: `/staff` };
     case "LastCallEnded":
-      return { title: "Last call ended", body: "Last call has ended.", url: `/staff` };
+      return fr
+        ? { title: "Dernier appel terminé", body: "Le dernier appel est terminé.", url: `/staff` }
+        : { title: "Last call ended", body: "Last call has ended.", url: `/staff` };
     case "SoldOut":
-      return { title: "Item sold out", body: `${p.itemName ?? "An item"} is now 86'd`, url: `/manager/menu` };
+      return fr
+        ? { title: "Article épuisé", body: `${p.itemName ?? "Un article"} est 86`, url: `/manager/menu` }
+        : { title: "Item sold out", body: `${p.itemName ?? "An item"} is now 86'd`, url: `/manager/menu` };
     case "StockRestocked":
-      return { title: "Item restocked", body: `${p.itemName ?? "An item"} is back in stock`, url: `/manager/menu` };
+      return fr
+        ? { title: "Article réapprovisionné", body: `${p.itemName ?? "Un article"} est de retour en stock`, url: `/manager/menu` }
+        : { title: "Item restocked", body: `${p.itemName ?? "An item"} is back in stock`, url: `/manager/menu` };
     default:
       return { title: event.type };
   }
