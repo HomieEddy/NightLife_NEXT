@@ -26,6 +26,17 @@ describe("rate limiter", () => {
     expect(checkRateLimit("b", OPTS).allowed).toBe(true);
   });
 
+  it("evicts the oldest bucket past MAX_BUCKETS so memory stays bounded", () => {
+    for (let i = 0; i < 10_001; i++) checkRateLimit(`spoofed-${i}`, OPTS);
+    // The first key is gone — a fresh request for it starts with full tokens.
+    const first = checkRateLimit("spoofed-0", OPTS);
+    expect(first.allowed).toBe(true);
+    // And a recent key still has its (nearly exhausted) bucket.
+    expect(checkRateLimit("spoofed-10000", OPTS).allowed).toBe(true);
+    expect(checkRateLimit("spoofed-10000", OPTS).allowed).toBe(true);
+    expect(checkRateLimit("spoofed-10000", OPTS).allowed).toBe(false);
+  });
+
   it("returns retryAfterMs = windowMs / refillRate when exhausted", () => {
     for (let i = 0; i < 3; i++) checkRateLimit("test", OPTS);
     const { retryAfterMs } = checkRateLimit("test", OPTS);

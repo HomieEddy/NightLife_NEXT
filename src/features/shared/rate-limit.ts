@@ -34,6 +34,12 @@ interface RateLimiterOptions {
 
 const buckets = new Map<string, Bucket>();
 
+// Ceiling on distinct keys (spoofed IPs, junk table ids). Beyond this the
+// oldest bucket is evicted — an attacker can force evictions but cannot grow
+// memory without bound. ponytail: FIFO eviction, not a true LRU — good enough
+// to bound memory, swap for an LRU if eviction churn ever shows up in logs.
+const MAX_BUCKETS = 10_000;
+
 const GC_INTERVAL = 60_000;
 let gcTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -57,6 +63,10 @@ export function checkRateLimit(
   let bucket = buckets.get(key);
 
   if (!bucket) {
+    if (buckets.size >= MAX_BUCKETS) {
+      const oldest = buckets.keys().next().value;
+      if (oldest !== undefined) buckets.delete(oldest);
+    }
     bucket = { tokens: opts.maxTokens, lastRefill: now };
     buckets.set(key, bucket);
   }
