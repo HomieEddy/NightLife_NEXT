@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Languages } from "lucide-react";
 import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -29,9 +30,11 @@ function getLocaleFromCookie(): Locale {
  * Ghost icon button showing target locale ("FR" when English, "EN" when French).
  * Always renders the same Button element to match ThemeToggle's pattern — no DOM
  * swap on mount, no layout shift in flex containers. Sets `nln-locale` cookie,
- * then hard-reloads so server components pick up the new locale.
+ * then soft-refreshes server components so they pick up the new locale without
+ * losing demo mock state (§3.5 — a hard reload would reset the sandbox).
  */
 export function LocaleToggle({ className }: { className?: string }) {
+  const router = useRouter();
   const intlLocale = useLocale();
   const [mounted, setMounted] = useState(false);
   const current =
@@ -42,9 +45,7 @@ export function LocaleToggle({ className }: { className?: string }) {
 
   function handleToggle() {
     setLocaleCookie(target);
-    if (typeof location !== "undefined") {
-      location.reload();
-    }
+    router.refresh();
   }
 
   return (
