@@ -861,6 +861,14 @@
       "noTable": "No table joined",
       "noTableDesc": "Scan the QR code on your table first.",
       "comingSoon": "Gift ordering coming soon."
+    },
+    "chat": {
+      "channelFloor": "# floor",
+      "channelBar": "# bar",
+      "channelSecurity": "# security",
+      "you": "You",
+      "send": "Send",
+      "messagePlaceholder": "Message {channel}"
     }
   },
   "manager": {

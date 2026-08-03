@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { SendHorizonal } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
@@ -12,12 +13,6 @@ import { formatTime } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import type { ChatMessage } from "@/lib/types";
 
-const CHANNELS: { id: ChatMessage["channel"]; label: string }[] = [
-  { id: "floor", label: "# floor" },
-  { id: "bar", label: "# bar" },
-  { id: "security", label: "# security" },
-];
-
 export function ChatPanel({
   currentUserId,
   pinnedChannel,
@@ -25,6 +20,12 @@ export function ChatPanel({
   currentUserId: string;
   pinnedChannel?: ChatMessage["channel"];
 }) {
+  const t = useTranslations("shared.chat");
+  const CHANNELS: { id: ChatMessage["channel"]; label: string }[] = [
+    { id: "floor", label: t("channelFloor") },
+    { id: "bar", label: t("channelBar") },
+    { id: "security", label: t("channelSecurity") },
+  ];
   const [channel, setChannel] = useState<ChatMessage["channel"]>(pinnedChannel ?? "floor");
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
 
@@ -113,7 +114,7 @@ export function ChatPanel({
                 >
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="font-medium text-foreground">
-                      {mine ? "You" : message.authorName}
+                      {mine ? t("you") : message.authorName}
                     </span>
                     <RoleBadge role={message.authorRole} className="px-1.5 py-0 text-[10px]" />
                     <span>{formatTime(message.sentAt)}</span>
@@ -137,12 +138,12 @@ export function ChatPanel({
 
       <form onSubmit={send} className="flex gap-2 border-t p-3">
         <Input
-          placeholder={`Message ${CHANNELS.find((c) => c.id === channel)?.label}`}
+          placeholder={t("messagePlaceholder", { channel: CHANNELS.find((c) => c.id === channel)?.label ?? "" })}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           className="h-11"
         />
-        <Button type="submit" size="icon" className="size-11" disabled={sending || !draft.trim()} aria-label="Send">
+        <Button type="submit" size="icon" className="size-11" disabled={sending || !draft.trim()} aria-label={t("send")}>
           <SendHorizonal className="size-4" />
         </Button>
       </form>

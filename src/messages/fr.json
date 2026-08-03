@@ -861,6 +861,14 @@
       "noTable": "Aucune table rejointe",
       "noTableDesc": "Scannez d'abord le code QR sur votre table.",
       "comingSoon": "Envoi de cadeaux à venir."
+    },
+    "chat": {
+      "channelFloor": "# salle",
+      "channelBar": "# bar",
+      "channelSecurity": "# sécurité",
+      "you": "Vous",
+      "send": "Envoyer",
+      "messagePlaceholder": "Message {channel}"
     }
   },
   "manager": {
