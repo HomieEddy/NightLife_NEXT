@@ -11,7 +11,8 @@
       "title": "Confirmer",
       "description": "Cette action est irréversible.",
       "cancel": "Annuler",
-      "confirm": "Confirmer"
+      "confirm": "Confirmer",
+      "working": "En cours…"
     },
     "empty": {
       "noResults": "Aucun résultat trouvé.",
@@ -94,6 +95,8 @@
   "auth": {
     "login": "Se connecter",
     "logout": "Se déconnecter",
+    "logoutTitle": "Se déconnecter?",
+    "logoutDescription": "Vous devrez vous reconnecter pour accéder à votre tableau de bord.",
     "invite": "Accepter l'invitation"
   }
 }

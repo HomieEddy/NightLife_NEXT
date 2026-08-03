@@ -198,8 +198,6 @@ model StaffProfile {
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([venueId, role])
   @@map("staff_profiles")
 }
 
@@ -233,6 +231,7 @@ model Venue {
   coatCheckEnabled       Boolean  @default(false) @map("coat_check_enabled")
   doorRequiresIdCheck    Boolean  @default(false) @map("door_requires_id_check")
   legalDrinkingAge       Int      @default(18) @map("legal_drinking_age")
+  guestLocale            String   @default("en") @map("guest_locale")
   evacuationState        String   @default("normal") @map("evacuation_state")
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -819,6 +818,7 @@ model Reservation {
   bumpedFromId    String?           @map("bumped_from_id")
   bumpReason      String?           @map("bump_reason")
   alternativeTableId String?        @map("alternative_table_id")
+  bookingLocale       String          @default("en") @map("booking_locale")
   createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 

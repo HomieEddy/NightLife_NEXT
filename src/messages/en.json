@@ -11,7 +11,8 @@
       "title": "Are you sure?",
       "description": "This action cannot be undone.",
       "cancel": "Cancel",
-      "confirm": "Confirm"
+      "confirm": "Confirm",
+      "working": "Working…"
     },
     "empty": {
       "noResults": "No results found.",
@@ -94,6 +95,8 @@
   "auth": {
     "login": "Sign In",
     "logout": "Sign Out",
+    "logoutTitle": "Sign out?",
+    "logoutDescription": "You'll need to log in again to access your dashboard.",
     "invite": "Accept Invitation"
   }
 }
