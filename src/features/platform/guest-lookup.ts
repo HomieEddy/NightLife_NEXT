@@ -78,6 +78,7 @@ export async function findTableByQrSlug(
       coatCheckEnabled: venueRow.coatCheckEnabled,
       doorRequiresIdCheck: venueRow.doorRequiresIdCheck,
       legalDrinkingAge: 18,
+      guestLocale: (venueRow.guestLocale as Venue["guestLocale"]) ?? "en",
     },
   };
 }

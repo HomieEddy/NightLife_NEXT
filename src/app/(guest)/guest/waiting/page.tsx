@@ -13,9 +13,11 @@ import { isDemoMode } from "@/features/shared/app-mode";
 import { guestsService } from "@/features/guests/services";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { DemoHostApprovalControl } from "@/components/shared/demo-controls";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 export default function WaitingPage() {
+  const t = useTranslations("guest.waiting");
   const router = useRouter();
   const { table, guestName, sessionId, approved, approve } = useGuest();
   const [approving, setApproving] = useState(false);
@@ -52,8 +54,8 @@ export default function WaitingPage() {
       <div className="flex flex-1 items-center justify-center p-6">
         <EmptyState
           icon={QrCode}
-          title="No table joined"
-          description="Scan the QR code on your table to get started."
+          title={t("noTable")}
+          description={t("noTableDesc")}
           action={<DemoQrScanAction />}
         />
       </div>
@@ -81,15 +83,14 @@ export default function WaitingPage() {
               <div className="flex size-16 items-center justify-center rounded-full bg-primary/10">
                 <Sparkles className="size-8 text-primary" />
               </div>
-              <DialogTitle className="text-xl">Welcome, {guestName}!</DialogTitle>
+              <DialogTitle className="text-xl">{t("welcomeBack", { name: guestName })}</DialogTitle>
               <DialogDescription className="max-w-xs text-balance">
-                You&apos;re all set at <span className="font-semibold text-foreground">{table.tableCode}</span> in{" "}
-                {table.zoneName}. Tap below to browse the menu and order.
+                {t("approvedDesc", { table: table.tableCode, zone: table.zoneName })}
               </DialogDescription>
             </DialogHeader>
             <div className="px-2 pb-4">
               <Button className="w-full" size="lg" onClick={() => router.replace("/guest/menu")}>
-                Browse the menu
+                {t("browseMenu")}
               </Button>
             </div>
           </DialogContent>
@@ -107,15 +108,14 @@ export default function WaitingPage() {
           </div>
 
           <div className="relative space-y-2 animate-fade-up">
-            <h1 className="text-display text-2xl">Hang tight, {guestName}</h1>
+            <h1 className="text-display text-2xl">{t("hangTight", { name: guestName })}</h1>
             <p className="max-w-xs text-muted-foreground">
-              Your host is confirming <span className="font-medium text-foreground">{table.tableCode}</span> in{" "}
-              {table.zoneName}. This usually takes under a minute.
+              {t("confirmingTable", { table: table.tableCode, zone: table.zoneName })}
             </p>
           </div>
 
           <div className="relative flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Waiting for approval…
+            <Loader2 className="size-4 animate-spin" /> {t("waitingApproval")}
           </div>
 
           <DemoHostApprovalControl approving={approving} onApprove={simulateApproval} />

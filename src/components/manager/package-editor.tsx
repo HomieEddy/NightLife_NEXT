@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useMemo } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -55,6 +56,7 @@ export function PackageEditor({
   items: MenuItem[];
   onSave: (draft: PackageDraft) => Promise<void>;
 }) {
+  const t = useTranslations("shared");
   const { register, control, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting: saving } } = useForm({
     resolver: zodResolver(zPackageInput),
     defaultValues: { name: "", description: "", priceCents: 0, components: [], isActive: true, modifierGroups: [] },
@@ -110,18 +112,18 @@ export function PackageEditor({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85dvh] max-w-lg overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{pkg ? `Edit ${pkg.name}` : "New package"}</DialogTitle>
+          <DialogTitle>{pkg ? t("packageEditor.titleEdit", { name: pkg.name }) : t("packageEditor.titleNew")}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={onFormSave} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="pkg-name">Name</Label>
-              <Input id="pkg-name" placeholder="e.g. Mr Ace" {...register("name")} />
+              <Label htmlFor="pkg-name">{t("packageEditor.name")}</Label>
+              <Input id="pkg-name" placeholder={t("packageEditor.namePlaceholder")} {...register("name")} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="pkg-price">Package price ($ CAD)</Label>
+              <Label htmlFor="pkg-price">{t("packageEditor.price")}</Label>
               <Input
                 id="pkg-price"
                 type="number"
@@ -135,17 +137,17 @@ export function PackageEditor({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="pkg-desc">Description</Label>
+            <Label htmlFor="pkg-desc">{t("packageEditor.description")}</Label>
             <Textarea
               id="pkg-desc"
               rows={2}
-              placeholder="What makes this package special?"
+              placeholder={t("packageEditor.descriptionPlaceholder")}
               {...register("description")}
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Bottles in this package</Label>
+            <Label>{t("packageEditor.bottlesLabel")}</Label>
             {fields.map((field, index) => (
               <div key={field.id} className="flex items-center gap-2">
                 <Select
@@ -175,14 +177,14 @@ export function PackageEditor({
                   max={99}
                   className="w-18"
                   {...register(`components.${index}.quantity`, { valueAsNumber: true })}
-                  aria-label="Quantity"
+                  aria-label={t("packageEditor.quantityAria")}
                 />
                 <TooltipIconButton
                   type="button"
                   variant="ghost"
                   className="shrink-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                   onClick={() => remove(index)}
-                  tooltip="Remove bottle"
+                  tooltip={t("packageEditor.removeBottle")}
                 >
                   <Trash2 className="size-4" />
                 </TooltipIconButton>
@@ -199,7 +201,7 @@ export function PackageEditor({
                 append({ menuItemId: unusedItems[0].id, quantity: 1 })
               }
             >
-              <Plus className="size-3.5" /> Add bottle
+              <Plus className="size-3.5" /> {t("packageEditor.addBottle")}
             </Button>
           </div>
 
@@ -212,11 +214,11 @@ export function PackageEditor({
           {componentsValue > 0 && (
             <div className="rounded-lg border bg-accent/40 p-3 text-sm">
               <div className="flex justify-between text-muted-foreground">
-                <span>À la carte value</span>
+                <span>{t("packageEditor.carteValue")}</span>
                 <span className="tabular-nums">{formatMoney(componentsValue)}</span>
               </div>
               <div className="flex justify-between font-medium">
-                <span>Guest saves</span>
+                <span>{t("packageEditor.guestSaves")}</span>
                 <span className="tabular-nums">
                   {formatMoney(Math.max(0, componentsValue - (priceCents / 100)))}
                 </span>
@@ -226,8 +228,8 @@ export function PackageEditor({
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <p className="text-sm font-medium">Active</p>
-              <p className="text-xs text-muted-foreground">Visible on the guest menu</p>
+              <p className="text-sm font-medium">{t("packageEditor.active")}</p>
+              <p className="text-xs text-muted-foreground">{t("packageEditor.activeDesc")}</p>
             </div>
             <Switch
               checked={isActive}
@@ -238,11 +240,11 @@ export function PackageEditor({
 
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
+            {t("confirm.cancel")}
           </Button>
           <Button type="submit" disabled={saving}>
             {saving && <Loader2 className="size-4 animate-spin" />}
-            {saving ? "Saving…" : pkg ? "Save changes" : "Create package"}
+            {saving ? t("packageEditor.saving") : pkg ? t("packageEditor.saveChanges") : t("packageEditor.createPackage")}
           </Button>
         </DialogFooter>
       </DialogContent>

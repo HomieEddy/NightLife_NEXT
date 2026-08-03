@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft, Slash } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/features/shared/utils";
 
 export interface BreadcrumbItem {
@@ -25,6 +26,7 @@ export function PageHeader({
   backLink?: string;
   className?: string;
 }) {
+  const t = useTranslations("shared.actions");
   return (
     <div className={cn("space-y-3", className)}>
       {(breadcrumbs && breadcrumbs.length > 0) && (
@@ -48,7 +50,7 @@ export function PageHeader({
           href={backLink}
           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          <ChevronLeft className="size-3.5" /> Back
+          <ChevronLeft className="size-3.5" /> {t("back")}
         </Link>
       )}
       <div className="flex flex-wrap items-start justify-between gap-3">

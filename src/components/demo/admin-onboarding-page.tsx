@@ -3,6 +3,7 @@
 // Plan 10 graduates this demo-only surface.
 
 import { Suspense, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Rocket } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +37,8 @@ function ProvisioningContent() {
   const [startOnTrial, setStartOnTrial] = useState(true);
   const [managerName, setManagerName] = useState("");
   const [managerEmail, setManagerEmail] = useState("");
+
+  const t = useTranslations("admin.onboarding");
 
   const { data: plans = [] } = useQuery({
     queryKey: adminKeys.plans,
@@ -79,7 +82,9 @@ function ProvisioningContent() {
     },
     onSuccess: (tenant) => {
       toast.success(
-        `${tenant.venueName} provisioned${startOnTrial ? " on a 14-day trial" : ""} — setup invite sent to ${managerEmail.trim()}`,
+        startOnTrial
+          ? t("provisionedToastTrial", { venue: tenant.venueName, email: managerEmail.trim() })
+          : t("provisionedToast", { venue: tenant.venueName, email: managerEmail.trim() }),
       );
       router.push("/admin/venues");
     },
@@ -95,7 +100,7 @@ function ProvisioningContent() {
   if (prefilling) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Provision a tenant" description="Loading lead details…" />
+        <PageHeader title={t("title")} description={t("loadingDescription")} />
         <Skeleton className="h-80 rounded-xl" />
       </div>
     );
@@ -104,11 +109,11 @@ function ProvisioningContent() {
   return (
     <div className="mx-auto max-w-xl space-y-6">
       <PageHeader
-        title="Provision a tenant"
+        title={t("title")}
         description={
           leadId
-            ? "Details prefilled from the won lead."
-            : "Creates the tenant and emails the manager their setup invite — they configure the venue themselves on first sign-in."
+            ? t("descriptionWithLead")
+            : t("descriptionDefault")
         }
       />
 
@@ -116,24 +121,24 @@ function ProvisioningContent() {
         <CardContent className="space-y-5 p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="prov-name">Venue name *</Label>
+              <Label htmlFor="prov-name">{t("venueNameLabel")}</Label>
               <Input
                 id="prov-name"
-                placeholder="e.g. Neon Garden"
+                placeholder={t("venueNamePlaceholder")}
                 value={venueName}
                 onChange={(e) => setVenueName(e.target.value)}
               />
               {slug && (
                 <p className="text-xs text-muted-foreground">
-                  URL: <span className="font-mono">{slug}.nightlifenext.app</span>
+                  {t("urlPrefix")} <span className="font-mono">{slug}.nightlifenext.app</span>
                 </p>
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="prov-city">City *</Label>
+              <Label htmlFor="prov-city">{t("cityLabel")}</Label>
               <Input
                 id="prov-city"
-                placeholder="e.g. Berlin"
+                placeholder={t("cityPlaceholder")}
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
               />
@@ -141,7 +146,7 @@ function ProvisioningContent() {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Plan</Label>
+            <Label>{t("planLabel")}</Label>
             <div className="grid gap-3 sm:grid-cols-3">
               {plans.map((p) => (
                 <button
@@ -156,10 +161,10 @@ function ProvisioningContent() {
                   <p className="font-semibold">{p.name}</p>
                   <p className="text-lg font-bold tabular-nums">
                     {formatMoney(p.monthlyPrice)}
-                    <span className="text-xs font-normal text-muted-foreground">/mo</span>
+                    <span className="text-xs font-normal text-muted-foreground">{t("perMonth")}</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {p.tableLimit === null ? "Unlimited tables" : `Up to ${p.tableLimit} tables`}
+                    {p.tableLimit === null ? t("unlimitedTables") : t("upToTables", { limit: p.tableLimit })}
                   </p>
                 </button>
               ))}
@@ -168,9 +173,9 @@ function ProvisioningContent() {
 
           <div className="flex items-center justify-between rounded-lg border p-4">
             <div>
-              <p className="text-sm font-medium">Start on a 14-day trial</p>
+              <p className="text-sm font-medium">{t("trialLabel")}</p>
               <p className="text-xs text-muted-foreground">
-                No billing until the trial converts; activate any time from Tenants.
+                {t("trialDescription")}
               </p>
             </div>
             <Switch checked={startOnTrial} onCheckedChange={setStartOnTrial} />
@@ -178,20 +183,20 @@ function ProvisioningContent() {
 
           <div className="grid gap-4 border-t pt-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="prov-mgr-name">Manager name *</Label>
+              <Label htmlFor="prov-mgr-name">{t("managerNameLabel")}</Label>
               <Input
                 id="prov-mgr-name"
-                placeholder="Who runs the venue?"
+                placeholder={t("managerNamePlaceholder")}
                 value={managerName}
                 onChange={(e) => setManagerName(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="prov-mgr-email">Manager email *</Label>
+              <Label htmlFor="prov-mgr-email">{t("managerEmailLabel")}</Label>
               <Input
                 id="prov-mgr-email"
                 type="email"
-                placeholder="Gets the setup invite"
+                placeholder={t("managerEmailPlaceholder")}
                 value={managerEmail}
                 onChange={(e) => setManagerEmail(e.target.value)}
               />
@@ -199,8 +204,7 @@ function ProvisioningContent() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            The manager configures zones, menu, fees and their profile in the guided onboarding on
-            first sign-in.
+            {t("footerNote")}
           </p>
 
           <Button
@@ -209,7 +213,9 @@ function ProvisioningContent() {
             className="w-full glow-primary"
           >
             {provisionMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
-            {provisionMutation.isPending ? "Provisioning…" : `Provision ${venueName.trim() || "tenant"}`}
+            {provisionMutation.isPending
+              ? t("provisioning")
+              : t("provisionButton", { name: venueName.trim() || t("provisionFallback") })}
           </Button>
         </CardContent>
       </Card>

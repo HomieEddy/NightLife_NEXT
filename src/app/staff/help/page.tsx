@@ -3,6 +3,7 @@
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { CheckCircle2, Eye, GlassWater, Hand, LifeBuoy, ReceiptEuro, Shield, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -41,6 +42,7 @@ function scopeFilter(requests: HelpRequest[], me: StaffMember): HelpRequest[] {
 
 export default function StaffHelpPage() {
   const { user } = useAuth();
+  const t = useTranslations("staff.help");
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
 
@@ -70,7 +72,7 @@ export default function StaffHelpPage() {
     mutationFn: ({ id, status }: { id: string; status: "acknowledged" | "resolved" }) =>
       guestsService.setHelpRequestStatus(id, status),
     onSuccess: (_, { id: _id, status }) => {
-      toast.success(status === "acknowledged" ? "On it" : "Resolved");
+      toast.success(status === "acknowledged" ? t("onIt") : t("resolved"));
       invalidate();
     },
   });
@@ -86,10 +88,10 @@ export default function StaffHelpPage() {
     <div className="animate-fade-in space-y-5 p-4">
       <div>
         <h1 className="text-display text-xl">
-          {isSecurityRole ? "Security requests" : "Help requests"}
+          {isSecurityRole ? t("titleSecurity") : t("title")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Triaged requests — ice, cleanup, bill, security — claimed and resolved by the right role.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -98,8 +100,8 @@ export default function StaffHelpPage() {
       ) : open.length === 0 ? (
         <EmptyState
           icon={LifeBuoy}
-          title={isSecurityRole ? "No active security requests" : "All guests are happy"}
-          description="Guest help requests appear here. Respond to claim and assist."
+          title={isSecurityRole ? t("emptyTitleSecurity") : t("emptyTitle")}
+          description={t("emptyDesc")}
         />
       ) : (
         <div className="stagger-children space-y-3">
@@ -125,7 +127,7 @@ export default function StaffHelpPage() {
                         <meta.icon className="size-5" />
                       </div>
                       <div>
-                        <p className="font-medium">{meta.label}</p>
+                        <p className="font-medium">{t(`typeLabels.${request.type}`)}</p>
                         <p className="text-xs text-muted-foreground">
                           {request.tableCode} · {request.zoneName} · {request.guestName}
                         </p>
@@ -148,12 +150,12 @@ export default function StaffHelpPage() {
                             className="h-11 flex-1"
                             disabled={isBusy}
                           >
-                            <Eye className="size-4" /> On it
+                            <Eye className="size-4" /> {t("onIt")}
                           </Button>
                         }
-                        title={`Take "${meta.label}" at ${request.tableCode}?`}
-                        description="The guest sees that someone is on the way."
-                        confirmLabel="I'm on it"
+                        title={t("acknowledgeConfirmTitle", { label: t(`typeLabels.${request.type}`), table: request.tableCode })}
+                        description={t("acknowledgeConfirmDesc")}
+                        confirmLabel={t("acknowledgeConfirmLabel")}
                         onConfirm={() =>
                           setStatusMutation.mutate({ id: request.id, status: "acknowledged" })
                         }
@@ -162,12 +164,12 @@ export default function StaffHelpPage() {
                     <ConfirmDialog
                       trigger={
                         <Button className="h-11 flex-1" disabled={isBusy}>
-                          <CheckCircle2 className="size-4" /> Resolve
+                          <CheckCircle2 className="size-4" /> {t("resolve")}
                         </Button>
                       }
-                      title={`Resolve "${meta.label}" at ${request.tableCode}?`}
-                      description="The request is closed and leaves the open queue."
-                      confirmLabel="Resolve"
+                      title={t("resolveConfirmTitle", { label: t(`typeLabels.${request.type}`), table: request.tableCode })}
+                      description={t("resolveConfirmDesc")}
+                      confirmLabel={t("resolveConfirmLabel")}
                       onConfirm={() =>
                         setStatusMutation.mutate({ id: request.id, status: "resolved" })
                       }
@@ -183,14 +185,14 @@ export default function StaffHelpPage() {
 
       {resolved.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-sm font-medium text-muted-foreground">Recently resolved</h2>
+          <h2 className="text-sm font-medium text-muted-foreground">{t("recentlyResolved")}</h2>
           {resolved.map((request) => (
             <div
               key={request.id}
               className="flex items-center justify-between rounded-xl border p-3 opacity-70"
             >
               <p className="text-sm">
-                {TYPE_META[request.type].label} · {request.tableCode}
+                {t(`typeLabels.${request.type}`)} · {request.tableCode}
               </p>
               <span className="text-xs text-muted-foreground">{timeAgo(request.createdAt)}</span>
             </div>

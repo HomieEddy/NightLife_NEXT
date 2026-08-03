@@ -115,6 +115,7 @@ const reservationSelect = {
   bumpedFromId: true,
   bumpReason: true,
   alternativeTableId: true,
+  bookingLocale: true,
   createdAt: true,
 } as const;
 

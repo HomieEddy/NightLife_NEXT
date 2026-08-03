@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, KeyRound, Loader2, Lock, MapPin, Minus, Plus, QrCode, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export default function QrEntryPage({
   params: Promise<{ tableCode: string }>;
 }) {
   const { tableCode } = use(params);
+  const t = useTranslations("guest.qr");
   const router = useRouter();
   const { startSession } = useGuest();
 
@@ -90,19 +92,19 @@ export default function QrEntryPage({
     try {
       const res = await reservationService.validatePinAndSeat(result.table.id, pin);
       if (res.ok) {
-        toast.success("Reservation confirmed — welcome!");
+        toast.success(t("pinConfirmed"));
         setActiveReservation(null);
       } else {
         const attempts = pinAttempts + 1;
         setPinAttempts(attempts);
         if (attempts >= 3) {
-          setPinError("Too many attempts. Ask venue staff for help.");
+          setPinError(t("tooManyAttempts"));
         } else {
-          setPinError(res.error ?? "Invalid PIN");
+          setPinError(res.error ?? t("invalidPin"));
         }
       }
     } catch {
-      setPinError("Could not verify PIN. Try again.");
+      setPinError(t("pinError"));
     } finally {
       setValidatingPin(false);
     }
@@ -111,7 +113,7 @@ export default function QrEntryPage({
   async function handleJoin() {
     if (!result) return;
     if (!name.trim()) {
-      setError("Tell us your first name so staff know who to look for.");
+      setError(t("firstNameRequired"));
       return;
     }
     setJoining(true);
@@ -138,7 +140,7 @@ export default function QrEntryPage({
       );
       router.push("/guest/waiting");
     } catch (joinError) {
-      setError(joinError instanceof Error ? joinError.message : "Could not join this table. Try again.");
+      setError(joinError instanceof Error ? joinError.message : t("joinError"));
       setJoining(false);
     }
   }
@@ -158,10 +160,10 @@ export default function QrEntryPage({
       <div className="flex flex-1 items-center justify-center p-6">
         <EmptyState
           icon={QrCode}
-          title="Table not found"
+          title={t("tableNotFound")}
           description={isDemoMode()
-            ? `No table matches the code "${tableCode}". Try the demo table instead.`
-            : `No table matches the code "${tableCode}". Ask venue staff for a current QR code.`}
+            ? t("tableNotFoundDemo", { code: tableCode })
+            : t("tableNotFoundLive", { code: tableCode })}
           action={<DemoOpenTableAction />}
         />
       </div>
@@ -181,14 +183,14 @@ export default function QrEntryPage({
       <div className="relative flex justify-center pt-6 animate-pop-in">
         {isDemoMode() && (
           <Button variant="ghost" size="sm" className="absolute left-0 top-5" asChild>
-            <Link href="/demo"><ArrowLeft className="size-4" /> Back to demo</Link>
+            <Link href="/demo"><ArrowLeft className="size-4" /> {t("backToDemo")}</Link>
           </Button>
         )}
         <BrandLogo variant="mark" />
       </div>
 
       <div className="relative mt-8 text-center animate-fade-up">
-        <p className="text-sm text-muted-foreground">Welcome to</p>
+        <p className="text-sm text-muted-foreground">{t("welcomeTo")}</p>
         <h1 className="text-display text-gradient-gold mt-1 text-3xl">{result.venue.name}</h1>
         <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-sm text-primary">
           <MapPin className="size-3.5" />
@@ -205,16 +207,16 @@ export default function QrEntryPage({
                 <Lock className="size-5" />
               </div>
               <div>
-                <p className="font-semibold">Table reserved</p>
+                <p className="font-semibold">{t("tableReserved")}</p>
                 <p className="text-sm text-muted-foreground">
-                  This table has an active reservation. Enter the 6-digit PIN to proceed.
+                  {t("tableReservedDesc")}
                 </p>
               </div>
             </div>
 
             {isDemoMode() && activeReservation.reservationPin && (
               <div className="rounded-md border border-dashed border-amber-500/40 bg-amber-500/10 px-3 py-2 text-center text-sm">
-                <span className="text-xs text-muted-foreground">Demo PIN: </span>
+                <span className="text-xs text-muted-foreground">{t("demoPin")} </span>
                 <span className="font-mono font-semibold tracking-widest">{activeReservation.reservationPin}</span>
               </div>
             )}
@@ -248,7 +250,7 @@ export default function QrEntryPage({
               disabled={pin.length !== 6 || validatingPin || pinAttempts >= 3}
             >
               {validatingPin && <Loader2 className="size-4 animate-spin" />}
-              {validatingPin ? "Verifying…" : "Unlock table"}
+              {validatingPin ? t("verifying") : t("unlockTable")}
             </Button>
           </CardContent>
         </Card>
@@ -257,10 +259,10 @@ export default function QrEntryPage({
           <Card className="relative mt-8 animate-fade-up bg-card/80 backdrop-blur" style={{ animationDelay: "120ms" }}>
             <CardContent className="space-y-5">
               <div className="space-y-1.5">
-                <Label htmlFor="guest-name">Your first name</Label>
+                <Label htmlFor="guest-name">{t("firstName")}</Label>
                 <Input
                   id="guest-name"
-                  placeholder="e.g. Alex"
+                  placeholder={t("firstNamePlaceholder")}
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
@@ -272,10 +274,10 @@ export default function QrEntryPage({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Party size</Label>
+                <Label>{t("partySize")}</Label>
                 <div className="flex items-center justify-between rounded-lg border p-2">
                   <TooltipIconButton
-                    tooltip="Fewer people"
+                    tooltip={t("fewerPeople")}
                     variant="outline"
                     onClick={() => setPartySize((n) => Math.max(1, n - 1))}
                   >
@@ -285,7 +287,7 @@ export default function QrEntryPage({
                     <Users className="size-4 text-muted-foreground" /> {partySize}
                   </span>
                   <TooltipIconButton
-                    tooltip="More people"
+                    tooltip={t("morePeople")}
                     variant="outline"
                     onClick={() => setPartySize((n) => Math.min(result.table.seats, n + 1))}
                   >
@@ -293,19 +295,19 @@ export default function QrEntryPage({
                   </TooltipIconButton>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  This table seats up to {result.table.seats}.
+                  {t("tableSeats", { seats: result.table.seats })}
                 </p>
               </div>
 
               <Button size="lg" className="h-12 w-full glow-primary" onClick={handleJoin} disabled={joining}>
                 {joining && <Loader2 className="size-4 animate-spin" />}
-                {joining ? "Requesting…" : "Join this table"}
+                {joining ? t("requesting") : t("joinTable")}
               </Button>
             </CardContent>
           </Card>
 
           <p className="relative mt-6 text-center text-xs text-muted-foreground animate-fade-up" style={{ animationDelay: "240ms" }}>
-            A host will approve your table before you can order.
+            {t("hostApproval")}
           </p>
         </>
       )}

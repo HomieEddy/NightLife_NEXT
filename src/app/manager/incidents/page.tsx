@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ListChecks } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,20 +24,21 @@ import { incidentsKeys } from "@/features/safety/query-keys";
 import { formatDate, formatTime } from "@/features/shared/format";
 import type { Incident, IncidentNote, IncidentType } from "@/lib/types";
 
-const TYPE_LABELS: Record<IncidentType, string> = {
-  ejection: "Ejection",
-  "refused-entry": "Refused entry",
-  medical: "Medical",
-  altercation: "Altercation",
-  theft: "Theft",
-  "property-damage": "Property damage",
-  police: "Police",
-  "staff-injury": "Staff injury",
-  other: "Other",
-};
-
 export default function ManagerIncidentsPage() {
+  const t = useTranslations("manager.incidents");
   const { user } = useAuth();
+
+  const TYPE_LABELS: Record<IncidentType, string> = {
+    ejection: t("ejection"),
+    "refused-entry": t("refusedEntry"),
+    medical: t("medical"),
+    altercation: t("altercation"),
+    theft: t("theft"),
+    "property-damage": t("propertyDamage"),
+    police: t("police"),
+    "staff-injury": t("staffInjury"),
+    other: t("other"),
+  };
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
   const [typeFilter, setTypeFilter] = useState("all");
@@ -61,16 +63,16 @@ export default function ManagerIncidentsPage() {
   const resolveMutation = useMutation({
     mutationFn: (incidentId: string) => incidentService.setStatus(incidentId, "resolved"),
     onSuccess: () => {
-      toast.success("Incident marked resolved");
+      toast.success(t("resolvedToast"));
       invalidate();
     },
-    onError: () => toast.error("Could not resolve incident"),
+    onError: () => toast.error(t("couldNotResolve")),
   });
 
   const markReportableMutation = useMutation({
     mutationFn: (incidentId: string) => {
       if (!user || !regDeadline || !regAuthority.trim()) {
-        throw new Error("Provide a deadline and regulatory authority");
+        throw new Error(t("deadlineRequired"));
       }
       return incidentService.markReportable(incidentId, {
         regulatoryDeadline: regDeadline,
@@ -80,12 +82,12 @@ export default function ManagerIncidentsPage() {
       });
     },
     onSuccess: () => {
-      toast.success("Incident marked as reportable");
+      toast.success(t("reportableToast"));
       setRegDeadline("");
       setRegAuthority("");
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not mark as reportable"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("couldNotMarkReportable")),
   });
 
   const recordReportedMutation = useMutation({
@@ -94,10 +96,10 @@ export default function ManagerIncidentsPage() {
       return incidentService.recordReportedToAuthority(incidentId, user.id, user.name);
     },
     onSuccess: () => {
-      toast.success("Reported to authority");
+      toast.success(t("reportedToast"));
       invalidate();
     },
-    onError: () => toast.error("Could not record the report"),
+    onError: () => toast.error(t("couldNotRecord")),
   });
 
   const visible = useMemo(() => {
@@ -137,9 +139,9 @@ export default function ManagerIncidentsPage() {
         authorStaffId: user.id, authorStaffName: user.name, createdAt: new Date().toISOString(),
       }] }));
       setNoteDraft("");
-      toast.success("Note added");
+      toast.success(t("noteAdded"));
     } catch {
-      toast.error("Could not add the note");
+      toast.error(t("couldNotAddNote"));
     } finally {
       setSaving(false);
     }
@@ -148,39 +150,39 @@ export default function ManagerIncidentsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Incidents"
-        description={incidents ? `${visible.length} of ${incidents.length} incidents` : "Loading…"}
-        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Incidents" }]}
+        title={t("title")}
+        description={incidents ? t("description", { visible: visible.length, total: incidents.length }) : t("loading")}
+        breadcrumbs={[{ label: t("insights"), href: "/manager/reports" }, { label: t("title") }]}
       />
 
       <Card>
         <CardContent className="space-y-3 pt-4">
-          <Input placeholder="Search narratives…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Input placeholder={t("searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} />
           <div className="grid gap-3 sm:grid-cols-3">
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Type" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder={t("type")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="all">{t("all")}</SelectItem>
                 {(Object.entries(TYPE_LABELS) as [IncidentType, string][]).map(([value, label]) => (
                   <SelectItem key={value} value={value}>{label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={severityFilter} onValueChange={setSeverityFilter}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Severity" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder={t("severity")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All severities</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="all">{t("all")}</SelectItem>
+                <SelectItem value="low">{t("low")}</SelectItem>
+                <SelectItem value="medium">{t("medium")}</SelectItem>
+                <SelectItem value="high">{t("high")}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder={t("status")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
+                <SelectItem value="all">{t("all")}</SelectItem>
+                <SelectItem value="open">{t("open")}</SelectItem>
+                <SelectItem value="resolved">{t("resolved")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -190,7 +192,7 @@ export default function ManagerIncidentsPage() {
       {incidents === undefined ? (
         <ListSkeleton rows={4} rowHeight="h-24" />
       ) : visible.length === 0 ? (
-        <EmptyState icon={ListChecks} title="No incidents match" description="Filed reports will appear here." />
+        <EmptyState icon={ListChecks} title={t("noIncidents")} description={t("noIncidentsDesc")} />
       ) : (
         <>
           <div className="space-y-3">
@@ -213,27 +215,27 @@ export default function ManagerIncidentsPage() {
                           {incident.severity}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {incident.status === "open" ? "Open" : "Resolved"}
+                          {incident.status === "open" ? t("open") : t("resolved")}
                         </span>
                       </div>
                       <p className="mt-1 text-sm">{incident.narrative}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {incident.reportedByStaffName} · {formatDate(incident.occurredAt)} {formatTime(incident.occurredAt)}
-                        {incident.policeInvolved && " · Police involved"}
+                        {incident.policeInvolved && ` · ${t("policeInvolved")}`}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1.5">
                       {incident.status === "open" && (
                         <ConfirmDialog
-                          trigger={<Button size="sm" variant="outline">Resolve</Button>}
-                          title={`Resolve this ${incident.type.replace(/-/g, " ")} incident?`}
-                          description="This closes the incident as dealt with. The narrative and follow-up notes remain on file permanently."
-                          confirmLabel="Resolve"
+                          trigger={<Button size="sm" variant="outline">{t("resolve")}</Button>}
+                          title={`${t("resolve")} ${incident.type.replace(/-/g, " ")}?`}
+                          description={t("resolveDesc")}
+                          confirmLabel={t("resolveConfirm")}
                           onConfirm={() => resolveMutation.mutate(incident.id)}
                         />
                       )}
                       <Button size="sm" variant="ghost" onClick={() => toggleExpand(incident)}>
-                        {expanded === incident.id ? "Hide" : "Details"}
+                        {expanded === incident.id ? t("hide") : t("details")}
                       </Button>
                     </div>
                   </div>
@@ -241,12 +243,12 @@ export default function ManagerIncidentsPage() {
                   {expanded === incident.id && (
                     <div className="space-y-3 border-t pt-3">
                       <p className="text-sm">
-                        <span className="font-medium">Actions taken: </span>
+                        <span className="font-medium">{t("actionsTaken")} </span>
                         {incident.actionsTaken}
                       </p>
                       {incident.reportable && (
                         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-                          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Reportable to authority</p>
+                          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{t("reportTitle")}</p>
                           {incident.regulatoryAuthority && (
                             <p className="text-xs text-muted-foreground">
                               {incident.regulatoryAuthority}
@@ -261,12 +263,12 @@ export default function ManagerIncidentsPage() {
                             <ConfirmDialog
                               trigger={
                                 <Button size="sm" variant="outline" className="mt-1 h-8" disabled={recordReportedMutation.isPending}>
-                                  Record as reported
+                                  {t("reportConfirm")}
                                 </Button>
                               }
-                              title="Record as reported to authority?"
-                              description={`This confirms the incident was filed with ${incident.regulatoryAuthority ?? "the regulatory authority"}. This action is audited.`}
-                              confirmLabel="Record report"
+                              title={t("reportTitle")}
+                              description={`${t("reportConfirm")} — ${incident.regulatoryAuthority ?? "the regulatory authority"}`}
+                              confirmLabel={t("reportConfirm")}
                               onConfirm={() => recordReportedMutation.mutate(incident.id)}
                             />
                           )}
@@ -274,7 +276,7 @@ export default function ManagerIncidentsPage() {
                       )}
                       {!incident.reportable && (
                         <div className="space-y-1.5 rounded-lg border px-3 py-2">
-                          <p className="text-xs font-medium">Mark as reportable (S-02)</p>
+                          <p className="text-xs font-medium">{t("reportConfirm")} (S-02)</p>
                           <div className="flex gap-2">
                             <Input
                               type="date"
@@ -283,7 +285,7 @@ export default function ManagerIncidentsPage() {
                               className="h-8 text-xs"
                             />
                             <Input
-                              placeholder="Authority (e.g. Régie des alcools)"
+                              placeholder={t("authorityPlaceholder")}
                               value={regAuthority}
                               onChange={(e) => setRegAuthority(e.target.value)}
                               className="h-8 text-xs"
@@ -294,7 +296,7 @@ export default function ManagerIncidentsPage() {
                               disabled={markReportableMutation.isPending}
                               onClick={() => markReportableMutation.mutate(incident.id)}
                             >
-                              Set
+                              {t("setReportable")}
                             </Button>
                           </div>
                         </div>
@@ -313,14 +315,14 @@ export default function ManagerIncidentsPage() {
                       )}
                       <div className="flex gap-2">
                         <Textarea
-                          placeholder="Add a follow-up note…"
+                          placeholder={t("notePlaceholder")}
                           value={noteDraft}
                           onChange={(e) => setNoteDraft(e.target.value)}
                           rows={1}
                           className="min-h-9"
                         />
                         <Button size="sm" disabled={!noteDraft.trim() || saving} onClick={() => addNote(incident.id)}>
-                          Add
+                          {t("addNote")}
                         </Button>
                       </div>
                     </div>

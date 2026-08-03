@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, Megaphone, PartyPopper } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ export function PulseTab({
   onSendBroadcast: (message: string) => Promise<void>;
   onToggleLastCall: () => Promise<void>;
 }) {
+  const t = useTranslations("shared");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [togglingLastCall, setTogglingLastCall] = useState(false);
@@ -67,14 +69,14 @@ export function PulseTab({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <PartyPopper className="size-4 text-primary" /> Last call
+              <PartyPopper className="size-4 text-primary" /> {t("pulse.lastCall")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
               {lastCallActive
-                ? "New guest orders are blocked. Occupied tables show below if auto-flagging is on in Settings."
-                : "Stops new guest orders venue-wide and nudges staff to start closing tables out."}
+                ? t("pulse.lastCallActiveDesc")
+                : t("pulse.lastCallInactiveDesc")}
             </p>
             <ConfirmDialog
               trigger={
@@ -83,16 +85,16 @@ export function PulseTab({
                   disabled={togglingLastCall}
                   className="w-full"
                 >
-                  {lastCallActive ? "End last call" : "Start last call"}
+                  {lastCallActive ? t("pulse.endLastCall") : t("pulse.startLastCall")}
                 </Button>
               }
-              title={lastCallActive ? "End last call?" : "Start last call?"}
+              title={lastCallActive ? t("pulse.endLastCallTitle") : t("pulse.startLastCallTitle")}
               description={
                 lastCallActive
-                  ? "Guests can place new orders again immediately."
-                  : "Guests immediately stop being able to place new orders, and every staff device gets notified."
+                  ? t("pulse.endLastCallDesc")
+                  : t("pulse.startLastCallDesc")
               }
-              confirmLabel={lastCallActive ? "End last call" : "Start last call"}
+              confirmLabel={lastCallActive ? t("pulse.endLastCall") : t("pulse.startLastCall")}
               onConfirm={handleToggle}
             />
           </CardContent>
@@ -101,12 +103,12 @@ export function PulseTab({
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Megaphone className="size-4 text-primary" /> Broadcast to staff
+              <Megaphone className="size-4 text-primary" /> {t("pulse.broadcast")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <Textarea
-              placeholder="e.g. Clear the terrace exit, fire marshal is here"
+              placeholder={t("pulse.broadcastPlaceholder")}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={2}
@@ -114,12 +116,12 @@ export function PulseTab({
             <ConfirmDialog
               trigger={
                 <Button disabled={sending || !message.trim()} className="w-full">
-                  {sending ? "Sending…" : "Send to all staff"}
+                  {sending ? t("pulse.sending") : t("pulse.sendToAllStaff")}
                 </Button>
               }
-              title="Send this broadcast?"
-              description="Every /staff device shows it full-screen immediately, and it's posted to all chat channels."
-              confirmLabel="Send broadcast"
+              title={t("pulse.sendBroadcastTitle")}
+              description={t("pulse.sendBroadcastDesc")}
+              confirmLabel={t("pulse.sendBroadcast")}
               onConfirm={handleSend}
             />
           </CardContent>
@@ -128,16 +130,16 @@ export function PulseTab({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Needs attention</CardTitle>
+          <CardTitle className="text-base">{t("pulse.needsAttention")}</CardTitle>
         </CardHeader>
         <CardContent>
           {items === null ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <p className="text-sm text-muted-foreground">{t("actions.loading")}</p>
           ) : items.length === 0 ? (
             <EmptyState
               icon={AlertTriangle}
-              title="Floor is calm"
-              description="Nothing needs attention right now."
+              title={t("pulse.floorCalm")}
+              description={t("pulse.nothingNeedsAttention")}
             />
           ) : (
             <ul className="space-y-2">

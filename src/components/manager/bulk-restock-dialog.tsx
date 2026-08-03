@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Loader2, Minus, Plus, Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,6 +37,7 @@ export function BulkRestockDialog({
   items: MenuItem[];
   onDone: () => void;
 }) {
+  const t = useTranslations("shared");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [query, setQuery] = useState("");
 
@@ -63,14 +65,14 @@ export function BulkRestockDialog({
 
   const onSubmit = handleSubmit(async (data) => {
     if (lines.length === 0) {
-      toast.error("Set a quantity on at least one bottle.");
+      toast.error(t("bulkRestock.emptyError"));
       return;
     }
     const applied = await menuService.bulkRestock(
       lines.map(([itemId, quantity]) => ({ itemId, quantity })),
       data.note.trim() || undefined,
     );
-    toast.success(`Restocked ${applied} items · +${totalBottles} bottles`);
+    toast.success(t("bulkRestock.successToast", { applied, total: totalBottles }));
     setQuantities({});
     reset();
     setQuery("");
@@ -82,16 +84,16 @@ export function BulkRestockDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85dvh] max-w-lg flex-col">
         <DialogHeader>
-          <DialogTitle>Bulk restock</DialogTitle>
+          <DialogTitle>{t("bulkRestock.title")}</DialogTitle>
           <DialogDescription>
-            Enter received quantities per bottle — everything is applied and logged in one go.
+            {t("bulkRestock.description")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search bottles…"
+            placeholder={t("bulkRestock.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -121,14 +123,14 @@ export function BulkRestockDialog({
                         "border-amber-500/40 text-amber-600 dark:text-amber-400",
                     )}
                   >
-                    {item.inventory === 0 ? "Sold out" : `${item.inventory} left`}
+                    {item.inventory === 0 ? t("bulkRestock.soldOut") : t("bulkRestock.leftBadge", { count: item.inventory })}
                   </Badge>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <TooltipIconButton
                     variant="outline"
                     className="size-7"
-                    tooltip="Decrease"
+                    tooltip={t("bulkRestock.decrease")}
                     disabled={qty === 0}
                     onClick={() => bumpQty(item.id, -1)}
                   >
@@ -138,15 +140,15 @@ export function BulkRestockDialog({
                     type="number"
                     min={0}
                     value={qty || ""}
-                    placeholder="0"
+                    placeholder={t("bulkRestock.quantityPlaceholder")}
                     onChange={(e) => setQty(item.id, Number(e.target.value))}
                     className="h-7 w-14 px-1 text-center tabular-nums"
-                    aria-label={`Quantity for ${item.name}`}
+                    aria-label={t("bulkRestock.quantityAria", { name: item.name })}
                   />
                   <TooltipIconButton
                     variant="outline"
                     className="size-7"
-                    tooltip="Increase"
+                    tooltip={t("bulkRestock.increase")}
                     onClick={() => bumpQty(item.id, 1)}
                   >
                     <Plus className="size-3.5" />
@@ -158,32 +160,32 @@ export function BulkRestockDialog({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="bulk-note">Delivery note (optional)</Label>
+          <Label htmlFor="bulk-note">{t("bulkRestock.deliveryNote")}</Label>
           <Input
             id="bulk-note"
-            placeholder="e.g. Friday delivery — Maison Prestige"
+            placeholder={t("bulkRestock.deliveryNotePlaceholder")}
             {...register("note")}
           />
         </div>
 
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
-            Cancel
+            {t("bulkRestock.cancel")}
           </Button>
           <ConfirmDialog
             trigger={
               <Button type="button" disabled={busy || lines.length === 0}>
                 {busy && <Loader2 className="size-4 animate-spin" />}
                 {busy
-                  ? "Applying…"
+                  ? t("bulkRestock.applying")
                   : lines.length === 0
-                    ? "Restock"
-                    : `Restock ${lines.length} items (+${totalBottles})`}
+                    ? t("bulkRestock.restockButton")
+                    : t("bulkRestock.restockItems", { count: lines.length, total: totalBottles })}
               </Button>
             }
-            title={`Apply this restock?`}
-            description={`Adds ${totalBottles} bottles across ${lines.length} items and logs one movement per item.`}
-            confirmLabel="Apply restock"
+            title={t("bulkRestock.confirmTitle")}
+            description={t("bulkRestock.confirmDesc", { total: totalBottles, count: lines.length })}
+            confirmLabel={t("bulkRestock.confirmLabel")}
             onConfirm={onSubmit}
           />
         </DialogFooter>

@@ -18,6 +18,7 @@ import {
   UserX,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -47,13 +48,6 @@ import { staffKeys } from "@/features/workforce/query-keys";
 import { cn } from "@/features/shared/utils";
 import type { Reservation, ReservationStatus, StaffMember, VenueEvent, VenueTable, Zone } from "@/lib/types";
 
-const CHANNEL_LABEL: Record<string, string> = {
-  embed: "Embed",
-  direct: "Direct",
-  "walk-in": "Walk-in",
-  promoter: "Promoter",
-};
-
 const CHANNEL_CLS: Record<string, string> = {
   embed: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
   direct: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
@@ -64,21 +58,29 @@ const CHANNEL_CLS: Record<string, string> = {
 const selectCls =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-const STATUS_ACTIONS: Record<ReservationStatus, string> = {
-  requested: "Confirm",
-  confirmed: "Seat",
-  seated: "Complete",
-  cancelled: "—",
-  completed: "—",
-  "no-show": "—",
-};
-
 function ReservationsContent() {
+  const t = useTranslations("manager.reservations");
   const searchParams = useSearchParams();
   const newForEventHandled = useRef(false);
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
+
+  const CHANNEL_LABEL: Record<string, string> = {
+    embed: t("channelEmbed"),
+    direct: t("channelDirect"),
+    "walk-in": t("channelWalkIn"),
+    promoter: t("channelPromoter"),
+  };
+
+  const STATUS_ACTIONS: Record<ReservationStatus, string> = {
+    requested: t("statusConfirm"),
+    confirmed: t("statusSeat"),
+    seated: t("statusComplete"),
+    cancelled: t("statusDash"),
+    completed: t("statusDash"),
+    "no-show": t("statusDash"),
+  };
 
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [dateRange, setDateRange] = useState<DateRange>("today");
@@ -143,8 +145,8 @@ function ReservationsContent() {
       return reservationService.setStatus(res.id, next as ReservationStatus);
     },
     onSuccess: (_, res) => {
-      const verb = res.status === "requested" ? "confirmed" : res.status === "confirmed" ? "seated" : "completed";
-      toast.success(`${res.guestName}'s reservation ${verb}`);
+      const verb = res.status === "requested" ? t("confirmedVerb") : res.status === "confirmed" ? t("seatedVerb") : t("completedVerb");
+      toast.success(t("reservationVerb", { name: res.guestName, verb }));
       invalidate();
     },
   });
@@ -172,7 +174,7 @@ function ReservationsContent() {
       }
     },
     onSuccess: () => {
-      toast.success(editingId ? "Reservation updated" : "Reservation created");
+      toast.success(editingId ? t("updated") : t("created"));
       setDialogOpen(false);
       invalidate();
     },
@@ -181,7 +183,7 @@ function ReservationsContent() {
   const removeMutation = useMutation({
     mutationFn: (res: Reservation) => reservationService.cancelReservation(res.id),
     onSuccess: (_, res) => {
-      toast.info(`${res.guestName}'s reservation cancelled`);
+      toast.info(t("cancelledToast", { name: res.guestName }));
       invalidate();
     },
   });
@@ -189,11 +191,11 @@ function ReservationsContent() {
   const noShowMutation = useMutation({
     mutationFn: (res: Reservation) => reservationService.markNoShow(res.id),
     onSuccess: (_, res) => {
-      toast.info(`${res.guestName} marked as no-show`);
+      toast.info(t("markedNoShow", { name: res.guestName }));
       invalidate();
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Could not mark as no-show");
+      toast.error(error instanceof Error ? error.message : t("couldNotMarkNoShow"));
     },
   });
 
@@ -254,8 +256,8 @@ function ReservationsContent() {
   }
 
   function save() {
-    if (!draft.guestName.trim()) { toast.error("Guest name is required."); return; }
-    if (!draft.zoneId) { toast.error("Pick a zone."); return; }
+    if (!draft.guestName.trim()) { toast.error(t("guestNameRequired")); return; }
+    if (!draft.zoneId) { toast.error(t("zoneRequired")); return; }
     saveMutation.mutate();
   }
 
@@ -281,8 +283,8 @@ function ReservationsContent() {
     <div className="space-y-5">
       <Tabs defaultValue={initialTab}>
         <TabsList>
-          <TabsTrigger value="reservations">Reservations</TabsTrigger>
-          <TabsTrigger value="waitlist">Waitlist</TabsTrigger>
+          <TabsTrigger value="reservations">{t("tabReservations")}</TabsTrigger>
+          <TabsTrigger value="waitlist">{t("tabWaitlist")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="waitlist" className="pt-4">
@@ -291,9 +293,9 @@ function ReservationsContent() {
 
         <TabsContent value="reservations" className="space-y-5 pt-4">
       <PageHeader
-        title="Reservations"
-        description="Table bookings and guest lists for the night."
-        breadcrumbs={[{ label: "Bookings", href: "/manager/events" }, { label: "Reservations" }]}
+        title={t("title")}
+        description={t("description")}
+        breadcrumbs={[{ label: t("breadcrumbBookings"), href: "/manager/events" }, { label: t("breadcrumbReservations") }]}
         actions={
           <div className="flex items-center gap-2">
             {venue && (
@@ -304,10 +306,10 @@ function ReservationsContent() {
                   onClick={() => {
                     const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
                     navigator.clipboard.writeText(url);
-                    toast.success("Reservation link copied");
+                    toast.success(t("linkCopied"));
                   }}
                 >
-                  <Link2 className="size-4" /> Copy link
+                  <Link2 className="size-4" /> {t("copyLink")}
                 </Button>
                 <Button
                   variant="outline"
@@ -316,15 +318,15 @@ function ReservationsContent() {
                     const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
                     const snippet = `<iframe src="${url}" width="100%" height="700" frameborder="0"></iframe>`;
                     navigator.clipboard.writeText(snippet);
-                    toast.success("Embed snippet copied");
+                    toast.success(t("embedSnippetCopied"));
                   }}
                 >
-                  <Code className="size-4" /> Embed
+                  <Code className="size-4" /> {t("embed")}
                 </Button>
               </>
             )}
             <Button onClick={openCreate}>
-              <Plus className="size-4" /> New reservation
+              <Plus className="size-4" /> {t("newReservation")}
             </Button>
           </div>
         }
@@ -335,7 +337,7 @@ function ReservationsContent() {
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search by guest or zone…"
+            placeholder={t("searchPlaceholder")}
             className="w-full sm:w-56"
           />
           <select
@@ -343,7 +345,7 @@ function ReservationsContent() {
             onChange={(e) => setZoneFilter(e.target.value)}
             className={cn(selectCls, "w-40")}
           >
-            <option value="all">All zones</option>
+            <option value="all">{t("allZones")}</option>
             {zones.map((z: Zone) => (
               <option key={z.id} value={z.id}>{z.name}</option>
             ))}
@@ -363,7 +365,7 @@ function ReservationsContent() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {s === "all" ? "All" : s}
+                {s === "all" ? t("all") : t(s)}
               </button>
             ))}
           </div>
@@ -377,8 +379,8 @@ function ReservationsContent() {
       ) : visible.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
-          title="No reservations"
-          description="Create a booking to hold a table for guests."
+          title={t("noReservations")}
+          description={t("noReservationsDesc")}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -389,7 +391,7 @@ function ReservationsContent() {
                   <div>
                     <p className="font-medium">{res.guestName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {zoneName(res.zoneId)} · {tableName(res.tableId)} · {res.partySize} guests
+                      {zoneName(res.zoneId)} · {tableName(res.tableId)} · {t("guestsCount", { count: res.partySize })}
                     </p>
                     {res.eventId && eventName(res.eventId) && (
                       <p className="flex items-center gap-1 text-xs text-primary">
@@ -421,9 +423,9 @@ function ReservationsContent() {
                       className="text-muted-foreground hover:text-foreground"
                       onClick={() => {
                         navigator.clipboard.writeText(res.reservationPin!);
-                        toast.success("PIN copied");
+                        toast.success(t("pinCopied"));
                       }}
-                      aria-label="Copy PIN"
+                      aria-label={t("copyPinAria")}
                     >
                       <Copy className="size-3" />
                     </button>
@@ -439,28 +441,28 @@ function ReservationsContent() {
                     <ConfirmDialog
                       trigger={
                         <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400">
-                          <UserX className="size-3.5" /> No-show
+                          <UserX className="size-3.5" /> {t("noShowAction")}
                         </Button>
                       }
-                      title={`Mark ${res.guestName} as no-show?`}
-                      description="They were confirmed but never arrived. The table is released and this counts against the no-show rate."
-                      confirmLabel="Mark no-show"
+                      title={t("markNoShowTitle", { name: res.guestName })}
+                      description={t("markNoShowDesc")}
+                      confirmLabel={t("markNoShow")}
                       destructive
                       onConfirm={() => noShowMutation.mutate(res)}
                     />
                   )}
                   <Button size="sm" variant="ghost" onClick={() => openEdit(res)}>
-                    <Pencil className="size-3.5" /> Edit
+                    <Pencil className="size-3.5" /> {t("edit")}
                   </Button>
                   <ConfirmDialog
                     trigger={
                       <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400">
-                        <Trash2 className="size-3.5" /> Cancel
+                        <Trash2 className="size-3.5" /> {t("cancel")}
                       </Button>
                     }
-                    title={`Cancel ${res.guestName}'s reservation?`}
-                    description="The table is released back to open."
-                    confirmLabel="Cancel reservation"
+                    title={t("cancelTitle", { name: res.guestName })}
+                    description={t("cancelDesc")}
+                    confirmLabel={t("cancelReservation")}
                     destructive
                     onConfirm={() => removeMutation.mutate(res)}
                   />
@@ -487,8 +489,7 @@ function ReservationsContent() {
       />
 
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <UserCheck className="size-3.5" /> Prototype note: confirming a reservation marks its table
-        as reserved on the floor map.
+        <UserCheck className="size-3.5" /> {t("prototypeNote")}
       </p>
         </TabsContent>
       </Tabs>

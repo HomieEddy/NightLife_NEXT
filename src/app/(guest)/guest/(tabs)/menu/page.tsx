@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Martini, QrCode, Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoQrScanAction } from "@/components/shared/demo-links";
@@ -18,6 +19,7 @@ import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sent
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
 export default function GuestMenuPage() {
+  const t = useTranslations("guest.menu");
   const { table } = useGuest();
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -95,8 +97,8 @@ export default function GuestMenuPage() {
       <div className="p-6">
         <EmptyState
           icon={QrCode}
-          title="No table joined"
-          description="Scan the QR code on your table to browse the menu."
+          title={t("noTable")}
+          description={t("noTableDesc")}
           action={<DemoQrScanAction />}
         />
       </div>
@@ -109,7 +111,7 @@ export default function GuestMenuPage() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search drinks, bottles, bites…"
+          placeholder={t("searchPlaceholder")}
           value={query}
           onChange={(e) => handleSearchChange(e.target.value)}
           className="h-11 pl-9"
@@ -118,7 +120,7 @@ export default function GuestMenuPage() {
 
       <div className="relative">
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-          {[{ id: "packages", name: "Packages" }, { id: "all", name: "All bottles" }, ...categories].map((cat) => (
+          {[{ id: "packages", name: t("packages") }, { id: "all", name: t("allBottles") }, ...categories].map((cat) => (
             <button
               key={cat.id}
               type="button"
@@ -143,14 +145,14 @@ export default function GuestMenuPage() {
         visiblePackages.length === 0 && visible.length === 0 ? (
           <EmptyState
             icon={Martini}
-            title="Nothing matches"
-            description="Try a different search or category."
+            title={t("nothingMatches")}
+            description={t("tryDifferentSearch")}
           />
         ) : (
           <div id="menu-results" key={`search-${query}`} className={cn("space-y-3 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
             {query.trim() && (
               <p className="text-xs text-muted-foreground">
-                {visiblePackages.length + visible.length} result{(visiblePackages.length + visible.length) !== 1 ? "s" : ""} for &ldquo;{query.trim()}&rdquo;
+                {t("resultCount", { count: visiblePackages.length + visible.length, query: query.trim() })}
               </p>
             )}
             {visiblePackages.map((pkg, i) => (
@@ -166,8 +168,8 @@ export default function GuestMenuPage() {
         packages.length === 0 ? (
           <EmptyState
             icon={Martini}
-            title="No packages tonight"
-            description="Browse the bottle list instead."
+            title={t("noPackages")}
+            description={t("browseBottles")}
           />
         ) : (
           <div id="menu-results" key="packages" className={cn("space-y-3 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
@@ -179,8 +181,8 @@ export default function GuestMenuPage() {
       ) : visible.length === 0 ? (
         <EmptyState
           icon={Martini}
-          title="Nothing matches"
-          description="Try a different search or category."
+          title={t("nothingMatches")}
+          description={t("tryDifferentSearch")}
         />
       ) : (
         <div id="menu-results" key={`${activeCategory}-${query}`} className={cn("space-y-2.5 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>

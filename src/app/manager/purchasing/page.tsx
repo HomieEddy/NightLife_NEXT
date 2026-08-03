@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpDown, BookOpen, Package, Loader2, Plus, Pencil, Search, ShoppingCart, Trash2, Truck } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ export default function ManagerPurchasingPage() {
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
+  const t = useTranslations("manager.purchasing");
 
   const [suggestions, setSuggestions] = useState<{ menuItemId: string; itemName: string; suggestedQty: number; unitCostCents: number | null }[]>([]);
   const [nonFormBusy, setNonFormBusy] = useState(false);
@@ -80,7 +82,7 @@ export default function ManagerPurchasingPage() {
   const catBusy = catForm.formState.isSubmitting;
 
   const zStocktakeForm = z.object({
-    date: z.string().min(1, "Date is required"),
+    date: z.string().min(1, t("dateRequired")),
   });
 
   const stocktakeForm = useForm({
@@ -155,11 +157,11 @@ export default function ManagerPurchasingPage() {
       return purchasingService.saveSupplier(s);
     },
     onSuccess: () => {
-      toast.success(supEditing ? "Supplier updated" : "Supplier added");
+      toast.success(supEditing ? t("toastSupplierUpdated") : t("toastSupplierAdded"));
       setSupOpen(false);
       invalidate();
     },
-    onError: () => toast.error("Could not save supplier"),
+    onError: () => toast.error(t("toastCouldNotSaveSupplier")),
   });
 
   // Stocktake mutations
@@ -186,26 +188,26 @@ export default function ManagerPurchasingPage() {
       return purchasingService.saveStocktake(st);
     },
     onSuccess: (_, data) => {
-      toast.success(`Stocktake started for ${data.date}`);
+      toast.success(t("toastStocktakeStarted", { date: data.date }));
       invalidate();
     },
-    onError: () => toast.error("Could not start stocktake"),
+    onError: () => toast.error(t("toastCouldNotStartStocktake")),
   });
 
   const commitStocktakeMutation = useMutation({
     mutationFn: (st: Stocktake) => purchasingService.commitStocktake(st.id),
     onSuccess: () => {
-      toast.success("Stocktake committed — adjustment movements written");
+      toast.success(t("toastStocktakeCommitted"));
       invalidate();
     },
-    onError: () => toast.error("Could not commit"),
+    onError: () => toast.error(t("toastCouldNotCommit")),
   });
 
   // PO mutations
   const savePOMutation = useMutation({
     mutationFn: async () => {
       const active = poLines.filter((l) => parseInt(l.qty) > 0);
-      if (active.length === 0) throw new Error("Add at least one item with quantity");
+      if (active.length === 0) throw new Error(t("addAtLeastOneItem"));
       const ts = Date.now();
       const lines = active.map((l, i) => {
         const si = supplierItems.find((s) => s.menuItemId === l.menuItemId && s.supplierId === poSupplierId);
@@ -224,23 +226,23 @@ export default function ManagerPurchasingPage() {
     },
     onSuccess: (_, __, context) => {
       const active = poLines.filter((l) => parseInt(l.qty) > 0);
-      toast.success(`PO created with ${active.length} items`);
+      toast.success(t("toastPoCreated", { count: active.length }));
       setPoOpen(false);
       invalidate();
     },
     onError: (error) => {
-      if (error instanceof Error && error.message === "Add at least one item with quantity") {
+      if (error instanceof Error && error.message === t("addAtLeastOneItem")) {
         toast.error(error.message);
       } else {
-        toast.error("Could not create PO");
+        toast.error(t("toastCouldNotCreatePo"));
       }
     },
   });
 
   const submitPOMutation = useMutation({
     mutationFn: (poId: string) => purchasingService.submitPurchaseOrder(poId, meId),
-    onSuccess: () => { invalidate(); toast.success("PO submitted"); },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Could not submit"),
+    onSuccess: () => { invalidate(); toast.success(t("toastPoSubmitted")); },
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("toastCouldNotSubmit")),
   });
 
   const receivePOMutation = useMutation({
@@ -251,10 +253,10 @@ export default function ManagerPurchasingPage() {
     },
     onSuccess: () => {
       setReceiveOpen(false);
-      toast.success("PO received");
+      toast.success(t("toastPoReceived"));
       invalidate();
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Could not receive"),
+    onError: (err) => toast.error(err instanceof Error ? err.message : t("toastCouldNotReceive")),
   });
 
   // Catalogue mutations
@@ -275,16 +277,16 @@ export default function ManagerPurchasingPage() {
     onSuccess: () => {
       setCatEditing(null);
       catForm.reset({ menuItemId: "", unitCostCents: 0, supplierSku: "", preferred: false });
-      toast.success(catEditing ? "Catalogue item updated" : "Item added to catalogue");
+      toast.success(catEditing ? t("toastCatalogueItemUpdated") : t("toastItemAddedToCatalogue"));
       invalidate();
     },
-    onError: () => toast.error("Could not save catalogue item"),
+    onError: () => toast.error(t("toastCouldNotSaveCatalogueItem")),
   });
 
   const removeCatalogueItemMutation = useMutation({
     mutationFn: (siId: string) => purchasingService.removeSupplierItem(siId),
-    onSuccess: () => { invalidate(); toast.success("Removed from catalogue"); },
-    onError: () => toast.error("Could not remove"),
+    onSuccess: () => { invalidate(); toast.success(t("toastRemovedFromCatalogue")); },
+    onError: () => toast.error(t("toastCouldNotRemove")),
   });
 
   const onStartStocktake = stocktakeForm.handleSubmit(async (data) => {
@@ -294,6 +296,23 @@ export default function ManagerPurchasingPage() {
   async function commitStocktake(st: Stocktake) {
     commitStocktakeMutation.mutate(st);
   }
+
+  // Status label maps
+  const poStatusLabel: Record<string, string> = {
+    draft: t("statusDraft"),
+    submitted: t("statusSubmitted"),
+    "partially-received": t("statusPartiallyReceived"),
+    received: t("statusReceived"),
+    cancelled: t("statusCancelled"),
+  };
+  const stStatusLabel: Record<string, string> = {
+    open: t("stocktakeStatusOpen"),
+    counting: t("stocktakeStatusCounting"),
+    committed: t("stocktakeStatusCommitted"),
+  };
+  const stScopeLabel: Record<string, string> = {
+    full: t("stocktakeScopeFull"),
+  };
 
   // Filtered data
   const filteredSuppliers = suppliers.filter((s) => (supFilter === "all" || s.id === supFilter) && (searchQuery ? s.name.toLowerCase().includes(searchQuery.toLowerCase()) || (s.contactName ?? "").toLowerCase().includes(searchQuery.toLowerCase()) : true));
@@ -323,7 +342,7 @@ export default function ManagerPurchasingPage() {
 
   function savePO() {
     const active = poLines.filter((l) => parseInt(l.qty) > 0);
-    if (active.length === 0) { toast.error("Add at least one item with quantity"); return; }
+    if (active.length === 0) { toast.error(t("addAtLeastOneItem")); return; }
     savePOMutation.mutate();
   }
 
@@ -347,7 +366,7 @@ export default function ManagerPurchasingPage() {
     const openPos = orders.filter((po) => po.status !== "received" && po.status !== "cancelled");
     const s = suggestPurchaseOrder(items, openPos, (new Date().getDay() + 1) % 7, supplierItems, supplierId);
     setSuggestions(s);
-    toast.success(`Found ${s.length} items below par`);
+    toast.success(t("toastFoundItemsBelowPar", { count: s.length }));
   }
 
   // ── Catalogue management ──
@@ -376,64 +395,64 @@ export default function ManagerPurchasingPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Purchasing" description="Suppliers, purchase orders, stocktakes and suggested ordering"
-        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Purchasing" }]}
-        actions={<Button size="sm" onClick={openSupCreate}><Plus className="size-4 mr-1" /> Add supplier</Button>}
+      <PageHeader title={t("title")} description={t("description")}
+        breadcrumbs={[{ label: t("breadcrumbCatalogue"), href: "/manager/menu" }, { label: t("breadcrumbPurchasing") }]}
+        actions={<Button size="sm" onClick={openSupCreate}><Plus className="size-4 mr-1" /> {t("addSupplier")}</Button>}
       />
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 basis-48">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search suppliers, PO codes…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 h-9 text-sm" />
+          <Input placeholder={t("searchPlaceholder")} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 h-9 text-sm" />
         </div>
         <Select value={supFilter} onValueChange={setSupFilter}>
-          <SelectTrigger className="h-9 w-40 text-sm"><SelectValue placeholder="All suppliers" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">All suppliers</SelectItem>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+          <SelectTrigger className="h-9 w-40 text-sm"><SelectValue placeholder={t("allSuppliers")} /></SelectTrigger>
+          <SelectContent><SelectItem value="all">{t("allSuppliers")}</SelectItem>{suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={poStatusFilter} onValueChange={setPoStatusFilter}>
-          <SelectTrigger className="h-9 w-36 text-sm"><SelectValue placeholder="PO status" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">All POs</SelectItem><SelectItem value="draft">Draft</SelectItem><SelectItem value="submitted">Submitted</SelectItem><SelectItem value="partially-received">Partial</SelectItem><SelectItem value="received">Received</SelectItem><SelectItem value="cancelled">Cancelled</SelectItem></SelectContent>
+          <SelectTrigger className="h-9 w-36 text-sm"><SelectValue placeholder={t("poStatus")} /></SelectTrigger>
+          <SelectContent><SelectItem value="all">{t("allPos")}</SelectItem><SelectItem value="draft">{t("statusDraft")}</SelectItem><SelectItem value="submitted">{t("statusSubmitted")}</SelectItem><SelectItem value="partially-received">{t("statusPartiallyReceived")}</SelectItem><SelectItem value="received">{t("statusReceived")}</SelectItem><SelectItem value="cancelled">{t("statusCancelled")}</SelectItem></SelectContent>
         </Select>
         <Select value={sortOrder} onValueChange={setSortOrder}>
           <SelectTrigger className="h-9 w-32 text-sm"><ArrowUpDown className="size-3 mr-1" /></SelectTrigger>
-          <SelectContent><SelectItem value="newest">Newest</SelectItem><SelectItem value="oldest">Oldest</SelectItem></SelectContent>
+          <SelectContent><SelectItem value="newest">{t("sortNewest")}</SelectItem><SelectItem value="oldest">{t("sortOldest")}</SelectItem></SelectContent>
         </Select>
       </div>
 
       {suppliers.length === 0 ? (
-        <EmptyState icon={Truck} title="No suppliers" description="Add your suppliers to start ordering." action={<Button onClick={openSupCreate}><Plus className="size-4 mr-1" /> Add supplier</Button>} />
+        <EmptyState icon={Truck} title={t("emptyNoSuppliers")} description={t("emptyNoSuppliersDesc")} action={<Button onClick={openSupCreate}><Plus className="size-4 mr-1" /> {t("addSupplier")}</Button>} />
       ) : filteredSuppliers.length === 0 ? (
-        <EmptyState icon={Truck} title="No matching suppliers" description="Try clearing the filters." />
+        <EmptyState icon={Truck} title={t("emptyNoMatchingSuppliers")} description={t("emptyNoMatchingSuppliersDesc")} />
       ) : filteredSuppliers.map((sup) => (
         <Card key={sup.id}>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {sup.name}
-                <Button variant="ghost" size="icon" className="size-6" aria-label="Edit supplier" onClick={() => openSupEdit(sup)}><Plus className="size-3 rotate-45" /></Button>
-                {!sup.active && <Badge variant="outline">Inactive</Badge>}
+                <Button variant="ghost" size="icon" className="size-6" aria-label={t("ariaEditSupplier")} onClick={() => openSupEdit(sup)}><Plus className="size-3 rotate-45" /></Button>
+                {!sup.active && <Badge variant="outline">{t("inactive")}</Badge>}
               </div>
               <div className="flex gap-1">
-                <Button size="sm" variant="outline" onClick={() => openCatalogue(sup.id)}><BookOpen className="size-4 mr-1" /> Catalogue</Button>
-                <Button size="sm" variant="outline" onClick={() => computeSuggestions(sup.id)}><ShoppingCart className="size-4 mr-1" /> Par check</Button>
-                <Button size="sm" variant="outline" onClick={() => openPO(sup.id)} disabled={nonFormBusy}><Plus className="size-4 mr-1" /> New PO</Button>
+                <Button size="sm" variant="outline" onClick={() => openCatalogue(sup.id)}><BookOpen className="size-4 mr-1" /> {t("catalogueBtn")}</Button>
+                <Button size="sm" variant="outline" onClick={() => computeSuggestions(sup.id)}><ShoppingCart className="size-4 mr-1" /> {t("parCheck")}</Button>
+                <Button size="sm" variant="outline" onClick={() => openPO(sup.id)} disabled={nonFormBusy}><Plus className="size-4 mr-1" /> {t("newPo")}</Button>
               </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground">Lead: {sup.leadTimeDays}d · Min: {sup.minimumOrderCents ? formatMoney(sup.minimumOrderCents, "CAD") : "none"}{sup.contactName && ` · ${sup.contactName}`}{sup.email && ` · ${sup.email}`}</p>
+            <p className="text-xs text-muted-foreground">{t("leadMin", { leadDays: sup.leadTimeDays, minAmount: sup.minimumOrderCents ? formatMoney(sup.minimumOrderCents, "CAD") : t("none") })}{sup.contactName && ` · ${sup.contactName}`}{sup.email && ` · ${sup.email}`}</p>
             {filteredOrders.filter((po) => po.supplierId === sup.id).map((po) => (
               <div key={po.id} className="rounded-md border px-3 py-2">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{po.code}</p>
                   <div className="flex items-center gap-1">
-                    <Badge variant={STATUS_BADGE[po.status] ?? "outline"}>{po.status}</Badge>
+                    <Badge variant={STATUS_BADGE[po.status] ?? "outline"}>{poStatusLabel[po.status] ?? po.status}</Badge>
                     {po.status === "draft" && (
-                      <ConfirmDialog trigger={<Button size="sm" variant="outline">Submit</Button>} title={`Submit ${po.code}?`} description="The PO is sent to the supplier." confirmLabel="Submit" onConfirm={() => submitPO(po.id)} />
+                      <ConfirmDialog trigger={<Button size="sm" variant="outline">{t("submit")}</Button>} title={t("submitPoTitle", { code: po.code })} description={t("submitPoDesc")} confirmLabel={t("submit")} onConfirm={() => submitPO(po.id)} />
                     )}
                     {(po.status === "submitted" || po.status === "partially-received") && (
-                      <Button size="sm" variant="outline" onClick={() => openReceive(po)}><Truck className="size-3 mr-1" /> Receive</Button>
+                      <Button size="sm" variant="outline" onClick={() => openReceive(po)}><Truck className="size-3 mr-1" /> {t("receive")}</Button>
                     )}
                   </div>
                 </div>
@@ -449,33 +468,33 @@ export default function ManagerPurchasingPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center justify-between">
-            Stocktakes
+            {t("stocktakes")}
             <div className="flex items-center gap-2">
               <Select value={stStatusFilter} onValueChange={setStStatusFilter}>
-                <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="Filter" /></SelectTrigger>
-                <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="open">Open</SelectItem><SelectItem value="counting">Counting</SelectItem><SelectItem value="committed">Committed</SelectItem></SelectContent>
+                <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder={t("stocktakeFilter")} /></SelectTrigger>
+                <SelectContent><SelectItem value="all">{t("stocktakeFilterAll")}</SelectItem><SelectItem value="open">{t("stocktakeStatusOpen")}</SelectItem><SelectItem value="counting">{t("stocktakeStatusCounting")}</SelectItem><SelectItem value="committed">{t("stocktakeStatusCommitted")}</SelectItem></SelectContent>
               </Select>
               <Button size="sm" variant="outline" onClick={() => { stocktakeForm.reset({ date: new Date().toISOString().slice(0, 10) }); setStOpen(true); }}>
-                <Plus className="size-3.5 mr-1" /> New stocktake
+                <Plus className="size-3.5 mr-1" /> {t("newStocktake")}
               </Button>
             </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {filteredStocktakes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No stocktakes yet.</p>
+            <p className="text-sm text-muted-foreground">{t("noStocktakes")}</p>
           ) : (
             filteredStocktakes.map((st) => (
               <div key={st.id} className="flex items-center justify-between rounded-md border px-3 py-2">
-                <div><p className="text-sm font-medium">{st.businessDate}</p><p className="text-xs text-muted-foreground">{st.scope} · {st.status}{st.committedAt && ` · ${new Date(st.committedAt).toLocaleTimeString()}`}</p></div>
+                <div><p className="text-sm font-medium">{st.businessDate}</p><p className="text-xs text-muted-foreground">{stScopeLabel[st.scope] ?? st.scope} · {stStatusLabel[st.status] ?? st.status}{st.committedAt && ` · ${new Date(st.committedAt).toLocaleTimeString()}`}</p></div>
                 <div className="flex items-center gap-2 text-right">
-                  <div><p className={`text-sm font-semibold tabular-nums ${st.totalVarianceCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{formatMoney(st.totalVarianceCents, "CAD")}</p><p className="text-xs text-muted-foreground">{st.lines.length} lines</p></div>
+                  <div><p className={`text-sm font-semibold tabular-nums ${st.totalVarianceCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{formatMoney(st.totalVarianceCents, "CAD")}</p><p className="text-xs text-muted-foreground">{t("linesCount", { count: st.lines.length })}</p></div>
                   {st.status !== "committed" && (
                     <ConfirmDialog
-                      trigger={<Button size="sm" disabled={nonFormBusy || commitStocktakeMutation.isPending}>Commit</Button>}
-                      title="Commit stocktake?"
-                      description="Writes adjustment movements for every non-zero variance line. This action is audited and irreversible."
-                      confirmLabel="Commit"
+                      trigger={<Button size="sm" disabled={nonFormBusy || commitStocktakeMutation.isPending}>{t("commitBtn")}</Button>}
+                      title={t("commitTitle")}
+                      description={t("commitDesc")}
+                      confirmLabel={t("commitConfirm")}
                       onConfirm={() => commitStocktake(st)}
                     />
                   )}
@@ -488,7 +507,7 @@ export default function ManagerPurchasingPage() {
 
       {suggestions.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-base"><Package className="size-4 inline mr-1" />Suggested order</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base"><Package className="size-4 inline mr-1" />{t("suggestedOrder")}</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-1">{suggestions.map((s) => <div key={s.menuItemId} className="flex justify-between rounded px-2 py-1 text-sm"><span>{s.itemName}</span><span className="tabular-nums">{s.suggestedQty} × {s.unitCostCents != null ? formatMoney(s.unitCostCents, "CAD") : "—"}</span></div>)}</div>
           </CardContent>
@@ -498,21 +517,21 @@ export default function ManagerPurchasingPage() {
       {/* Supplier dialog */}
       <Dialog open={supOpen} onOpenChange={setSupOpen}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>{supEditing ? "Edit supplier" : "Add supplier"}</DialogTitle><DialogDescription>Supplier contact and ordering defaults.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>{supEditing ? t("dialogEditSupplier") : t("dialogAddSupplier")}</DialogTitle><DialogDescription>{t("supplierDialogDesc")}</DialogDescription></DialogHeader>
           <form onSubmit={onSaveSupplier} className="space-y-3">
-            <div><Label htmlFor="s-name">Name *</Label><Input id="s-name" {...supplierForm.register("name")} />{supplierForm.formState.errors.name && <p className="text-xs text-destructive">{supplierForm.formState.errors.name.message}</p>}</div>
+            <div><Label htmlFor="s-name">{t("nameRequired")}</Label><Input id="s-name" {...supplierForm.register("name")} />{supplierForm.formState.errors.name && <p className="text-xs text-destructive">{supplierForm.formState.errors.name.message}</p>}</div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="s-contact">Contact</Label><Input id="s-contact" {...supplierForm.register("contactName")} /></div>
-              <div><Label htmlFor="s-phone">Phone</Label><Input id="s-phone" {...supplierForm.register("phone")} /></div>
+              <div><Label htmlFor="s-contact">{t("contact")}</Label><Input id="s-contact" {...supplierForm.register("contactName")} /></div>
+              <div><Label htmlFor="s-phone">{t("phone")}</Label><Input id="s-phone" {...supplierForm.register("phone")} /></div>
             </div>
-            <div><Label htmlFor="s-email">Email</Label><Input id="s-email" type="email" {...supplierForm.register("email")} />{supplierForm.formState.errors.email && <p className="text-xs text-destructive">{supplierForm.formState.errors.email.message}</p>}</div>
+            <div><Label htmlFor="s-email">{t("email")}</Label><Input id="s-email" type="email" {...supplierForm.register("email")} />{supplierForm.formState.errors.email && <p className="text-xs text-destructive">{supplierForm.formState.errors.email.message}</p>}</div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="s-lead">Lead time (days)</Label><Input id="s-lead" type="number" min={1} {...supplierForm.register("leadTimeDays", { valueAsNumber: true })} /></div>
-              <div><Label htmlFor="s-min">Min order ($)</Label><Input id="s-min" placeholder="500" {...supplierForm.register("minOrder", { valueAsNumber: true })} /></div>
+              <div><Label htmlFor="s-lead">{t("leadTimeDays")}</Label><Input id="s-lead" type="number" min={1} {...supplierForm.register("leadTimeDays", { valueAsNumber: true })} /></div>
+              <div><Label htmlFor="s-min">{t("minOrderDollars")}</Label><Input id="s-min" placeholder="500" {...supplierForm.register("minOrder", { valueAsNumber: true })} /></div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setSupOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={supBusy}>{supEditing ? "Save" : "Add"}</Button>
+              <Button type="button" variant="outline" onClick={() => setSupOpen(false)}>{t("cancel")}</Button>
+              <Button type="submit" disabled={supBusy}>{supEditing ? t("save") : t("add")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -521,7 +540,7 @@ export default function ManagerPurchasingPage() {
       {/* Receive PO dialog */}
       <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Receive goods</DialogTitle><DialogDescription>{receivingPO?.code} from {suppliers.find((s) => s.id === receivingPO?.supplierId)?.name}</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>{t("receiveGoods")}</DialogTitle><DialogDescription>{t("receiveFrom", { code: receivingPO?.code ?? "", supplier: suppliers.find((s) => s.id === receivingPO?.supplierId)?.name ?? "" })}</DialogDescription></DialogHeader>
           <div className="space-y-3">
             {receivingPO?.lines.map((l) => {
               const it = items.find((i) => i.id === l.menuItemId);
@@ -534,8 +553,8 @@ export default function ManagerPurchasingPage() {
             })}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReceiveOpen(false)}>Cancel</Button>
-            <Button onClick={receivePO} disabled={receivePOMutation.isPending}>Confirm receipt</Button>
+            <Button variant="outline" onClick={() => setReceiveOpen(false)}>{t("cancel")}</Button>
+            <Button onClick={receivePO} disabled={receivePOMutation.isPending}>{t("confirmReceipt")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -544,9 +563,9 @@ export default function ManagerPurchasingPage() {
       <Dialog open={poOpen} onOpenChange={setPoOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>New purchase order</DialogTitle>
+            <DialogTitle>{t("newPoTitle")}</DialogTitle>
             <DialogDescription>
-              {suppliers.find((s) => s.id === poSupplierId)?.name} — select items and quantities
+              {t("newPoDesc", { supplier: suppliers.find((s) => s.id === poSupplierId)?.name ?? "" })}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-80 space-y-2 overflow-y-auto">
@@ -568,7 +587,7 @@ export default function ManagerPurchasingPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{mi.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {isInCatalogue ? `${formatMoney(si?.unitCostCents ?? 0, "CAD")}/unit` : "Not in catalogue"}
+                        {isInCatalogue ? `${formatMoney(si?.unitCostCents ?? 0, "CAD")}/unit` : t("notInCatalogue")}
                         {si?.supplierSku && ` · SKU: ${si.supplierSku}`}
                       </p>
                     </div>
@@ -595,18 +614,18 @@ export default function ManagerPurchasingPage() {
           <div className="text-xs text-muted-foreground text-right">
             {(() => {
               const active = poLines.filter((l) => parseInt(l.qty) > 0);
-              if (active.length === 0) return "No items selected";
+              if (active.length === 0) return t("noItemsSelected");
               const total = active.reduce((s, l) => {
                 const si = supplierItems.find((si) => si.menuItemId === l.menuItemId && si.supplierId === poSupplierId);
                 const mi = items.find((i) => i.id === l.menuItemId);
                 return s + parseInt(l.qty) * (si?.unitCostCents ?? Math.round((mi?.price ?? 0) * 35));
               }, 0);
-              return `${active.length} items · subtotal ${formatMoney(total, "CAD")}`;
+              return t("itemsSubtotal", { count: active.length, total: formatMoney(total, "CAD") });
             })()}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPoOpen(false)}>Cancel</Button>
-            <Button onClick={savePO} disabled={savePOMutation.isPending}>Create PO</Button>
+            <Button variant="outline" onClick={() => setPoOpen(false)}>{t("cancel")}</Button>
+            <Button onClick={savePO} disabled={savePOMutation.isPending}>{t("createPo")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -615,17 +634,17 @@ export default function ManagerPurchasingPage() {
       <Dialog open={catOpen} onOpenChange={setCatOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Catalogue — {suppliers.find((s) => s.id === catSupplierId)?.name}</DialogTitle>
-            <DialogDescription>{catEditing ? "Edit catalogue entry" : "Manage which items this supplier carries and at what price."}</DialogDescription>
+            <DialogTitle>{t("catalogueTitle", { supplier: suppliers.find((s) => s.id === catSupplierId)?.name ?? "" })}</DialogTitle>
+            <DialogDescription>{catEditing ? t("dialogEditCatalogueEntry") : t("catalogueDesc")}</DialogDescription>
           </DialogHeader>
 
           {/* Add/edit form */}
           <form onSubmit={onSaveCatalogueItem} className="space-y-3 rounded-lg border bg-muted/30 p-3">
             <div className="flex gap-3 items-end">
               <div className="flex-1">
-                <Label className="text-xs">Item</Label>
+                <Label className="text-xs">{t("itemLabel")}</Label>
                 <Select value={catForm.watch("menuItemId")} onValueChange={(v) => catForm.setValue("menuItemId", v)}>
-                  <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Select menu item" /></SelectTrigger>
+                  <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder={t("selectMenuItem")} /></SelectTrigger>
                   <SelectContent>
                     {items.filter((i) => catEditing || !supplierItems.some((si) => si.supplierId === catSupplierId && si.menuItemId === i.id)).map((i) => (
                       <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
@@ -635,28 +654,28 @@ export default function ManagerPurchasingPage() {
                 {catForm.formState.errors.menuItemId && <p className="text-xs text-destructive">{catForm.formState.errors.menuItemId.message}</p>}
               </div>
               <div className="w-24">
-                <Label className="text-xs">Unit cost ($)</Label>
+                <Label className="text-xs">{t("unitCost")}</Label>
                 <Input className="mt-1 h-8 text-sm" type="number" step={0.01} value={catForm.watch("unitCostCents") ? (catForm.watch("unitCostCents") / 100).toString() : ""} onChange={(e) => catForm.setValue("unitCostCents", Math.round(parseFloat(e.target.value) * 100) || 0, { shouldValidate: true })} placeholder="4.00" />
                 {catForm.formState.errors.unitCostCents && <p className="text-xs text-destructive">{catForm.formState.errors.unitCostCents.message}</p>}
               </div>
             </div>
             <div className="flex gap-3">
-              <div className="flex-1"><Label className="text-xs">SKU</Label><Input className="mt-1 h-8 text-sm" {...catForm.register("supplierSku")} placeholder="GG-750" /></div>
+              <div className="flex-1"><Label className="text-xs">{t("sku")}</Label><Input className="mt-1 h-8 text-sm" {...catForm.register("supplierSku")} placeholder="GG-750" /></div>
             </div>
             <div className="flex items-center gap-2 text-xs">
               <Switch checked={catForm.watch("preferred")} onCheckedChange={(v) => catForm.setValue("preferred", v)} id="cat-preferred" />
-              <Label htmlFor="cat-preferred">Preferred supplier for this item</Label>
+              <Label htmlFor="cat-preferred">{t("preferredSupplier")}</Label>
             </div>
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={!catForm.watch("menuItemId") || catBusy}>{catEditing ? "Update" : "Add to catalogue"}</Button>
-              {catEditing && <Button type="button" size="sm" variant="ghost" onClick={addNewCatalogueItem}>Cancel edit</Button>}
+              <Button type="submit" size="sm" disabled={!catForm.watch("menuItemId") || catBusy}>{catEditing ? t("update") : t("addToCatalogue")}</Button>
+              {catEditing && <Button type="button" size="sm" variant="ghost" onClick={addNewCatalogueItem}>{t("cancelEdit")}</Button>}
             </div>
           </form>
 
           {/* Existing catalogue items */}
           <div className="max-h-60 space-y-1 overflow-y-auto">
             <p className="text-xs font-medium text-muted-foreground mb-1">
-              {supplierItems.filter((si) => si.supplierId === catSupplierId).length} items in catalogue
+              {t("itemsInCatalogue", { count: supplierItems.filter((si) => si.supplierId === catSupplierId).length })}
             </p>
             {supplierItems.filter((si) => si.supplierId === catSupplierId).map((si) => {
               const mi = items.find((i) => i.id === si.menuItemId);
@@ -668,18 +687,18 @@ export default function ManagerPurchasingPage() {
                       {formatMoney(si.unitCostCents ?? 0, "CAD")}/unit
                       {si.supplierSku && ` · ${si.supplierSku}`}
                       {si.caseSize && ` · case of ${si.caseSize}`}
-                      {si.preferred && <Badge variant="secondary" className="ml-1 text-[10px]">Preferred</Badge>}
+                      {si.preferred && <Badge variant="secondary" className="ml-1 text-[10px]">{t("preferred")}</Badge>}
                     </p>
                   </div>
-                  <Button variant="ghost" size="icon" className="size-7 shrink-0" aria-label="Edit catalogue item" onClick={() => editCatalogueItem(si)}><Pencil className="size-3" /></Button>
-                  <ConfirmDialog trigger={<Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" aria-label="Remove from catalogue"><Trash2 className="size-3" /></Button>} title="Remove from catalogue?" description={`Remove ${mi?.name ?? si.menuItemId} from this supplier.`} confirmLabel="Remove" destructive onConfirm={() => removeFromCatalogue(si.id)} />
+                  <Button variant="ghost" size="icon" className="size-7 shrink-0" aria-label={t("ariaEditCatalogue")} onClick={() => editCatalogueItem(si)}><Pencil className="size-3" /></Button>
+                  <ConfirmDialog trigger={<Button variant="ghost" size="icon" className="size-7 shrink-0 text-destructive" aria-label={t("ariaRemoveFromCatalogue")}><Trash2 className="size-3" /></Button>} title={t("removeFromCatalogueTitle")} description={t("removeFromCatalogueDesc", { item: mi?.name ?? si.menuItemId })} confirmLabel={t("remove")} destructive onConfirm={() => removeFromCatalogue(si.id)} />
                 </div>
               );
             })}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCatOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setCatOpen(false)}>{t("close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -688,17 +707,17 @@ export default function ManagerPurchasingPage() {
       <Dialog open={stOpen} onOpenChange={setStOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Start new stocktake</DialogTitle>
+            <DialogTitle>{t("startStocktake")}</DialogTitle>
             <DialogDescription>
-              Snapshots current stock levels for all {items.length} items. Count and commit after.
+              {t("stocktakeDesc", { count: items.length })}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={onStartStocktake} className="space-y-3">
-            <div><Label htmlFor="st-date">Business date</Label><Input id="st-date" type="date" {...stocktakeForm.register("date")} /></div>
+            <div><Label htmlFor="st-date">{t("businessDate")}</Label><Input id="st-date" type="date" {...stocktakeForm.register("date")} /></div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setStOpen(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => setStOpen(false)}>{t("cancel")}</Button>
               <Button type="submit" disabled={nonFormBusy || startStocktakeMutation.isPending || stocktakeForm.formState.isSubmitting}>
-                {(startStocktakeMutation.isPending || stocktakeForm.formState.isSubmitting) ? "Starting…" : "Start stocktake"}
+                {(startStocktakeMutation.isPending || stocktakeForm.formState.isSubmitting) ? t("starting") : t("startStocktakeBtn")}
               </Button>
             </DialogFooter>
           </form>

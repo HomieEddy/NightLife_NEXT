@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { DemoPublicFooter, DemoPublicNav } from "@/components/shared/demo-links";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
 import { isDemoMode } from "@/features/shared/app-mode";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             )}
             <DemoPublicNav />
             <ThemeToggle />
+            <LocaleToggle />
           </nav>
         </div>
       </header>

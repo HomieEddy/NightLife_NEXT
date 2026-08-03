@@ -13,6 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,15 +33,11 @@ import { cn } from "@/features/shared/utils";
 import type { Order } from "@/lib/types";
 import { DemoClosureApprovalControl, DemoOrderProgressControl } from "@/components/shared/demo-controls";
 
-const STEP_LABELS: Record<(typeof ORDER_FLOW)[number], string> = {
-  pending: "Sent",
-  accepted: "Accepted",
-  preparing: "Preparing",
-  ready: "On its way",
-  delivered: "Delivered",
-};
+// STEP_LABELS resolved from i18n at render time — see OrderTracker below.
+const STEP_KEYS = ["pending", "accepted", "preparing", "ready", "delivered"] as const;
 
 function OrderTracker({ order }: { order: Order }) {
+  const tSteps = useTranslations("guest.order.steps");
   const currentIndex = (ORDER_FLOW as readonly string[]).indexOf(order.status);
   if (order.status === "cancelled") return null;
   return (
@@ -68,7 +65,7 @@ function OrderTracker({ order }: { order: Order }) {
                   i === currentIndex ? "font-semibold text-primary" : "text-muted-foreground",
                 )}
               >
-                {STEP_LABELS[step]}
+                {tSteps(step)}
               </span>
             </div>
             {i < ORDER_FLOW.length - 1 && (
@@ -89,6 +86,7 @@ function OrderTracker({ order }: { order: Order }) {
 }
 
 export default function GuestOrdersPage() {
+  const t = useTranslations("guest.order");
   const router = useRouter();
   const queryClient = useQueryClient();
   const { guestName, sessionId, closureStatus, setClosureStatus } = useGuest();
@@ -191,18 +189,18 @@ export default function GuestOrdersPage() {
   return (
     <div className="space-y-4 p-4 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-display text-xl">Your orders</h1>
+        <h1 className="text-display text-xl">{t("title")}</h1>
         {hasActive && <DemoOrderProgressControl busy={simulateProgressMutation.isPending} onProgress={() => simulateProgressMutation.mutate()} />}
       </div>
 
       {orders.length === 0 ? (
         <EmptyState
           icon={Receipt}
-          title="No orders yet"
-          description="Once you place an order you can track it here in real time."
+          title={t("noOrders")}
+          description={t("noOrdersDesc")}
           action={
             <Button asChild>
-              <Link href="/guest/menu">Browse menu</Link>
+              <Link href="/guest/menu">{t("title")}</Link>
             </Button>
           }
         />
@@ -252,7 +250,7 @@ export default function GuestOrdersPage() {
               {order.status === "delivered" && (
                 <Button variant="outline" size="sm" className="w-full" asChild>
                   <Link href={`/guest/receipt?order=${order.id}`}>
-                    <ReceiptText className="size-4" /> View receipt
+                    <ReceiptText className="size-4" /> {t("viewReceipt")}
                   </Link>
                 </Button>
               )}

@@ -2,6 +2,7 @@
 
 // Plan 10 graduates this demo-only surface.
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Loader2, Save, Star } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +23,7 @@ import { formatMoney } from "@/features/shared/format";
 import type { FeatureKey, PlanConfig, TenantPlan } from "@/lib/types";
 
 export default function AdminPlansPage() {
+  const t = useTranslations("admin.plans");
   const queryClient = useQueryClient();
   const [drafts, setDrafts] = useState<Record<TenantPlan, PlanConfig> | null>(null);
   const [saving, setSaving] = useState<TenantPlan | null>(null);
@@ -55,11 +57,11 @@ export default function AdminPlansPage() {
       const draft = drafts[id];
       const price = draft.monthlyPrice;
       if (!Number.isFinite(price) || price < 0) {
-        toast.error("Price must be zero or positive.");
+        toast.error(t("priceError"));
         return;
       }
       if ((draft.tableLimit !== null && draft.tableLimit < 1) || (draft.staffLimit !== null && draft.staffLimit < 1)) {
-        toast.error("Limits must be at least 1, or unlimited.");
+        toast.error(t("limitsError"));
         return;
       }
       return adminService.updatePlanConfig(id, {
@@ -75,7 +77,7 @@ export default function AdminPlansPage() {
     onSuccess: (_, id) => {
       if (!drafts) return;
       setSaving(null);
-      toast.success(`${drafts[id].name} plan updated`);
+      toast.success(t("planUpdatedToast", { name: drafts[id].name }));
       queryClient.invalidateQueries({ queryKey: adminKeys.plans });
     },
     onError: () => {
@@ -97,7 +99,7 @@ export default function AdminPlansPage() {
   if (plans === undefined || drafts === null) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Plan builder" />
+        <PageHeader title={t("pageTitle")} />
         <div className="grid gap-4 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-[32rem] rounded-xl" />
@@ -110,8 +112,8 @@ export default function AdminPlansPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Plan builder"
-        description="Assemble what each tier contains. Changes propagate to feature gates, subscription cards and pricing."
+        title={t("pageTitle")}
+        description={t("pageDescription")}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -124,7 +126,7 @@ export default function AdminPlansPage() {
                   {saved.id}
                   {draft.highlight && (
                     <Badge variant="outline" className="border-primary/40 text-primary">
-                      <Star className="size-3" /> Highlighted
+                      <Star className="size-3" /> {t("highlightedBadge")}
                     </Badge>
                   )}
                 </CardTitle>
@@ -132,7 +134,7 @@ export default function AdminPlansPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor={`${saved.id}-name`}>Name</Label>
+                    <Label htmlFor={`${saved.id}-name`}>{t("name")}</Label>
                     <Input
                       id={`${saved.id}-name`}
                       value={draft.name}
@@ -140,7 +142,7 @@ export default function AdminPlansPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor={`${saved.id}-price`}>Price / month</Label>
+                    <Label htmlFor={`${saved.id}-price`}>{t("pricePerMonth")}</Label>
                     <Input
                       id={`${saved.id}-price`}
                       type="number"
@@ -153,7 +155,7 @@ export default function AdminPlansPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor={`${saved.id}-tagline`}>Tagline</Label>
+                  <Label htmlFor={`${saved.id}-tagline`}>{t("tagline")}</Label>
                   <Input
                     id={`${saved.id}-tagline`}
                     value={draft.tagline}
@@ -163,33 +165,33 @@ export default function AdminPlansPage() {
 
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>
-                    <p className="text-sm font-medium">Highlight on pricing</p>
-                    <p className="text-xs text-muted-foreground">Shows the "best value" treatment.</p>
+                    <p className="text-sm font-medium">{t("highlightLabel")}</p>
+                    <p className="text-xs text-muted-foreground">{t("highlightDescription")}</p>
                   </div>
                   <Switch
                     checked={draft.highlight}
                     onCheckedChange={(highlight) => patchDraft(saved.id, { highlight })}
-                    aria-label={`Highlight the ${draft.name} plan`}
+                    aria-label={t("highlightAria", { name: draft.name })}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <LimitField
                     id={`${saved.id}-tables`}
-                    label="Table limit"
+                    label={t("tableLimit")}
                     value={draft.tableLimit}
                     onChange={(tableLimit) => patchDraft(saved.id, { tableLimit })}
                   />
                   <LimitField
                     id={`${saved.id}-staff`}
-                    label="Staff limit"
+                    label={t("staffLimit")}
                     value={draft.staffLimit}
                     onChange={(staffLimit) => patchDraft(saved.id, { staffLimit })}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Features</Label>
+                  <Label>{t("features")}</Label>
                   <div className="space-y-1.5">
                     {FEATURE_CATALOG.map((feature) => (
                       <div
@@ -203,7 +205,7 @@ export default function AdminPlansPage() {
                         <Switch
                           checked={draft.features.includes(feature.key)}
                           onCheckedChange={(on) => toggleFeature(saved.id, feature.key, on === true)}
-                          aria-label={`${feature.label} on ${draft.name}`}
+                          aria-label={t("featureToggleAria", { feature: feature.label, plan: draft.name })}
                         />
                       </div>
                     ))}
@@ -218,12 +220,12 @@ export default function AdminPlansPage() {
                       ) : (
                         <Save className="size-4" />
                       )}
-                      {saving === saved.id ? "Saving…" : "Save plan"}
+                      {saving === saved.id ? t("saving") : t("savePlan")}
                     </Button>
                   }
-                  title={`Update the ${draft.name} plan?`}
-                  description={`Feature gates, subscription cards and pricing change immediately for every ${saved.id} tenant. New price: ${formatMoney(Math.round((draft.monthlyPrice || 0) * 100) / 100)}/mo.`}
-                  confirmLabel="Update plan"
+                  title={t("updateTitle", { name: draft.name })}
+                  description={t("updateDescription", { plan: saved.id, price: formatMoney(Math.round((draft.monthlyPrice || 0) * 100) / 100) })}
+                  confirmLabel={t("updateConfirm")}
                   onConfirm={() => save(saved.id)}
                 />
               </CardContent>
@@ -243,6 +245,7 @@ function LimitField({
   value: number | null;
   onChange: (value: number | null) => void;
 }) {
+  const t = useTranslations("admin.plans");
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
@@ -250,11 +253,11 @@ function LimitField({
         id={id}
         type="number"
         min={1}
-        placeholder="Unlimited"
+        placeholder={t("unlimited")}
         value={value ?? ""}
         onChange={(e) => onChange(Number.isNaN(e.target.valueAsNumber) ? null : e.target.valueAsNumber)}
       />
-      <p className="text-xs text-muted-foreground">Empty = unlimited</p>
+      <p className="text-xs text-muted-foreground">{t("unlimitedHint")}</p>
     </div>
   );
 }

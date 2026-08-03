@@ -32,6 +32,7 @@ import { PackageEditor, type PackageDraft } from "@/components/manager/package-e
 import { ModifierPresetEditor } from "@/components/manager/modifier-preset-editor";
 import { menuService, type PackageQuote } from "@/features/menu/services";
 import { menuKeys } from "@/features/menu/query-keys";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/context/auth-context";
 import { formatMoney } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
@@ -44,6 +45,7 @@ function MenuContent() {
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
+  const t = useTranslations("manager.menu");
 
   const [activeCategory, setActiveCategory] = useState<string>(
     searchParams.get("category") ?? "",
@@ -132,24 +134,24 @@ function MenuContent() {
       }
     },
     onSuccess: (_, data) => {
-      toast.success(`${data.name} ${editingCategory ? "updated" : "created"}`);
+      toast.success(editingCategory ? t("categoryUpdated", { name: data.name }) : t("categoryCreated", { name: data.name }));
       setCategoryOpen(false);
       invalidate();
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Could not save the category.");
+      toast.error(error instanceof Error ? error.message : t("couldNotSaveCategory"));
     },
   });
 
   const deleteCategoryMutation = useMutation({
     mutationFn: (category: MenuCategory) => menuService.deleteCategory(category.id),
     onSuccess: (_, category) => {
-      toast.info(`${category.name} removed`);
+      toast.info(t("categoryRemoved", { name: category.name }));
       setCategoryOpen(false);
       invalidate();
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Could not delete the category.");
+      toast.error(error instanceof Error ? error.message : t("couldNotDeleteCategory"));
     },
   });
 
@@ -157,7 +159,7 @@ function MenuContent() {
   const toggleItemMutation = useMutation({
     mutationFn: (item: MenuItem) => menuService.updateItem(item.id, { isAvailable: !item.isAvailable }),
     onSuccess: (_, item) => {
-      toast.success(`${item.name} ${item.isAvailable ? "86'd" : "back on the menu"}`);
+      toast.success(item.isAvailable ? t("itemEightySixed", { name: item.name }) : t("itemBackOnMenu", { name: item.name }));
       invalidate();
     },
   });
@@ -179,7 +181,7 @@ function MenuContent() {
     },
     onSuccess: () => {
       setEditing(null);
-      toast.success("Item updated");
+      toast.success(t("itemUpdated"));
       invalidate();
     },
   });
@@ -195,7 +197,7 @@ function MenuContent() {
       }
     },
     onSuccess: (_, draft) => {
-      toast.success(`${draft.name} ${editingPackage ? "updated" : "created"}`);
+      toast.success(editingPackage ? t("packageUpdated", { name: draft.name }) : t("packageCreated", { name: draft.name }));
       invalidate();
     },
   });
@@ -203,7 +205,7 @@ function MenuContent() {
   const togglePackageMutation = useMutation({
     mutationFn: (pkg: BottlePackage) => menuService.updatePackage(pkg.id, { isActive: !pkg.isActive }),
     onSuccess: (_, pkg) => {
-      toast.success(`${pkg.name} ${pkg.isActive ? "hidden from guests" : "live on the guest menu"}`);
+      toast.success(pkg.isActive ? t("packageHidden", { name: pkg.name }) : t("packagePublished", { name: pkg.name }));
       invalidate();
     },
   });
@@ -211,7 +213,7 @@ function MenuContent() {
   const deletePackageMutation = useMutation({
     mutationFn: (pkg: BottlePackage) => menuService.deletePackage(pkg.id),
     onSuccess: (_, pkg) => {
-      toast.info(`${pkg.name} removed`);
+      toast.info(t("packageRemoved", { name: pkg.name }));
       invalidate();
     },
   });
@@ -257,8 +259,8 @@ function MenuContent() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Menu"
-        description="What guests see — pricing, availability and curated packages."
+        title={t("title")}
+        description={t("description")}
       />
 
       {categories === undefined ? (
@@ -267,10 +269,10 @@ function MenuContent() {
         <Tabs defaultValue="bottles">
           <TabsList>
             <TabsTrigger value="bottles">
-              <Martini className="size-3.5" /> Bottles
+              <Martini className="size-3.5" /> {t("tabs.bottles")}
             </TabsTrigger>
             <TabsTrigger value="packages">
-              <Gift className="size-3.5" /> Packages ({packages.length})
+              <Gift className="size-3.5" /> {t("tabs.packages", { count: packages.length })}
             </TabsTrigger>
           </TabsList>
 
@@ -279,11 +281,11 @@ function MenuContent() {
             <div className="flex justify-end gap-2">
               {categories.find((category) => category.id === activeCategory) && (
                 <Button variant="outline" onClick={() => openCategory(categories.find((category) => category.id === activeCategory)!)}>
-                  <Pencil className="size-4" /> Edit category
+                  <Pencil className="size-4" /> {t("editCategory")}
                 </Button>
               )}
               <Button onClick={() => openCategory()}>
-                <Plus className="size-4" /> New category
+                <Plus className="size-4" /> {t("newCategory")}
               </Button>
             </div>
             <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0">
@@ -301,7 +303,7 @@ function MenuContent() {
                   )}
                 >
                   {cat.name}
-                  {!cat.isActive && " (hidden)"}
+                  {!cat.isActive && t("hidden")}
                 </button>
               ))}
             </div>
@@ -309,8 +311,8 @@ function MenuContent() {
             {visibleItems.length === 0 ? (
               <EmptyState
                 icon={Martini}
-                title="No bottles in this category"
-                description="Add bottles to make them orderable from the guest menu."
+                title={t("emptyBottlesTitle")}
+                description={t("emptyBottlesDesc")}
               />
             ) : (
               <>
@@ -324,25 +326,25 @@ function MenuContent() {
                         <div className="flex flex-col items-center gap-0.5">
                           <ConfirmDialog
                             trigger={
-                              <Switch checked={item.isAvailable} aria-label="Toggle availability" />
+                              <Switch checked={item.isAvailable} aria-label={t("toggleAvailability")} />
                             }
-                            title={item.isAvailable ? `86 ${item.name}?` : `Put ${item.name} back on the menu?`}
+                            title={item.isAvailable ? t("eightySixTitle", { name: item.name }) : t("putBackTitle", { name: item.name })}
                             description={
                               item.isAvailable
-                                ? "Guests can no longer order it, regardless of stock."
-                                : "Guests can order it again while stock lasts."
+                                ? t("eightySixDesc")
+                                : t("putBackDesc")
                             }
-                            confirmLabel={item.isAvailable ? "86 it" : "Make it live"}
+                            confirmLabel={item.isAvailable ? t("eightySixConfirm") : t("putBackConfirm")}
                             onConfirm={() => toggleItemMutation.mutate(item)}
                           />
                           <span className="text-[10px] text-muted-foreground">
-                            {item.isAvailable ? "Live" : "86'd"}
+                            {item.isAvailable ? t("live") : t("eightySixed")}
                           </span>
                         </div>
                         <TooltipIconButton
                           variant="ghost"
                           onClick={() => { setEditing(item); itemForm.reset({ name: item.name, description: item.description, price: item.price, isAlcoholic: item.isAlcoholic, abv: item.abv, allergens: item.allergens.join(", ") }); }}
-                          tooltip="Edit item"
+                          tooltip={t("editItem")}
                         >
                           <Pencil className="size-4" />
                         </TooltipIconButton>
@@ -365,15 +367,15 @@ function MenuContent() {
                   setEditorOpen(true);
                 }}
               >
-                <Plus className="size-4" /> New package
+                <Plus className="size-4" /> {t("newPackage")}
               </Button>
             </div>
 
             {packages.length === 0 ? (
               <EmptyState
                 icon={Gift}
-                title="No packages yet"
-                description="Bundle bottles into a package guests can order in one tap."
+                title={t("emptyPackagesTitle")}
+                description={t("emptyPackagesDesc")}
               />
             ) : (
               <>
@@ -386,13 +388,13 @@ function MenuContent() {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold">{pkg.name}</p>
-                            {!pkg.isActive && <Badge variant="outline">Hidden</Badge>}
+                            {!pkg.isActive && <Badge variant="outline">{t("hiddenBadge")}</Badge>}
                             {pkg.quote.maxQuantity === 0 && (
                               <Badge
                                 variant="outline"
                                 className="text-red-600 dark:text-red-400"
                               >
-                                Out of stock
+                                {t("outOfStock")}
                               </Badge>
                             )}
                           </div>
@@ -417,28 +419,28 @@ function MenuContent() {
                         <div>
                           <p className="font-bold tabular-nums">{formatMoney(pkg.price)}</p>
                           <p className="text-xs text-muted-foreground">
-                            Value {formatMoney(pkg.quote.componentsValue)} · guest saves{" "}
+                            {t("value")} {formatMoney(pkg.quote.componentsValue)} · {t("guestSaves")}{" "}
                             {formatMoney(pkg.quote.savings)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Stock supports {pkg.quote.maxQuantity} more tonight
+                            {t("stockSupports", { count: pkg.quote.maxQuantity })}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
                           <ConfirmDialog
-                            trigger={<Switch checked={pkg.isActive} aria-label="Toggle package" />}
-                            title={pkg.isActive ? `Hide ${pkg.name} from guests?` : `Publish ${pkg.name}?`}
+                            trigger={<Switch checked={pkg.isActive} aria-label={t("togglePackage")} />}
+                            title={pkg.isActive ? t("hidePackageTitle", { name: pkg.name }) : t("publishPackageTitle", { name: pkg.name })}
                             description={
                               pkg.isActive
-                                ? "The package disappears from the guest menu."
-                                : "The package goes live on the guest menu."
+                                ? t("hidePackageDesc")
+                                : t("publishPackageDesc")
                             }
-                            confirmLabel={pkg.isActive ? "Hide package" : "Publish"}
+                            confirmLabel={pkg.isActive ? t("hidePackageConfirm") : t("publish")}
                             onConfirm={() => togglePackageMutation.mutate(pkg)}
                           />
                           <TooltipIconButton
                             variant="ghost"
-                            tooltip="Edit package"
+                            tooltip={t("editPackage")}
                             onClick={() => {
                               setEditingPackage(pkg);
                               setEditorOpen(true);
@@ -452,14 +454,14 @@ function MenuContent() {
                                 variant="ghost"
                                 size="icon"
                                 className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                                aria-label="Delete package"
+                                aria-label={t("deletePackage")}
                               >
                                 <Trash2 className="size-4" />
                               </Button>
                             }
-                            title={`Delete ${pkg.name}?`}
-                            description="Guests will no longer be able to order this package. Past orders keep their history."
-                            confirmLabel="Delete package"
+                            title={t("deletePackageTitle", { name: pkg.name })}
+                            description={t("deletePackageDesc")}
+                            confirmLabel={t("deletePackageConfirm")}
                             destructive
                             onConfirm={() => deletePackageMutation.mutate(pkg)}
                           />
@@ -480,26 +482,26 @@ function MenuContent() {
       <Dialog open={categoryOpen} onOpenChange={setCategoryOpen}>
         <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingCategory ? `Edit ${editingCategory.name}` : "New category"}</DialogTitle>
+            <DialogTitle>{editingCategory ? t("editCategoryTitle", { name: editingCategory.name }) : t("newCategoryTitle")}</DialogTitle>
           </DialogHeader>
           <form onSubmit={onCategorySave} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
                 <div className="space-y-1.5">
-                  <Label htmlFor="category-name">Name</Label>
+                  <Label htmlFor="category-name">{t("name")}</Label>
                   <Input id="category-name" {...categoryForm.register("name")} />
                   {categoryForm.formState.errors.name && <p className="text-xs text-destructive">{categoryForm.formState.errors.name.message}</p>}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="category-order">Sort order</Label>
+                  <Label htmlFor="category-order">{t("sortOrder")}</Label>
                   <Input id="category-order" type="number" min={1} {...categoryForm.register("sortOrder", { valueAsNumber: true })} />
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="category-description">Description</Label>
+                <Label htmlFor="category-description">{t("descriptionLabel")}</Label>
                 <Textarea id="category-description" {...categoryForm.register("description")} />
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
-                <div><p className="text-sm font-medium">Active</p><p className="text-xs text-muted-foreground">Visible on the guest menu</p></div>
+                <div><p className="text-sm font-medium">{t("active")}</p><p className="text-xs text-muted-foreground">{t("visibleOnGuestMenu")}</p></div>
                 <Switch checked={categoryForm.watch("isActive")} onCheckedChange={(v) => categoryForm.setValue("isActive", v)} />
               </div>
               <ModifierPresetEditor
@@ -511,18 +513,18 @@ function MenuContent() {
             <div>
               {editingCategory && (
                 <ConfirmDialog
-                  trigger={<Button variant="destructive">Delete category</Button>}
-                  title={`Delete ${editingCategory.name}?`}
-                  description="Categories with bottles cannot be deleted. Past orders keep their snapshots."
-                  confirmLabel="Delete category"
+                  trigger={<Button variant="destructive">{t("deleteCategory")}</Button>}
+                  title={t("deleteCategoryTitle", { name: editingCategory.name })}
+                  description={t("deleteCategoryDesc")}
+                  confirmLabel={t("deleteCategoryConfirm")}
                   destructive
                   onConfirm={() => deleteCategoryMutation.mutate(editingCategory)}
                 />
               )}
             </div>
             <div className="flex gap-2">
-              <Button type="button" variant="ghost" onClick={() => setCategoryOpen(false)} disabled={isSaving}>Cancel</Button>
-              <Button type="submit" disabled={isSaving}>{isSaving ? "Saving…" : "Save category"}</Button>
+              <Button type="button" variant="ghost" onClick={() => setCategoryOpen(false)} disabled={isSaving}>{t("cancel")}</Button>
+              <Button type="submit" disabled={isSaving}>{isSaving ? t("saving") : t("saveCategory")}</Button>
             </div>
           </DialogFooter>
           </form>
@@ -533,29 +535,29 @@ function MenuContent() {
       <Dialog open={editing !== null} onOpenChange={(open) => { if (!open) setEditing(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit bottle</DialogTitle>
+            <DialogTitle>{t("editItemTitle")}</DialogTitle>
           </DialogHeader>
           {editing && (
             <form onSubmit={onItemSave} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="edit-name">Name</Label>
+                <Label htmlFor="edit-name">{t("name")}</Label>
                 <Input id="edit-name" {...itemForm.register("name")} />
                 {itemForm.formState.errors.name && <p className="text-xs text-destructive">{itemForm.formState.errors.name.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="edit-desc">Description</Label>
+                <Label htmlFor="edit-desc">{t("descriptionLabel")}</Label>
                 <Textarea id="edit-desc" rows={2} {...itemForm.register("description")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="edit-price">Price ($ CAD)</Label>
+                <Label htmlFor="edit-price">{t("price")}</Label>
                 <Input id="edit-price" type="number" min={0} step={5} {...itemForm.register("price", { valueAsNumber: true })} />
                 {itemForm.formState.errors.price && <p className="text-xs text-destructive">{itemForm.formState.errors.price.message}</p>}
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="space-y-0.5 pr-4">
-                  <Label htmlFor="edit-alcoholic">Contains alcohol</Label>
+                  <Label htmlFor="edit-alcoholic">{t("containsAlcohol")}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Counts toward each guest&apos;s responsible-service drink total.
+                    {t("containsAlcoholDesc")}
                   </p>
                 </div>
                 <Controller
@@ -566,39 +568,39 @@ function MenuContent() {
                       id="edit-alcoholic"
                       checked={field.value}
                       onCheckedChange={field.onChange}
-                      aria-label="Contains alcohol"
+                      aria-label={t("containsAlcoholAria")}
                     />
                   )}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="edit-abv">ABV (%)</Label>
+                <Label htmlFor="edit-abv">{t("abv")}</Label>
                 <Input
                   id="edit-abv"
                   type="number"
                   min={0}
                   max={100}
                   step={0.1}
-                  placeholder="e.g. 40"
+                  placeholder={t("abvPlaceholder")}
                   {...itemForm.register("abv", { valueAsNumber: true })}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="edit-allergens">Allergens</Label>
-                <Input id="edit-allergens" placeholder="nuts, dairy" {...itemForm.register("allergens")} />
+                <Label htmlFor="edit-allergens">{t("allergens")}</Label>
+                <Input id="edit-allergens" placeholder={t("allergensPlaceholder")} {...itemForm.register("allergens")} />
                 <p className="text-xs text-muted-foreground">
-                  Comma-separated. Shown to guests on the item — leave blank if none are declared.
+                  {t("allergensDesc")}
                 </p>
               </div>
               <p className="text-xs text-muted-foreground">
-                Stock levels are managed in Inventory — restocks and corrections happen there.
+                {t("stockLevelsNote")}
               </p>
               <DialogFooter>
                 <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
-                  Cancel
+                  {t("cancel")}
                 </Button>
                 <Button type="submit" disabled={isSaving}>
-                  {isSaving ? "Saving…" : "Save"}
+                  {isSaving ? t("saving") : t("save")}
                 </Button>
               </DialogFooter>
             </form>

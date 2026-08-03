@@ -65,6 +65,8 @@ export interface Venue {
   doorRequiresIdCheck: boolean;
   /** The legal drinking age in this venue's jurisdiction — defaults to 18 (Quebec). */
   legalDrinkingAge: number;
+  /** Default locale for guest-facing surfaces — QR ordering, embeds, public pages. Overridable by guest toggle. */
+  guestLocale: "en" | "fr";
   /** RV-03: Auto-gratuity rules — triggers based on party size, zone, and table minimum. */
   autoGratuityRules?: {
     id: string;
@@ -1078,6 +1080,8 @@ export interface Reservation {
   bumpReason?: string;
   /** RV-10: Table the bumped guest was offered as an alternative. */
   alternativeTableId?: string;
+  /** Locale the guest booked in — seeds the email/SMS notification language. Defaults to venue guestLocale. */
+  bookingLocale?: "en" | "fr";
   createdAt: string; // ISO
 }
 

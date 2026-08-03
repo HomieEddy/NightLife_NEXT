@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, Pencil, Plus, Table2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,18 +37,21 @@ import type { TableStatus, VenueTable } from "@/lib/types";
 
 const STATUSES: TableStatus[] = ["open", "occupied", "reserved", "closed"];
 
-const zTableForm = z.object({
-  code: z.string().min(1, "Code is required"),
-  label: z.string().min(1, "Label is required"),
-  zoneId: z.string().min(1, "Zone is required"),
-  seats: z.number().int().min(1),
-  minimumSpend: z.string(),
-});
-
-type FormValues = z.infer<typeof zTableForm>;
-const EMPTY_VALUES: FormValues = { code: "", label: "", zoneId: "", seats: 4, minimumSpend: "" };
-
 function TablesContent() {
+  const t = useTranslations("manager.tables");
+  const ts = useTranslations("shared");
+
+  const zTableForm = z.object({
+    code: z.string().min(1, t("codeRequired")),
+    label: z.string().min(1, t("labelRequired")),
+    zoneId: z.string().min(1, t("zoneRequired")),
+    seats: z.number().int().min(1),
+    minimumSpend: z.string(),
+  });
+
+  type FormValues = z.infer<typeof zTableForm>;
+  const EMPTY_VALUES: FormValues = { code: "", label: "", zoneId: "", seats: 4, minimumSpend: "" };
+
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
@@ -109,7 +113,7 @@ function TablesContent() {
       setDialogOpen(false);
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("saveFailed")),
   });
 
   const removeMutation = useMutation({
@@ -160,7 +164,7 @@ function TablesContent() {
     return (
       <span className="inline-flex gap-1.5">
         <EntityChip type="zone" id={tableZoneId} label={name} />
-        <EntityChip type="zone-staff" id={tableZoneId} label="Staff" />
+        <EntityChip type="zone-staff" id={tableZoneId} label={t("staff")} />
       </span>
     );
   };
@@ -168,16 +172,16 @@ function TablesContent() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Tables"
-        description="Statuses feed the guest QR flow and the floor plan."
+        title={t("title")}
+        description={t("description")}
         actions={
           <div className="flex items-center gap-2">
             <Select value={zoneFilter} onValueChange={setZoneFilter}>
               <SelectTrigger className="w-44">
-                <SelectValue placeholder="All zones" />
+                <SelectValue placeholder={t("allZones")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All zones</SelectItem>
+                <SelectItem value="all">{t("allZones")}</SelectItem>
                 {zones.map((zone) => (
                   <SelectItem key={zone.id} value={zone.id}>
                     {zone.name}
@@ -186,7 +190,7 @@ function TablesContent() {
               </SelectContent>
             </Select>
             <Button onClick={openCreate}>
-              <Plus className="size-4" /> New table
+              <Plus className="size-4" /> {t("newTableTitle")}
             </Button>
           </div>
         }
@@ -196,7 +200,7 @@ function TablesContent() {
         <SearchInput
           value={query}
           onChange={setQuery}
-          placeholder="Search tables…"
+          placeholder={t("searchPlaceholder")}
           className="w-full sm:w-56"
         />
         <div className="flex flex-wrap gap-1.5">
@@ -212,7 +216,7 @@ function TablesContent() {
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {s === "all" ? "All" : s}
+              {s === "all" ? ts("all") : s}
             </button>
           ))}
         </div>
@@ -221,7 +225,7 @@ function TablesContent() {
       {tables === undefined ? (
         <ListSkeleton rows={6} rowHeight="h-28" />
       ) : visible.length === 0 ? (
-        <EmptyState icon={Table2} title="No tables match" description="Try adjusting the filters." />
+        <EmptyState icon={Table2} title={t("noTablesMatch")} description={t("noTablesDesc")} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sliced.map((table) => (
@@ -253,26 +257,26 @@ function TablesContent() {
                               {status}
                             </button>
                           }
-                          title={`Set ${table.code} to ${status}?`}
-                          description="Table status drives the guest QR flow and runner routing."
-                          confirmLabel={`Set ${status}`}
+                          title={`${ts("set")} ${table.code} → ${status}?`}
+                          description={t("statusDesc")}
+                          confirmLabel={`${ts("set")} ${status}`}
                           onConfirm={() => setStatusMutation.mutate({ table, status })}
                         />
                       ))}
                     </div>
                     <div className="flex shrink-0 items-center">
-                      <TooltipIconButton variant="ghost" className="size-7" tooltip="Edit table" onClick={() => openEdit(table)}>
+                      <TooltipIconButton variant="ghost" className="size-7" tooltip={t("editTable")} onClick={() => openEdit(table)}>
                         <Pencil className="size-3.5" />
                       </TooltipIconButton>
                       <ConfirmDialog
                         trigger={
-                          <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-red-600 dark:hover:text-red-400" aria-label="Delete table">
+                          <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-red-600 dark:hover:text-red-400" aria-label={t("deleteTable")}>
                             <Trash2 className="size-3.5" />
                           </Button>
                         }
-                        title={`Delete ${table.code}?`}
-                        description="Its QR code will stop working. Past orders keep their history."
-                        confirmLabel="Delete table"
+                        title={t("deleteTable") + " " + table.code + "?"}
+                        description={t("deleteDesc")}
+                        confirmLabel={t("deleteConfirm")}
                         destructive
                         onConfirm={() => removeMutation.mutate(table)}
                       />
@@ -290,26 +294,26 @@ function TablesContent() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit table" : "New table"}</DialogTitle>
+            <DialogTitle>{editingId ? t("editTableTitle") : t("newTableTitle")}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit((data) => saveMutation.mutate(data))} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="table-code">Code</Label>
-                <Input id="table-code" placeholder="VIP-07" {...register("code")} />
+                <Label htmlFor="table-code">{t("code")}</Label>
+                <Input id="table-code" placeholder={t("codePlaceholder")} {...register("code")} />
                 {errors.code && <p className="text-xs text-destructive">{errors.code.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="table-label">Label</Label>
-                <Input id="table-label" placeholder="Booth 7" {...register("label")} />
+                <Label htmlFor="table-label">{t("label")}</Label>
+                <Input id="table-label" placeholder={t("labelPlaceholder")} {...register("label")} />
                 {errors.label && <p className="text-xs text-destructive">{errors.label.message}</p>}
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Zone</Label>
+              <Label>{t("zone")}</Label>
               <Select value={zoneId} onValueChange={(v) => setValue("zoneId", v)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Pick a zone" />
+                  <SelectValue placeholder={t("zonePlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {zones.map((zone) => (
@@ -321,26 +325,26 @@ function TablesContent() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="table-seats">Seats</Label>
+                <Label htmlFor="table-seats">{t("seats")}</Label>
                 <Input id="table-seats" type="number" min={1} {...register("seats", { valueAsNumber: true })} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="table-min">Min. spend ($)</Label>
-                <Input id="table-min" type="number" min={0} step={50} placeholder="None" {...register("minimumSpend")} />
+                <Label htmlFor="table-min">{t("minimumSpend")}</Label>
+                <Input id="table-min" type="number" min={0} step={50} placeholder={t("minimumSpendPlaceholder")} {...register("minimumSpend")} />
               </div>
             </div>
             {!editingId && (
               <p className="text-xs text-muted-foreground">
-                A QR code is generated automatically from the table code.
+                {t("qrCodeHint")}
               </p>
             )}
             <DialogFooter>
               <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>
-                Cancel
+                {t("cancel")}
               </Button>
               <Button type="submit" disabled={saveMutation.isPending}>
                 {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                {saveMutation.isPending ? "Saving…" : editingId ? "Save" : "Create table"}
+                {saveMutation.isPending ? t("saving") : editingId ? t("save") : t("createTable")}
               </Button>
             </DialogFooter>
           </form>

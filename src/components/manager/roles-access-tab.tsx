@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, Lock, RotateCcw, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,17 +20,6 @@ import { ASSIGNABLE_ROLES } from "@/lib/types";
 import { cn } from "@/features/shared/utils";
 import type { ActionCategory, RolePermissions, StaffAction } from "@/features/shared/permissions";
 import type { StaffRole } from "@/lib/types";
-
-const CATEGORY_LABELS: Record<ActionCategory, string> = {
-  orders: "Orders",
-  guests: "Guest sessions & identity",
-  help: "Help & security",
-  reservations: "Reservations",
-  tab: "Tab ledger",
-  operations: "Operations",
-  door: "Door & waitlist",
-  incidents: "Incidents",
-};
 
 // Build once at module load — stable order matches ACTION_META declaration.
 const ACTIONS_BY_CATEGORY: Record<ActionCategory, StaffAction[]> = {
@@ -53,15 +43,16 @@ const LOCKED_ROLE: StaffRole = "manager";
 // ---------- Not-authorized panel ----------
 
 function NotAuthorized() {
+  const t = useTranslations("shared");
   return (
     <div className="flex flex-col items-center gap-4 py-16 text-center">
       <div className="flex size-16 items-center justify-center rounded-full bg-red-500/10">
         <ShieldOff className="size-8 text-red-600 dark:text-red-400" />
       </div>
       <div className="space-y-1">
-        <p className="font-semibold">Access restricted</p>
+        <p className="font-semibold">{t("rolesAccess.restricted")}</p>
         <p className="text-sm text-muted-foreground">
-          Only managers can view and edit role permissions.
+          {t("rolesAccess.restrictedDesc")}
         </p>
       </div>
     </div>
@@ -78,8 +69,20 @@ export function RolesAccessTab({
   currentUserRole: StaffRole | null;
   venueId: string;
 }) {
+  const t = useTranslations("shared");
   const queryClient = useQueryClient();
   const [selectedRole, setSelectedRole] = useState<StaffRole>("host");
+
+  const CATEGORY_LABELS: Record<ActionCategory, string> = {
+    orders: t("rolesAccess.categories.orders"),
+    guests: t("rolesAccess.categories.guests"),
+    help: t("rolesAccess.categories.help"),
+    reservations: t("rolesAccess.categories.reservations"),
+    tab: t("rolesAccess.categories.tab"),
+    operations: t("rolesAccess.categories.operations"),
+    door: t("rolesAccess.categories.door"),
+    incidents: t("rolesAccess.categories.incidents"),
+  };
 
   const { data: saved } = useQuery({
     queryKey: permissionsKeys.role(venueId),
@@ -101,10 +104,10 @@ export function RolesAccessTab({
     onSuccess: (_, permissions) => {
       setDraft(structuredClone(permissions));
       queryClient.invalidateQueries({ queryKey: permissionsKeys.role(venueId) });
-      toast.success(`${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)} permissions saved`);
+      toast.success(t("rolesAccess.savedToast", { role: selectedRole }));
     },
     onError: () => {
-      toast.error("Could not save permissions");
+      toast.error(t("rolesAccess.couldNotSave"));
     },
   });
 
@@ -116,10 +119,10 @@ export function RolesAccessTab({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: permissionsKeys.role(venueId) });
-      toast.success(`${selectedRole} permissions reset to defaults`);
+      toast.success(t("rolesAccess.resetToast", { role: selectedRole }));
     },
     onError: () => {
-      toast.error("Could not reset permissions");
+      toast.error(t("rolesAccess.couldNotReset"));
     },
   });
 
@@ -130,10 +133,10 @@ export function RolesAccessTab({
     onSuccess: () => {
       setDraft(null); // re-sync from the refetched defaults
       queryClient.invalidateQueries({ queryKey: permissionsKeys.role(venueId) });
-      toast.success("All role permissions reset to defaults");
+      toast.success(t("rolesAccess.resetAllToast"));
     },
     onError: () => {
-      toast.error("Could not reset permissions");
+      toast.error(t("rolesAccess.couldNotReset"));
     },
   });
 
@@ -193,7 +196,7 @@ export function RolesAccessTab({
               )}
             >
               {role === LOCKED_ROLE && <Lock className="size-3" />}
-              {role}
+              {t(`rolesAccess.roleNames.${role}`)}
             </button>
           ))}
         </div>
@@ -201,12 +204,12 @@ export function RolesAccessTab({
           trigger={
             <Button variant="ghost" size="sm" disabled={resetAllMutation.isPending}>
               <RotateCcw className="size-3.5" />
-              Reset all roles
+              {t("rolesAccess.resetAll")}
             </Button>
           }
-          title="Reset all role permissions?"
-          description="Every role reverts to the app defaults and all stored overrides are cleared for this venue. This is recorded in the audit trail and cannot be undone."
-          confirmLabel="Reset all roles"
+          title={t("rolesAccess.resetAllTitle")}
+          description={t("rolesAccess.resetAllDesc")}
+          confirmLabel={t("rolesAccess.resetAllConfirm")}
           onConfirm={() => resetAllMutation.mutate()}
         />
       </div>
@@ -217,8 +220,7 @@ export function RolesAccessTab({
           <CardContent className="flex items-center gap-3 px-4">
             <Lock className="size-5 shrink-0 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
-              The <span className="font-medium text-foreground">manager</span> role always retains
-              full access and cannot be customized.
+              {t("rolesAccess.managerLocked")}
             </p>
           </CardContent>
         </Card>
@@ -248,7 +250,7 @@ export function RolesAccessTab({
                             {meta.sensitive && (
                               <AlertTriangle
                                 className="size-3.5 text-amber-500"
-                                aria-label="Sensitive — use with care"
+                                aria-label={t("rolesAccess.sensitiveAria")}
                               />
                             )}
                           </p>
@@ -274,23 +276,23 @@ export function RolesAccessTab({
               trigger={
                 <Button variant="ghost" size="sm" disabled={saveMutation.isPending}>
                   <RotateCcw className="size-3.5" />
-                  Restore defaults
+                  {t("rolesAccess.restoreDefaults")}
                 </Button>
               }
-              title={`Restore ${selectedRole} defaults?`}
-              description={`All capabilities for the ${selectedRole} role will be reset to the app defaults and saved immediately. Other roles are not affected.`}
-              confirmLabel="Restore defaults"
+              title={t("rolesAccess.restoreTitle", { role: selectedRole })}
+              description={t("rolesAccess.restoreDesc", { role: selectedRole })}
+              confirmLabel={t("rolesAccess.restoreConfirm")}
               onConfirm={restoreDefaults}
             />
             <ConfirmDialog
               trigger={
                 <Button size="sm" disabled={!dirty || saveMutation.isPending}>
-                  {saveMutation.isPending ? "Saving…" : "Save changes"}
+                  {saveMutation.isPending ? t("rolesAccess.saving") : t("rolesAccess.saveChanges")}
                 </Button>
               }
-              title={`Update ${selectedRole} permissions?`}
-              description={`These changes apply to all ${selectedRole} team members. Staff on shift will see the new permissions on their next page load.`}
-              confirmLabel="Save permissions"
+              title={t("rolesAccess.saveTitle", { role: selectedRole })}
+              description={t("rolesAccess.saveDesc", { role: selectedRole })}
+              confirmLabel={t("rolesAccess.saveConfirm")}
               onConfirm={saveChanges}
             />
           </div>

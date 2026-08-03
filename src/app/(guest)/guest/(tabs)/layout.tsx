@@ -5,6 +5,7 @@ import { Clock, LifeBuoy, Martini, Receipt, ShoppingBag } from "lucide-react";
 import { CartSheet } from "@/components/guest/cart-sheet";
 import { MobileBottomNav } from "@/components/shared/mobile-bottom-nav";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
 import { useGuest } from "@/context/guest-context";
 import { useLastCall } from "@/lib/use-last-call";
 
@@ -32,6 +33,7 @@ export default function GuestTabsLayout({ children }: { children: React.ReactNod
                 </span>
               )}
               <ThemeToggle className="size-8" />
+              <LocaleToggle className="size-8" />
             </div>
           </div>
           <hr className="rule-gold" aria-hidden="true" />

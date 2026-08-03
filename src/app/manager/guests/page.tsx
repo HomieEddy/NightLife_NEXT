@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDown, Pencil, Plus, Search, ShieldOff, SlidersHorizontal, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,13 +33,14 @@ import type { z } from "zod";
 
 type FormValues = z.infer<typeof zGuestInput>;
 
-const VIP_OPTIONS: { value: GuestVipTier; label: string }[] = [
-  { value: "none", label: "None" }, { value: "regular", label: "Regular" }, { value: "vip", label: "VIP" }, { value: "host-list", label: "Host list" },
-];
 const TAG_OPTIONS: GuestTag[] = ["regular", "industry", "influencer", "birthday", "allergy-noted", "high-spender"];
 
 export default function ManagerGuestsPage() {
+  const t = useTranslations("manager.guests");
   const { user } = useAuth();
+  const VIP_OPTIONS: { value: GuestVipTier; label: string }[] = [
+    { value: "none", label: t("none") }, { value: "regular", label: t("regular") }, { value: "vip", label: t("vip") }, { value: "host-list", label: t("hostList") },
+  ];
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
@@ -104,7 +106,7 @@ export default function ManagerGuestsPage() {
       setDialogOpen(false);
       invalidate();
     },
-    onError: () => toast.error("Could not save profile"),
+    onError: () => toast.error(t("couldNotSave")),
   });
 
   const banMutation = useMutation({
@@ -115,7 +117,7 @@ export default function ManagerGuestsPage() {
       setBanReason("");
       invalidate();
     },
-    onError: () => toast.error("Could not update ban status"),
+    onError: () => toast.error(t("couldNotBan")),
   });
 
   const mergeMutation = useMutation({
@@ -129,7 +131,7 @@ export default function ManagerGuestsPage() {
       setMergeTargetId("");
       invalidate();
     },
-    onError: () => toast.error("Could not merge"),
+    onError: () => toast.error(t("couldNotMerge")),
   });
 
   const onSave = handleSubmit((data) => saveMutation.mutate(data));
@@ -190,31 +192,31 @@ export default function ManagerGuestsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Guests" description="Persistent guest identity — profiles, VIP tiers and bans."
-        breadcrumbs={[{ label: "Bookings", href: "/manager/reservations" }, { label: "Guests" }]}
-        actions={<Button size="sm" onClick={openCreate}><Plus className="size-4 mr-1" /> Add guest</Button>}
+      <PageHeader title={t("title")} description={t("description")}
+        breadcrumbs={[{ label: t("bookings"), href: "/manager/reservations" }, { label: t("title") }]}
+        actions={<Button size="sm" onClick={openCreate}><Plus className="size-4 mr-1" /> {t("addGuest")}</Button>}
       />
 
       <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 basis-48">
           <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search name, phone or email…" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8 h-9 text-sm" />
+          <Input placeholder={t("searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} className="pl-8 h-9 text-sm" />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-9 w-28 text-sm"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="banned">Banned</SelectItem></SelectContent>
+          <SelectContent><SelectItem value="all">{t("all")}</SelectItem><SelectItem value="active">{t("active")}</SelectItem><SelectItem value="banned">{t("banned")}</SelectItem></SelectContent>
         </Select>
         <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="h-9 w-36 text-sm"><ArrowUpDown className="size-3.5 mr-1" /> Sort</SelectTrigger>
+          <SelectTrigger className="h-9 w-36 text-sm"><ArrowUpDown className="size-3.5 mr-1" /> {t("sort")}</SelectTrigger>
           <SelectContent>
-            <SelectItem value="name">Name</SelectItem>
-            <SelectItem value="visits">Most visits</SelectItem>
-            <SelectItem value="lifetime">Highest spend</SelectItem>
-            <SelectItem value="lastVisit">Last visit</SelectItem>
+            <SelectItem value="name">{t("sortByName")}</SelectItem>
+            <SelectItem value="visits">{t("sortByVisits")}</SelectItem>
+            <SelectItem value="lifetime">{t("sortBySpend")}</SelectItem>
+            <SelectItem value="lastVisit">{t("sortByLastVisit")}</SelectItem>
           </SelectContent>
         </Select>
-        <TooltipIconButton variant={showFilters ? "secondary" : "outline"} className="h-9 w-9 shrink-0" onClick={() => setShowFilters(!showFilters)} tooltip="More filters">
+        <TooltipIconButton variant={showFilters ? "secondary" : "outline"} className="h-9 w-9 shrink-0" onClick={() => setShowFilters(!showFilters)} tooltip={t("moreFilters")}>
           <SlidersHorizontal className="size-4" />
           {filterCount > 0 && <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] text-primary-foreground">{filterCount}</span>}
         </TooltipIconButton>
@@ -222,46 +224,46 @@ export default function ManagerGuestsPage() {
         {showFilters && (
           <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/30 p-3 sm:grid-cols-4">
             <div>
-              <Label className="text-xs">VIP tier</Label>
+              <Label className="text-xs">{t("vipTierFilter")}</Label>
               <Select value={vipFilter} onValueChange={setVipFilter}>
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="all">All tiers</SelectItem><SelectItem value="none">None</SelectItem><SelectItem value="regular">Regular</SelectItem><SelectItem value="vip">VIP</SelectItem><SelectItem value="host-list">Host list</SelectItem></SelectContent>
+                <SelectContent><SelectItem value="all">{t("allTiers")}</SelectItem>{VIP_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Tag</Label>
+              <Label className="text-xs">{t("tagFilter")}</Label>
               <Select value={tagFilter} onValueChange={setTagFilter}>
                 <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="all">All tags</SelectItem>{TAG_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                <SelectContent><SelectItem value="all">{t("allTags")}</SelectItem>{TAG_OPTIONS.map((tag) => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="flex gap-1">
-              <div className="flex-1"><Label className="text-xs">Spend $ min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={spendMin} onChange={(e) => setSpendMin(e.target.value)} /></div>
-              <div className="flex-1"><Label className="text-xs">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={spendMax} onChange={(e) => setSpendMax(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">{t("spendMin")}</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={spendMin} onChange={(e) => setSpendMin(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">{t("max")}</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={spendMax} onChange={(e) => setSpendMax(e.target.value)} /></div>
             </div>
             <div className="flex gap-1">
-              <div className="flex-1"><Label className="text-xs">Visits min</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={visitsMin} onChange={(e) => setVisitsMin(e.target.value)} /></div>
-              <div className="flex-1"><Label className="text-xs">max</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={visitsMax} onChange={(e) => setVisitsMax(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">{t("visitsMin")}</Label><Input className="mt-1 h-8 text-xs" placeholder="0" value={visitsMin} onChange={(e) => setVisitsMin(e.target.value)} /></div>
+              <div className="flex-1"><Label className="text-xs">{t("max")}</Label><Input className="mt-1 h-8 text-xs" placeholder="∞" value={visitsMax} onChange={(e) => setVisitsMax(e.target.value)} /></div>
             </div>
           </div>
         )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
-        {profiles === undefined ? <ListSkeleton rows={5} rowHeight="h-16" /> : visible.length === 0 ? <EmptyState icon={UserPlus} title="No guests match" description="Profiles are created from reservations, guestlists and door ID checks." /> : (
+        {profiles === undefined ? <ListSkeleton rows={5} rowHeight="h-16" /> : visible.length === 0 ? <EmptyState icon={UserPlus} title={t("noGuestsMatch")} description={t("noGuestsDesc")} /> : (
           <>
           <Card><CardContent className="divide-y p-0">
             {sliced.map((profile) => (
               <div key={profile.id} className={`flex items-center justify-between gap-2 px-4 py-3 transition-colors ${selected?.id === profile.id ? "bg-accent/60" : "hover:bg-accent/30"}`}>
                 <button type="button" onClick={() => { setSelected(profile); setBanReason(""); setMergeTargetId(""); }} className="flex-1 text-left min-w-0">
                    <p className="flex items-center gap-2 font-medium">{profile.displayName}
-                    {profile.status === "banned" && <Badge variant="outline" className="border-red-500/40 text-red-600 dark:text-red-400 text-[10px]">Banned</Badge>}
-                    {profile.watchlist && <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px]">Watchlist</Badge>}
+                    {profile.status === "banned" && <Badge variant="outline" className="border-red-500/40 text-red-600 dark:text-red-400 text-[10px]">{t("bannedBadge")}</Badge>}
+                    {profile.watchlist && <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px]">{t("watchlistBadge")}</Badge>}
                     {profile.vipTier !== "none" && <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 text-[10px] capitalize">{profile.vipTier}</Badge>}
                   </p>
-                  <p className="text-xs text-muted-foreground">{profile.visitCount} visits · {formatMoney(profile.lifetimeNetCents / 100)} lifetime{profile.lastVisitAt && ` · ${formatDate(profile.lastVisitAt)}`}{profile.valueScore != null ? ` · Score ${profile.valueScore}` : ""}</p>
+                  <p className="text-xs text-muted-foreground">{t("visitsStat", { count: profile.visitCount })} · {t("lifetimeStat", { amount: formatMoney(profile.lifetimeNetCents / 100) })}{profile.lastVisitAt && ` · ${formatDate(profile.lastVisitAt)}`}{profile.valueScore != null ? ` · Score ${profile.valueScore}` : ""}</p>
                 </button>
-                <TooltipIconButton variant="ghost" className="size-7 shrink-0" onClick={() => openEdit(profile)} tooltip="Edit"><Pencil className="size-3.5" /></TooltipIconButton>
+                <TooltipIconButton variant="ghost" className="size-7 shrink-0" onClick={() => openEdit(profile)} tooltip={t("edit")}><Pencil className="size-3.5" /></TooltipIconButton>
               </div>
             ))}
           </CardContent></Card>
@@ -277,34 +279,34 @@ export default function ManagerGuestsPage() {
                   <p className="text-lg font-semibold">{selected.displayName}</p>
                   <p className="text-sm text-muted-foreground">{selected.phone}{selected.phone && selected.email && <><br /></>}{selected.email}</p>
                 </div>
-                <TooltipIconButton variant="ghost" className="size-7" onClick={() => openEdit(selected)} tooltip="Edit"><Pencil className="size-3.5" /></TooltipIconButton>
+                <TooltipIconButton variant="ghost" className="size-7" onClick={() => openEdit(selected)} tooltip={t("edit")}><Pencil className="size-3.5" /></TooltipIconButton>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div><p className="text-xs text-muted-foreground">Visits</p><p className="font-medium tabular-nums">{selected.visitCount}</p></div>
-                <div><p className="text-xs text-muted-foreground">Lifetime</p><p className="font-medium tabular-nums">{formatMoney(selected.lifetimeNetCents / 100)}</p></div>
+                <div><p className="text-xs text-muted-foreground">{t("visitsLabel")}</p><p className="font-medium tabular-nums">{selected.visitCount}</p></div>
+                <div><p className="text-xs text-muted-foreground">{t("lifetimeLabel")}</p><p className="font-medium tabular-nums">{formatMoney(selected.lifetimeNetCents / 100)}</p></div>
               </div>
               {selected.tags.length > 0 && <div className="flex flex-wrap gap-1">{selected.tags.map((t) => <Badge key={t} variant="secondary" className="text-[10px]">{t}</Badge>)}</div>}
               {selected.notes && <p className="rounded-lg bg-muted/50 p-2.5 text-sm">{selected.notes}</p>}
               {selected.status === "banned" ? (
                 <div className="space-y-2 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
-                  <p className="flex items-center gap-1.5 text-sm font-medium text-red-600 dark:text-red-400"><ShieldOff className="size-4" /> Banned</p>
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-red-600 dark:text-red-400"><ShieldOff className="size-4" /> {t("bannedStatus")}</p>
                   <p className="text-sm text-muted-foreground">{selected.banReason}</p>
-                  <ConfirmDialog trigger={<Button variant="outline" className="w-full">Lift ban</Button>} title={`Lift ${selected.displayName}'s ban?`} description="They will be admittable at the door again immediately." confirmLabel="Lift ban" onConfirm={() => banMutation.mutate(selected)} />
+                  <ConfirmDialog trigger={<Button variant="outline" className="w-full">{t("liftBan")}</Button>} title={t("liftBanTitle", { name: selected.displayName })} description={t("liftBanDesc")} confirmLabel={t("liftBanConfirm")} onConfirm={() => banMutation.mutate(selected)} />
                 </div>
               ) : (
                 <div className="space-y-2 border-t pt-3">
-                  <Label htmlFor="ban-reason">Ban reason</Label>
-                  <Textarea id="ban-reason" value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder="Why is this guest being banned?" rows={2} />
-                  <ConfirmDialog trigger={<Button variant="destructive" className="w-full" disabled={!banReason.trim()}>Ban this guest</Button>} title={`Ban ${selected.displayName}?`} description="They'll be refused at the door on sight." confirmLabel="Ban guest" destructive onConfirm={() => banMutation.mutate(selected)} />
+                  <Label htmlFor="ban-reason">{t("banReasonLabel")}</Label>
+                  <Textarea id="ban-reason" value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder={t("banReasonPlaceholder")} rows={2} />
+                  <ConfirmDialog trigger={<Button variant="destructive" className="w-full" disabled={!banReason.trim()}>{t("banGuest")}</Button>} title={t("banTitle", { name: selected.displayName })} description={t("banDesc")} confirmLabel={t("banConfirm")} destructive onConfirm={() => banMutation.mutate(selected)} />
                 </div>
               )}
               <div className="space-y-2 border-t pt-3">
-                <Label htmlFor="merge-target" className="flex items-center gap-1.5"><Users className="size-3.5" /> Merge into another profile</Label>
+                <Label htmlFor="merge-target" className="flex items-center gap-1.5"><Users className="size-3.5" /> {t("mergeIntoProfile")}</Label>
                 <Select value={mergeTargetId} onValueChange={setMergeTargetId}>
-                  <SelectTrigger id="merge-target" className="w-full"><SelectValue placeholder="Choose surviving profile" /></SelectTrigger>
+                  <SelectTrigger id="merge-target" className="w-full"><SelectValue placeholder={t("chooseProfile")} /></SelectTrigger>
                   <SelectContent>{mergeCandidates.map((p) => <SelectItem key={p.id} value={p.id}>{p.displayName}</SelectItem>)}</SelectContent>
                 </Select>
-                <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={!mergeTargetId}>Merge duplicate</Button>} title="Merge these profiles?" description={`${selected.displayName}'s history folds into the other. Cannot be undone.`} confirmLabel="Merge" onConfirm={() => mergeMutation.mutate()} />
+                <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={!mergeTargetId}>{t("mergeDuplicate")}</Button>} title={t("mergeTitle")} description={t("mergeDesc", { name: selected.displayName })} confirmLabel={t("mergeConfirm")} onConfirm={() => mergeMutation.mutate()} />
               </div>
             </CardContent>
           </Card>
@@ -314,48 +316,48 @@ export default function ManagerGuestsPage() {
       {/* Create / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>{editing ? "Edit profile" : "New guest profile"}</DialogTitle><DialogDescription>{editing ? "Update the guest's details." : "Create a profile for a known guest."}</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? t("editProfile") : t("newProfile")}</DialogTitle><DialogDescription>{editing ? t("editProfileDesc") : t("newProfileDesc")}</DialogDescription></DialogHeader>
           <form onSubmit={onSave} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="g-fn">First name *</Label><Input id="g-fn" {...register("firstName")} />{errors.firstName && <p className="text-xs text-destructive">{errors.firstName.message}</p>}</div>
-              <div><Label htmlFor="g-ln">Last name</Label><Input id="g-ln" {...register("lastName")} /></div>
+              <div><Label htmlFor="g-fn">{t("firstName")}</Label><Input id="g-fn" {...register("firstName")} />{errors.firstName && <p className="text-xs text-destructive">{errors.firstName.message}</p>}</div>
+              <div><Label htmlFor="g-ln">{t("lastName")}</Label><Input id="g-ln" {...register("lastName")} /></div>
             </div>
-            <div><Label htmlFor="g-phone">Phone</Label><Input id="g-phone" {...register("phone")} /></div>
-            <div><Label htmlFor="g-email">Email</Label><Input id="g-email" type="email" {...register("email")} />{errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}</div>
+            <div><Label htmlFor="g-phone">{t("phone")}</Label><Input id="g-phone" {...register("phone")} /></div>
+            <div><Label htmlFor="g-email">{t("email")}</Label><Input id="g-email" type="email" {...register("email")} />{errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}</div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="g-dob">Birth year</Label><Input id="g-dob" type="number" min={1900} max={2026} placeholder="1990" {...register("dobYear", { valueAsNumber: true })} />{errors.dobYear && <p className="text-xs text-destructive">{errors.dobYear.message}</p>}</div>
-              <div><Label htmlFor="g-vip">VIP tier</Label><Select value={watch("vipTier")} onValueChange={(v) => setValue("vipTier", v as GuestVipTier)}><SelectTrigger id="g-vip"><SelectValue /></SelectTrigger><SelectContent>{VIP_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
+              <div><Label htmlFor="g-dob">{t("birthYear")}</Label><Input id="g-dob" type="number" min={1900} max={2026} placeholder="1990" {...register("dobYear", { valueAsNumber: true })} />{errors.dobYear && <p className="text-xs text-destructive">{errors.dobYear.message}</p>}</div>
+              <div><Label htmlFor="g-vip">{t("vipTierLabel")}</Label><Select value={watch("vipTier")} onValueChange={(v) => setValue("vipTier", v as GuestVipTier)}><SelectTrigger id="g-vip"><SelectValue /></SelectTrigger><SelectContent>{VIP_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div>
-              <Label>Tags</Label>
+              <Label>{t("tags")}</Label>
               <div className="mt-1 flex flex-wrap gap-1">{TAG_OPTIONS.map((tag) => <Badge key={tag} variant={tags.includes(tag) ? "default" : "outline"} className="cursor-pointer text-[10px]" onClick={() => toggleTag(tag)}>{tag}</Badge>)}</div>
             </div>
-            <div><Label htmlFor="g-notes">Notes</Label><Textarea id="g-notes" {...register("notes")} rows={2} /></div>
-            <div><Label htmlFor="g-photo">Photo URL</Label><Input id="g-photo" {...register("photoUrl")} placeholder="https://..." /></div>
+            <div><Label htmlFor="g-notes">{t("notes")}</Label><Textarea id="g-notes" {...register("notes")} rows={2} /></div>
+            <div><Label htmlFor="g-photo">{t("photoUrl")}</Label><Input id="g-photo" {...register("photoUrl")} placeholder={t("photoUrlPlaceholder")} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="g-drink">Pref. drink</Label><Input id="g-drink" {...register("preferredDrink")} /></div>
-              <div><Label htmlFor="g-dietary">Dietary</Label><Input id="g-dietary" {...register("dietary")} /></div>
+              <div><Label htmlFor="g-drink">{t("prefDrink")}</Label><Input id="g-drink" {...register("preferredDrink")} /></div>
+              <div><Label htmlFor="g-dietary">{t("dietary")}</Label><Input id="g-dietary" {...register("dietary")} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="g-allergies">Allergies</Label><Input id="g-allergies" {...register("allergies")} /></div>
-              <div><Label htmlFor="g-celebration">Celebration date</Label><Input id="g-celebration" type="date" {...register("celebrationDate")} /></div>
+              <div><Label htmlFor="g-allergies">{t("allergies")}</Label><Input id="g-allergies" {...register("allergies")} /></div>
+              <div><Label htmlFor="g-celebration">{t("celebrationDate")}</Label><Input id="g-celebration" type="date" {...register("celebrationDate")} /></div>
             </div>
-            <div><Label htmlFor="g-watchlist">Watchlist reason</Label><Input id="g-watchlist" {...register("watchlistReason")} placeholder="Leave blank to remove" /></div>
+            <div><Label htmlFor="g-watchlist">{t("watchlistReason")}</Label><Input id="g-watchlist" {...register("watchlistReason")} placeholder={t("watchlistPlaceholder")} /></div>
             {!editing && (
               <div className="flex gap-4">
                 <div className="flex items-center gap-2">
                   <Switch checked={watch("marketingEmail")} onCheckedChange={(v) => setValue("marketingEmail", v)} id="g-email-consent" />
-                  <Label htmlFor="g-email-consent" className="text-sm">Email consent</Label>
+                  <Label htmlFor="g-email-consent" className="text-sm">{t("emailConsent")}</Label>
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch checked={watch("marketingSms")} onCheckedChange={(v) => setValue("marketingSms", v)} id="g-sms-consent" />
-                  <Label htmlFor="g-sms-consent" className="text-sm">SMS consent</Label>
+                  <Label htmlFor="g-sms-consent" className="text-sm">{t("smsConsent")}</Label>
                 </div>
               </div>
             )}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" disabled={saveMutation.isPending}>{editing ? "Save changes" : "Create"}</Button>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>{t("cancel")}</Button>
+              <Button type="submit" disabled={saveMutation.isPending}>{editing ? t("saveChanges") : t("create")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
