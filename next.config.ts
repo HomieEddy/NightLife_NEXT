@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 import { buildDirectoryForMode, parseAppMode } from "./src/features/shared/app-mode";
 
 const appMode = parseAppMode(process.env.NEXT_PUBLIC_APP_MODE);
@@ -122,15 +123,18 @@ const nextConfig: NextConfig = {
   },
 };
 
+// Wrap with next-intl plugin (reads ./i18n/request.ts from src/ or root).
+const withNextIntl = createNextIntlPlugin();
+let finalConfig: NextConfig = withNextIntl(nextConfig);
+
 // Conditionally wrap with Sentry — no-op when SENTRY_DSN is absent.
 // Dynamic require avoids loading the Sentry SDK into the demo bundle at all.
-let finalConfig: NextConfig = nextConfig;
 if (hasSentry) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { withSentryConfig } = require("@sentry/nextjs") as {
     withSentryConfig: (c: NextConfig) => NextConfig;
   };
-  finalConfig = withSentryConfig(nextConfig);
+  finalConfig = withSentryConfig(finalConfig);
 }
 
 export default finalConfig;
