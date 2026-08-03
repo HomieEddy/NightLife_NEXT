@@ -17,6 +17,7 @@ import { DemoOpenTableAction } from "@/components/shared/demo-links";
 import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { ClubLights } from "@/components/fx/club-lights";
 import { useGuest } from "@/context/guest-context";
+import { defaultLocale, getLocaleCookie, setLocaleCookie } from "@/i18n/config";
 import { isDemoMode } from "@/features/shared/app-mode";
 import { guestsService } from "@/features/guests/services";
 import { reservationService } from "@/features/hospitality/reservation-service";
@@ -138,6 +139,11 @@ export default function QrEntryPage({
         name.trim(),
         session.id,
       );
+      // Seed the locale from the venue's guestLocale when the visitor has no
+      // preference yet — a francophone venue's guests get French by default.
+      if (getLocaleCookie() === defaultLocale && result.venue.guestLocale) {
+        setLocaleCookie(result.venue.guestLocale === "fr" ? "fr" : "en");
+      }
       router.push("/guest/waiting");
     } catch (joinError) {
       setError(joinError instanceof Error ? joinError.message : t("joinError"));

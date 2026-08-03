@@ -1,5 +1,5 @@
 import { getRequestConfig } from "next-intl/server";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { locales, defaultLocale, cookieName } from "./config";
 
 export default getRequestConfig(async ({ requestLocale }) => {
@@ -22,6 +22,17 @@ export default getRequestConfig(async ({ requestLocale }) => {
   const resolved = await requestLocale;
   if (resolved && locales.includes(resolved as typeof defaultLocale)) {
     locale = resolved;
+  }
+
+  // First-visit default: the browser's language preference (no cookie yet).
+  if (locale === defaultLocale) {
+    try {
+      const accept = (await headers()).get("accept-language") ?? "";
+      const first = accept.split(",")[0]?.trim().toLowerCase();
+      if (first?.startsWith("fr")) locale = "fr";
+    } catch {
+      // headers() throws during static generation — keep the default
+    }
   }
 
   return {

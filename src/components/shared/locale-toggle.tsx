@@ -6,25 +6,15 @@ import { Languages } from "lucide-react";
 import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/features/shared/utils";
-import { cookieName, defaultLocale, type Locale } from "@/i18n/config";
+import {
+  defaultLocale,
+  getLocaleCookie,
+  setLocaleCookie,
+  type Locale,
+} from "@/i18n/config";
 
 const opposite: Record<Locale, Locale> = { en: "fr", fr: "en" };
 const label: Record<Locale, string> = { en: "FR", fr: "EN" };
-
-function setLocaleCookie(locale: Locale) {
-  if (typeof document === "undefined") return;
-  const days = 365;
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${cookieName}=${locale};expires=${expires};path=/;SameSite=Lax`;
-}
-
-function getLocaleFromCookie(): Locale {
-  if (typeof document === "undefined") return defaultLocale;
-  const match = document.cookie.match(
-    new RegExp(`(?:^|;\\s*)${cookieName}=([^;]*)`)
-  );
-  return match?.[1] === "fr" ? "fr" : defaultLocale;
-}
 
 /**
  * Ghost icon button showing target locale ("FR" when English, "EN" when French).
@@ -38,7 +28,7 @@ export function LocaleToggle({ className }: { className?: string }) {
   const intlLocale = useLocale();
   const [mounted, setMounted] = useState(false);
   const current =
-    mounted && intlLocale === "fr" ? "fr" : getLocaleFromCookie();
+    mounted && intlLocale === "fr" ? "fr" : getLocaleCookie();
   const target = opposite[current];
 
   useEffect(() => setMounted(true), []);
