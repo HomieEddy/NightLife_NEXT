@@ -255,11 +255,14 @@ export async function listMessages(
   db: ScopedDb,
   channel: ChatMessage["channel"],
 ): Promise<ChatMessage[]> {
+  // Newest 200 first, then flipped to chronological — the append-only history
+  // grows forever; no screen needs the full transcript on every floor load.
   const rows = await db.chatMessage.findMany({
     where: { channel },
-    orderBy: { sentAt: "asc" },
+    orderBy: { sentAt: "desc" },
+    take: 200,
   });
-  return rows.map(toChatMessage);
+  return rows.reverse().map(toChatMessage);
 }
 
 export async function sendMessage(

@@ -14,3 +14,8 @@ CREATE UNIQUE INDEX "job_runs_tenant_id_job_name_key"
   ON "job_runs" ("tenant_id", "job_name");
 
 DROP INDEX IF EXISTS "job_runs_tenant_id_job_name_idx";
+
+-- Range queries on sessions by venue + creation time (analytics range counts,
+-- avg-visit-gap windows). The nightly-rollup job and analytics-depth rely on it.
+CREATE INDEX IF NOT EXISTS "guest_sessions_venue_id_created_at_idx"
+  ON "guest_sessions" ("venue_id", "created_at");

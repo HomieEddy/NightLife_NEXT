@@ -846,10 +846,11 @@ export async function getGuestRetentionMetrics(
            created_at - LAG(created_at) OVER (PARTITION BY guest_profile_id ORDER BY created_at) AS gap
          FROM guest_sessions
          WHERE venue_id = $1 AND guest_profile_id IS NOT NULL
+           AND created_at >= $2
        )
        SELECT ROUND(AVG(EXTRACT(EPOCH FROM gap) / 86400)::numeric, 1) AS avg_gap_days
        FROM session_gaps WHERE gap IS NOT NULL`,
-      venueId,
+      venueId, currFrom.toISOString(),
     ),
   ]);
 

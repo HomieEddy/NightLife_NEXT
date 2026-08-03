@@ -193,6 +193,10 @@ export async function listOrders(
     where,
     include: ORDER_INCLUDE,
     orderBy: { placedAt: "desc" },
+    // Cap the feed — pages filter client-side, and historical exploration has
+    // its own surfaces (analytics/reports). Generous enough that a night's
+    // orders never truncate.
+    take: filter?.limit ?? 1000,
   });
   return rows.map(toOrder);
 }

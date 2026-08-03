@@ -624,6 +624,7 @@ model GuestSession {
   helpRequests HelpRequest[]
 
   @@index([venueId, status])
+  @@index([venueId, createdAt])
   @@index([tableId])
   @@map("guest_sessions")
 }
