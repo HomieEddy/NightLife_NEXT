@@ -7,7 +7,7 @@
  * guests out on arrival.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { createTestDb, type TestDb } from "@/features/shared/test-pglite";
 import { getRawPrisma } from "@/features/shared/db";
 import { signTableToken } from "@/features/shared/table-token";
@@ -19,11 +19,11 @@ vi.mock("@/features/shared/app-mode", async (importOriginal) => ({
 }));
 
 function joinRequest(body: unknown, headers?: Record<string, string>): NextRequest {
-  return new Request("http://localhost/api/guest/join", {
+  return new NextRequest("http://localhost/api/guest/join", {
     method: "POST",
     headers: { "content-type": "application/json", "x-real-ip": "203.0.113.1", ...headers },
     body: JSON.stringify(body),
-  }) as unknown as NextRequest;
+  });
 }
 
 function parseSetCookie(setCookie: string | null): Record<string, string> {
@@ -103,7 +103,11 @@ describe("cookie flags", () => {
       token,
     }));
     expect(res.status).toBe(201);
-    cookie = parseSetCookie(res.headers.get("set-cookie"));
+    // The join response also seeds the nln-locale cookie — pick out the
+    // session cookie's own Set-Cookie header before parsing.
+    const sessionHeader =
+      res.headers.getSetCookie().find((h) => h.trim().startsWith("nln-guest-session=")) ?? "";
+    cookie = parseSetCookie(sessionHeader);
   }, 30_000);
 
   afterAll(async () => {

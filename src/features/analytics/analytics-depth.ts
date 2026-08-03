@@ -604,6 +604,9 @@ export async function getPromoterPerformanceReport(
        END AS guest_list_conversion
      FROM staff_profiles p
      JOIN users u ON u.id = p.user_id
+     -- staff_profiles has no venue_id column — scope the tenant through the
+     -- user's membership (Venue.id IS the organization id, 1:1).
+     JOIN members m ON m.user_id = p.user_id AND m.organization_id = $2
      LEFT JOIN reservations r ON r.promoter_id = p.user_id
        AND r.venue_id = $2
        AND r.created_at >= $3::timestamptz
@@ -625,7 +628,6 @@ export async function getPromoterPerformanceReport(
          AND ve.venue_id = $2
      ) pgl ON true
      WHERE p.role = 'promoter'
-       AND p.venue_id = $2
      GROUP BY p.user_id, u.name
      ORDER BY revenue_cents DESC`,
      venueId, venueId, from,

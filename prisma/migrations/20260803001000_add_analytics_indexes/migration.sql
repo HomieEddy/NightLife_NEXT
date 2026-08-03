@@ -11,8 +11,11 @@ CREATE INDEX IF NOT EXISTS "idx_stock_movements_venue_created"
   ON "stock_movements" ("venue_id", "created_at");
 
 -- 2. staff_profiles (venue_id, role) — REMOVED: staff_profiles has no venue_id
---    column. Promoters are scoped through Member.venueId, not a denormalized FK.
---    The analytics query uses a JOIN through Member, so the index lives on Member.
+--    column. Promoters are scoped through their membership, so the index
+--    lives on members (organization_id, user_id) — the join key used by
+--    getPromoterPerformanceReport (analytics-depth.ts).
+CREATE INDEX IF NOT EXISTS "idx_members_org_user"
+  ON "members" ("organization_id", "user_id");
 
 -- 3. reservations (venue_id, promoter_id)
 --    Query: getPromoterPerformanceReport (analytics-depth.ts:607-609)
