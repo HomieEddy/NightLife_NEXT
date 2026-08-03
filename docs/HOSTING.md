@@ -2,7 +2,8 @@
 
 Status: decided · Owner: Eddy · Last updated: 2026-07-20
 Cross-ref: `docs/ARD.md` AD-15, `AGENTS.md` §9.11 ·
-VPS provisioning/hardening: `docs/RUNBOOK-VPS-SETUP.md`
+VPS provisioning/hardening: `docs/RUNBOOK-VPS-SETUP.md` ·
+Operations runbook: `docs/RUNBOOK.md`
 
 ## Decision
 
