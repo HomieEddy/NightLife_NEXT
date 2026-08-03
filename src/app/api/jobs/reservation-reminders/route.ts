@@ -78,6 +78,7 @@ async function livePOST(request: NextRequest) {
             time: startTime,
             partySize: res.partySize,
           },
+          locale: (res.bookingLocale as "en" | "fr") ?? "en",
           idempotencyKey: `reminder:${res.id}:${todayIso}`,
         });
         sent += result.sent;

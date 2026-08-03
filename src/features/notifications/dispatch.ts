@@ -85,15 +85,20 @@ export async function dispatch(
 
   for (const recipient of payload.recipients) {
     const sendBoth = recipient.email && recipient.phone && payload.template === "reservation-confirmation";
+    const locale = payload.locale ?? "en";
+
+    // Resolve template with locale fallback: "template:fr" → "template"
+    const localeKey = `${payload.template}:${locale}`;
+    const tpl = templates[localeKey] ?? templates[payload.template];
 
     // Email channel
-    if (recipient.email && hasTemplate) {
+    if (recipient.email && tpl) {
       const ik = payload.idempotencyKey ? `${payload.template}:email:${recipient.email}:${payload.idempotencyKey}` : undefined;
       if (!ik || !(await checkIdempotent(prisma, payload.template, recipient.email, ik))) {
-        const rendered = hasTemplate.render(payload.data);
+        const rendered = tpl.render(payload.data);
         const result = await sendEmail({
           to: recipient.email,
-          subject: hasTemplate.subject,
+          subject: tpl.subject,
           react: rendered as ReturnType<typeof import("@react-email/components").render>,
         });
         await logSend(prisma, { venueId: payload.venueId, channel: "email", template: payload.template, recipient: recipient.email, ok: result.ok, providerId: result.providerId, error: result.error, ik, data: payload.data });

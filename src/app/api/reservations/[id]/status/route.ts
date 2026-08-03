@@ -53,6 +53,7 @@ async function livePATCH(request: NextRequest, { params }: { params: Promise<{ i
           partySize: r.partySize,
           reservationPin: r.reservationPin,
         },
+        locale: (r.bookingLocale as "en" | "fr") ?? "en",
         idempotencyKey: `confirm:${id}`,
       });
     } catch (err) {
