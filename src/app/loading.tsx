@@ -1,5 +1,5 @@
 import Image from "next/image";
-import nMark from "../../public/brand/n-mark.png";
+import nMark from "../../public/brand/n-mark-128.png";
 
 export default function Loading() {
   return (

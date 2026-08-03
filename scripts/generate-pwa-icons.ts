@@ -3,7 +3,7 @@ import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const sourceFile = resolve(__dirname, "..", "public", "brand", "n-mark.png");
+const sourceFile = resolve(__dirname, "..", "scripts", "assets", "n-mark.png");
 const outDir = resolve(__dirname, "..", "public", "icons");
 
 const SIZES: { size: number; name: string }[] = [
