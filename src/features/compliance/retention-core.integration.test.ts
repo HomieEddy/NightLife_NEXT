@@ -162,6 +162,46 @@ describe("retention-core (integration)", () => {
       const freshAfter = await rawPrisma.notificationLog.findUnique({ where: { id: "nl-fresh" } });
       expect(freshAfter?.recipient).toBe("jean@example.com");
     });
+
+    it("never touches another tenant's logs", async () => {
+      const otherOrgId = "venue-ret-2";
+      await rawPrisma.organization.create({
+        data: { id: otherOrgId, name: "Retention Org 2", slug: "retention-org-2" },
+      });
+      await rawPrisma.venue.create({
+        data: {
+          id: otherOrgId, address: "2 Test St", city: "Testville", timezone: "UTC",
+          currency: "CAD", openingHours: [], serviceFees: [], slaThresholds: {
+            orderWarnMinutes: 6, orderCriticalMinutes: 12, helpWarnMinutes: 4, helpCriticalMinutes: 8,
+          },
+          floorMap: { width: 16, height: 9 }, autoApproveGuests: false, logoInitials: "R2",
+          lastCallAutoFlagTables: true,
+        },
+      });
+      await rawPrisma.tenant.create({
+        data: { id: otherOrgId, name: "Retention Test 2", slug: "retention-test-2", plan: "starter", status: "active" },
+      });
+
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 120);
+      await rawPrisma.notificationLog.create({
+        data: {
+          id: "nl-other", venueId: otherOrgId, channel: "sms", template: "order-update",
+          recipient: "999-9999", status: "sent",
+        },
+      });
+      await rawPrisma.$executeRawUnsafe(
+        `UPDATE "notification_logs" SET "created_at" = $1::timestamptz WHERE id = $2`,
+        oldDate, "nl-other",
+      );
+
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 90);
+      await truncateNotificationLogs(getDb(ctx), cutoff);
+
+      const otherAfter = await rawPrisma.notificationLog.findUnique({ where: { id: "nl-other" } });
+      expect(otherAfter?.recipient).toBe("999-9999");
+    });
   });
 
   // ── deleteOldDomainEvents ───────────────────────────────────────────

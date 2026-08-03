@@ -57,7 +57,6 @@ export function getDb(session: SessionContext) {
           "FeeLine",
           "EventGuest",
           "ReportRun",
-          "NotificationLog",
           "IncidentNote",
           // Purchasing: scoped via parent Supplier, not own venueId.
           "SupplierItem",
