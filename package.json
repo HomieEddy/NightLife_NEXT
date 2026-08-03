@@ -19,6 +19,7 @@
     "db:seed": "dotenv -e .env -- npx tsx prisma/seed.ts",
     "db:seed:staging": "dotenv -e .env -- npx tsx prisma/seed-staging.ts",
     "db:seed:live-history": "dotenv -e .env -- npx tsx scripts/seed-live-history.ts",
+    "db:privacy-erase": "dotenv -e .env -- npx tsx scripts/privacy-erase.ts",
     "promo:screenshots": "tsx promo-main/scripts/promo-screenshots.ts"
   },
   "prisma": {
@@ -83,7 +84,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "babel-plugin-react-compiler": "1.0.0",
     "dotenv-cli": "^11.0.0",
-    "eslint": "^9",
+    "eslint": "^10.8.0",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
     "testcontainers": "^12.0.4",

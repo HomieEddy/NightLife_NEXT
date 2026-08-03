@@ -302,16 +302,105 @@ export async function deleteTenant(
   session: AuthSession,
 ): Promise<void> {
   const before = await db.tenant.findUnique({ where: { id: tenantId } });
+  if (!before) return;
 
-  await db.venue.delete({ where: { id: tenantId } }).catch(() => {});
-  await db.organization.delete({ where: { id: tenantId } }).catch(() => {});
-  await db.tenant.delete({ where: { id: tenantId } }).catch(() => {});
+  // ── Phase 1: child tables without direct venueId — reached
+  //    through parent FKs; must be cleaned up before parent deletion
+  //    or they'll be orphaned. These are on the platformModels list
+  //    because getDb()'s tenant-scoping extension doesn't inject
+  //    venueId on them.
 
-  if (before) {
-    await logAdminAction(db, session, tenantId, "delete_tenant", {
-      name: before.name, plan: before.plan, status: before.status,
-    }, null);
+  // IncidentNotes (child of Incidents via incidentId)
+  const incidentIds = (await db.incident.findMany({
+    where: { venueId: tenantId },
+    select: { id: true },
+  })).map((i) => i.id);
+  if (incidentIds.length > 0) {
+    await db.incidentNote.deleteMany({ where: { incidentId: { in: incidentIds } } });
   }
+
+  // SupplierItems (child of MenuItems via menuItemId)
+  const menuItemIds = (await db.menuItem.findMany({
+    where: { venueId: tenantId },
+    select: { id: true },
+  })).map((m) => m.id);
+  if (menuItemIds.length > 0) {
+    await db.supplierItem.deleteMany({ where: { menuItemId: { in: menuItemIds } } });
+  }
+
+  // AttentionAcknowledgments (child of AttentionItems via attentionItemId)
+  const attentionItemIds = (await db.attentionItem.findMany({
+    where: { venueId: tenantId },
+    select: { id: true },
+  })).map((a) => a.id);
+  if (attentionItemIds.length > 0) {
+    await db.attentionAcknowledgment.deleteMany({
+      where: { attentionItemId: { in: attentionItemIds } },
+    });
+  }
+
+  // ── Phase 2: venue-scoped tables in dependency order
+  //    (outermost dependent first; Venue model cascades handle most,
+  //    but explicit deletes prevent FK-violation deadlocks)
+
+  await db.stockMovement.deleteMany({ where: { venueId: tenantId } });
+  await db.order.deleteMany({ where: { venueId: tenantId } });
+  await db.guestSession.deleteMany({ where: { venueId: tenantId } });
+  await db.helpRequest.deleteMany({ where: { venueId: tenantId } });
+  await db.reservation.deleteMany({ where: { venueId: tenantId } });
+  await db.waitlistEntry.deleteMany({ where: { venueId: tenantId } });
+  await db.admission.deleteMany({ where: { venueId: tenantId } });
+  await db.doorRefusal.deleteMany({ where: { venueId: tenantId } });
+  await db.coatCheckTicket.deleteMany({ where: { venueId: tenantId } });
+  await db.coatCheckClaim.deleteMany({ where: { venueId: tenantId } });
+  await db.incident.deleteMany({ where: { venueId: tenantId } });
+  await db.sessionNote.deleteMany({ where: { venueId: tenantId } });
+  await db.attentionItem.deleteMany({ where: { venueId: tenantId } });
+  await db.barTab.deleteMany({ where: { venueId: tenantId } });
+  await db.menuItem.deleteMany({ where: { venueId: tenantId } });
+  await db.menuCategory.deleteMany({ where: { venueId: tenantId } });
+  await db.promotion.deleteMany({ where: { venueId: tenantId } });
+  await db.happyHourRule.deleteMany({ where: { venueId: tenantId } });
+  await db.stocktake.deleteMany({ where: { venueId: tenantId } });
+  await db.shiftCashout.deleteMany({ where: { venueId: tenantId } });
+  await db.tipDistribution.deleteMany({ where: { venueId: tenantId } });
+  await db.tipPoolRule.deleteMany({ where: { venueId: tenantId } });
+  await db.auditEntry.deleteMany({ where: { venueId: tenantId } });
+  await db.domainEvent.deleteMany({ where: { venueId: tenantId } });
+  await db.broadcast.deleteMany({ where: { venueId: tenantId } });
+  await db.chatMessage.deleteMany({ where: { venueId: tenantId } });
+  await db.notificationLog.deleteMany({ where: { venueId: tenantId } });
+  await db.nightlyRollup.deleteMany({ where: { venueId: tenantId } });
+  await db.savedReport.deleteMany({ where: { venueId: tenantId } });
+  await db.venueTable.deleteMany({ where: { venueId: tenantId } });
+  await db.zone.deleteMany({ where: { venueId: tenantId } });
+  await db.venueEvent.deleteMany({ where: { venueId: tenantId } });
+  await db.staffShift.deleteMany({ where: { venueId: tenantId } });
+  await db.activeShowLock.deleteMany({ where: { venueId: tenantId } });
+  await db.venueFloorState.deleteMany({ where: { venueId: tenantId } });
+
+  // Guest profiles — venue-scoped, delete before venue
+  await db.guestProfile.deleteMany({ where: { venueId: tenantId } });
+
+  // ── Phase 3: platform models linked to venue ───────────────────
+
+  // PushSubscription — on platformModels but has venueId
+  await db.pushSubscription.deleteMany({ where: { venueId: tenantId } });
+
+  // JobRun — platform-scoped but references tenantId
+  await db.jobRun.deleteMany({ where: { tenantId } });
+
+  // ── Phase 4: core entities (cascades handle remaining) ────────
+
+  await db.venue.delete({ where: { id: tenantId } });
+  await db.organization.delete({ where: { id: tenantId } });
+  await db.tenant.delete({ where: { id: tenantId } });
+
+  // ── Log the action (best-effort; tenant is already gone) ──────
+
+  await logAdminAction(db, session, tenantId, "delete_tenant", {
+    name: before.name, plan: before.plan, status: before.status,
+  }, null).catch(() => {});
 }
 
 export async function provisionTenant(
