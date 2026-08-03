@@ -369,6 +369,45 @@
     "orders": {
       "title": "Commandes"
     },
+    "audit": {
+      "title": "Piste de vérification",
+      "insights": "Aperçus",
+      "description": "Chaque action sensible, par qui et pourquoi.",
+      "accessRestricted": "Accès restreint",
+      "accessRestrictedDesc": "Seuls les gestionnaires peuvent voir la piste de vérification.",
+      "entryCount": "{visible} sur {total} entrées",
+      "loading": "Chargement…",
+      "searchPlaceholder": "Rechercher des résumés…",
+      "actor": "Acteur",
+      "allStaff": "Tout le personnel",
+      "action": "Action",
+      "allActions": "Toutes les actions",
+      "noEntries": "Aucune entrée correspondante",
+      "noEntriesDesc": "Les actions sensibles apparaîtront ici au fur et à mesure."
+    },
+    "automations": {
+      "title": "Automatisations",
+      "insights": "Aperçus",
+      "disable": "Désactiver",
+      "enable": "Activer",
+      "description": "Configurer et déclencher des flux de travail automatisés. Chacun s'exécute comme une tâche planifiée sur la version en direct.",
+      "enabledCount": "{enabled} / {total} activées",
+      "executions": "{count} exécutions",
+      "refresh": "Actualiser",
+      "neverTriggered": "Jamais déclenché",
+      "lastTriggered": "Dernier déclenchement : {date}",
+      "triggerNow": "Déclencher maintenant",
+      "running": "En cours...",
+      "executionLog": "Journal d'exécution",
+      "noExecutions": "Aucune exécution pour le moment. Déclenchez une automatisation ci-dessus pour voir les résultats.",
+      "applied": "Appliqué",
+      "advisory": "Consultatif",
+      "automationEnabled": "Automatisation activée",
+      "automationDisabled": "Automatisation désactivée",
+      "couldNotUpdate": "Impossible de mettre à jour la règle",
+      "triggered": "Automatisation déclenchée — entrée de journal ajoutée",
+      "triggerFailed": "Échec du déclenchement"
+    },
     "settings": {
       "title": "Paramètres",
       "guestLocale": {

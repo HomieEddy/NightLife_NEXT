@@ -369,6 +369,45 @@
     "orders": {
       "title": "Orders"
     },
+    "audit": {
+      "title": "Audit trail",
+      "insights": "Insights",
+      "description": "Every sensitive action, by whom and why.",
+      "accessRestricted": "Access restricted",
+      "accessRestrictedDesc": "Only managers can view the audit trail.",
+      "entryCount": "{visible} of {total} entries",
+      "loading": "Loading…",
+      "searchPlaceholder": "Search summaries…",
+      "actor": "Actor",
+      "allStaff": "All staff",
+      "action": "Action",
+      "allActions": "All actions",
+      "noEntries": "No entries match",
+      "noEntriesDesc": "Sensitive actions will appear here as they happen."
+    },
+    "automations": {
+      "title": "Automations",
+      "insights": "Insights",
+      "disable": "Disable",
+      "enable": "Enable",
+      "description": "Configure and trigger automated workflows. Each runs as a scheduled job on the live track.",
+      "enabledCount": "{enabled} / {total} enabled",
+      "executions": "{count} executions",
+      "refresh": "Refresh",
+      "neverTriggered": "Never triggered",
+      "lastTriggered": "Last triggered: {date}",
+      "triggerNow": "Trigger now",
+      "running": "Running...",
+      "executionLog": "Execution log",
+      "noExecutions": "No executions yet. Trigger an automation above to see results.",
+      "applied": "Applied",
+      "advisory": "Advisory",
+      "automationEnabled": "Automation enabled",
+      "automationDisabled": "Automation disabled",
+      "couldNotUpdate": "Could not update rule",
+      "triggered": "Automation triggered — log entry added",
+      "triggerFailed": "Trigger failed"
+    },
     "settings": {
       "title": "Settings",
       "guestLocale": {

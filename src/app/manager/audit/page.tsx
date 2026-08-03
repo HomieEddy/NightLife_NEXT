@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ListChecks, ShieldOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import { useAuth } from "@/context/auth-context";
 import { formatDate, formatTime } from "@/features/shared/format";
 
 export default function AuditTrailPage() {
+  const t = useTranslations("manager.audit");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
@@ -62,13 +64,13 @@ export default function AuditTrailPage() {
   if (!permsLoading && !canRead) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Audit trail" description="Every sensitive action, by whom and why." />
+        <PageHeader title={t("title")} description={t("description")} />
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <div className="flex size-16 items-center justify-center rounded-full bg-red-500/10">
             <ShieldOff className="size-8 text-red-600 dark:text-red-400" />
           </div>
-          <p className="font-semibold">Access restricted</p>
-          <p className="text-sm text-muted-foreground">Only managers can view the audit trail.</p>
+          <p className="font-semibold">{t("accessRestricted")}</p>
+          <p className="text-sm text-muted-foreground">{t("accessRestrictedDesc")}</p>
         </div>
       </div>
     );
@@ -77,26 +79,26 @@ export default function AuditTrailPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Audit trail"
-        description={entries ? `${visible.length} of ${entries.length} entries` : "Loading…"}
-        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Audit Trail" }]}
+        title={t("title")}
+        description={entries ? t("entryCount", { visible: visible.length, total: entries.length }) : t("loading")}
+        breadcrumbs={[{ label: t("insights"), href: "/manager/reports" }, { label: t("title") }]}
       />
 
       <Card>
         <CardContent className="space-y-3 pt-4">
-          <Input placeholder="Search summaries…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Input placeholder={t("searchPlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} />
           <div className="grid gap-3 sm:grid-cols-2">
             <Select value={actorFilter} onValueChange={setActorFilter}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Actor" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder={t("actor")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All staff</SelectItem>
+                <SelectItem value="all">{t("allStaff")}</SelectItem>
                 {actors.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Action" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder={t("action")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All actions</SelectItem>
+                <SelectItem value="all">{t("allActions")}</SelectItem>
                 {actions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -107,7 +109,7 @@ export default function AuditTrailPage() {
       {entries === undefined ? (
         <ListSkeleton rows={5} rowHeight="h-16" />
       ) : visible.length === 0 ? (
-        <EmptyState icon={ListChecks} title="No entries match" description="Sensitive actions will appear here as they happen." />
+        <EmptyState icon={ListChecks} title={t("noEntries")} description={t("noEntriesDesc")} />
       ) : (
         <>
           <Card>
