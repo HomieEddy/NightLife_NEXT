@@ -11,9 +11,9 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL,
   emailAndPassword: {
     enabled: true,
-    // 5 sign-in attempts per 15 minutes per IP+email.
-    // Better Auth's built-in rate limiter is per-IP; the per-email
-    // dimension is added via the emailAndPassword plugin's own limiter.
+    // 5 sign-in attempts per 15 minutes per email address.
+    // Better Auth's built-in email/password limiter is keyed by email, not
+    // IP — a failed-guess flood can lock a known account for the window.
     rateLimit: { limit: 5, period: 15 * 60 },
   },
   rateLimit: {
@@ -52,25 +52,18 @@ export const auth = betterAuth({
       },
     },
   },
-  hooks: {
-    after: async (ctx) => {
+  onAPIError: {
+    // A failed sign-in throws an APIError and never reaches the `after`
+    // hook's `returned` — this is the only seam that sees it.
+    onError: (error, ctx) => {
       const url = (ctx as { request?: { url?: string } }).request?.url ?? "";
-      const isSignIn =
-        url.includes("/sign-in/email") || url.includes("/sign-in");
-      if (!isSignIn) return;
-      const authCtx = (ctx as { context?: { returned?: unknown } }).context;
-      const returned = authCtx?.returned;
-      if (
-        returned &&
-        typeof returned === "object" &&
-        "error" in (returned as Record<string, unknown>)
-      ) {
-        const r = returned as Record<string, unknown>;
-        logger.warn("auth:login-failure", {
-          error: r.error,
-          code: r.code,
-        });
-      }
+      if (!url.includes("/sign-in")) return;
+      const e = error as { status?: number; statusCode?: number; code?: string; message?: string };
+      logger.warn("auth:login-failure", {
+        status: e.status ?? e.statusCode,
+        code: e.code,
+        message: e.message,
+      });
     },
   },
   plugins: [
@@ -83,7 +76,10 @@ export const auth = betterAuth({
           if (!draft?.floorRole) throw new Error("Invitation profile is incomplete");
           const name = draft.draftName?.trim() || user.name;
           await prisma.$transaction([
-            prisma.user.update({ where: { id: user.id }, data: { name } }),
+            // consentAt: the accept form requires the privacy-policy checkbox
+            // before it calls acceptInvitation — reaching this hook means the
+            // consent was given (Law 25 evidence).
+            prisma.user.update({ where: { id: user.id }, data: { name, consentAt: new Date() } }),
             prisma.staffProfile.upsert({
               where: { userId: user.id },
               create: {
@@ -102,7 +98,6 @@ export const auth = betterAuth({
           ]);
           logger.info("auth:invite-accepted", {
             userId: user.id,
-            email: user.email,
             invitationId: invitation.id,
           });
         },
