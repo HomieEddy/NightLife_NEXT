@@ -19,6 +19,7 @@ import { RevenueChart } from "@/components/shared/revenue-chart";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { QueryErrorState } from "@/components/shared/query-error-state";
 import { PulseTab } from "@/components/manager/pulse-tab";
 import { useAuth } from "@/context/auth-context";
 import { analyticsService } from "@/features/analytics/analytics-service";
@@ -43,7 +44,7 @@ export default function ManagerDashboardPage() {
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
 
-  const { data: summary } = useQuery({
+  const { data: summary, isError: summaryError } = useQuery({
     queryKey: analyticsKeys.summary(venueId),
     queryFn: () => analyticsService.getSummary(),
     enabled: !!venueId,
@@ -55,7 +56,7 @@ export default function ManagerDashboardPage() {
     enabled: !!venueId,
   });
 
-  const { data: venue } = useQuery({
+  const { data: venue, isError: venueError } = useQuery({
     queryKey: venueKeys.single(venueId),
     queryFn: () => venueService.getVenue(),
     enabled: !!venueId,
@@ -154,6 +155,17 @@ export default function ManagerDashboardPage() {
   const recentOrders = orders?.slice(0, 4) ?? null;
   const venueName = venue?.name ?? "Velvet Montréal";
   const currency = venue?.currency ?? "CAD";
+
+  if (summaryError || venueError) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t("tonightAt", { venueName })} />
+        <QueryErrorState
+          queryKeys={[analyticsKeys.summary(venueId), venueKeys.single(venueId)]}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

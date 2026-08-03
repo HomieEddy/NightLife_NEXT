@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { QueryErrorState } from "@/components/shared/query-error-state";
 import { MenuItemCard } from "@/components/shared/menu-item-card";
 import { ClosureGate } from "@/components/guest/closure-gate";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
@@ -25,6 +26,8 @@ export default function GuestMenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [packages, setPackages] = useState<PackageWithQuote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [activeCategory, setActiveCategory] = useState<string>("packages");
   const [query, setQuery] = useState("");
   const [openItem, setOpenItem] = useState<MenuItem | null>(null);
@@ -50,22 +53,30 @@ export default function GuestMenuPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     Promise.all([
       menuService.listCategories(),
       menuService.listItems(),
       menuService.listPackages(),
-    ]).then(([cats, its, pkgs]) => {
-      if (!cancelled) {
-        setCategories(cats);
-        setItems(its);
-        setPackages(pkgs);
-        setLoading(false);
-      }
-    });
+    ])
+      .then(([cats, its, pkgs]) => {
+        if (!cancelled) {
+          setCategories(cats);
+          setItems(its);
+          setPackages(pkgs);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setLoadError(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const visible = useMemo(() => {
     let result = items;
@@ -91,6 +102,20 @@ export default function GuestMenuPage() {
   const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
 
   useEffect(() => { reset(); }, [query, activeCategory, reset]);
+
+  if (loadError) {
+    return (
+      <div className="p-4">
+        <QueryErrorState
+          message={t("nothingMatches")}
+          onRetry={() => {
+            setLoadError(false);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      </div>
+    );
+  }
 
   if (!table) {
     return (

@@ -467,5 +467,32 @@ privacy officer and the lead developer.
 
 ### §deploy (plan 36)
 
-Deploy-a-release step-by-step: open PR → CI green → merge → monitor.
-Rollback procedure. Populated by plan 36.
+**Release flow:** feature branches PR into `dev` (staging auto-deploys via
+Coolify); when staging is QA'd, open a PR `dev → master` whose description is
+the release summary. Merging `master` auto-deploys production (OVHcloud
+Coolify) and the Vercel demo app.
+
+**Migrations run BEFORE the app boots** — the app must never start against an
+unmigrated schema. On Coolify, configure the pre-deploy command:
+
+```bash
+cd /app && npx prisma migrate deploy
+```
+
+(Sets `DATABASE_URL` from the Coolify env; requires `node_modules` present —
+run it from the deps stage or `npm ci && npx prisma migrate deploy`.)
+Never run `prisma db push` in production.
+
+**Post-deploy checklist (first 10 minutes):**
+1. `curl https://<host>/api/health` → `status: "ok"` (and `checks.queue` when
+   Redis is configured).
+2. `/manager` loads for a seeded manager account; place a test order.
+3. Check Coolify logs for `sentry:init` (server Sentry initialized) and pino
+   access lines with requestIds.
+4. If migrations ran, spot-check `_prisma_migrations` in the DB for the new
+   migration names.
+
+**Rollback:** Coolify keeps the previous release image. Revert = redeploy the
+last known-good release. If the rollback involves a DB migration, follow the
+migration's own down-path (or restore from backup per §restore) — never
+roll back code past a data migration without a restore drill.

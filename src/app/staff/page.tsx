@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ClockCard } from "@/components/shared/clock-card";
 import { CountUp } from "@/components/fx/count-up";
+import { QueryErrorState } from "@/components/shared/query-error-state";
 import { doorService } from "@/features/door/services";
 import { incidentService } from "@/features/safety/services";
 import { ordersService } from "@/features/ordering/services";
@@ -189,13 +190,13 @@ export default function StaffHomePage() {
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
 
-  const { data: me } = useQuery({
+  const { data: me, isError: meError } = useQuery({
     queryKey: staffKeys.me(venueId),
     queryFn: () => staffService.getCurrentStaff(),
     enabled: !!venueId,
   });
 
-  const { data: orders } = useQuery({
+  const { data: orders, isError: ordersError } = useQuery({
     queryKey: ordersKeys.all(venueId),
     queryFn: () => ordersService.listOrders(),
     enabled: !!venueId,
@@ -316,6 +317,17 @@ export default function StaffHomePage() {
     ? helpRequests.filter((h) => h.type === "security" && h.status !== "resolved").length
     : 0;
   const openIncidentCount = openIncidents?.length ?? 0;
+
+  // A failed core load (DB down) — no perpetual skeleton, no empty dashboard.
+  if (meError || ordersError) {
+    return (
+      <div className="animate-fade-in space-y-5 p-4">
+        <QueryErrorState
+          queryKeys={[staffKeys.me(venueId), ordersKeys.all(venueId)]}
+        />
+      </div>
+    );
+  }
 
   // Security home delegates to its own component once data is ready.
   if (isSecurity && me && counts !== null) {
