@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
-import { logger } from "@/features/shared/logger";
+import { apiErrorFromCatch } from "@/features/shared/api-error";
 
 function demoHandler() {
   return NextResponse.json({ error: "Workforce routes are disabled in demo mode" }, { status: 404 });
@@ -22,8 +22,7 @@ async function livePOST(request: NextRequest) {
     const entry = await clockIn(db, venueId, parsed.data.staffId, parsed.data.shiftId);
     return NextResponse.json(entry, { status: 201 });
   } catch (e) {
-    logger.error("Failed to clock in", { error: String(e) });
-    return NextResponse.json({ error: "Operation failed" }, { status: 409 });
+    return apiErrorFromCatch(e, "Failed to clock in");
   }
 }
 

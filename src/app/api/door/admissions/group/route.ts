@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
-import { logger } from "@/features/shared/logger";
+import { apiErrorFromCatch } from "@/features/shared/api-error";
 
 function demoHandler() {
   return NextResponse.json({ error: "Door routes are disabled in demo mode" }, { status: 404 });
@@ -23,8 +23,7 @@ async function livePOST(request: NextRequest) {
     const admissions = await admitGroup(db, venueId, parsed.data);
     return NextResponse.json(admissions, { status: 201 });
   } catch (e) {
-    logger.error("Failed to admit group", { error: String(e) });
-    return NextResponse.json({ error: "Operation failed" }, { status: 403 });
+    return apiErrorFromCatch(e, "Failed to admit group");
   }
 }
 

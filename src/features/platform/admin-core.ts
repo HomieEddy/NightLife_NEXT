@@ -4,6 +4,7 @@
  * All functions take the raw (unscoped) PrismaClient from getPlatformDb().
  */
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { HttpError } from "@/features/shared/api-error";
 import type {
   Lead, LeadStatus, PlanConfig, TelemetryLink,
   Tenant, TenantMetrics, TenantPlan, TenantStaffMember,
@@ -29,6 +30,7 @@ function toLead(row: NonNullable<LeadRow>): Lead {
     source: row.source as Lead["source"],
     dealValue: row.dealValue,
     notes: row.notes,
+    consentAt: row.consentAt?.toISOString(),
     activity: row.activity.map((a) => ({
       id: a.id,
       at: a.createdAt.toISOString(),
@@ -85,7 +87,7 @@ export async function getLead(db: PrismaClient, leadId: string): Promise<Lead | 
 
 export async function createLead(
   db: PrismaClient,
-  input: { venueName: string; contactName: string; email: string; phone?: string; city?: string; source?: string; dealValue?: number; notes?: string },
+  input: { venueName: string; contactName: string; email: string; phone?: string; city?: string; source?: string; dealValue?: number; notes?: string; consentAt?: string },
 ): Promise<Lead> {
   const row = await db.lead.create({
     data: {
@@ -97,6 +99,7 @@ export async function createLead(
       source: input.source ?? "landing-page",
       dealValue: input.dealValue ?? 0,
       notes: input.notes ?? "",
+      consentAt: input.consentAt ? new Date(input.consentAt) : null,
       activity: { create: { text: "Lead created" } },
     },
     include: leadInclude,
@@ -463,7 +466,7 @@ export async function updatePlanConfig(
   if (!existing) return null;
 
   if (patch.monthlyPrice !== undefined && patch.monthlyPrice < 0) {
-    throw new Error("Price must be zero or positive");
+    throw new HttpError(400, "Price must be zero or positive");
   }
 
   const data: Record<string, unknown> = {};

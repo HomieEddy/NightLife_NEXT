@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
-import { logger } from "@/features/shared/logger";
+import { apiErrorFromCatch } from "@/features/shared/api-error";
 
 function demoHandler() {
   return NextResponse.json({ error: "Workforce routes are disabled in demo mode" }, { status: 404 });
@@ -22,8 +22,7 @@ async function livePOST(request: NextRequest) {
     const entry = await endBreak(db, venueId, parsed.data.staffId);
     return NextResponse.json(entry);
   } catch (e) {
-    logger.error("Failed to end break", { error: String(e) });
-    return NextResponse.json({ error: "Operation failed" }, { status: 409 });
+    return apiErrorFromCatch(e, "Failed to end break");
   }
 }
 

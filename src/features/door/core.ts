@@ -3,6 +3,7 @@
  * (plan 17). Every write path is transactional. Occupancy events use
  * the same ledger discipline as StockMovement (INV-I1).
  */
+import { HttpError } from "@/features/shared/api-error";
 import type { getDb } from "@/features/shared/db";
 import {
   computeOccupancy,
@@ -288,7 +289,7 @@ export async function createAdmission(
 
   // S-03: block admission during evacuation
   if (venue.evacuationState !== "normal") {
-    throw new Error("Admissions are disabled during an emergency evacuation.");
+    throw new HttpError(409, "Admissions are disabled during an emergency evacuation.");
   }
 
   // S-01: age verification
@@ -302,7 +303,8 @@ export async function createAdmission(
   if (yearOfBirth !== undefined) {
     const denial = checkAgeOnAdmission(yearOfBirth, venue.legalDrinkingAge, undefined);
     if (denial === "underage") {
-      throw new Error(
+      throw new HttpError(
+        403,
         `Guest is under the legal drinking age of ${venue.legalDrinkingAge}. Admission blocked — this cannot be overridden.`,
       );
     }
@@ -313,7 +315,8 @@ export async function createAdmission(
   const events = await db.occupancyEvent.findMany({ where: { businessDate: date } });
   const current = computeOccupancy(events as unknown as OccupancyEvent[], date);
   if (!canAdmitWithinCapacity(current, input.partySize, venue.legalCapacity)) {
-    throw new Error(
+    throw new HttpError(
+      409,
       `At legal capacity (${venue.legalCapacity}). Only a manager with capacity-override can admit further.`,
     );
   }
@@ -604,7 +607,7 @@ export async function evacuate(
   const venue = await getVenueConfig(db, venueId);
 
   if (venue.evacuationState !== "normal") {
-    throw new Error("Already evacuating.");
+    throw new HttpError(409, "Already evacuating.");
   }
 
   const date = venueBusinessDate(venue);
@@ -652,7 +655,7 @@ export async function resumeEvacuation(
   const venue = await getVenueConfig(db, venueId);
 
   if (venue.evacuationState !== "evacuated") {
-    throw new Error("No active evacuation to resume from.");
+    throw new HttpError(409, "No active evacuation to resume from.");
   }
 
   const date = venueBusinessDate(venue);

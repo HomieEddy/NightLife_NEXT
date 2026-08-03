@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
-import { logger } from "@/features/shared/logger";
+import { apiErrorFromCatch } from "@/features/shared/api-error";
 
 function demoHandler() {
   return NextResponse.json({ error: "Workforce routes are disabled in demo mode" }, { status: 404 });
@@ -26,8 +26,7 @@ async function livePOST(request: NextRequest) {
     );
     return NextResponse.json(entry, { status: 201 });
   } catch (e) {
-    logger.error("Failed to edit time entry", { error: String(e) });
-    return NextResponse.json({ error: "Operation failed" }, { status: 409 });
+    return apiErrorFromCatch(e, "Failed to edit time entry");
   }
 }
 
