@@ -17,7 +17,7 @@ import { type DispatchPayload, type PushDispatchPayload } from "./types";
 import { sendEmail } from "./email";
 import { sendSms } from "./sms";
 import { sendPush, expireSubscription } from "./push";
-import { reservationPinSms, reservationConfirmationSms, reservationReminderSms } from "./sms-templates";
+import { reservationPinSms, reservationConfirmationSms, reservationReminderSms, reservationPinSmsFr, reservationConfirmationSmsFr, reservationReminderSmsFr } from "./sms-templates";
 
 type RenderFn = (props: Record<string, unknown>) => ReturnType<typeof import("@react-email/components").render>;
 
@@ -41,12 +41,20 @@ export function registerSmsTemplate(name: string, fn: (data: Record<string, unkn
   smsTemplateFns[name] = fn;
 }
 
-// Register built-in SMS templates
+// Register built-in SMS templates — English
 registerSmsTemplate("reservation-confirmation", (d) =>
   reservationPinSms(d.venueName as string, (d.reservationPin ?? "••••••") as string),
 );
 registerSmsTemplate("reservation-reminder", (d) =>
   reservationReminderSms(d.venueName as string, d.guestName as string, d.time as string),
+);
+
+// French variants — keyed "template:fr", resolved by locale in dispatch()
+registerSmsTemplate("reservation-confirmation:fr", (d) =>
+  reservationPinSmsFr(d.venueName as string, (d.reservationPin ?? "••••••") as string),
+);
+registerSmsTemplate("reservation-reminder:fr", (d) =>
+  reservationReminderSmsFr(d.venueName as string, d.guestName as string, d.time as string),
 );
 
 async function logSend(
@@ -123,7 +131,8 @@ export async function dispatch(
 
     // SMS channel — for PIN delivery (sendBoth) or phone-only recipient
     if (recipient.phone && (sendBoth || !recipient.email)) {
-      const smsFn = smsTemplateFns[payload.template];
+      const smsLocaleKey = `${payload.template}:${locale}`;
+      const smsFn = smsTemplateFns[smsLocaleKey] ?? smsTemplateFns[payload.template];
       if (smsFn) {
         const ik = payload.idempotencyKey ? `${payload.template}:sms:${recipient.phone}:${payload.idempotencyKey}` : undefined;
         if (!ik || !(await checkIdempotent(prisma, payload.venueId, payload.template, recipient.phone, ik))) {
