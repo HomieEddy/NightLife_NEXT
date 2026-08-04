@@ -17,22 +17,17 @@ async function livePOST(request: NextRequest) {
   const { createHelpRequest } = await import("@/features/sessions/core");
   const { zCreateHelpRequest } = await import("@/features/sessions/schemas");
   const { checkRateLimit, getClientIp } = await import("@/features/shared/rate-limit");
+  const { apiRateLimitError } = await import("@/features/shared/api-error");
 
   // Rate limit: per-session (tight — guest help is abusable) + per-IP fallback.
   const sessionRl = checkRateLimit(`guest-help:session:${sessionId}`, { maxTokens: 3, refillRate: 3, windowMs: 60_000 });
   if (!sessionRl.allowed) {
-    return NextResponse.json(
-      { error: "Too many requests" },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(sessionRl.retryAfterMs / 1000)) } },
-    );
+    return apiRateLimitError(sessionRl.retryAfterMs);
   }
   const ip = getClientIp(request);
   const ipRl = checkRateLimit(`guest-help:ip:${ip}`, { maxTokens: 10, refillRate: 10, windowMs: 60_000 });
   if (!ipRl.allowed) {
-    return NextResponse.json(
-      { error: "Too many requests" },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(ipRl.retryAfterMs / 1000)) } },
-    );
+    return apiRateLimitError(ipRl.retryAfterMs);
   }
 
   const platformDb = getPlatformDb();

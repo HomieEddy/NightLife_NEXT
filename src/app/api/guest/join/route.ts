@@ -12,6 +12,7 @@ async function livePOST(request: NextRequest) {
   const { createSession } = await import("@/features/sessions/core");
   const { zCreateSession } = await import("@/features/sessions/schemas");
   const { checkRateLimit, getClientIp } = await import("@/features/shared/rate-limit");
+  const { apiRateLimitError } = await import("@/features/shared/api-error");
 
   const ip = getClientIp(request);
   const body = await request.json();
@@ -22,10 +23,7 @@ async function livePOST(request: NextRequest) {
   // must not trip it; the per-table bucket below is the real QR-spam guard.
   const ipRl = checkRateLimit(`guest-join:ip:${ip}`, { maxTokens: 60, refillRate: 60, windowMs: 60_000 });
   if (!ipRl.allowed) {
-    return NextResponse.json(
-      { error: "Too many requests" },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(ipRl.retryAfterMs / 1000)) } },
-    );
+    return apiRateLimitError(ipRl.retryAfterMs);
   }
 
   if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
@@ -52,10 +50,7 @@ async function livePOST(request: NextRequest) {
   // full table re-scanning in a wave; sustained spam still gets cut off.
   const tableRl = checkRateLimit(`guest-join:table:${table.id}`, { maxTokens: 60, refillRate: 60, windowMs: 300_000 });
   if (!tableRl.allowed) {
-    return NextResponse.json(
-      { error: "Too many requests" },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(tableRl.retryAfterMs / 1000)) } },
-    );
+    return apiRateLimitError(tableRl.retryAfterMs);
   }
 
   // Check venue auto-approve setting

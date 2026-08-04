@@ -10,6 +10,7 @@ async function liveGET(_request: NextRequest, { params }: { params: Promise<{ ve
   const { getRawPrisma } = await import("@/features/shared/db");
   const { listPublicEvents } = await import("@/features/hospitality/events-core");
   const { checkRateLimit, getClientIp } = await import("@/features/shared/rate-limit");
+  const { apiRateLimitError } = await import("@/features/shared/api-error");
 
   const { venueSlug } = await params;
 
@@ -17,10 +18,7 @@ async function liveGET(_request: NextRequest, { params }: { params: Promise<{ ve
   const ip = getClientIp(_request);
   const rl = checkRateLimit(`events:${venueSlug}:${ip}`, { maxTokens: 30, refillRate: 30, windowMs: 60_000 });
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: "Too many requests" },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
-    );
+    return apiRateLimitError(rl.retryAfterMs);
   }
 
   // Public route — resolve tenant by slug
