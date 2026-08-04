@@ -1,6 +1,6 @@
 # 34 — i18n: Full French/English Support · PLAN
 
-**Status: not started — ROADMAP Phase 8.**
+**Status: live (~90%) — ROADMAP Phase 8. Residuals: notification template localization, ESLint literal-string sweep.**
 **Renumbered 2026-07-30:** was plan 27; the old number is retired.
 
 Goal: the entire app — guest, public/marketing, manager, staff, admin —
