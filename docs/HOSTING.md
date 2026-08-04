@@ -93,28 +93,30 @@ Three local loops, fastest to most prod-shaped:
 |---|---|---|---|---|
 | **Native demo** | `npm run dev:demo` | None (mock data) | Native | UI work, demo-only features |
 | **PGlite live** | `npm run dev:pglite` | In-process PGlite | Native | Live features, fastest iteration |
-| **Compose stack** | `npm run dev:stack` | Real Postgres 17 | Via bind mount | Mode-pair testing, LISTEN/NOTIFY, migration validation |
+| **Compose stack** | `docker compose up` | Real Postgres 17 | Via bind mount | Mode-pair testing, LISTEN/NOTIFY, migration validation |
 
 The compose stack (`compose.yaml`) runs four services by default:
 
-- `db` — Postgres 17 on port 5432
+- `db` — Postgres 17 on host port **5433** (mapped from 5432)
 - `migrate` — one-shot: applies migrations + idempotent seed
 - `app-live` — Next.js dev server on port 3000 (`NEXT_PUBLIC_APP_MODE=live`)
 - `app-demo` — Next.js dev server on port 3001 (`NEXT_PUBLIC_APP_MODE=demo`, no DB)
 
 A fifth service, `app-prod`, runs only under the `prod-shape` profile (below).
 
-Dev-grade secrets are embedded in the compose file — `docker compose up` works
-on a clean clone with no `.env`. The `app-demo` service has no `DATABASE_URL`
-so the demo resource guard is exercised exactly as it would be on Vercel.
+Dev-grade secrets are embedded in the compose file (overridable via
+`AUTH_SECRET`/`QR_TOKEN_SECRET` env vars) — `docker compose up` works on a
+clean clone with no `.env`. The `app-demo` service has no `DATABASE_URL` so
+the demo resource guard is exercised exactly as it would be on Vercel.
 
-Helper scripts:
+There are no `dev:stack*` npm scripts — the stack is driven directly by
+`docker compose`:
 
-- `npm run dev:stack` — start everything
-- `npm run dev:stack:reset` — `down -v` (wipes DB) then `up` (factory reset)
-- `npm run dev:stack:prod-shape` — builds and serves via the `runner` Dockerfile
-  stage (port 3100), catching static-generation and Suspense errors that dev
-  mode forgives
+- `docker compose up` — start everything
+- `docker compose down -v && docker compose up` — factory reset (wipes the DB)
+- `docker compose --profile prod-shape up --build` — builds and serves via the
+  `runner` Dockerfile stage (port 3100), catching static-generation and
+  Suspense errors that dev mode forgives
 
 An optional `prod-shape` compose profile builds the `runner` Dockerfile stage
 and serves on port 3100 — useful for verifying `next build` behavior locally.
@@ -230,8 +232,10 @@ in Docker (the current Coolify default), `sslmode=disable` is acceptable.
 
 ## Connection pooling
 
-The `PrismaPg` adapter in `src/features/shared/db.ts` already passes `max` from
-`DATABASE_POOL_MAX`. The env var is **required** in production.
+The `PrismaPg` adapter in `src/features/shared/db.ts` passes `max` from
+`DATABASE_POOL_MAX`. **Set it in production** — without it the adapter runs at
+its default (effectively unbounded), which risks exhausting Postgres
+connections under SSE load.
 
 | Setting | Value | Rationale |
 |---|---|---|
