@@ -25,7 +25,7 @@ interface EmailSendInput {
 
 export async function sendEmail(input: EmailSendInput): Promise<{ ok: boolean; providerId?: string; error?: string }> {
   if (EMAIL_DRIVER === "log") {
-    logger.info(`[email:log] To: ${input.to} | Subject: ${input.subject}`);
+    logger.info("[email:log]", { email: input.to, subject: input.subject });
     return { ok: true, providerId: "log" };
   }
   try {

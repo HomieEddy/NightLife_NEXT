@@ -1,5 +1,5 @@
 services:
-  # ── Redis (queue) ─────────────────────────────────────────
+  # â”€â”€ Redis (queue) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   redis:
     image: redis:7-alpine
     profiles: [queue]
@@ -8,7 +8,7 @@ services:
     volumes:
       - redisdata:/data
 
-  # ── Postgres ───────────────────────────────────────────────
+  # â”€â”€ Postgres â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   db:
     image: postgres:17-alpine
     ports:
@@ -25,7 +25,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # ── One-shot: migrate + idempotent seed ────────────────────
+  # â”€â”€ One-shot: migrate + idempotent seed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   migrate:
     build:
       context: .
@@ -36,8 +36,8 @@ services:
     environment:
       NEXT_PUBLIC_APP_MODE: live
       DATABASE_URL: postgresql://nightlife:nightlife@db:5432/nightlife
-      AUTH_SECRET: dev-secret-at-least-32-characters-long-ok
-      QR_TOKEN_SECRET: dev-qr-token-secret-key-minimum-16
+      AUTH_SECRET: ${AUTH_SECRET:-dev-secret-at-least-32-characters-long-ok}
+      QR_TOKEN_SECRET: ${QR_TOKEN_SECRET:-dev-qr-token-secret-key-minimum-16}
       SEED_STAGING: ${SEED_STAGING:-false}
     depends_on:
       db:
@@ -45,7 +45,7 @@ services:
     command: ["sh", "scripts/docker-migrate.sh"]
     restart: "no"
 
-  # ── Live app (port 3000) ───────────────────────────────────
+  # â”€â”€ Live app (port 3000) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app-live:
     build:
       context: .
@@ -59,8 +59,8 @@ services:
     environment:
       NEXT_PUBLIC_APP_MODE: live
       DATABASE_URL: postgresql://nightlife:nightlife@db:5432/nightlife
-      AUTH_SECRET: dev-secret-at-least-32-characters-long-ok
-      QR_TOKEN_SECRET: dev-qr-token-secret-key-minimum-16
+      AUTH_SECRET: ${AUTH_SECRET:-dev-secret-at-least-32-characters-long-ok}
+      QR_TOKEN_SECRET: ${QR_TOKEN_SECRET:-dev-qr-token-secret-key-minimum-16}
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       BETTER_AUTH_URL: http://localhost:3000
       NEXT_PUBLIC_DEMO_URL: http://localhost:3001
@@ -71,7 +71,7 @@ services:
         condition: service_completed_successfully
     command: ["npx", "next", "dev", "--hostname", "0.0.0.0"]
 
-  # ── Demo app (port 3001) ───────────────────────────────────
+  # â”€â”€ Demo app (port 3001) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app-demo:
     build:
       context: .
@@ -89,7 +89,7 @@ services:
       CHOKIDAR_USEPOLLING: "true"
     command: ["npx", "next", "dev", "--hostname", "0.0.0.0", "--port", "3001"]
 
-  # ── Prod-shape: build + serve (optional profile) ───────────
+  # â”€â”€ Prod-shape: build + serve (optional profile) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   app-prod:
     profiles: ["prod-shape"]
     build:
@@ -102,8 +102,8 @@ services:
     environment:
       NEXT_PUBLIC_APP_MODE: live
       DATABASE_URL: postgresql://nightlife:nightlife@db:5432/nightlife
-      AUTH_SECRET: dev-secret-at-least-32-characters-long-ok
-      QR_TOKEN_SECRET: dev-qr-token-secret-key-minimum-16
+      AUTH_SECRET: ${AUTH_SECRET:-dev-secret-at-least-32-characters-long-ok}
+      QR_TOKEN_SECRET: ${QR_TOKEN_SECRET:-dev-qr-token-secret-key-minimum-16}
     depends_on:
       migrate:
         condition: service_completed_successfully

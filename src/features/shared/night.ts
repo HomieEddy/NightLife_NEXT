@@ -19,6 +19,8 @@ export interface NightBoundary {
   start: Date;
   /** UTC end instant (venue-local 10:00 on the day after the label date). */
   end: Date;
+  /** IANA timezone the boundary was computed in — consumers bucket by it. */
+  timezone: string;
 }
 
 /**
@@ -55,7 +57,7 @@ export function nightContaining(instant: Date, config: NightConfig): NightBounda
   const start = localToUtc(labelStr, nightStartHour, 0, timezone);
   const end = localToUtc(nextDay(labelStr), nightEndHour, 0, timezone);
 
-  return { label: labelStr, start, end };
+  return { label: labelStr, start, end, timezone };
 }
 
 /**
@@ -67,7 +69,7 @@ export function nightForDate(labelDate: string, config: NightConfig): NightBound
   const { timezone, nightStartHour, nightEndHour } = config;
   const start = localToUtc(labelDate, nightStartHour, 0, timezone);
   const end = localToUtc(nextDay(labelDate), nightEndHour, 0, timezone);
-  return { label: labelDate, start, end };
+  return { label: labelDate, start, end, timezone };
 }
 
 // ── helpers ──────────────────────────────────────────────────────────

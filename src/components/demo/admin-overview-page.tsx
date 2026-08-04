@@ -3,6 +3,7 @@
 // Plan 10 graduates this demo-only surface.
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity, ArrowRight, Building2, CircleDollarSign, ExternalLink, Filter, Receipt, Table2, TrendingUp, Users,
@@ -47,9 +48,11 @@ export default function AdminOverviewPage() {
     { orders: 0, sessions: 0, tables: 0, staff: 0 },
   );
 
+  const t = useTranslations("admin.overview");
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Platform overview" description="NightLifeNext across all venues." />
+      <PageHeader title={t("pageTitle")} description={t("pageDesc")} />
 
       {telemetry.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -77,16 +80,16 @@ export default function AdminOverviewPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricCard label="MRR" value={formatMoney(mrr)} icon={CircleDollarSign} deltaPct={9.2} featured />
-            <MetricCard label="Active tenants" value={String(activeTenants)} icon={Building2} hint={`${tenants.length} total`} />
-            <MetricCard label="Open leads" value={String(openLeads)} icon={Filter} hint="in pipeline" />
-            <MetricCard label="Trial → paid" value="64%" icon={TrendingUp} hint="last 90 days" />
+            <MetricCard label={t("mrrLabel")} value={formatMoney(mrr)} icon={CircleDollarSign} deltaPct={9.2} featured />
+            <MetricCard label={t("activeTenantsLabel")} value={String(activeTenants)} icon={Building2} hint={`${tenants.length} total`} />
+            <MetricCard label={t("openLeadsLabel")} value={String(openLeads)} icon={Filter} hint={t("inPipelineHint")} />
+            <MetricCard label={t("trialToPaidLabel")} value="64%" icon={TrendingUp} hint={t("last90DaysHint")} />
           </div>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricCard label="Orders · 30d" value={ops.orders.toLocaleString()} icon={Receipt} hint="all tenants" />
-            <MetricCard label="Sessions · 30d" value={ops.sessions.toLocaleString()} icon={Activity} hint="all tenants" />
-            <MetricCard label="Tables" value={ops.tables.toLocaleString()} icon={Table2} hint="provisioned" />
-            <MetricCard label="Staff" value={ops.staff.toLocaleString()} icon={Users} hint="across venues" />
+            <MetricCard label={t("orders30dLabel")} value={ops.orders.toLocaleString()} icon={Receipt} hint={t("allTenantsHint")} />
+            <MetricCard label={t("sessions30dLabel")} value={ops.sessions.toLocaleString()} icon={Activity} hint={t("allTenantsHint")} />
+            <MetricCard label={t("tablesLabel")} value={ops.tables.toLocaleString()} icon={Table2} hint={t("provisionedHint")} />
+            <MetricCard label={t("staffLabel")} value={ops.staff.toLocaleString()} icon={Users} hint={t("acrossVenuesHint")} />
           </div>
         </>
       )}
@@ -94,10 +97,10 @@ export default function AdminOverviewPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Latest leads</CardTitle>
+            <CardTitle className="text-base">{t("latestLeadsTitle")}</CardTitle>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/admin/leads">
-                Pipeline <ArrowRight className="size-3.5" />
+                {t("pipelineButton")} <ArrowRight className="size-3.5" />
               </Link>
             </Button>
           </CardHeader>
@@ -118,10 +121,10 @@ export default function AdminOverviewPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Tenants</CardTitle>
+            <CardTitle className="text-base">{t("tenantsTitle")}</CardTitle>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/admin/venues">
-                All tenants <ArrowRight className="size-3.5" />
+                {t("allTenantsButton")} <ArrowRight className="size-3.5" />
               </Link>
             </Button>
           </CardHeader>

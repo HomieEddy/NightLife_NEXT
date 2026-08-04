@@ -8,8 +8,17 @@ function demoHandler() {
 async function liveGET(_request: NextRequest, { params }: { params: Promise<{ venueSlug: string }> }) {
   const { getDb } = await import("@/features/shared/db");
   const { getPublicAvailability } = await import("@/features/hospitality/reservation-core");
+  const { checkRateLimit, getClientIp } = await import("@/features/shared/rate-limit");
+  const { apiRateLimitError } = await import("@/features/shared/api-error");
 
   const { venueSlug } = await params;
+
+  // Rate limit: per-IP to prevent calendar-scraping abuse.
+  const ip = getClientIp(_request);
+  const rl = checkRateLimit(`resv-avail:${ip}`, { maxTokens: 30, refillRate: 30, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return apiRateLimitError(rl.retryAfterMs);
+  }
 
   const url = new URL(_request.url);
   const date = url.searchParams.get("date");

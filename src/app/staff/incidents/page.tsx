@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ListChecks, Plus, ShieldOff, X } from "lucide-react";
 import { toast } from "sonner";
@@ -31,18 +32,6 @@ import { zIncidentReportInput } from "@/lib/form-schemas";
 import type { Incident, IncidentSeverity, IncidentType } from "@/lib/types";
 import type { z } from "zod";
 
-const TYPE_LABELS: Record<IncidentType, string> = {
-  ejection: "Ejection",
-  "refused-entry": "Refused entry",
-  medical: "Medical",
-  altercation: "Altercation",
-  theft: "Theft",
-  "property-damage": "Property damage",
-  police: "Police",
-  "staff-injury": "Staff injury",
-  other: "Other",
-};
-
 const SEVERITY_TONE: Record<IncidentSeverity, string> = {
   low: "border-zinc-500/30 text-zinc-600 dark:text-zinc-400",
   medium: "border-amber-500/30 text-amber-600 dark:text-amber-400",
@@ -54,6 +43,25 @@ export default function StaffIncidentsPage() {
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
   const [reporting, setReporting] = useState(false);
+  const t = useTranslations("staff.incidents");
+
+  const TYPE_LABELS: Record<IncidentType, string> = {
+    ejection: t("typeOptions.ejection"),
+    "refused-entry": t("typeOptions.refused-entry"),
+    medical: t("typeOptions.medical"),
+    altercation: t("typeOptions.altercation"),
+    theft: t("typeOptions.theft"),
+    "property-damage": t("typeOptions.property-damage"),
+    police: t("typeOptions.police"),
+    "staff-injury": t("typeOptions.staff-injury"),
+    other: t("typeOptions.other"),
+  };
+
+  const SEVERITY_LABELS: Record<IncidentSeverity, string> = {
+    low: t("severityOptions.low"),
+    medium: t("severityOptions.medium"),
+    high: t("severityOptions.high"),
+  };
 
   type FormValues = z.infer<typeof zIncidentReportInput>;
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
@@ -120,13 +128,13 @@ export default function StaffIncidentsPage() {
       });
     },
     onSuccess: () => {
-      toast.success("Incident filed");
+      toast.success(t("toast.filed"));
       resetForm();
       setReporting(false);
       invalidate();
     },
     onError: () => {
-      toast.error("Could not file the incident");
+      toast.error(t("toast.fileError"));
     },
   });
 
@@ -137,8 +145,8 @@ export default function StaffIncidentsPage() {
       <div className="p-4">
         <EmptyState
           icon={ShieldOff}
-          title="Not available for your role"
-          description="Ask a manager or security team member to report on your behalf."
+          title={t("permissionDenied.title")}
+          description={t("permissionDenied.description")}
         />
       </div>
     );
@@ -149,17 +157,17 @@ export default function StaffIncidentsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-display flex items-center gap-2 text-xl">
-            <AlertTriangle className="size-5 text-primary" /> Incidents
+            <AlertTriangle className="size-5 text-primary" /> {t("heading")}
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {readAll ? "Every incident tonight" : "Incidents you've filed"}
+            {readAll ? t("allIncidentsSubtitle") : t("myIncidentsSubtitle")}
           </p>
         </div>
       </div>
 
       {canReport && !reporting && (
         <Button className="h-12 w-full text-base" onClick={() => setReporting(true)}>
-          <AlertTriangle className="size-4" /> Report an incident
+          <AlertTriangle className="size-4" /> {t("reportButton")}
         </Button>
       )}
 
@@ -169,7 +177,7 @@ export default function StaffIncidentsPage() {
             <form onSubmit={onSubmitReport}>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>Type</Label>
+                <Label>{t("form.typeLabel")}</Label>
                 <Select value={type} onValueChange={(v) => setValue("type", v as IncidentType)}>
                   <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -180,52 +188,52 @@ export default function StaffIncidentsPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Severity</Label>
+                <Label>{t("form.severityLabel")}</Label>
                 <Select value={severity} onValueChange={(v) => setValue("severity", v as IncidentSeverity)}>
                   <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="low">{t("severityOptions.low")}</SelectItem>
+                    <SelectItem value="medium">{t("severityOptions.medium")}</SelectItem>
+                    <SelectItem value="high">{t("severityOptions.high")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="narrative">What happened</Label>
-              <Textarea id="narrative" {...register("narrative")} placeholder="Where, who was involved, what occurred" rows={3} />
+              <Label htmlFor="narrative">{t("form.narrativeLabel")}</Label>
+              <Textarea id="narrative" {...register("narrative")} placeholder={t("form.narrativePlaceholder")} rows={3} />
               {errors.narrative && <p className="text-xs text-red-600">{errors.narrative.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="actions">What we did</Label>
-              <Textarea id="actions" {...register("actionsTaken")} placeholder="Actions taken in response" rows={2} />
+              <Label htmlFor="actions">{t("form.actionsLabel")}</Label>
+              <Textarea id="actions" {...register("actionsTaken")} placeholder={t("form.actionsPlaceholder")} rows={2} />
               {errors.actionsTaken && <p className="text-xs text-red-600">{errors.actionsTaken.message}</p>}
             </div>
             <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-              <p className="text-sm font-medium">Police involved</p>
+              <p className="text-sm font-medium">{t("form.policeInvolvedLabel")}</p>
               <Switch checked={watch("policeInvolved")} onCheckedChange={(v) => setValue("policeInvolved", v)} />
             </div>
             <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
               <div>
-                <p className="text-sm font-medium">Reportable to authority</p>
-                <p className="text-xs text-muted-foreground">Requires filing with a regulatory body</p>
+                <p className="text-sm font-medium">{t("form.reportableLabel")}</p>
+                <p className="text-xs text-muted-foreground">{t("form.reportableDescription")}</p>
               </div>
               <Switch checked={watch("reportable")} onCheckedChange={(v) => setValue("reportable", v)} />
             </div>
             <div className="space-y-1.5">
-              <Label>Escalation level</Label>
+              <Label>{t("form.escalationLevelLabel")}</Label>
               <Select value={String(escalationLevel)} onValueChange={(v) => setEscalationLevel(Number(v) as 0 | 1 | 2 | 3)}>
                 <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="0">None</SelectItem>
-                  <SelectItem value="1">Level 1 — Security lead</SelectItem>
-                  <SelectItem value="2">Level 2 — Manager</SelectItem>
-                  <SelectItem value="3">Level 3 — Police / external</SelectItem>
+                  <SelectItem value="0">{t("form.escalationOptions.none")}</SelectItem>
+                  <SelectItem value="1">{t("form.escalationOptions.level1")}</SelectItem>
+                  <SelectItem value="2">{t("form.escalationOptions.level2")}</SelectItem>
+                  <SelectItem value="3">{t("form.escalationOptions.level3")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Witnesses</Label>
+              <Label>{t("form.witnessesLabel")}</Label>
               {witnesses.map((w, i) => (
                 <div key={i} className="flex items-start gap-2 rounded border px-2 py-1.5 text-xs">
                   <span className="font-medium shrink-0">{w.name}{w.contact ? ` · ${w.contact}` : ""}</span>
@@ -234,25 +242,25 @@ export default function StaffIncidentsPage() {
                 </div>
               ))}
               <div className="grid grid-cols-2 gap-2">
-                <Input placeholder="Name" value={wName} onChange={(e) => setWName(e.target.value)} className="h-9 text-sm" />
-                <Input placeholder="Contact" value={wContact} onChange={(e) => setWContact(e.target.value)} className="h-9 text-sm" />
+                <Input placeholder={t("form.witnessNamePlaceholder")} value={wName} onChange={(e) => setWName(e.target.value)} className="h-9 text-sm" />
+                <Input placeholder={t("form.witnessContactPlaceholder")} value={wContact} onChange={(e) => setWContact(e.target.value)} className="h-9 text-sm" />
               </div>
-              <Input placeholder="Statement" value={wStatement} onChange={(e) => setWStatement(e.target.value)} className="h-9 text-sm" />
+              <Input placeholder={t("form.witnessStatementPlaceholder")} value={wStatement} onChange={(e) => setWStatement(e.target.value)} className="h-9 text-sm" />
               <Button variant="outline" size="sm" onClick={() => { if (wName.trim()) { setWitnesses([...witnesses, { name: wName.trim(), contact: wContact.trim(), statement: wStatement.trim() }]); setWName(""); setWContact(""); setWStatement(""); } }}>
-                <Plus className="size-3.5 mr-1" /> Add witness
+                <Plus className="size-3.5 mr-1" /> {t("form.addWitnessButton")}
               </Button>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="cctv">CCTV camera reference</Label>
-              <Input id="cctv" value={cctvCamera} onChange={(e) => setCctvCamera(e.target.value)} placeholder="Camera 3, main entrance" className="h-9" />
+              <Label htmlFor="cctv">{t("form.cctvLabel")}</Label>
+              <Input id="cctv" value={cctvCamera} onChange={(e) => setCctvCamera(e.target.value)} placeholder={t("form.cctvPlaceholder")} className="h-9" />
             </div>
             <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-              <p className="text-sm font-medium">Ambulance called</p>
+              <p className="text-sm font-medium">{t("form.ambulanceCalledLabel")}</p>
               <Switch checked={ambulanceCalled} onCheckedChange={setAmbulanceCalled} />
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" type="button" className="h-12 flex-1" onClick={() => { setReporting(false); resetForm(); }}>
-                Cancel
+                {t("form.cancelButton")}
               </Button>
               <ConfirmDialog
                 trigger={
@@ -261,12 +269,12 @@ export default function StaffIncidentsPage() {
                     className="h-12 flex-1 text-base"
                     disabled={reportMutation.isPending}
                   >
-                    Submit
+                    {t("form.submitButton")}
                   </Button>
                 }
-                title="Submit this incident report?"
-                description="This creates a permanent record. The narrative can't be edited after submit — add follow-ups as notes instead."
-                confirmLabel="Submit report"
+                title={t("confirm.title")}
+                description={t("confirm.description")}
+                confirmLabel={t("confirm.confirmLabel")}
                 onConfirm={onSubmitReport}
               />
             </div>
@@ -278,7 +286,7 @@ export default function StaffIncidentsPage() {
       {isLoading && !incidents ? (
         <ListSkeleton rows={3} rowHeight="h-20" />
       ) : (incidents ?? []).length === 0 ? (
-        <EmptyState icon={ListChecks} title="No incidents" description="Incidents filed by your team appear here for review." />
+        <EmptyState icon={ListChecks} title={t("empty.title")} description={t("empty.description")} />
       ) : (
         <div className="stagger-children space-y-2">
           {sliced.map((incident) => (
@@ -287,15 +295,15 @@ export default function StaffIncidentsPage() {
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium">{TYPE_LABELS[incident.type]}</p>
                   <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${SEVERITY_TONE[incident.severity]}`}>
-                    {incident.severity}
+                    {SEVERITY_LABELS[incident.severity]}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">{incident.narrative}</p>
                 <p className="text-xs text-muted-foreground">
                   {incident.reportedByStaffName} · {timeAgo(incident.occurredAt)} ·{" "}
-                  {incident.status === "open" ? "Open" : "Resolved"}
-                  {incident.policeInvolved && " · Police involved"}
-                  {incident.reportable && " · Reportable to authority"}
+                  {incident.status === "open" ? t("statusOpen") : t("statusResolved")}
+                  {incident.policeInvolved && ` · ${t("badgePoliceInvolved")}`}
+                  {incident.reportable && ` · ${t("badgeReportable")}`}
                 </p>
               </CardContent>
             </Card>

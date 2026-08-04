@@ -9,8 +9,17 @@ async function liveGET(_request: NextRequest, { params }: { params: Promise<{ ve
   const { getDb } = await import("@/features/shared/db");
   const { getRawPrisma } = await import("@/features/shared/db");
   const { listPublicEvents } = await import("@/features/hospitality/events-core");
+  const { checkRateLimit, getClientIp } = await import("@/features/shared/rate-limit");
+  const { apiRateLimitError } = await import("@/features/shared/api-error");
 
   const { venueSlug } = await params;
+
+  // Rate limit: per-IP to prevent event-page scraping.
+  const ip = getClientIp(_request);
+  const rl = checkRateLimit(`events:${venueSlug}:${ip}`, { maxTokens: 30, refillRate: 30, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return apiRateLimitError(rl.retryAfterMs);
+  }
 
   // Public route — resolve tenant by slug
   const prisma = getRawPrisma();

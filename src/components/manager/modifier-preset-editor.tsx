@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { Input } from "@/components/ui/input";
@@ -28,12 +29,14 @@ export function ModifierPresetEditor({
   onChange: (value: ModifierGroup[]) => void;
   inventoryItems: MenuItem[];
 }) {
+  const t = useTranslations("shared");
+
   function addGroup(kind: ModifierKind) {
     onChange([
       ...value,
       {
         id: id("group"),
-        name: kind === "washer" ? "Washers" : "Presentation",
+        name: kind === "washer" ? t("modifierPreset.addWashers") : t("modifierPreset.addPresentation"),
         kind,
         required: false,
         maxSelections: 1,
@@ -51,17 +54,17 @@ export function ModifierPresetEditor({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <Label>Add-on presets</Label>
+          <Label>{t("modifierPreset.sectionLabel")}</Label>
           <p className="text-xs text-muted-foreground">
-            Category presets apply to every bottle in the category.
+            {t("modifierPreset.sectionDescription")}
           </p>
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => addGroup("washer")}>
-            <Plus className="size-3.5" /> Washers
+            <Plus className="size-3.5" /> {t("modifierPreset.addWashers")}
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={() => addGroup("presentation")}>
-            <Plus className="size-3.5" /> Presentation
+            <Plus className="size-3.5" /> {t("modifierPreset.addPresentation")}
           </Button>
         </div>
       </div>
@@ -70,7 +73,9 @@ export function ModifierPresetEditor({
         <div key={group.id} className="space-y-3 rounded-xl border bg-accent/20 p-3">
           <div className="grid gap-2 sm:grid-cols-[1fr_8rem_auto_auto] sm:items-end">
             <div className="space-y-1.5">
-              <Label htmlFor={`${group.id}-name`}>{group.kind === "washer" ? "Washer" : "Presentation"} group</Label>
+              <Label htmlFor={`${group.id}-name`}>
+                {group.kind === "washer" ? t("modifierPreset.washerGroupLabel") : t("modifierPreset.presentationGroupLabel")}
+              </Label>
               <Input
                 id={`${group.id}-name`}
                 value={group.name}
@@ -78,7 +83,7 @@ export function ModifierPresetEditor({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={`${group.id}-max`}>Max picks</Label>
+              <Label htmlFor={`${group.id}-max`}>{t("modifierPreset.maxPicks")}</Label>
               <Input
                 id={`${group.id}-max`}
                 type="number"
@@ -93,49 +98,53 @@ export function ModifierPresetEditor({
                 checked={group.required}
                 onCheckedChange={(required) => updateGroup(groupIndex, { required })}
               />
-              Required
+              {t("modifierPreset.required")}
             </label>
             <TooltipIconButton
               type="button"
               variant="ghost"
               onClick={() => onChange(value.filter((_, position) => position !== groupIndex))}
-              tooltip={`Remove ${group.name}`}
+              tooltip={t("modifierPreset.removeGroup", { name: group.name })}
             >
               <Trash2 className="size-4" />
             </TooltipIconButton>
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Guests can pick up to {group.maxSelections} option{group.maxSelections > 1 ? "s" : ""} from this group
-            {group.required ? " and must pick at least one" : ""}.
+            {group.maxSelections > 1
+              ? t("modifierPreset.guestsCanPickMany", { max: group.maxSelections })
+              : t("modifierPreset.guestsCanPickOne")}
+            {group.required ? t("modifierPreset.mustPickAtLeastOne") : ""}.
             {group.kind === "washer"
-              ? " Link an option to inventory so each serving deducts stock."
+              ? t("modifierPreset.washerInventoryHint")
               : ""}
           </p>
 
           <div className="space-y-2">
             {group.options.length > 0 && (
               <div className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem_1fr_auto]">
-                <span className="text-xs font-medium text-muted-foreground">Option shown to guests</span>
-                <span className="text-xs font-medium text-muted-foreground">Price each ($)</span>
-                <span className="text-xs font-medium text-muted-foreground">Max per order</span>
-                <span className="text-xs font-medium text-muted-foreground">{group.kind === "washer" ? "Deducts stock from" : ""}</span>
+                <span className="text-xs font-medium text-muted-foreground">{t("modifierPreset.optionShownColumn")}</span>
+                <span className="text-xs font-medium text-muted-foreground">{t("modifierPreset.priceEachColumn")}</span>
+                <span className="text-xs font-medium text-muted-foreground">{t("modifierPreset.maxPerOrderColumn")}</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                  {group.kind === "washer" ? t("modifierPreset.deductsStockColumn") : ""}
+                </span>
                 <span />
               </div>
             )}
             {group.options.map((option, optionIndex) => (
               <div key={option.id} className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem_1fr_auto]">
                 <Input
-                  aria-label="Option name"
-                  placeholder={group.kind === "washer" ? "e.g. Red Bull, cranberry juice" : "e.g. Sparklers, LED sign"}
+                  aria-label={t("modifierPreset.optionNameAria")}
+                  placeholder={group.kind === "washer" ? t("modifierPreset.optionPlaceholderWasher") : t("modifierPreset.optionPlaceholderPresentation")}
                   value={option.name}
                   onChange={(event) => updateGroup(groupIndex, {
                     options: group.options.map((entry, position) => position === optionIndex ? { ...entry, name: event.target.value } : entry),
                   })}
                 />
                 <Input
-                  aria-label="Price per unit, 0 for free"
-                  placeholder="0 = free"
+                  aria-label={t("modifierPreset.pricePerUnitAria")}
+                  placeholder={t("modifierPreset.free")}
                   type="number"
                   min={0}
                   step={1}
@@ -145,7 +154,7 @@ export function ModifierPresetEditor({
                   })}
                 />
                 <Input
-                  aria-label="Maximum quantity"
+                  aria-label={t("modifierPreset.maxQuantityAria")}
                   placeholder="1"
                   type="number"
                   min={1}
@@ -164,9 +173,11 @@ export function ModifierPresetEditor({
                         : entry),
                     })}
                   >
-                    <SelectTrigger aria-label="Inventory item"><SelectValue placeholder="No stock link" /></SelectTrigger>
+                    <SelectTrigger aria-label={t("modifierPreset.inventoryItemAria")}>
+                      <SelectValue placeholder={t("modifierPreset.noStockLink")} />
+                    </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No stock link</SelectItem>
+                      <SelectItem value="none">{t("modifierPreset.noStockLink")}</SelectItem>
                       {inventoryItems.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -175,7 +186,7 @@ export function ModifierPresetEditor({
                   type="button"
                   variant="ghost"
                   onClick={() => updateGroup(groupIndex, { options: group.options.filter((_, position) => position !== optionIndex) })}
-                  tooltip={`Remove ${option.name || "option"}`}
+                  tooltip={t("modifierPreset.removeOption", { name: option.name || t("modifierPreset.optionFallback") })}
                 >
                   <Trash2 className="size-4" />
                 </TooltipIconButton>
@@ -195,7 +206,7 @@ export function ModifierPresetEditor({
                 }],
               })}
             >
-              <Plus className="size-3.5" /> Add option
+              <Plus className="size-3.5" /> {t("modifierPreset.addOption")}
             </Button>
           </div>
         </div>

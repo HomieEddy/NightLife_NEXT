@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
+import { apiErrorFromCatch } from "@/features/shared/api-error";
 
 function demoHandler() {
   return NextResponse.json({ error: "Platform routes are disabled in demo mode" }, { status: 404 });
@@ -38,7 +39,7 @@ async function livePATCH(request: NextRequest) {
     if (!config) return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     return NextResponse.json(config);
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    return apiErrorFromCatch(e, "Failed to update plan config");
   }
 }
 

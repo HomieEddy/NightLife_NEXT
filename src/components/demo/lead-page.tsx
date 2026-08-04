@@ -13,11 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { isDemoMode } from "@/features/shared/app-mode";
+import { LIVE_APP_URL } from "@/features/shared/app-origins";
 import { adminService } from "@/features/platform/admin-service";
 import { zLeadInput } from "@/lib/form-schemas";
 
 export default function LeadPage() {
   const [submitted, setSubmitted] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
@@ -27,6 +29,10 @@ export default function LeadPage() {
 
   const onSubmit = handleSubmit(async (data) => {
     setError(null);
+    if (!consent) {
+      setError("You must agree to the privacy policy to submit.");
+      return;
+    }
     try {
       const payload = {
         venueName: data.venueName.trim(),
@@ -37,6 +43,8 @@ export default function LeadPage() {
         source: "landing-page" as const,
         dealValue: 2988,
         notes: data.notes?.trim() ?? "",
+        // Consent evidence — the checkbox above is the opt-in (Law 25).
+        consentAt: new Date().toISOString(),
       };
       if (isDemoMode()) {
         await adminService.createLead(payload);
@@ -117,6 +125,30 @@ export default function LeadPage() {
             <div className="space-y-1.5">
               <Label htmlFor="notes">Anything we should know?</Label>
               <Textarea id="notes" {...register("notes")} placeholder="Capacity, number of zones, current ordering setup…" rows={3} />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Your contact information will only be used to reach you about your demo request and to create your account if you sign up.
+              </p>
+              <div className="flex items-start gap-2">
+                <input
+                  id="lead-consent"
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                  className="mt-1 size-4 accent-primary"
+                />
+                <Label htmlFor="lead-consent" className="text-xs font-normal leading-relaxed">
+                  I have read and agree to the{" "}
+                  <Link
+                    href={isDemoMode() ? `${LIVE_APP_URL}/privacy` : "/privacy"}
+                    target="_blank"
+                    className="text-primary underline"
+                  >
+                    Privacy Policy
+                  </Link>
+                </Label>
+              </div>
             </div>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <Button type="submit" variant="foil" className="w-full" size="lg" disabled={isSubmitting}>

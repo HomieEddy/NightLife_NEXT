@@ -4,6 +4,23 @@
  * deployments; swap for Redis-backed when scaling horizontally.
  */
 
+import type { NextRequest } from "next/server";
+
+export function getClientIp(request: NextRequest): string {
+  // Trust the proxy (Coolify/Traefik sets x-real-ip) over the client-controllable
+  // XFF header. When only XFF exists, take the rightmost entry: the proxy
+  // appends the real client IP to whatever the client sent, so the last entry
+  // is the one the proxy wrote, not the attacker's.
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp;
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
+  return "unknown";
+}
+
 interface Bucket {
   tokens: number;
   lastRefill: number;
@@ -16,6 +33,12 @@ interface RateLimiterOptions {
 }
 
 const buckets = new Map<string, Bucket>();
+
+// Ceiling on distinct keys (spoofed IPs, junk table ids). Beyond this the
+// oldest bucket is evicted — an attacker can force evictions but cannot grow
+// memory without bound. ponytail: FIFO eviction, not a true LRU — good enough
+// to bound memory, swap for an LRU if eviction churn ever shows up in logs.
+const MAX_BUCKETS = 10_000;
 
 const GC_INTERVAL = 60_000;
 let gcTimer: ReturnType<typeof setInterval> | null = null;
@@ -40,6 +63,10 @@ export function checkRateLimit(
   let bucket = buckets.get(key);
 
   if (!bucket) {
+    if (buckets.size >= MAX_BUCKETS) {
+      const oldest = buckets.keys().next().value;
+      if (oldest !== undefined) buckets.delete(oldest);
+    }
     bucket = { tokens: opts.maxTokens, lastRefill: now };
     buckets.set(key, bucket);
   }

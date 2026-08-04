@@ -296,6 +296,56 @@ describe("purchasing integration (plan 19)", () => {
     await expect(commitStocktake(db, "st-committed")).rejects.toThrow("counting");
   });
 
+  it("double-commit CAS: two parallel commits apply the variance exactly once", async () => {
+    const db = getDb(sessionA);
+    const menuItemId = "mi-st-race";
+    await rawClient.menuItem.create({ data: makeMenuItem(menuItemId, "Race Item", { priceCents: 1800, inventory: 8, unitOfMeasure: "bottle", servingSize: 750 }) });
+
+    const st = await saveStocktake(db, {
+      id: "st-race", venueId: venueA, businessDate: "2026-08-02",
+      scope: "full", status: "counting", startedAt: "2026-08-01T22:00:00.000Z",
+      startedByStaffId: "stf-1", lines: [{
+        id: "stl-race", menuItemId, expectedQty: 8, countedQty: 5, varianceQty: -3, varianceCents: -6000,
+      }],
+      totalVarianceCents: -6000,
+    });
+    expect(st.status).toBe("counting");
+
+    const results = await Promise.allSettled([
+      commitStocktake(db, "st-race"),
+      commitStocktake(db, "st-race"),
+    ]);
+    const fulfilled = results.filter((r) => r.status === "fulfilled");
+    const rejected = results.filter((r) => r.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+
+    // Variance applied exactly once: 8 - 3 = 5, and the ledger stays balanced.
+    const item = await rawClient.menuItem.findUnique({ where: { id: menuItemId } });
+    expect(item?.inventory).toBe(5);
+    const movements = await rawClient.stockMovement.findMany({
+      where: { menuItemId, type: "adjustment", stocktakeId: "st-race" },
+    });
+    expect(movements).toHaveLength(1);
+  });
+
+  it("waste above on-hand goes negative but the ledger stays balanced (no clamp divergence)", async () => {
+    const db = getDb(sessionA);
+    const menuItemId = "mi-waste-neg";
+    await rawClient.menuItem.create({ data: makeMenuItem(menuItemId, "Waste Item", { priceCents: 1000, inventory: 2, unitOfMeasure: "bottle", servingSize: 750 }) });
+
+    await recordWaste(db, venueA, menuItemId, 5, "Spilled case", "stf-1");
+
+    const item = await rawClient.menuItem.findUnique({ where: { id: menuItemId } });
+    // No clamp: the ledger moves -5, inventory goes to -3 — consistent.
+    expect(item?.inventory).toBe(-3);
+    const sum = await rawClient.stockMovement.aggregate({
+      where: { menuItemId },
+      _sum: { delta: true },
+    });
+    expect(Number(sum._sum.delta ?? 0)).toBe(-5);
+  });
+
   // ── Eighty-six and waste ──────────────────────────────────────────
 
   it("creates and lists eighty-six entries", async () => {
@@ -316,7 +366,7 @@ describe("purchasing integration (plan 19)", () => {
     const menuItemId = "mi-waste";
     await rawClient.menuItem.create({ data: makeMenuItem(menuItemId, "Spoiled Item", { priceCents: 500, inventory: 10, unitOfMeasure: "can" }) });
 
-    const mvt = await recordWaste(db, menuItemId, 3, "Damaged in transit", "stf-1");
+    const mvt = await recordWaste(db, venueA, menuItemId, 3, "Damaged in transit", "stf-1");
     expect(mvt.type).toBe("waste");
     expect(mvt.delta).toBe(-3);
     expect(mvt.wasteReason).toBe("Damaged in transit");

@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/shared/page-header";
 import { NotificationPreferencesCard } from "@/components/shared/notification-preferences-card";
 import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
+import { useTranslations } from "next-intl";
 import { venueService } from "@/features/venue/services";
 import { ordersService } from "@/features/ordering/services";
 import { venueKeys } from "@/features/venue/query-keys";
@@ -26,6 +27,7 @@ import { cn } from "@/features/shared/utils";
 import type { AdjustmentReason, ServiceFee, TabAdjustmentKind, Venue } from "@/lib/types";
 
 export default function ManagerSettingsPage() {
+  const t = useTranslations("manager.settings");
   const router = useRouter();
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
@@ -133,6 +135,21 @@ export default function ManagerSettingsPage() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Used to group orders, reports and operational nights at the venue.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="guest-locale">{t("guestLocale.label")}</Label>
+                <select
+                  id="guest-locale"
+                  className="h-9 w-full max-w-xs rounded-md border bg-background px-3 text-sm"
+                  value={draft.guestLocale}
+                  onChange={(e) => setDraft({ ...draft, guestLocale: e.target.value as "en" | "fr" })}
+                >
+                  <option value="fr">{t("guestLocale.french")}</option>
+                  <option value="en">{t("guestLocale.english")}</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  {t("guestLocale.description")}
                 </p>
               </div>
             </CardContent>

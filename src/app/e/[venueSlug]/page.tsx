@@ -2,6 +2,7 @@
 
 import { Suspense, use, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
 import { CalendarCheck, ChevronLeft, ChevronRight, PartyPopper, Ticket } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,9 @@ function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function monthLabel(key: string): string {
+function monthLabel(key: string, locale = "en"): string {
   const [y, m] = key.split("-").map(Number);
-  return new Date(y, m - 1).toLocaleDateString("en-US", {
+  return new Date(y, m - 1).toLocaleDateString(locale === "fr" ? "fr-CA" : "en-CA", {
     month: "long",
     year: "numeric",
   });
@@ -58,6 +59,7 @@ export default function PublicEventsPage({
 
 function EventsContent({ venueSlug }: { venueSlug: string }) {
   const router = useRouter();
+  const locale = useLocale();
   const [month, setMonth] = useState(() => monthKey(new Date()));
 
   const { data, isPending } = useQuery({
@@ -119,7 +121,7 @@ function EventsContent({ venueSlug }: { venueSlug: string }) {
         >
           <ChevronLeft className="size-4" />
         </Button>
-        <span className="text-sm font-medium">{monthLabel(month)}</span>
+        <span className="text-sm font-medium">{monthLabel(month, locale)}</span>
         <Button
           variant="ghost"
           size="icon"
@@ -143,6 +145,7 @@ function EventsContent({ venueSlug }: { venueSlug: string }) {
             <EventCard
               key={evt.id}
               event={evt}
+              locale={locale}
               actions={
                 evt.status !== "ended" ? (
                   <>

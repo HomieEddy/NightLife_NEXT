@@ -2,6 +2,7 @@
 
 import { FeatureGate } from "@/components/shared/feature-gate";
 
+import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { Inbox, Loader2, Lock, Map, QrCode, Receipt, Save, Users, X } from "lucide-react";
@@ -44,12 +45,7 @@ const STATUS_NODE: Record<TableStatus, string> = {
 
 const STATUSES: TableStatus[] = ["open", "occupied", "reserved", "closed"];
 
-const CANVAS_PRESETS = [
-  { label: "Wide (16:9)", width: 16, height: 9 },
-  { label: "Classic (4:3)", width: 4, height: 3 },
-  { label: "Square (1:1)", width: 1, height: 1 },
-  { label: "Long hall (21:9)", width: 21, height: 9 },
-];
+
 
 export default function ManagerFloorMapPage() {
   return (
@@ -90,6 +86,15 @@ function FloorMapPageContent() {
     enabled: !!venueId,
   });
 
+  const t = useTranslations("manager.floorMap");
+
+  const CANVAS_PRESETS = [
+    { label: t("canvasPresetLabels.wide169"), key: "wide169", width: 16, height: 9 },
+    { label: t("canvasPresetLabels.classic43"), key: "classic43", width: 4, height: 3 },
+    { label: t("canvasPresetLabels.square11"), key: "square11", width: 1, height: 1 },
+    { label: t("canvasPresetLabels.longHall219"), key: "longHall219", width: 21, height: 9 },
+  ];
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: venueKeys.tables(venueId) });
     queryClient.invalidateQueries({ queryKey: venueKeys.zones(venueId) });
@@ -100,7 +105,7 @@ function FloorMapPageContent() {
     mutationFn: ({ table, status }: { table: VenueTable; status: TableStatus }) =>
       venueService.setTableStatus(table.id, status),
     onSuccess: (_, { table, status }) => {
-      toast.success(`${table.code} → ${status}`);
+      toast.success(t("statusChanged", { code: table.code, status }));
       invalidate();
     },
   });
@@ -129,10 +134,10 @@ function FloorMapPageContent() {
       snapshotRef.current = null;
       setEditMode(false);
       invalidate();
-      toast.success("Layout saved");
+      toast.success(t("layoutSaved"));
     },
     onError: () => {
-      toast.error("Could not save layout changes");
+      toast.error(t("layoutSaveError"));
     },
   });
 
@@ -160,7 +165,7 @@ function FloorMapPageContent() {
     }
     snapshotRef.current = null;
     setEditMode(false);
-    toast.info("Layout changes discarded");
+    toast.info(t("layoutDiscarded"));
   }
 
   async function saveEdit() {
@@ -222,7 +227,7 @@ function FloorMapPageContent() {
   if (!tables || !venue) {
     return (
       <div className="space-y-5">
-        <PageHeader title="Floor map" description="Loading…" />
+        <PageHeader title={t("title")} description={t("loading")} />
         <Skeleton className="aspect-video w-full rounded-xl" />
       </div>
     );
@@ -233,12 +238,8 @@ function FloorMapPageContent() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Floor map"
-        description={
-          editMode
-            ? "Layout mode — drag tables to match your floor."
-            : "Live view — tap a table for details."
-        }
+        title={t("title")}
+        description={editMode ? t("layoutMode") : t("liveView")}
         actions={
           editMode ? (
             <div className="flex gap-2">
@@ -246,28 +247,28 @@ function FloorMapPageContent() {
                 <ConfirmDialog
                   trigger={
                     <Button variant="ghost" disabled={editSaving}>
-                      <X className="size-4" /> Cancel
+                      <X className="size-4" /> {t("cancel")}
                     </Button>
                   }
-                  title="Discard layout changes?"
-                  description="Your table positions and canvas adjustments will be reverted."
-                  confirmLabel="Discard changes"
+                  title={t("discardLayoutTitle")}
+                  description={t("discardLayoutDesc")}
+                  confirmLabel={t("discardChanges")}
                   destructive
                   onConfirm={cancelEdit}
                 />
               ) : (
                 <Button variant="ghost" onClick={cancelEdit} disabled={editSaving}>
-                  <X className="size-4" /> Cancel
+                  <X className="size-4" /> {t("cancel")}
                 </Button>
               )}
               <Button onClick={saveEdit} disabled={editSaving || !hasEditChanges}>
                 {editSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                {editSaving ? "Saving…" : "Save layout"}
+                {editSaving ? t("saving") : t("saveLayout")}
               </Button>
             </div>
           ) : (
             <Button variant="outline" onClick={enterEditMode}>
-              <Lock className="size-4" /> Edit layout
+              <Lock className="size-4" /> {t("editLayout")}
             </Button>
           )
         }
@@ -278,7 +279,7 @@ function FloorMapPageContent() {
         <Card className="py-3">
           <CardContent className="flex flex-wrap items-end gap-3 px-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Canvas shape</Label>
+              <Label className="text-xs">{t("canvasShape")}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {CANVAS_PRESETS.map((preset) => (
                   <button
@@ -301,7 +302,7 @@ function FloorMapPageContent() {
             <div className="flex items-end gap-2">
               <div className="space-y-1.5">
                 <Label htmlFor="canvas-w" className="text-xs">
-                  Width
+                  {t("width")}
                 </Label>
                 <Input
                   id="canvas-w"
@@ -316,7 +317,7 @@ function FloorMapPageContent() {
               <span className="pb-1.5 text-muted-foreground">×</span>
               <div className="space-y-1.5">
                 <Label htmlFor="canvas-h" className="text-xs">
-                  Height
+                  {t("height")}
                 </Label>
                 <Input
                   id="canvas-h"
@@ -350,7 +351,7 @@ function FloorMapPageContent() {
           {/* Legend */}
           <Card className="py-3">
             <CardContent className="space-y-2 px-4">
-              <p className="text-xs font-medium text-muted-foreground">Zones</p>
+              <p className="text-xs font-medium text-muted-foreground">{t("zones")}</p>
               <div className="flex flex-wrap gap-2">
                 {zones.map((zone) => (
                   <span key={zone.id} className="flex items-center gap-1.5 text-xs">
@@ -359,7 +360,7 @@ function FloorMapPageContent() {
                   </span>
                 ))}
               </div>
-              <p className="pt-1 text-xs font-medium text-muted-foreground">Status</p>
+              <p className="pt-1 text-xs font-medium text-muted-foreground">{t("status")}</p>
               <div className="flex flex-wrap gap-1.5">
                 {STATUSES.map((status) => (
                   <span
@@ -387,7 +388,7 @@ function FloorMapPageContent() {
                     <TooltipIconButton
                       variant="ghost"
                       className="size-7"
-                      tooltip="Close details"
+                      tooltip={t("closeDetails")}
                       onClick={() => {
                         setSelectedId(null);
                         setTableOrders(null);
@@ -400,10 +401,11 @@ function FloorMapPageContent() {
 
                 <div className="space-y-1 text-sm text-muted-foreground">
                   <p className="flex items-center gap-1.5">
-                    <Users className="size-3.5" /> {selected.seats} seats
+                    <Users className="size-3.5" />{" "}
+                    {t("seats", { count: selected.seats })}
                   </p>
                   {selected.minimumSpend !== null && (
-                    <p>Minimum spend {formatMoney(selected.minimumSpend)}</p>
+                    <p>{t("minimumSpend", { amount: formatMoney(selected.minimumSpend) })}</p>
                   )}
                 </div>
 
@@ -411,11 +413,11 @@ function FloorMapPageContent() {
                   {zoneOf(selected.zoneId) && (
                     <EntityChip type="zone" id={selected.zoneId} label={zoneOf(selected.zoneId)!.name} />
                   )}
-                  <EntityChip type="zone-staff" id={selected.zoneId} label="Zone staff" />
+                  <EntityChip type="zone-staff" id={selected.zoneId} label={t("zoneStaff")} />
                 </div>
 
                 <div className="space-y-1.5 border-t pt-3">
-                  <p className="text-xs font-medium text-muted-foreground">Set status</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t("setStatus")}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {STATUSES.map((status) => (
                       <ConfirmDialog
@@ -434,9 +436,9 @@ function FloorMapPageContent() {
                             {status}
                           </button>
                         }
-                        title={`Set ${selected.code} to ${status}?`}
-                        description="Table status drives the guest QR flow and runner routing."
-                        confirmLabel={`Set ${status}`}
+                        title={t("setStatusTitle", { code: selected.code, status })}
+                        description={t("setStatusDesc")}
+                        confirmLabel={t("setStatusConfirm", { status })}
                         onConfirm={() => setStatusMutation.mutate({ table: selected, status })}
                       />
                     ))}
@@ -454,7 +456,7 @@ function FloorMapPageContent() {
                     disabled={ordersLoading}
                   >
                     <Receipt className="size-3.5" />
-                    {ordersLoading ? "Loading…" : tableOrders !== null ? "Hide orders" : "Orders"}
+                    {ordersLoading ? t("loading") : tableOrders !== null ? t("hideOrders") : t("orders")}
                   </Button>
                   <Button variant="outline" size="sm" className="flex-1" asChild>
                     <Link href="/manager/qr">
@@ -468,9 +470,7 @@ function FloorMapPageContent() {
             <Card className="py-4">
               <CardContent className="flex flex-col items-center gap-2 px-4 py-6 text-center text-sm text-muted-foreground">
                 <Map className="size-6" />
-                {editMode
-                  ? "Drag tables into place, then hit \"Done editing\"."
-                  : "Select a table on the map to see its details."}
+                {editMode ? t("editPrompt") : t("selectPrompt")}
               </CardContent>
             </Card>
           )}
@@ -482,14 +482,16 @@ function FloorMapPageContent() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">
-              Orders — <span className="font-mono">{selected.code}</span>
+              {t("ordersSection", { code: selected.code })}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                {tableOrders.length} order{tableOrders.length === 1 ? "" : "s"} ·{" "}
-                {formatMoney(tableOrders.reduce((s, o) => s + o.total, 0))} total
+                {t("orderCount", {
+                  count: tableOrders.length,
+                  total: formatMoney(tableOrders.reduce((s, o) => s + o.total, 0)),
+                })}
               </span>
             </h2>
             <Button variant="ghost" size="sm" onClick={() => setTableOrders(null)}>
-              <X className="size-3.5" /> Close
+              <X className="size-3.5" /> {t("close")}
             </Button>
           </div>
             {tableSessions.length > 0 ? (
@@ -497,8 +499,8 @@ function FloorMapPageContent() {
             ) : tableOrders.length === 0 ? (
               <EmptyState
                 icon={Inbox}
-                title="No orders from this table tonight"
-                description="Orders appear here the moment a guest submits one."
+                title={t("noOrdersTitle")}
+                description={t("noOrdersDesc")}
               />
             ) : (
               <div className="grid gap-3 md:grid-cols-2">

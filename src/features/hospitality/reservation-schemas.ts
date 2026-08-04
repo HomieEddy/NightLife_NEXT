@@ -23,6 +23,7 @@ export const zReservationInput = z.object({
   depositTermsNote: z.string().optional(),
   cancellationPolicyNote: z.string().optional(),
   seatingNumber: z.union([z.literal(1), z.literal(2)]).optional(),
+  bookingLocale: z.enum(["en", "fr"]).optional(),
 });
 
 export const zReservationPatch = z.object({
@@ -77,16 +78,18 @@ export const zBumpInput = z.object({
 });
 
 export const zPublicReservationInput = z.object({
-  venueSlug: z.string().min(1),
-  tableId: z.string().min(1),
-  zoneId: z.string().min(1),
-  guestName: z.string().min(1),
-  partySize: z.number().int().positive(),
-  date: z.string().min(1),
-  guestEmail: z.string().email().optional().or(z.literal("")),
-  guestPhone: z.string().optional(),
-  note: z.string().optional(),
-  eventId: z.string().optional(),
+  venueSlug: z.string().min(1).max(50),
+  tableId: z.string().min(1).max(30),
+  zoneId: z.string().min(1).max(30),
+  guestName: z.string().min(1).max(100),
+  partySize: z.number().int().positive().max(100),
+  date: z.string().min(1).max(10),
+  guestEmail: z.string().email().max(254).optional().or(z.literal("")),
+  guestPhone: z.string().max(20).optional(),
+  note: z.string().max(1000).optional(),
+  eventId: z.string().max(30).optional(),
+  // Law 25: affirmative consent to the privacy policy before any PII is stored.
+  consent: z.literal(true, { message: "You must accept the privacy policy" }),
 });
 
 export const zValidatePinInput = z.object({

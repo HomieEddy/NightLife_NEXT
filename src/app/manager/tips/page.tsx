@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Calculator, DollarSign, Lock, Pencil, Settings } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,13 +34,15 @@ import type { StaffRole, TipDistribution, TipPoolRule } from "@/lib/types";
 import type { z } from "zod";
 
 const STAFF_ROLES: StaffRole[] = ["bartender", "runner", "host", "security", "promoter"];
-const BASIS_OPTIONS = [{ value: "hours-weighted", label: "Hours weighted" }, { value: "equal", label: "Equal" }, { value: "role-percentage", label: "Role percentage" }];
 
 type FormValues = z.infer<typeof zTipPoolRuleInput>;
 const EMPTY_VALUES: FormValues = { name: "", basis: "equal", includeRoles: ["bartender", "runner"], houseRetentionPct: 0 };
 
 export default function ManagerTipsPage() {
+  const t = useTranslations("manager.tips");
   const { user } = useAuth();
+
+  const BASIS_OPTIONS = [{ value: "hours-weighted", label: t("hoursWeighted") }, { value: "equal", label: t("equal") }, { value: "role-percentage", label: t("rolePercentage") }];
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
   const [ruleOpen, setRuleOpen] = useState(false);
@@ -104,10 +107,10 @@ export default function ManagerTipsPage() {
     },
     onSuccess: () => {
       setRuleOpen(false);
-      toast.success("Tip pool rule saved");
+      toast.success(t("ruleSaved"));
       invalidate();
     },
-    onError: () => toast.error("Could not save rule"),
+    onError: () => toast.error(t("couldNotSaveRule")),
   });
 
   const computeMutation = useMutation({
@@ -131,10 +134,10 @@ export default function ManagerTipsPage() {
     },
     onSuccess: (date) => {
       setPoolCents("");
-      toast.success(`Distribution computed for ${date}`);
+      toast.success(t("distributionComputed", { date }));
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not compute tips"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("couldNotCompute")),
   });
 
   const closeMutation = useMutation({
@@ -143,10 +146,10 @@ export default function ManagerTipsPage() {
       return tipsService.closeDistribution(d.id, me.id);
     },
     onSuccess: () => {
-      toast.success("Distribution closed — staff can now see their shares");
+      toast.success(t("distributionClosed"));
       invalidate();
     },
-    onError: () => toast.error("Could not close"),
+    onError: () => toast.error(t("couldNotClose")),
   });
 
   function openRuleEdit() {
@@ -172,13 +175,13 @@ export default function ManagerTipsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Tips" description="Distribute the night's tip pool by rule"
-        breadcrumbs={[{ label: "Team", href: "/manager/staff" }, { label: "Tips" }]}
-        actions={<Button size="sm" variant="outline" onClick={openRuleEdit}><Pencil className="size-4 mr-1" /> Edit rule</Button>}
+      <PageHeader title={t("title")} description={t("description")}
+        breadcrumbs={[{ label: t("team"), href: "/manager/staff" }, { label: t("title") }]}
+        actions={<Button size="sm" variant="outline" onClick={openRuleEdit}><Pencil className="size-4 mr-1" /> {t("editRule")}</Button>}
       />
 
       {!rule ? (
-        <EmptyState icon={DollarSign} title="No tip pool rule" description="Configure a rule to start." action={<Button onClick={openRuleEdit}><Settings className="size-4 mr-1" /> Create rule</Button>} />
+        <EmptyState icon={DollarSign} title={t("noRule")} description={t("noRuleDesc")} action={<Button onClick={openRuleEdit}><Settings className="size-4 mr-1" /> {t("createRule")}</Button>} />
       ) : (
         <>
           <Card>
@@ -188,25 +191,25 @@ export default function ManagerTipsPage() {
                 {rule.houseRetentionPct > 0 && <Badge variant="destructive" className="text-xs">{rule.houseRetentionPct}% retention</Badge>}
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-xs text-muted-foreground">Shared among: {rule.includeRoles.join(", ")}</CardContent>
+            <CardContent className="text-xs text-muted-foreground">{t("sharedAmong", { roles: rule.includeRoles.join(", ") })}</CardContent>
           </Card>
 
           {/* Compute new distribution */}
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Compute distribution</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-base">{t("computeDistribution")}</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <div><Label htmlFor="t-date">Business date</Label><Input id="t-date" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} /></div>
-                <div><Label htmlFor="t-pool">Pool amount ($)</Label><Input id="t-pool" placeholder="1850.00" value={poolCents} onChange={(e) => setPoolCents(e.target.value)} /></div>
+                <div><Label htmlFor="t-date">{t("businessDate")}</Label><Input id="t-date" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} /></div>
+                <div><Label htmlFor="t-pool">{t("poolAmount")}</Label><Input id="t-pool" placeholder="1850.00" value={poolCents} onChange={(e) => setPoolCents(e.target.value)} /></div>
               </div>
-              <Button onClick={() => computeMutation.mutate()} disabled={computeMutation.isPending || !poolCents} className="w-full"><Calculator className="size-4 mr-1" /> Compute & save</Button>
+              <Button onClick={() => computeMutation.mutate()} disabled={computeMutation.isPending || !poolCents} className="w-full"><Calculator className="size-4 mr-1" /> {t("computeAndSave")}</Button>
             </CardContent>
           </Card>
 
           {/* Distributions list */}
           {distributions.length > 0 && (
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-base">Distributions</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-base">{t("distributions")}</CardTitle></CardHeader>
               <CardContent className="space-y-2">
                 {sliced.map((d) => {
                   const closed = !!d.closedByStaffId;
@@ -215,8 +218,8 @@ export default function ManagerTipsPage() {
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium">{d.businessDate} — {formatMoney(d.poolCents, "CAD")}</p>
                         <div className="flex items-center gap-2">
-                          {closed ? <Badge variant="outline"><Lock className="size-3 mr-1" /> Closed</Badge> : (
-                            <ConfirmDialog trigger={<Button size="sm" disabled={!canClose || closeMutation.isPending}>Close</Button>} title="Close distribution?" description="Staff will see their shares. Writes an audit entry." confirmLabel="Close" onConfirm={() => closeMutation.mutate(d)} />
+                          {closed ? <Badge variant="outline"><Lock className="size-3 mr-1" /> {t("closed")}</Badge> : (
+                            <ConfirmDialog trigger={<Button size="sm" disabled={!canClose || closeMutation.isPending}>{t("close")}</Button>} title={t("closeDistribution")} description={t("closeDistributionDesc")} confirmLabel={t("close")} onConfirm={() => closeMutation.mutate(d)} />
                           )}
                         </div>
                       </div>
@@ -236,19 +239,19 @@ export default function ManagerTipsPage() {
       {/* Rule edit dialog */}
       <Dialog open={ruleOpen} onOpenChange={setRuleOpen}>
         <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>{rule ? "Edit rule" : "Create rule"}</DialogTitle><DialogDescription>Configure how tips are split among staff.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>{rule ? t("editRuleTitle") : t("createRuleTitle")}</DialogTitle><DialogDescription>{t("ruleDescription")}</DialogDescription></DialogHeader>
           <form onSubmit={onSaveRule} className="space-y-3">
-            <div><Label htmlFor="r-name">Name</Label><Input id="r-name" {...register("name")} placeholder="Hours-weighted pool" />{errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}</div>
-            <div><Label htmlFor="r-basis">Basis</Label><Select value={watch("basis")} onValueChange={(v) => setValue("basis", v as FormValues["basis"])}><SelectTrigger id="r-basis"><SelectValue /></SelectTrigger><SelectContent>{BASIS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
+            <div><Label htmlFor="r-name">{t("name")}</Label><Input id="r-name" {...register("name")} placeholder={t("namePlaceholder")} />{errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}</div>
+            <div><Label htmlFor="r-basis">{t("basis")}</Label><Select value={watch("basis")} onValueChange={(v) => setValue("basis", v as FormValues["basis"])}><SelectTrigger id="r-basis"><SelectValue /></SelectTrigger><SelectContent>{BASIS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent></Select></div>
             <div>
-              <Label>Include roles</Label>
+              <Label>{t("includeRoles")}</Label>
               <div className="mt-1 flex flex-wrap gap-1">{STAFF_ROLES.map((role) => <Badge key={role} variant={includeRoles.includes(role) ? "default" : "outline"} className="cursor-pointer text-[10px] capitalize" onClick={() => toggleRole(role)}>{role}</Badge>)}</div>
               {errors.includeRoles && <p className="text-xs text-red-600">{errors.includeRoles.message}</p>}
             </div>
-            <div><Label htmlFor="r-house">House retention %</Label><Input id="r-house" type="number" min={0} max={100} {...register("houseRetentionPct", { valueAsNumber: true })} /><p className="text-[10px] text-muted-foreground mt-0.5">Tip retention is illegal in many jurisdictions. Consult local labour laws.</p></div>
+            <div><Label htmlFor="r-house">{t("houseRetention")}</Label><Input id="r-house" type="number" min={0} max={100} {...register("houseRetentionPct", { valueAsNumber: true })} /><p className="text-[10px] text-muted-foreground mt-0.5">{t("retentionWarning")}</p></div>
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => setRuleOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={saveRuleMutation.isPending}>{rule ? "Save" : "Create"}</Button>
+            <Button variant="outline" type="button" onClick={() => setRuleOpen(false)}>{t("cancel")}</Button>
+            <Button type="submit" disabled={saveRuleMutation.isPending}>{rule ? t("save") : t("create")}</Button>
           </DialogFooter>
           </form>
         </DialogContent>

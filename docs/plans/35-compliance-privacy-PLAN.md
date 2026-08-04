@@ -1,6 +1,6 @@
 # 35 — Compliance & Privacy (Law 25 / PIPEDA) · PLAN
 
-**Status: not started — ROADMAP Phase 8.**
+**Status: complete — shipped in Phase 8. All residual items addressed.**
 **Renumbered 2026-07-30:** was plan 29; the old number is retired.
 
 Goal: make the product legally operable in Quebec: Law 25 and PIPEDA

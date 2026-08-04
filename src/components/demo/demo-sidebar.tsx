@@ -3,21 +3,32 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Menu, Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { DEMO_GROUPS, featureAnchorId, type DemoFeature } from "./demo-guide-content";
+import {
+  DEMO_GROUPS,
+  demoKeys,
+  featureAnchorId,
+  type DemoFeature,
+  type DemoMessageKey,
+} from "./demo-guide-content";
 import { isDemoTabId, useDemoTab, type DemoTabId } from "./demo-tab-context";
 
 // ── Search helpers ─────────────────────────────────────────────────
 
-function matchFeature(f: DemoFeature, query: string): boolean {
+function matchFeature(
+  f: DemoFeature,
+  query: string,
+  t: (key: DemoMessageKey) => string,
+): boolean {
   const q = query.toLowerCase();
   return (
-    f.title.toLowerCase().includes(q) ||
-    f.what.toLowerCase().includes(q) ||
-    f.why.toLowerCase().includes(q)
+    t(demoKeys.feature(f, "title")).toLowerCase().includes(q) ||
+    t(demoKeys.feature(f, "what")).toLowerCase().includes(q) ||
+    t(demoKeys.feature(f, "why")).toLowerCase().includes(q)
   );
 }
 
@@ -105,15 +116,16 @@ function SidebarNav({
   activeAnchor: string | null;
   onNav?: () => void;
 }) {
+  const t = useTranslations("demo");
   const filtered = useMemo(() => {
     if (!query.trim()) return DEMO_GROUPS;
     return DEMO_GROUPS
       .map((g) => ({
         ...g,
-        features: g.features.filter((f) => matchFeature(f, query)),
+        features: g.features.filter((f) => matchFeature(f, query, t)),
       }))
       .filter((g) => g.features.length > 0 || g.id === "getting-started" || g.id === "how-it-works");
-  }, [query]);
+  }, [query, t]);
 
   // Accordion: groups with > 8 features start collapsed unless searching
   const [collapsed, setCollapsed] = useState<Set<string>>(() => {
@@ -147,17 +159,17 @@ function SidebarNav({
         <Search className="absolute left-5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Filter features..."
+          placeholder={t("chrome.filterPlaceholder")}
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           className="h-8 pl-8 pr-7 text-xs"
-          aria-label="Filter features"
+          aria-label={t("chrome.filterAria")}
         />
         {query && (
           <button
             onClick={() => onQueryChange("")}
             className="absolute right-5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            aria-label="Clear filter"
+            aria-label={t("chrome.clearFilter")}
           >
             <X className="size-3" />
           </button>
@@ -166,7 +178,7 @@ function SidebarNav({
 
       {/* Nav groups */}
       <ScrollArea className="flex-1 px-3 pb-6">
-        <nav className="mt-4 space-y-6" aria-label="Demo guide navigation">
+        <nav className="mt-4 space-y-6" aria-label={t("chrome.navAria")}>
           {filtered.map((group) => {
             const isCollapsed = collapsed.has(group.id);
             const hasFeatures = group.features.length > 0;
@@ -182,7 +194,9 @@ function SidebarNav({
                   aria-expanded={showToggle ? !isCollapsed : undefined}
                 >
                   <group.icon className="size-3.5 shrink-0 text-gold-deep dark:text-gold" />
-                  <span className="label-luxe flex-1 text-muted-foreground">{group.label}</span>
+                  <span className="label-luxe flex-1 text-muted-foreground">
+                    {t(demoKeys.group(group.id, "label"))}
+                  </span>
                   {showToggle && (
                     <ChevronDown
                       className={`size-3 shrink-0 text-muted-foreground transition-transform ${isCollapsed ? "" : "rotate-180"}`}
@@ -198,10 +212,10 @@ function SidebarNav({
                       active={activeAnchor === "walkthrough"}
                       onNav={onNav}
                     >
-                      Five-minute walkthrough
+                      {t("chrome.fiveMinute")}
                     </SidebarNavItem>
                     <SidebarNavItem href="#house-rules" anchorId="house-rules" active={activeAnchor === "house-rules"} onNav={onNav}>
-                      House rules
+                      {t("chrome.houseRules")}
                     </SidebarNavItem>
                   </>
                 )}
@@ -218,19 +232,19 @@ function SidebarNav({
                         active={activeAnchor === anchor}
                         onNav={onNav}
                       >
-                        {f.title}
+                        {t(demoKeys.feature(f, "title"))}
                       </SidebarNavItem>
                     );
                   })}
                 {isCollapsed && hasFeatures && (
                   <p className="px-1 text-xs text-muted-foreground/50">
-                    {group.features.length} features
+                    {t("chrome.featureCount", { count: group.features.length })}
                   </p>
                 )}
                 {group.id === "how-it-works" && (
                   <>
                     <SidebarNavItem href="#house-rules" anchorId="house-rules" active={activeAnchor === "house-rules"} onNav={onNav}>
-                      House rules
+                      {t("chrome.houseRules")}
                     </SidebarNavItem>
                     <SidebarNavItem
                       href="#walkthrough"
@@ -239,14 +253,14 @@ function SidebarNav({
                       active={activeAnchor === "walkthrough"}
                       onNav={onNav}
                     >
-                      Walkthrough
+                      {t("chrome.walkthroughTab")}
                     </SidebarNavItem>
                   </>
                 )}
                 {group.features.length === 0 &&
                   group.id !== "getting-started" &&
                   group.id !== "how-it-works" && (
-                    <p className="px-1 text-xs text-muted-foreground/60">No matches</p>
+                    <p className="px-1 text-xs text-muted-foreground/60">{t("chrome.noMatches")}</p>
                   )}
               </div>
             );
@@ -311,6 +325,7 @@ export function DemoSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { activeTab } = useDemoTab();
   const activeAnchor = useScrollSpy(activeTab);
+  const t = useTranslations("demo");
 
   const handleNav = useCallback(() => {
     setMobileOpen(false);
@@ -327,7 +342,7 @@ export function DemoSidebar() {
           <Link href="/demo" className="label-luxe text-gold-deep hover:text-gold dark:text-gold">
             NightLifeNext
           </Link>
-          <span className="text-[0.6rem] text-muted-foreground">Demo Guide</span>
+          <span className="text-[0.6rem] text-muted-foreground">{t("chrome.demoGuide")}</span>
         </div>
         <SidebarNav query={query} onQueryChange={setQuery} activeAnchor={activeAnchor} />
       </aside>
@@ -341,15 +356,15 @@ export function DemoSidebar() {
       <div className="sticky top-14 z-30 flex w-full shrink-0 items-center gap-3 border-b border-border/40 bg-background/90 px-4 py-2.5 backdrop-blur lg:hidden">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="size-8" aria-label="Open demo guide menu">
+            <Button variant="ghost" size="icon" className="size-8" aria-label={t("chrome.openMenu")}>
               <Menu className="size-4" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-72 p-0">
-            <SheetTitle className="sr-only">Demo guide navigation</SheetTitle>
+            <SheetTitle className="sr-only">{t("chrome.navAria")}</SheetTitle>
             <div className="flex items-center gap-2 border-b border-border/40 px-4 py-3">
               <span className="label-luxe text-gold-deep dark:text-gold">NightLifeNext</span>
-              <span className="text-[0.6rem] text-muted-foreground">Demo Guide</span>
+              <span className="text-[0.6rem] text-muted-foreground">{t("chrome.demoGuide")}</span>
             </div>
             <SidebarNav query={query} onQueryChange={setQuery} activeAnchor={activeAnchor} onNav={handleNav} />
           </SheetContent>
@@ -357,7 +372,7 @@ export function DemoSidebar() {
         <Link href="/demo" className="label-luxe text-sm text-gold-deep dark:text-gold">
           NightLifeNext
         </Link>
-        <span className="text-[0.6rem] text-muted-foreground">Demo Guide</span>
+        <span className="text-[0.6rem] text-muted-foreground">{t("chrome.demoGuide")}</span>
       </div>
     </>
   );

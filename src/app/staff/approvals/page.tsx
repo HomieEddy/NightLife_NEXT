@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, UserCheck, Users, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -29,6 +30,7 @@ export default function StaffApprovalsPage() {
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
+  const t = useTranslations("staff.approvals");
 
   const [closing, setClosing] = useState<GuestSession | null>(null);
   const [settlementMethod, setSettlementMethod] = useState<SettlementMethod | "">("");
@@ -68,12 +70,14 @@ export default function StaffApprovalsPage() {
       guestsService.setSessionStatus(session.id, status),
     onSuccess: (_, { session, status }) => {
       toast[status === "approved" ? "success" : "info"](
-        `${session.displayName} at ${session.tableCode} ${status}`,
+        status === "approved"
+          ? t("toastApproved", { name: session.displayName, table: session.tableCode })
+          : t("toastDenied", { name: session.displayName, table: session.tableCode }),
       );
       invalidate();
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Could not update the guest session.");
+      toast.error(error instanceof Error ? error.message : t("toastUpdateError"));
     },
   });
 
@@ -81,13 +85,13 @@ export default function StaffApprovalsPage() {
     mutationFn: ({ session, method }: { session: GuestSession; method: SettlementMethod }) =>
       guestsService.setSessionStatus(session.id, "closed", method),
     onSuccess: (_, { session }) => {
-      toast.success(`Tab closed for ${session.displayName} at ${session.tableCode}`);
+      toast.success(t("toastTabClosed", { name: session.displayName, table: session.tableCode }));
       setClosing(null);
       setSettlementMethod("");
       invalidate();
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Could not close the tab.");
+      toast.error(error instanceof Error ? error.message : t("toastCloseError"));
     },
   });
 
@@ -114,8 +118,8 @@ export default function StaffApprovalsPage() {
       <div className="p-4">
         <EmptyState
           icon={UserCheck}
-          title="Not available for your role"
-          description="Guest approvals are handled by hosts and managers."
+          title={t("notAvailable")}
+          description={t("notAvailableDesc")}
         />
       </div>
     );
@@ -128,9 +132,9 @@ export default function StaffApprovalsPage() {
   return (
     <div className="animate-fade-in space-y-5 p-4">
       <div>
-        <h1 className="text-display text-xl">Guest approvals</h1>
+        <h1 className="text-display text-xl">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
-          Approve QR join requests, review guest profiles and visit history before seating.
+          {t("description")}
         </p>
       </div>
 
@@ -140,13 +144,13 @@ export default function StaffApprovalsPage() {
         <>
           <section className="stagger-children space-y-3">
             <h2 className="text-sm font-medium text-muted-foreground">
-              Waiting ({pending.length})
+              {t("waiting", { count: pending.length })}
             </h2>
             {pending.length === 0 ? (
               <EmptyState
                 icon={UserCheck}
-                title="No pending requests"
-                description="When guests scan their table QR code, they'll appear here for approval."
+                title={t("noPendingRequests")}
+                description={t("noPendingRequestsDesc")}
               />
             ) : (
               pending.map((session) => (
@@ -156,7 +160,8 @@ export default function StaffApprovalsPage() {
                       <div>
                         <p className="font-medium">{session.displayName}</p>
                         <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Users className="size-3" /> Party of {session.partySize} ·{" "}
+                          <Users className="size-3" />{" "}
+                          {t("partyOf", { size: session.partySize })} ·{" "}
                           {session.tableCode} · {session.zoneName}
                         </p>
                       </div>
@@ -169,12 +174,12 @@ export default function StaffApprovalsPage() {
                         <ConfirmDialog
                           trigger={
                             <Button className="h-11 flex-1" disabled={busyId === session.id}>
-                              <Check className="size-4" /> Approve
+                              <Check className="size-4" /> {t("approve")}
                             </Button>
                           }
-                          title={`Approve ${session.displayName}?`}
-                          description={`Party of ${session.partySize} at ${session.tableCode} — they can start ordering immediately.`}
-                          confirmLabel="Approve table"
+                          title={t("approveTitle", { name: session.displayName })}
+                          description={t("approveDescription", { size: session.partySize, table: session.tableCode })}
+                          confirmLabel={t("approveConfirmLabel")}
                           onConfirm={() => decideMutation.mutate({ session, status: "approved" })}
                         />
                         <ConfirmDialog
@@ -184,12 +189,12 @@ export default function StaffApprovalsPage() {
                               className="h-11 flex-1 text-red-600 dark:text-red-400"
                               disabled={busyId === session.id}
                             >
-                              <X className="size-4" /> Deny
+                              <X className="size-4" /> {t("deny")}
                             </Button>
                           }
-                          title={`Deny ${session.displayName}?`}
-                          description={`They'll be asked to see the host at ${session.tableCode}.`}
-                          confirmLabel="Deny"
+                          title={t("denyTitle", { name: session.displayName })}
+                          description={t("denyDescription", { table: session.tableCode })}
+                          confirmLabel={t("denyConfirmLabel")}
                           destructive
                           onConfirm={() => decideMutation.mutate({ session, status: "denied" })}
                         />
@@ -204,7 +209,7 @@ export default function StaffApprovalsPage() {
           {closures.length > 0 && (
             <section className="stagger-children space-y-3">
               <h2 className="text-sm font-medium text-muted-foreground">
-                Tab closures ({closures.length})
+                {t("tabClosures", { count: closures.length })}
               </h2>
               {closures.map((session) => (
                 <Card key={session.id} className="border-primary/40 py-4">
@@ -217,14 +222,14 @@ export default function StaffApprovalsPage() {
                         <div>
                           <p className="font-medium">{session.displayName}</p>
                           <p className="text-xs text-muted-foreground">
-                            Wants to close their tab · {session.tableCode} · {session.zoneName}
+                            {t("wantsToCloseTab")} · {session.tableCode} · {session.zoneName}
                           </p>
                         </div>
                       </div>
                       <StatusBadge status={session.status} pulse />
                     </div>
                     <Button className="h-11 w-full" disabled={busyId === session.id} onClick={() => setClosing(session)}>
-                      <Check className="size-4" /> Record settlement & close
+                      <Check className="size-4" /> {t("recordSettlement")}
                     </Button>
                   </CardContent>
                 </Card>
@@ -234,7 +239,7 @@ export default function StaffApprovalsPage() {
 
           {recent.length > 0 && (
             <section className="stagger-children space-y-3">
-              <h2 className="text-sm font-medium text-muted-foreground">Recent decisions</h2>
+              <h2 className="text-sm font-medium text-muted-foreground">{t("recentDecisions")}</h2>
               {recent.map((session) => (
                 <div
                   key={session.id}
@@ -257,29 +262,29 @@ export default function StaffApprovalsPage() {
       <Dialog open={closing !== null} onOpenChange={(open) => !open && setClosing(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Close the tab for {closing?.tableCode}?</DialogTitle>
+            <DialogTitle>{t("closeTabTitle", { table: closing?.tableCode ?? "" })}</DialogTitle>
             <DialogDescription>
-              Record how staff settled this tab externally. Closing ends the guest session and returns the table to reserved or open.
+              {t("closeTabDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
-            <Label htmlFor="settlement-method">Settlement method</Label>
+            <Label htmlFor="settlement-method">{t("settlementMethod")}</Label>
             <Select value={settlementMethod} onValueChange={(value) => setSettlementMethod(value as SettlementMethod)}>
-              <SelectTrigger id="settlement-method"><SelectValue placeholder="Choose a method" /></SelectTrigger>
+              <SelectTrigger id="settlement-method"><SelectValue placeholder={t("chooseMethod")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="terminal">Card terminal</SelectItem>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="house">House account</SelectItem>
+                <SelectItem value="terminal">{t("cardTerminal")}</SelectItem>
+                <SelectItem value="cash">{t("cash")}</SelectItem>
+                <SelectItem value="house">{t("houseAccount")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setClosing(null)} disabled={closeMutation.isPending}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setClosing(null)} disabled={closeMutation.isPending}>{t("cancel")}</Button>
             <Button
               onClick={() => closing && settlementMethod && closeMutation.mutate({ session: closing, method: settlementMethod as SettlementMethod })}
               disabled={!settlementMethod || closeMutation.isPending}
             >
-              Record & close tab
+              {t("recordCloseTab")}
             </Button>
           </DialogFooter>
         </DialogContent>

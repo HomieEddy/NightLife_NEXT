@@ -83,6 +83,14 @@ describe("canDo — ownership-scoped actions", () => {
     expect(canDo(DEFAULT_ROLE_PERMISSIONS, "runner", "time:clock-self", { actor, resource: { ownerStaffId: other } })).toBe(false);
   });
 
+  it("time:clock-self without a resource means acting on yourself (route calls)", () => {
+    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "runner", "time:clock-self", { actor })).toBe(true);
+  });
+
+  it("time:edit-others still requires naming the target entry's owner", () => {
+    expect(canDo(DEFAULT_ROLE_PERMISSIONS, "manager", "time:edit-others", { actor })).toBe(false);
+  });
+
   it("time:edit-others rejects editing your own entry", () => {
     expect(canDo(DEFAULT_ROLE_PERMISSIONS, "manager", "time:edit-others", { actor, resource: { ownerStaffId: other } })).toBe(true);
     expect(canDo(DEFAULT_ROLE_PERMISSIONS, "manager", "time:edit-others", { actor, resource: { ownerStaffId: actor.staffId } })).toBe(false);

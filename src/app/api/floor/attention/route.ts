@@ -24,8 +24,8 @@ async function liveGET(request: NextRequest) {
   else if (resolved === "false") where.resolved = false;
 
   const [items, acknowledgments] = await Promise.all([
-    db.attentionItem.findMany({ where, orderBy: { createdAt: "desc" }, include: { acknowledgments: true } }),
-    db.attentionAcknowledgment.findMany({ where: { attentionItem: { venueId } }, orderBy: { acknowledgedAt: "desc" } }),
+    db.attentionItem.findMany({ where, orderBy: { createdAt: "desc" }, include: { acknowledgments: true }, take: 200 }),
+    db.attentionAcknowledgment.findMany({ where: { attentionItem: { venueId } }, orderBy: { acknowledgedAt: "desc" }, take: 200 }),
   ]);
 
   return NextResponse.json({ items, acknowledgments });

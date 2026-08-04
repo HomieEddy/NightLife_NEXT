@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Loader2, Map, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,6 +35,7 @@ type FormValues = z.infer<typeof zZoneInput>;
 const EMPTY_VALUES: FormValues = { name: "", description: "", color: "violet" as const, capacity: null };
 
 function ZonesContent() {
+  const t = useTranslations("manager.zones");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
@@ -89,19 +91,17 @@ function ZonesContent() {
       setDialogOpen(false);
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("saveFailed")),
   });
 
   const removeMutation = useMutation({
     mutationFn: (zone: Zone) => venueService.deleteZone(zone.id),
     onSuccess: (result, zone) => {
       if (!result.ok) {
-        toast.error(
-          `${zone.name} still has ${result.blockedBy} table${result.blockedBy === 1 ? "" : "s"} — move or delete them first.`,
-        );
+        toast.error(t("blockedBy", { name: zone.name, count: result.blockedBy ?? 0 }));
         return;
       }
-      toast.info(`${zone.name} deleted`);
+      toast.info(t("deleted", { name: zone.name }));
       invalidate();
     },
   });
@@ -109,11 +109,11 @@ function ZonesContent() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Zones"
-        description="Zones drive runner routing and analytics segmentation."
+        title={t("title")}
+        description={t("description")}
         actions={
           <Button onClick={openCreate}>
-            <Plus className="size-4" /> New zone
+            <Plus className="size-4" /> {t("newZone")}
           </Button>
         }
       />
@@ -151,7 +151,7 @@ function ZonesContent() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center">
-                      <TooltipIconButton variant="ghost" tooltip="Edit zone" onClick={() => openEdit(zone)}>
+                      <TooltipIconButton variant="ghost" tooltip={t("editZone")} onClick={() => openEdit(zone)}>
                         <Pencil className="size-4" />
                       </TooltipIconButton>
                       <ConfirmDialog
@@ -160,38 +160,34 @@ function ZonesContent() {
                             variant="ghost"
                             size="icon"
                             className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                            aria-label="Delete zone"
+                            aria-label={t("deleteZone")}
                           >
                             <Trash2 className="size-4" />
                           </Button>
                         }
-                        title={`Delete ${zone.name}?`}
+                        title={t("deleteTitle", { name: zone.name })}
                         description={
                           zoneTables.length > 0
-                            ? `This zone still has ${zoneTables.length} tables — deletion will be blocked until they're moved.`
-                            : "Staff assignments to this zone will be cleared."
+                            ? t("deleteDescWithTables", { count: zoneTables.length })
+                            : t("deleteDescNoTables")
                         }
-                        confirmLabel="Delete zone"
+                        confirmLabel={t("deleteConfirm")}
                         destructive
                         onConfirm={() => removeMutation.mutate(zone)}
                       />
                     </div>
                   </div>
                   <div className="flex items-center justify-between border-t pt-3">
-                    <p className="text-sm text-muted-foreground">
-                      <span className="font-semibold text-foreground">{zoneTables.length}</span>{" "}
-                      tables ·{" "}
-                      <span className="font-semibold text-foreground">{occupied}</span> occupied
-                    </p>
+                    <p className="text-sm text-muted-foreground">{t("tableCount", { count: zoneTables.length, occupied })}</p>
                     <div className="flex items-center">
                       <Button variant="ghost" size="sm" asChild>
                         <Link href={zoneStaffHref(zone.id)}>
-                          <Users className="size-3.5" /> Staff
+                          <Users className="size-3.5" /> {t("staff")}
                         </Link>
                       </Button>
                       <Button variant="ghost" size="sm" asChild>
                         <Link href={zoneTablesHref(zone.id)}>
-                          Tables <ArrowRight className="size-3.5" />
+                          {t("tables")} <ArrowRight className="size-3.5" />
                         </Link>
                       </Button>
                     </div>
@@ -206,25 +202,25 @@ function ZonesContent() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit zone" : "New zone"}</DialogTitle>
+            <DialogTitle>{editingId ? t("editZoneTitle") : t("newZoneTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="zone-name">Name</Label>
-              <Input id="zone-name" placeholder="e.g. Rooftop" {...register("name")} />
+              <Label htmlFor="zone-name">{t("nameLabel")}</Label>
+              <Input id="zone-name" placeholder={t("namePlaceholder")} {...register("name")} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="zone-desc">Description</Label>
+              <Label htmlFor="zone-desc">{t("descriptionLabel")}</Label>
               <Textarea
                 id="zone-desc"
                 rows={2}
-                placeholder="What kind of seating lives here?"
+                placeholder={t("descriptionPlaceholder")}
                 {...register("description")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Color</Label>
+              <Label>{t("colorLabel")}</Label>
               <div className="flex gap-2">
                 {Object.keys(SWATCH).map((color) => (
                   <button
@@ -246,14 +242,14 @@ function ZonesContent() {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDialogOpen(false)}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               onClick={handleSubmit((data) => saveMutation.mutate(data))}
               disabled={saveMutation.isPending}
             >
               {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-              {saveMutation.isPending ? "Saving…" : editingId ? "Save" : "Create zone"}
+              {saveMutation.isPending ? t("saving") : editingId ? t("save") : t("createZone")}
             </Button>
           </DialogFooter>
         </DialogContent>

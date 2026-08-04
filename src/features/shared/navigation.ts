@@ -34,12 +34,14 @@ import type { FeatureKey } from "@/lib/types";
 export interface NavItem {
   href: string;
   label: string;
+  labelKey?: string;
   icon: LucideIcon;
   feature?: FeatureKey;
 }
 
 export interface NavGroup {
   label: string;
+  labelKey?: string;
   defaultCollapsed?: boolean;
   items: NavItem[];
 }
@@ -48,80 +50,86 @@ export interface NavGroup {
 export const MANAGER_NAV_GROUPS: NavGroup[] = [
   {
     label: "Tonight",
+    labelKey: "nav.groups.tonight",
     items: [
-      { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/manager/orders", label: "Orders", icon: Receipt },
-      { href: "/manager/pulse", label: "Pulse", icon: AlertTriangle },
-      { href: "/manager/chat", label: "Chat", icon: MessageSquare, feature: "chat" },
+      { href: "/manager", label: "Dashboard", labelKey: "nav.items.dashboard", icon: LayoutDashboard },
+      { href: "/manager/orders", label: "Orders", labelKey: "nav.items.orders", icon: Receipt },
+      { href: "/manager/pulse", label: "Pulse", labelKey: "nav.items.pulse", icon: AlertTriangle },
+      { href: "/manager/chat", label: "Chat", labelKey: "nav.items.chat", icon: MessageSquare, feature: "chat" },
     ],
   },
   {
     label: "Floor",
+    labelKey: "nav.groups.floor",
     items: [
-      { href: "/manager/floor-map", label: "Floor map", icon: Map, feature: "floor-map" },
-      { href: "/manager/zones", label: "Zones", icon: MapPin },
-      { href: "/manager/tables", label: "Tables", icon: Table2 },
-      { href: "/manager/qr", label: "QR codes", icon: QrCode },
+      { href: "/manager/floor-map", label: "Floor map", labelKey: "nav.items.floorMap", icon: Map, feature: "floor-map" },
+      { href: "/manager/zones", label: "Zones", labelKey: "nav.items.zones", icon: MapPin },
+      { href: "/manager/tables", label: "Tables", labelKey: "nav.items.tables", icon: Table2 },
+      { href: "/manager/qr", label: "QR codes", labelKey: "nav.items.qrCodes", icon: QrCode },
     ],
   },
   {
     label: "Catalogue",
+    labelKey: "nav.groups.catalogue",
     items: [
-      { href: "/manager/menu", label: "Menu", icon: Martini },
-      { href: "/manager/inventory", label: "Inventory", icon: Boxes, feature: "inventory" },
-      { href: "/manager/purchasing", label: "Purchasing", icon: ShoppingCart },
-      { href: "/manager/happy-hour", label: "Happy hour", icon: Clock, feature: "happy-hour" },
-      { href: "/manager/promotions", label: "Promotions", icon: Tag, feature: "promotions" },
+      { href: "/manager/menu", label: "Menu", labelKey: "nav.items.menu", icon: Martini },
+      { href: "/manager/inventory", label: "Inventory", labelKey: "nav.items.inventory", icon: Boxes, feature: "inventory" },
+      { href: "/manager/purchasing", label: "Purchasing", labelKey: "nav.items.purchasing", icon: ShoppingCart },
+      { href: "/manager/happy-hour", label: "Happy hour", labelKey: "nav.items.happyHour", icon: Clock, feature: "happy-hour" },
+      { href: "/manager/promotions", label: "Promotions", labelKey: "nav.items.promotions", icon: Tag, feature: "promotions" },
     ],
   },
   {
     label: "Bookings",
+    labelKey: "nav.groups.bookings",
     items: [
-      { href: "/manager/reservations", label: "Reservations", icon: CalendarDays, feature: "reservations" },
-      { href: "/manager/events", label: "Events", icon: PartyPopper, feature: "events" },
-      { href: "/manager/guests", label: "Guests", icon: UserSquare2, feature: "guest-crm" },
+      { href: "/manager/reservations", label: "Reservations", labelKey: "nav.items.reservations", icon: CalendarDays, feature: "reservations" },
+      { href: "/manager/events", label: "Events", labelKey: "nav.items.events", icon: PartyPopper, feature: "events" },
+      { href: "/manager/guests", label: "Guests", labelKey: "nav.items.guests", icon: UserSquare2, feature: "guest-crm" },
     ],
   },
   {
     label: "Team",
+    labelKey: "nav.groups.team",
     items: [
-      { href: "/manager/staff", label: "Staff", icon: Users },
-      { href: "/manager/tips", label: "Tips", icon: Wallet },
-      { href: "/manager/commission", label: "Commission", icon: Wallet, feature: "reservations" },
+      { href: "/manager/staff", label: "Staff", labelKey: "nav.items.staff", icon: Users },
+      { href: "/manager/tips", label: "Tips", labelKey: "nav.items.tips", icon: Wallet },
+      { href: "/manager/commission", label: "Commission", labelKey: "nav.items.commission", icon: Wallet, feature: "reservations" },
     ],
   },
   {
     label: "Insights",
+    labelKey: "nav.groups.insights",
     defaultCollapsed: true,
     items: [
-      { href: "/manager/analytics", label: "Analytics", icon: BarChart3, feature: "analytics" },
-      { href: "/manager/automations", label: "Automations", icon: Bot },
-      { href: "/manager/reports", label: "Reports", icon: FileText, feature: "reports" },
-      { href: "/manager/incidents", label: "Incidents", icon: AlertTriangle, feature: "incidents" },
-      { href: "/manager/cashout", label: "Cash-out", icon: Wallet },
-      { href: "/manager/audit", label: "Audit trail", icon: ListChecks },
+      { href: "/manager/analytics", label: "Analytics", labelKey: "nav.items.analytics", icon: BarChart3, feature: "analytics" },
+      { href: "/manager/automations", label: "Automations", labelKey: "nav.items.automations", icon: Bot },
+      { href: "/manager/reports", label: "Reports", labelKey: "nav.items.reports", icon: FileText, feature: "reports" },
+      { href: "/manager/incidents", label: "Incidents", labelKey: "nav.items.incidents", icon: AlertTriangle, feature: "incidents" },
+      { href: "/manager/cashout", label: "Cash-out", labelKey: "nav.items.cashOut", icon: Wallet },
+      { href: "/manager/audit", label: "Audit trail", labelKey: "nav.items.auditTrail", icon: ListChecks },
     ],
   },
 ];
 
 /** Footer items — always visible, never in the scroll. */
 export const MANAGER_FOOTER_ITEMS: NavItem[] = [
-  { href: "/manager/settings", label: "Settings", icon: Settings },
+  { href: "/manager/settings", label: "Settings", labelKey: "nav.items.settings", icon: Settings },
 ];
 
 export const DEMO_FOOTER_ITEMS: NavItem[] = [
-  { href: "/manager/settings", label: "Settings", icon: Settings },
-  { href: "/manager/subscription", label: "Subscription", icon: CreditCard },
+  { href: "/manager/settings", label: "Settings", labelKey: "nav.items.settings", icon: Settings },
+  { href: "/manager/subscription", label: "Subscription", labelKey: "nav.items.subscription", icon: CreditCard },
 ];
 
 /** Admin area — horizontal pill nav at the top. Single group since admin is flat. */
 export const ADMIN_NAV: NavItem[] = [
-  { href: "/admin", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin/leads", label: "Lead pipeline", icon: Filter },
-  { href: "/admin/venues", label: "Tenants", icon: Building2 },
-  { href: "/admin/onboarding", label: "Provisioning", icon: Rocket },
-  { href: "/admin/plans", label: "Plans", icon: Layers },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin", label: "Overview", labelKey: "nav.items.overview", icon: LayoutDashboard },
+  { href: "/admin/leads", label: "Lead pipeline", labelKey: "nav.items.leadPipeline", icon: Filter },
+  { href: "/admin/venues", label: "Tenants", labelKey: "nav.items.tenants", icon: Building2 },
+  { href: "/admin/onboarding", label: "Provisioning", labelKey: "nav.items.provisioning", icon: Rocket },
+  { href: "/admin/plans", label: "Plans", labelKey: "nav.items.plans", icon: Layers },
+  { href: "/admin/settings", label: "Settings", labelKey: "nav.items.settings", icon: Settings },
 ];
 
 // ---------- Collapsible group state ----------

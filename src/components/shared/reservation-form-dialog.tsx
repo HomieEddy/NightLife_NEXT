@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Loader2, UserSquare2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslations } from "next-intl";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,13 +35,6 @@ export type ReservationDraft = {
   timeSlot?: "early" | "late" | "any";
 };
 
-export const CELEBRATION_OPTIONS = [
-  { value: "" as const, label: "None" },
-  { value: "birthday" as const, label: "Birthday" },
-  { value: "anniversary" as const, label: "Anniversary" },
-  { value: "other" as const, label: "Other" },
-];
-
 export function toLocalInput(iso: string): string {
   const d = new Date(iso);
   const off = d.getTimezoneOffset();
@@ -65,7 +59,7 @@ const selectCls =
   "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 const zReservationForm = z.object({
-  guestName: z.string().min(1, "Guest name is required"),
+  guestName: z.string().min(1),
   partySize: z.number().int().min(1),
   zoneId: z.string().default(""),
   tableId: z.string().default(""),
@@ -118,9 +112,17 @@ export function ReservationFormDialog({
   promoters,
   events,
 }: ReservationFormDialogProps) {
+  const t = useTranslations("shared");
   const [candidates, setCandidates] = useState<GuestProfile[]>([]);
   const linkedProfile = candidates.find((c) => c.id === draft.guestProfileId);
   const [saving, setSaving] = useState(false);
+
+  const CELEBRATION_OPTIONS = [
+    { value: "" as const, label: t("reservationForm.none") },
+    { value: "birthday" as const, label: t("reservationForm.birthday") },
+    { value: "anniversary" as const, label: t("reservationForm.anniversary") },
+    { value: "other" as const, label: t("reservationForm.other") },
+  ];
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(zReservationForm) as unknown as ReturnType<typeof zodResolver>,
@@ -152,36 +154,36 @@ export function ReservationFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editingId ? "Edit reservation" : "New reservation"}</DialogTitle>
+          <DialogTitle>{editingId ? t("reservationForm.editTitle") : t("reservationForm.newTitle")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="res-name">Guest name</Label>
+            <Label htmlFor="res-name">{t("reservationForm.guestName")}</Label>
             <Input
               id="res-name"
               value={draft.guestName}
               onChange={(e) => setDraft({ ...draft, guestName: e.target.value, guestProfileId: undefined })}
-              placeholder="e.g. Jean Dupont"
+              placeholder={t("reservationForm.guestNamePlaceholder")}
             />
             {linkedProfile ? (
               <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/5 px-2.5 py-1.5 text-xs">
                 <span className="flex items-center gap-1.5">
-                  <Check className="size-3.5 text-primary" /> Linked to {linkedProfile.displayName}
+                  <Check className="size-3.5 text-primary" /> {t("reservationForm.linkedTo")} {linkedProfile.displayName}
                   {linkedProfile.vipTier !== "none" && ` · ${linkedProfile.vipTier}`}
-                  {" · "}{linkedProfile.visitCount} visits · {formatMoney(linkedProfile.lifetimeNetCents / 100)}
+                  {" · "}{linkedProfile.visitCount} {t("reservationForm.visits")} · {formatMoney(linkedProfile.lifetimeNetCents / 100)}
                 </span>
                 <button
                   type="button"
                   className="text-muted-foreground hover:text-foreground"
                   onClick={() => setDraft({ ...draft, guestProfileId: undefined })}
                 >
-                  Not them
+                  {t("reservationForm.notThem")}
                 </button>
               </div>
             ) : (
               candidates.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Matches an existing guest?</p>
+                  <p className="text-xs text-muted-foreground">{t("reservationForm.matchesExisting")}</p>
                   {candidates.map((c) => (
                     <button
                       key={c.id}
@@ -190,7 +192,7 @@ export function ReservationFormDialog({
                       className="flex w-full items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors hover:border-primary/50"
                     >
                       <UserSquare2 className="size-3.5 shrink-0 text-muted-foreground" />
-                      {c.displayName} — {c.visitCount} visits
+                      {c.displayName} — {t("reservationForm.nVisits", { count: c.visitCount })}
                     </button>
                   ))}
                 </div>
@@ -199,7 +201,7 @@ export function ReservationFormDialog({
           </div>
           {events && events.length > 0 && (
             <div className="space-y-1.5">
-              <Label htmlFor="res-event">Event (optional)</Label>
+              <Label htmlFor="res-event">{t("reservationForm.eventOptional")}</Label>
               <select
                 id="res-event"
                 className={selectCls}
@@ -215,7 +217,7 @@ export function ReservationFormDialog({
                   });
                 }}
               >
-                <option value="">Standalone reservation</option>
+                <option value="">{t("reservationForm.standaloneReservation")}</option>
                 {events.map((ev) => (
                   <option key={ev.id} value={ev.id}>
                     {ev.name}
@@ -226,7 +228,7 @@ export function ReservationFormDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="res-party">Party size</Label>
+              <Label htmlFor="res-party">{t("reservationForm.partySize")}</Label>
               <Input
                 id="res-party"
                 type="number"
@@ -236,14 +238,14 @@ export function ReservationFormDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="res-zone">Zone</Label>
+              <Label htmlFor="res-zone">{t("reservationForm.zone")}</Label>
               <select
                 id="res-zone"
                 className={selectCls}
                 value={draft.zoneId}
                 onChange={(e) => setDraft({ ...draft, zoneId: e.target.value, tableId: "" })}
               >
-                <option value="">Select zone…</option>
+                <option value="">{t("reservationForm.selectZone")}</option>
                 {zones.map((z) => (
                   <option key={z.id} value={z.id}>
                     {z.name}
@@ -253,14 +255,14 @@ export function ReservationFormDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="res-table">Table (optional)</Label>
+            <Label htmlFor="res-table">{t("reservationForm.tableOptional")}</Label>
             <select
               id="res-table"
               className={selectCls}
               value={draft.tableId}
               onChange={(e) => setDraft({ ...draft, tableId: e.target.value })}
             >
-              <option value="">No specific table</option>
+              <option value="">{t("reservationForm.noSpecificTable")}</option>
               {tablesForZone.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.code} — {t.label}
@@ -270,14 +272,14 @@ export function ReservationFormDialog({
           </div>
           {promoters && promoters.length > 0 && (
             <div className="space-y-1.5">
-              <Label htmlFor="res-promoter">Promoter (optional)</Label>
+              <Label htmlFor="res-promoter">{t("reservationForm.promoterOptional")}</Label>
               <select
                 id="res-promoter"
                 className={selectCls}
                 value={draft.promoterId ?? ""}
                 onChange={(e) => setDraft({ ...draft, promoterId: e.target.value || undefined })}
               >
-                <option value="">No promoter</option>
+                <option value="">{t("reservationForm.noPromoter")}</option>
                 {promoters.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -288,7 +290,7 @@ export function ReservationFormDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="res-start">Starts</Label>
+              <Label htmlFor="res-start">{t("reservationForm.starts")}</Label>
               <Input
                 id="res-start"
                 type="datetime-local"
@@ -297,7 +299,7 @@ export function ReservationFormDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="res-end">Ends (optional)</Label>
+              <Label htmlFor="res-end">{t("reservationForm.endsOptional")}</Label>
               <Input
                 id="res-end"
                 type="datetime-local"
@@ -307,18 +309,18 @@ export function ReservationFormDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="res-note">Note</Label>
+            <Label htmlFor="res-note">{t("reservationForm.note")}</Label>
             <Textarea
               id="res-note"
               rows={2}
               value={draft.note}
               onChange={(e) => setDraft({ ...draft, note: e.target.value })}
-              placeholder="Birthday, VIP client, etc."
+              placeholder={t("reservationForm.notePlaceholder")}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="res-celebration">Celebration</Label>
+              <Label htmlFor="res-celebration">{t("reservationForm.celebration")}</Label>
               <select id="res-celebration" className={selectCls}
                 value={draft.celebration ?? ""}
                 onChange={(e) => setDraft({ ...draft, celebration: e.target.value as ReservationDraft["celebration"] || undefined })}>
@@ -326,7 +328,7 @@ export function ReservationFormDialog({
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="res-deposit">Deposit ($)</Label>
+              <Label htmlFor="res-deposit">{t("reservationForm.deposit")}</Label>
               <Input id="res-deposit" type="number" min={0} step={50} placeholder="0"
                 value={draft.depositCents ? draft.depositCents / 100 : ""}
                 onChange={(e) => setDraft({ ...draft, depositCents: Math.round(Number(e.target.value) * 100) || undefined })} />
@@ -334,13 +336,13 @@ export function ReservationFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="res-cancel-deadline">Cancel by</Label>
+              <Label htmlFor="res-cancel-deadline">{t("reservationForm.cancelBy")}</Label>
               <Input id="res-cancel-deadline" type="datetime-local"
                 value={draft.cancellationDeadlineTime ?? ""}
                 onChange={(e) => setDraft({ ...draft, cancellationDeadlineTime: e.target.value || undefined })} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="res-hold-until">Hold until</Label>
+              <Label htmlFor="res-hold-until">{t("reservationForm.holdUntil")}</Label>
               <Input id="res-hold-until" type="datetime-local"
                 value={draft.holdUntil ?? ""}
                 onChange={(e) => setDraft({ ...draft, holdUntil: e.target.value || undefined })} />
@@ -348,35 +350,35 @@ export function ReservationFormDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="res-min-spend">Min spend ($)</Label>
-              <Input id="res-min-spend" type="number" min={0} step={50} placeholder="Table default"
+              <Label htmlFor="res-min-spend">{t("reservationForm.minSpend")}</Label>
+              <Input id="res-min-spend" type="number" min={0} step={50} placeholder={t("reservationForm.tableDefault")}
                 value={draft.minimumSpendCents ? draft.minimumSpendCents / 100 : ""}
                 onChange={(e) => setDraft({ ...draft, minimumSpendCents: Math.round(Number(e.target.value) * 100) || undefined })} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="res-duration">Duration (min)</Label>
+              <Label htmlFor="res-duration">{t("reservationForm.duration")}</Label>
               <Input id="res-duration" type="number" min={30} step={30} max={480} placeholder="—"
                 value={draft.expectedDurationMinutes ?? ""}
                 onChange={(e) => setDraft({ ...draft, expectedDurationMinutes: Number(e.target.value) || undefined })} />
             </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="res-slot">Time slot</Label>
+              <Label htmlFor="res-slot">{t("reservationForm.timeSlot")}</Label>
               <select id="res-slot" className={selectCls}
                 value={draft.timeSlot ?? "any"}
                 onChange={(e) => setDraft({ ...draft, timeSlot: e.target.value as ReservationDraft["timeSlot"] || undefined })}>
-                <option value="any">Any time</option>
-                <option value="early">Early (7–11 PM)</option>
-                <option value="late">Late (11 PM–3 AM)</option>
+                <option value="any">{t("reservationForm.anyTime")}</option>
+                <option value="early">{t("reservationForm.early")}</option>
+                <option value="late">{t("reservationForm.late")}</option>
               </select>
             </div>
           <DialogFooter>
             <Button variant="ghost" type="button" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("reservationForm.cancel")}
             </Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="size-4 animate-spin" />}
-              {saving ? "Saving…" : editingId ? "Save" : "Create reservation"}
+              {saving ? t("reservationForm.saving") : editingId ? t("actions.save") : t("reservationForm.create")}
             </Button>
           </DialogFooter>
           </form>

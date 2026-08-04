@@ -26,6 +26,8 @@ export interface DispatchPayload {
   data: Record<string, unknown>;
   /** A stable idempotency key — same key twice only sends once (checked against NotificationLog). */
   idempotencyKey?: string;
+  /** Recipient locale for template language selection. Falls back to "en". */
+  locale?: "en" | "fr";
 }
 
 /** Push-specific payload — resolves recipients from active subscriptions, not explicit addresses. */
@@ -38,4 +40,6 @@ export interface PushDispatchPayload {
   tag?: string;
   requireInteraction?: boolean;
   idempotencyKey?: string;
+  /** Recipient locale for the payload strings. Falls back to the venue's guestLocale. */
+  locale?: "en" | "fr";
 }

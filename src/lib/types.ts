@@ -5,6 +5,11 @@
  * Live implementations map these contracts to Prisma models and API DTOs.
  */
 
+/** Server-side cap on list-endpoint page sizes — backstop against a scripted
+ *  ?limit=1000000. The UI already bounds most lists (paginated tables, virtual
+ *  scroll); this is the server enforcing the contract. */
+export const MAX_PAGE_SIZE = 200;
+
 // ---------- Venue ----------
 
 /** One configurable per-order charge — a tax, service charge or flat fee. */
@@ -60,6 +65,8 @@ export interface Venue {
   doorRequiresIdCheck: boolean;
   /** The legal drinking age in this venue's jurisdiction — defaults to 18 (Quebec). */
   legalDrinkingAge: number;
+  /** Default locale for guest-facing surfaces — QR ordering, embeds, public pages. Overridable by guest toggle. */
+  guestLocale: "en" | "fr";
   /** RV-03: Auto-gratuity rules — triggers based on party size, zone, and table minimum. */
   autoGratuityRules?: {
     id: string;
@@ -331,7 +338,6 @@ export interface GuestSession {
   createdAt: string; // ISO
   settledExternallyAt?: string;
   settlementMethod?: SettlementMethod;
-  // TODO(backend): stamped at seat time from the reservation that gated the table
   promoterId?: string;
   /**
    * The venue's commitment for this tab, snapshotted from the table (or the
@@ -901,6 +907,7 @@ export interface Lead {
   /** Estimated annual contract value. */
   dealValue: number;
   notes: string;
+  consentAt?: string;
   activity: LeadActivity[];
   createdAt: string;
 }
@@ -1073,6 +1080,10 @@ export interface Reservation {
   bumpReason?: string;
   /** RV-10: Table the bumped guest was offered as an alternative. */
   alternativeTableId?: string;
+  /** Locale the guest booked in — seeds the email/SMS notification language. Defaults to venue guestLocale. */
+  bookingLocale?: "en" | "fr";
+  /** When the guest accepted the privacy policy on the booking form. */
+  consentAt?: string;
   createdAt: string; // ISO
 }
 

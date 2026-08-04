@@ -41,6 +41,7 @@ function toVenue(
     coatCheckEnabled: boolean;
     doorRequiresIdCheck: boolean;
     publicSlug?: string | null;
+    guestLocale?: string | null;
   },
   org: OrgIdentity,
 ): Venue {
@@ -71,6 +72,7 @@ function toVenue(
     coatCheckEnabled: row.coatCheckEnabled,
     doorRequiresIdCheck: row.doorRequiresIdCheck,
     legalDrinkingAge: 18,
+    guestLocale: (row.guestLocale as Venue["guestLocale"]) ?? "en",
   };
 }
 

@@ -1,7 +1,9 @@
 "use client";
 
 import { Suspense, use, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useLocale } from "next-intl";
 import {
   CalendarDays,
   Check,
@@ -24,6 +26,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FloorMapCanvas } from "@/components/shared/floor-map-canvas";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { LIVE_APP_URL } from "@/features/shared/app-origins";
 import { reservationService } from "@/features/hospitality/reservation-service";
 import { reservationsKeys } from "@/features/hospitality/query-keys";
 import { formatMoney } from "@/features/shared/format";
@@ -59,6 +63,7 @@ export default function PublicReservationPage({
 }
 
 function ReservationContent({ venueSlug }: { venueSlug: string }) {
+  const locale = useLocale();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const dateParam = searchParams.get("date");
@@ -79,7 +84,7 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
   });
 
   const submitMutation = useMutation({
-    mutationFn: async (formData: { guestName: string; guestEmail?: string; guestPhone?: string; note?: string }) => {
+    mutationFn: async (formData: { guestName: string; guestEmail?: string; guestPhone?: string; note?: string; consent: true }) => {
       if (!selectedTable) throw new Error("No table selected");
       await reservationService.createPublicReservation({
         venueSlug,
@@ -92,6 +97,7 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
         guestPhone: formData.guestPhone?.trim() || undefined,
         note: formData.note?.trim() || undefined,
         eventId: eventParam || undefined,
+        consent: formData.consent,
       });
     },
     onSuccess: () => {
@@ -105,8 +111,14 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
 
   // Form state
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(z.object({ guestName: z.string().min(1, "Name is required"), guestEmail: z.string().default(""), guestPhone: z.string().default(""), note: z.string().default("") })),
-    defaultValues: { guestName: "", guestEmail: "", guestPhone: "", note: "" },
+    resolver: zodResolver(z.object({
+      guestName: z.string().min(1, "Name is required"),
+      guestEmail: z.string().default(""),
+      guestPhone: z.string().default(""),
+      note: z.string().default(""),
+      consent: z.literal(true, { message: "You must accept the privacy policy to book" }),
+    })),
+    defaultValues: { guestName: "", guestEmail: "", guestPhone: "", note: "", consent: false as unknown as true },
   });
   const [partySize, setPartySize] = useState(2);
 
@@ -153,11 +165,14 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
           <h1 className="text-display text-2xl">Request received!</h1>
           <p className="max-w-sm text-muted-foreground">
             {data.venue.name} will review your reservation for{" "}
-            {new Date(date + "T12:00:00").toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
+            {new Date(date + "T12:00:00").toLocaleDateString(
+              locale === "fr" ? "fr-CA" : "en-CA",
+              {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              },
+            )}
             . You&apos;ll receive a confirmation with your table PIN.
           </p>
         </div>
@@ -325,6 +340,16 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
                         <Plus className="size-4" />
                       </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Your email and phone are used only for reservation confirmation and PIN delivery.{" "}
+                      <Link
+                        href={isDemoMode() ? `${LIVE_APP_URL}/privacy` : "/privacy"}
+                        target="_blank"
+                        className="text-primary underline"
+                      >
+                        Privacy Policy
+                      </Link>
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="pub-email">Email</Label>
@@ -338,6 +363,26 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
                     <Label htmlFor="pub-note">Note (optional)</Label>
                     <Textarea id="pub-note" rows={2} placeholder="Birthday, special requests…" {...register("note")} />
                   </div>
+                  <div className="flex items-start gap-2">
+                    <input
+                      id="pub-consent"
+                      type="checkbox"
+                      className="mt-0.5 size-4 shrink-0 accent-primary"
+                      {...register("consent")}
+                    />
+                    <Label htmlFor="pub-consent" className="text-xs font-normal leading-relaxed">
+                      I have read and agree to the{" "}
+                      <Link
+                        href={isDemoMode() ? `${LIVE_APP_URL}/privacy` : "/privacy"}
+                        target="_blank"
+                        className="text-primary underline"
+                      >
+                        Privacy Policy
+                      </Link>
+                      . My details are used only for this reservation and its confirmation.
+                    </Label>
+                  </div>
+                  {errors.consent && <p className="text-xs text-red-600">{errors.consent.message}</p>}
                   <Button type="submit" className="w-full" disabled={isSubmitting || submitMutation.isPending || data.nightOpen}>
                     {(isSubmitting || submitMutation.isPending) && <Loader2 className="size-4 animate-spin" />}
                     {isSubmitting || submitMutation.isPending ? "Submitting…" : "Request reservation"}

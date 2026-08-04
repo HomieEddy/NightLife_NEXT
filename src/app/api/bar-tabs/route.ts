@@ -30,7 +30,7 @@ async function liveGET(request: NextRequest) {
   const where: any = { venueId };
   if (status) where.status = status;
 
-  const tabs = await db.barTab.findMany({ where, orderBy: { openedAt: "desc" } });
+  const tabs = await db.barTab.findMany({ where, orderBy: { openedAt: "desc" }, take: 200 });
   return NextResponse.json(tabs);
 }
 

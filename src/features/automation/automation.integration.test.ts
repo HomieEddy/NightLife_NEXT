@@ -57,9 +57,9 @@ describe("automation integration (Phase 4)", () => {
 
   // ── Rule seeding ────────────────────────────────────────────────────
 
-  it("ensureRules seeds all 13 default rules, idempotent", async () => {
+  it("ensureRules seeds all 14 default rules, idempotent", async () => {
     const first = await ensureRules(rawClient, venueA);
-    expect(first).toHaveLength(13);
+    expect(first).toHaveLength(14);
 
     const codes = new Set(first.map((r) => r.code));
     for (const def of defaultAutomationRules) {
@@ -68,11 +68,11 @@ describe("automation integration (Phase 4)", () => {
 
     // Idempotent — second call doesn't create duplicates
     const second = await ensureRules(rawClient, venueA);
-    expect(second).toHaveLength(13);
+    expect(second).toHaveLength(14);
 
     const db = getDb(sessionA);
     const count = await rawClient.automationRule.count({ where: { venueId: venueA } });
-    expect(count).toBe(13);
+    expect(count).toBe(14);
   });
 
   // ── List rules ──────────────────────────────────────────────────────
@@ -196,7 +196,7 @@ describe("automation integration (Phase 4)", () => {
     // Verify counts are independent
     const rulesA = await rawClient.automationRule.count({ where: { venueId: venueA } });
     const rulesB = await rawClient.automationRule.count({ where: { venueId: venueB } });
-    expect(rulesA).toBe(13);
+    expect(rulesA).toBe(14);
     expect(rulesB).toBe(0); // Venue B was NOT seeded
 
     // Venue B cannot read Venue A's rules through scoped client

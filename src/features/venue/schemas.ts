@@ -63,6 +63,7 @@ export const zVenuePatch = z.object({
   defaultTipPct: z.number().int().min(0).max(100).optional(),
   nightStartHour: z.number().int().min(0).max(23).optional(),
   nightEndHour: z.number().int().min(0).max(23).optional(),
+  guestLocale: z.enum(["en", "fr"]).optional(),
 }).superRefine((value, context) => {
   if (value.nightStartHour !== undefined && value.nightStartHour === value.nightEndHour) {
     context.addIssue({ code: "custom", path: ["nightEndHour"], message: "Night boundaries must differ" });

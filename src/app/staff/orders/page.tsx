@@ -30,31 +30,34 @@ import { cn } from "@/features/shared/utils";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
+import { useTranslations } from "next-intl";
 import { Wallet } from "lucide-react";
 import type { ActiveShow, Order, OrderStatus, StaffMember, TabAdjustmentKind } from "@/lib/types";
 
-const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
-  pending: "Accept order",
-  accepted: "Start preparing",
-  preparing: "Mark ready",
-  ready: "Mark delivered",
-};
-
-const RUNNER_HINT: Partial<Record<OrderStatus, string>> = {
-  pending: "Awaiting bartender",
-};
-
-const FILTERS: { id: "active" | "new" | "done"; label: string }[] = [
-  { id: "active", label: "Active" },
-  { id: "new", label: "New" },
-  { id: "done", label: "Done" },
-];
 
 function StaffOrdersContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
+  const t = useTranslations("staff.orders");
+
+  const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
+    pending: t("advanceLabel.pending"),
+    accepted: t("advanceLabel.accepted"),
+    preparing: t("advanceLabel.preparing"),
+    ready: t("advanceLabel.ready"),
+  };
+
+  const RUNNER_HINT: Partial<Record<OrderStatus, string>> = {
+    pending: t("runnerHint"),
+  };
+
+  const FILTERS: { id: "active" | "new" | "done"; label: string }[] = [
+    { id: "active", label: t("filters.active") },
+    { id: "new", label: t("filters.new") },
+    { id: "done", label: t("filters.done") },
+  ];
 
   const [filter, setFilter] = useState<"active" | "new" | "done">("active");
   const [zoneScoped, setZoneScoped] = useState(searchParams.get("scope") === "mine");
@@ -110,47 +113,47 @@ function StaffOrdersContent() {
   const advanceMutation = useMutation({
     mutationFn: (order: Order) => ordersService.advanceOrder(order.id),
     onSuccess: (updated, order) => {
-      if (updated) toast.success(`${order.code} → ${updated.status}`);
+      if (updated) toast.success(t("toastAdvanceSuccess", { code: order.code, status: updated.status }));
       invalidate();
       queryClient.invalidateQueries({ queryKey: showQueueKeys.active(venueId) });
     },
     onError: (error, order) => {
-      toast.error(error instanceof Error ? error.message : `Could not update ${order.code}`);
+      toast.error(error instanceof Error ? error.message : t("toastAdvanceFailed", { code: order.code }));
     },
   });
 
   const cancelMutation = useMutation({
     mutationFn: (order: Order) => ordersService.cancelOrder(order.id),
     onSuccess: (updated, order) => {
-      if (!updated) toast.error(`${order.code} is already delivered or cancelled.`);
-      else toast.info(`${order.code} cancelled — stock returned`);
+      if (!updated) toast.error(t("toastAlreadyDelivered", { code: order.code }));
+      else toast.info(t("toastCancelled", { code: order.code }));
       invalidate();
     },
     onError: (error, order) => {
-      toast.error(error instanceof Error ? error.message : `Could not cancel ${order.code}`);
+      toast.error(error instanceof Error ? error.message : t("toastCancelFailed", { code: order.code }));
     },
   });
 
   const claimMutation = useMutation({
     mutationFn: (order: Order) => ordersService.claimOrder(order.id, me!.id, me!.name),
     onSuccess: (updated, order) => {
-      if (!updated) toast.error("Someone just claimed this order.");
-      else toast.success(`${order.code} claimed`);
+      if (!updated) toast.error(t("toastAlreadyClaimed"));
+      else toast.success(t("toastClaimed", { code: order.code }));
       invalidate();
     },
     onError: (error, order) => {
-      toast.error(error instanceof Error ? error.message : `Could not claim ${order.code}`);
+      toast.error(error instanceof Error ? error.message : t("toastClaimFailed", { code: order.code }));
     },
   });
 
   const releaseMutation = useMutation({
     mutationFn: (order: Order) => ordersService.releaseOrder(order.id),
     onSuccess: (_, order) => {
-      toast.info(`${order.code} released back to the queue`);
+      toast.info(t("toastReleased", { code: order.code }));
       invalidate();
     },
     onError: (error, order) => {
-      toast.error(error instanceof Error ? error.message : `Could not release ${order.code}`);
+      toast.error(error instanceof Error ? error.message : t("toastReleaseFailed", { code: order.code }));
     },
   });
 
@@ -158,26 +161,26 @@ function StaffOrdersContent() {
     mutationFn: (order: Order) => showQueueService.startShow(order, me!.name),
     onSuccess: (result, order) => {
       if (!result.ok) {
-        toast.error(`Show floor busy — ${result.activeShow?.tableCode}'s presentation is walking.`);
+        toast.error(t("toastShowFloorBusy", { tableCode: result.activeShow?.tableCode ?? "?" }));
       } else {
-        toast.success(`${order.tableCode}'s presentation is walking now`);
+        toast.success(t("toastShowWalkingNow", { tableCode: order.tableCode }));
       }
       invalidate();
       queryClient.invalidateQueries({ queryKey: showQueueKeys.active(venueId) });
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Could not start the presentation");
+      toast.error(error instanceof Error ? error.message : t("toastShowFailed"));
     },
   });
 
   const finishShowMutation = useMutation({
     mutationFn: () => showQueueService.finishShow(),
     onSuccess: () => {
-      toast.info("Show floor is clear");
+      toast.info(t("toastShowClear"));
       queryClient.invalidateQueries({ queryKey: showQueueKeys.active(venueId) });
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Could not finish the presentation");
+      toast.error(error instanceof Error ? error.message : t("toastShowFinishFailed"));
     },
   });
 
@@ -211,12 +214,10 @@ function StaffOrdersContent() {
     <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-display text-xl">Order feed</h1>
-          <p className="text-sm text-muted-foreground">
-            Claim an order, walk it pending to delivered — no double-assignment, clear ownership.
-          </p>
+          <h1 className="text-display text-xl">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <TooltipIconButton variant="ghost" tooltip="Refresh" onClick={invalidate}>
+        <TooltipIconButton variant="ghost" tooltip={t("refresh")} onClick={invalidate}>
           <RefreshCw className="size-4" />
         </TooltipIconButton>
       </div>
@@ -243,7 +244,7 @@ function StaffOrdersContent() {
           <div className="flex items-center gap-2">
             <Switch id="zone-scope" checked={zoneScoped} onCheckedChange={setZoneScoped} />
             <Label htmlFor="zone-scope" className="text-xs text-muted-foreground">
-              My zones
+              {t("myZones")}
             </Label>
           </div>
         )}
@@ -254,8 +255,8 @@ function StaffOrdersContent() {
       ) : visible.length === 0 ? (
         <EmptyState
           icon={Inbox}
-          title="Queue is clear"
-          description="Orders placed by guests will appear here. Claim one to start delivering."
+          title={t("emptyTitle")}
+          description={t("emptyDesc")}
         />
       ) : (
         <div className="stagger-children space-y-3">
@@ -279,7 +280,7 @@ function StaffOrdersContent() {
                 onDone={invalidate}
                 trigger={
                   <Button variant="outline" size="sm" className="w-full">
-                    <Wallet className="size-3.5" /> Adjust tab
+                    <Wallet className="size-3.5" /> {t("adjustTab")}
                   </Button>
                 }
               />
@@ -294,13 +295,13 @@ function StaffOrdersContent() {
                       <div className="flex items-center justify-between text-xs">
                         {order.claimedByStaffId ? (
                           <span className="text-muted-foreground">
-                            Claimed by{" "}
+                            {t("claimedBy")}{" "}
                             <span className="font-medium text-foreground">
-                              {order.claimedByStaffId === me?.id ? "you" : order.claimedByStaffName}
+                              {order.claimedByStaffId === me?.id ? t("you") : order.claimedByStaffName}
                             </span>
                           </span>
                         ) : (
-                          <span className="text-muted-foreground">Unclaimed</span>
+                          <span className="text-muted-foreground">{t("unclaimed")}</span>
                         )}
                         {order.claimedByStaffId === me?.id ? (
                           <button
@@ -308,7 +309,7 @@ function StaffOrdersContent() {
                             onClick={() => releaseMutation.mutate(order)}
                             className="font-medium text-primary hover:underline"
                           >
-                            Release
+                            {t("release")}
                           </button>
                         ) : !order.claimedByStaffId && can("order:claim") ? (
                           <button
@@ -316,7 +317,7 @@ function StaffOrdersContent() {
                             onClick={() => claimMutation.mutate(order)}
                             className="font-medium text-primary hover:underline"
                           >
-                            Claim
+                            {t("claim")}
                           </button>
                         ) : null}
                       </div>
@@ -331,29 +332,29 @@ function StaffOrdersContent() {
                               {(activeShow as ActiveShow | null)?.orderId === order.id ? (
                                 <div className="flex items-center justify-between">
                                   <span className="flex items-center gap-1.5 font-medium text-primary">
-                                    <PartyPopper className="size-3.5" /> Walking now — {(activeShow as ActiveShow).label}
+                                    <PartyPopper className="size-3.5" /> {t("walkingNow", { label: (activeShow as ActiveShow).label })}
                                   </span>
                                   <button
                                     type="button"
                                     onClick={() => finishShowMutation.mutate()}
                                     className="font-medium text-primary hover:underline"
                                   >
-                                    Finish show
+                                    {t("finishShow")}
                                   </button>
                                 </div>
                               ) : activeShow ? (
                                 <span className="text-muted-foreground">
-                                  Show floor busy — {(activeShow as ActiveShow).tableCode}&apos;s presentation is walking
+                                  {t("showFloorBusy", { tableCode: (activeShow as ActiveShow).tableCode })}
                                 </span>
                               ) : (
                                 <div className="flex items-center justify-between">
-                                  <span className="text-muted-foreground">Needs a presentation walk-out</span>
+                                  <span className="text-muted-foreground">{t("needsPresentationWalkout")}</span>
                                   <button
                                     type="button"
                                     onClick={() => startShowMutation.mutate(order)}
                                     className="font-medium text-primary hover:underline"
                                   >
-                                    Start show
+                                    {t("startShow")}
                                   </button>
                                 </div>
                               )}
@@ -364,24 +365,24 @@ function StaffOrdersContent() {
                               trigger={
                                 <Button className="h-11 flex-1" disabled={isBusy(order.id)}>
                                   <CheckCheck className="size-4" />
-                                  {isBusy(order.id) ? "Updating…" : label}
+                                  {isBusy(order.id) ? t("updating") : label}
                                 </Button>
                               }
-                              title={`${label} — ${order.code}?`}
-                              description={`${order.tableCode} · ${order.guestName} · the guest sees the status change immediately.`}
-                              confirmLabel={label ?? "Confirm"}
+                              title={t("advanceConfirmTitle", { label: label!, code: order.code })}
+                              description={t("advanceConfirmDesc", { tableCode: order.tableCode, guestName: order.guestName })}
+                              confirmLabel={label ?? t("confirm")}
                               onConfirm={() => advanceMutation.mutate(order)}
                             />
                             {isPending && (
                               <ConfirmDialog
                                 trigger={
-                                  <Button variant="outline" size="icon" className="h-11 w-11 text-red-600 dark:text-red-400" aria-label="Cancel order">
+                                  <Button variant="outline" size="icon" className="h-11 w-11 text-red-600 dark:text-red-400" aria-label={t("cancelAria")}>
                                     <XCircle className="size-4" />
                                   </Button>
                                 }
-                                title={`Cancel ${order.code}?`}
-                                description="The guest will see their order as cancelled. This can't be undone."
-                                confirmLabel="Cancel order"
+                                title={t("cancelTitle", { code: order.code })}
+                                description={t("cancelDesc")}
+                                confirmLabel={t("cancelConfirm")}
                                 destructive
                                 onConfirm={() => cancelMutation.mutate(order)}
                               />

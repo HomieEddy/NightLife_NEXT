@@ -6,6 +6,7 @@ import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarCheck, Code, Link2, Loader2, PartyPopper, Pencil, Plus, Ticket, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -66,6 +67,7 @@ const EMPTY_VALUES: FormValues = {
 };
 
 function EventsContent() {
+  const t = useTranslations("manager.events");
   const router = useRouter();
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
@@ -142,7 +144,7 @@ function EventsContent() {
     },
     onSuccess: () => {
       setDialogOpen(false);
-      toast.success(editingId ? "Event updated" : "Event created");
+      toast.success(editingId ? t("eventUpdated") : t("eventCreated"));
       invalidate();
     },
   });
@@ -150,7 +152,7 @@ function EventsContent() {
   const deleteMutation = useMutation({
     mutationFn: (ev: VenueEvent) => eventsService.deleteEvent(ev.id),
     onSuccess: (_, ev) => {
-      toast.info(`${ev.name} deleted`);
+      toast.info(t("deleted", { name: ev.name }));
       invalidate();
     },
   });
@@ -177,11 +179,11 @@ function EventsContent() {
   const onSave = handleSubmit(async (data) => {
     const rawTicketUrl = data.ticketEnabled ? data.ticketUrl.trim() : "";
     if (rawTicketUrl && !/^https?:\/\/.+/.test(rawTicketUrl)) {
-      toast.error("Ticket URL must start with http:// or https://");
+      toast.error(t("ticketUrlHttp"));
       return;
     }
     if (data.ticketEnabled && !rawTicketUrl) {
-      toast.error("Paste a ticket URL or turn off the ticket link toggle.");
+      toast.error(t("ticketUrlRequired"));
       return;
     }
     saveMutation.mutate(data);
@@ -231,9 +233,9 @@ function EventsContent() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Events"
-        description="Promotions, parties and guestlists for the venue."
-        breadcrumbs={[{ label: "Bookings", href: "/manager/reservations" }, { label: "Events" }]}
+        title={t("title")}
+        description={t("description")}
+        breadcrumbs={[{ label: t("bookings"), href: "/manager/reservations" }, { label: t("title") }]}
         actions={
           <div className="flex items-center gap-2">
             {venue && (
@@ -244,10 +246,10 @@ function EventsContent() {
                   onClick={() => {
                     const url = `${window.location.origin}${publicEventsHref(venue.publicSlug)}`;
                     navigator.clipboard.writeText(url);
-                    toast.success("Events link copied");
+                    toast.success(t("copyLinkToast"));
                   }}
                 >
-                  <Link2 className="size-4" /> Copy link
+                  <Link2 className="size-4" /> {t("copyLink")}
                 </Button>
                 <Button
                   variant="outline"
@@ -256,15 +258,15 @@ function EventsContent() {
                     const url = `${window.location.origin}${publicReservationHref(venue.publicSlug)}`;
                     const snippet = `<iframe src="${url}" width="100%" height="700" frameborder="0"></iframe>`;
                     navigator.clipboard.writeText(snippet);
-                    toast.success("Embed snippet copied");
+                    toast.success(t("embedToast"));
                   }}
                 >
-                  <Code className="size-4" /> Embed reservations
+                  <Code className="size-4" /> {t("embedReservations")}
                 </Button>
               </>
             )}
             <Button onClick={openCreate}>
-              <Plus className="size-4" /> New event
+              <Plus className="size-4" /> {t("newEvent")}
             </Button>
           </div>
         }
@@ -275,7 +277,7 @@ function EventsContent() {
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search events…"
+            placeholder={t("searchPlaceholder")}
             className="w-full sm:w-56"
           />
         </div>
@@ -293,7 +295,7 @@ function EventsContent() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {s === "all" ? "All" : s}
+                {s === "all" ? t("all") : t(s)}
               </button>
             ))}
           </div>
@@ -307,8 +309,8 @@ function EventsContent() {
       ) : visible.length === 0 ? (
         <EmptyState
           icon={PartyPopper}
-          title="No events match"
-          description={events.length === 0 ? "Create an event to promote it to guests and build a guestlist." : "Try adjusting the filters."}
+          title={t("noEventsMatch")}
+          description={events.length === 0 ? t("noEventsDesc") : t("adjustFilters")}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -325,7 +327,7 @@ function EventsContent() {
                     <div className="space-y-2 border-t border-gold/15 pt-2 dark:border-gold/10">
                       <div className="flex gap-2">
                         <Input
-                          placeholder="Add guest name…"
+                          placeholder={t("addGuestName")}
                           value={newGuestName}
                           onChange={(e) => setNewGuestName(e.target.value)}
                           onKeyDown={(e) => e.key === "Enter" && addGuest(ev.id)}
@@ -335,7 +337,7 @@ function EventsContent() {
                         </Button>
                       </div>
                       {guests.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">No guests yet.</p>
+                        <p className="text-xs text-muted-foreground">{t("noGuests")}</p>
                       ) : (
                         <ul className="space-y-1">
                           {guests.map((g) => (
@@ -343,7 +345,7 @@ function EventsContent() {
                               <span>
                                 {g.name} <span className="text-xs text-muted-foreground">· {g.partySize}</span>
                               </span>
-                              <Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-red-600" aria-label="Remove guest" onClick={() => removeGuestMutation.mutate(g.id)}>
+                              <Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-red-600" aria-label={t("removeGuest")} onClick={() => removeGuestMutation.mutate(g.id)}>
                                 <Trash2 className="size-3.5" />
                               </Button>
                             </li>
@@ -357,31 +359,31 @@ function EventsContent() {
                   <>
                     {ev.status !== "draft" && ev.status !== "ended" && (
                       <EventActionGold onClick={() => router.push(`/manager/reservations?newForEvent=${ev.id}`)}>
-                        <CalendarCheck className="size-3.5" /> Book
+                        <CalendarCheck className="size-3.5" /> {t("book")}
                       </EventActionGold>
                     )}
                     <EventActionChrome onClick={() => openEdit(ev)}>
-                      <Pencil className="size-3.5" /> Edit
+                      <Pencil className="size-3.5" /> {t("edit")}
                     </EventActionChrome>
                     <ConfirmDialog
                       trigger={
                         <EventActionChrome destructive>
-                          <Trash2 className="size-3.5" /> Delete
+                          <Trash2 className="size-3.5" /> {t("delete")}
                         </EventActionChrome>
                       }
-                      title={`Delete ${ev.name}?`}
-                      description="This also removes its guestlist."
-                      confirmLabel="Delete event"
+                      title={t("deleteTitle", { name: ev.name })}
+                      description={t("deleteDesc")}
+                      confirmLabel={t("deleteConfirm")}
                       destructive
                       onConfirm={() => deleteMutation.mutate(ev)}
                     />
                     {ev.guestlistEnabled && (
                       <EventActionChrome onClick={() => setOpenId(expanded ? null : ev.id)}>
-                        <Users className="size-3.5" /> Guestlist ({guests.length})
+                        <Users className="size-3.5" /> {t("guestlist")} ({guests.length})
                       </EventActionChrome>
                     )}
                     <label className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-                      Guestlist
+                      {t("guestlist")}
                       <Switch checked={ev.guestlistEnabled} onCheckedChange={() => toggleGuestlistMutation.mutate(ev)} />
                     </label>
                   </>
@@ -395,85 +397,85 @@ function EventsContent() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit event" : "New event"}</DialogTitle>
+            <DialogTitle>{editingId ? t("editEventTitle") : t("newEventTitle")}</DialogTitle>
           </DialogHeader>
           <form onSubmit={onSave} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="ev-name">Name</Label>
+              <Label htmlFor="ev-name">{t("nameLabel")}</Label>
               <Input id="ev-name" {...register("name")} />
               {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ev-desc">Description</Label>
+              <Label htmlFor="ev-desc">{t("descriptionLabel")}</Label>
               <Textarea id="ev-desc" rows={2} {...register("description")} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="ev-start">Starts</Label>
+                <Label htmlFor="ev-start">{t("starts")}</Label>
                 <Input id="ev-start" type="datetime-local" {...register("startsAt")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="ev-end">Ends</Label>
+                <Label htmlFor="ev-end">{t("ends")}</Label>
                 <Input id="ev-end" type="datetime-local" {...register("endsAt")} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="ev-zone">Zone</Label>
+                <Label htmlFor="ev-zone">{t("zoneLabel")}</Label>
                 <select id="ev-zone" className={selectCls} value={watch("zoneId")} onChange={(e) => setValue("zoneId", e.target.value)}>
-                  <option value="">Select zone…</option>
+                  <option value="">{t("selectZone")}</option>
                   {zones.map((z) => (
                     <option key={z.id} value={z.id}>{z.name}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="ev-cap">Capacity</Label>
+                <Label htmlFor="ev-cap">{t("capacityLabel")}</Label>
                 <Input id="ev-cap" type="number" min={1} {...register("capacity", { valueAsNumber: true })} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="ev-status">Status</Label>
+              <Label htmlFor="ev-status">{t("statusLabel")}</Label>
               <select id="ev-status" className={selectCls} value={watch("status")} onChange={(e) => setValue("status", e.target.value as FormValues["status"])}>
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-                <option value="live">Live</option>
-                <option value="ended">Ended</option>
+                <option value="draft">{t("draft")}</option>
+                <option value="published">{t("published")}</option>
+                <option value="live">{t("live")}</option>
+                <option value="ended">{t("ended")}</option>
               </select>
             </div>
             <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-              Enable guestlist
+              {t("enableGuestlist")}
               <Switch checked={watch("guestlistEnabled")} onCheckedChange={(v) => setValue("guestlistEnabled", v)} />
             </label>
             <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-              Sell tickets via external link
+              {t("sellTickets")}
               <Switch
                 checked={ticketEnabled}
                 onCheckedChange={(v) => {
                   setValue("ticketEnabled", v);
                   if (!v) setValue("ticketUrl", "");
                 }}
-                aria-label="Enable ticket link"
+                aria-label={t("enableTicketAria")}
               />
             </label>
             {ticketEnabled && (
               <div className="space-y-1.5">
                 <Label htmlFor="ev-ticket-url" className="flex items-center gap-1.5">
-                  <Ticket className="size-3.5" /> Ticket URL
+                  <Ticket className="size-3.5" /> {t("ticketUrlLabel")}
                 </Label>
                 <Input
                   id="ev-ticket-url"
                   type="url"
-                  placeholder="https://www.eventbrite.com/e/…"
+                  placeholder={t("ticketUrlPlaceholder")}
                   {...register("ticketUrl")}
                 />
               </div>
             )}
           <DialogFooter>
-            <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>{t("cancel")}</Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-              {isSubmitting ? "Saving…" : editingId ? "Save" : "Create event"}
+              {isSubmitting ? t("saving") : editingId ? t("save") : t("createEvent")}
             </Button>
           </DialogFooter>
           </form>

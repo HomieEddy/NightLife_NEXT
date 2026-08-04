@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarCheck, CalendarDays, Check, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -43,6 +44,7 @@ function nightLabel(iso: string): string {
 }
 
 function StaffReservationsContent() {
+  const t = useTranslations("staff.reservations");
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
@@ -128,8 +130,8 @@ function StaffReservationsContent() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!draft.guestName.trim()) throw new Error("Guest name is required");
-      if (!draft.zoneId) throw new Error("Pick a zone");
+      if (!draft.guestName.trim()) throw new Error(t("guestNameRequired"));
+      if (!draft.zoneId) throw new Error(t("zoneRequired"));
       const payload = {
         guestName: draft.guestName,
         partySize: draft.partySize,
@@ -154,31 +156,31 @@ function StaffReservationsContent() {
       }
     },
     onSuccess: (result) => {
-      toast.success(result === "updated" ? "Reservation updated" : "Reservation created");
+      toast.success(result === "updated" ? t("updatedToast") : t("createdToast"));
       setDialogOpen(false);
       invalidate();
     },
     onError: (e) => {
-      toast.error(e instanceof Error ? e.message : "Save failed");
+      toast.error(e instanceof Error ? e.message : t("saveFailed"));
     },
   });
 
   const confirmMutation = useMutation({
     mutationFn: (res: Reservation) => reservationService.setStatus(res.id, "confirmed"),
     onSuccess: (_, res) => {
-      toast.success(`${res.guestName}'s reservation confirmed`);
+      toast.success(t("confirmedToast", { name: res.guestName }));
       invalidate();
     },
-    onError: () => toast.error("Failed to confirm"),
+    onError: () => toast.error(t("confirmFailed")),
   });
 
   const cancelMutation = useMutation({
     mutationFn: (res: Reservation) => reservationService.cancelReservation(res.id),
     onSuccess: (_, res) => {
-      toast.success(`Cancelled reservation for ${res.guestName}`);
+      toast.success(t("cancelledToast", { name: res.guestName }));
       invalidate();
     },
-    onError: () => toast.error("Failed to cancel"),
+    onError: () => toast.error(t("cancelFailed")),
   });
 
   const isPromoter = me?.role === "promoter";
@@ -231,14 +233,12 @@ function StaffReservationsContent() {
     <div className="animate-fade-in space-y-5 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-display text-xl">My Reservations</h1>
-          <p className="text-sm text-muted-foreground">
-            Tonight&apos;s bookings — who&apos;s coming, which table, what time, any special requests.
-          </p>
+          <h1 className="text-display text-xl">{t("title")}</h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         {isPromoter && can("reservation:create-own") && (
           <Button size="sm" onClick={openCreate}>
-            <Plus className="mr-1.5 size-4" /> New
+            <Plus className="mr-1.5 size-4" /> {t("newButton")}
           </Button>
         )}
       </div>
@@ -246,8 +246,8 @@ function StaffReservationsContent() {
       {grouped.length === 0 && (
         <EmptyState
           icon={CalendarCheck}
-          title="No reservations yet"
-          description="Bookings you create or are assigned to show up here, grouped by night."
+          title={t("emptyTitle")}
+          description={t("emptyDesc")}
         />
       )}
 
@@ -270,7 +270,7 @@ function StaffReservationsContent() {
                       <StatusBadge status={res.status} />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Party of {res.partySize} · {formatTime(res.startsAt)}
+                      {t("partyOf", { count: res.partySize })} · {formatTime(res.startsAt)}
                       {res.note && <> · {res.note}</>}
                     </p>
                     {res.eventId && (() => {
@@ -285,10 +285,10 @@ function StaffReservationsContent() {
                   <div className="flex shrink-0 items-center gap-1">
                     {confirmable && (
                       <ConfirmDialog
-                        title={`Confirm ${res.guestName}'s reservation?`}
-                        description="The reservation will be marked as confirmed."
+                        title={t("confirmTitle", { name: res.guestName })}
+                        description={t("confirmDesc")}
                         trigger={
-                          <Button variant="ghost" size="icon" className="size-8 text-primary" aria-label="Confirm reservation">
+                          <Button variant="ghost" size="icon" className="size-8 text-primary" aria-label={t("confirmAria")}>
                             <Check className="size-3.5" />
                           </Button>
                         }
@@ -296,16 +296,16 @@ function StaffReservationsContent() {
                       />
                     )}
                     {editable && (
-                      <TooltipIconButton variant="ghost" className="size-8" onClick={() => openEdit(res)} tooltip="Edit reservation">
+                      <TooltipIconButton variant="ghost" className="size-8" onClick={() => openEdit(res)} tooltip={t("editTooltip")}>
                         <Pencil className="size-3.5" />
                       </TooltipIconButton>
                     )}
                     {cancellable && (
                       <ConfirmDialog
-                        title={`Cancel ${res.guestName}'s reservation?`}
-                        description="This cannot be undone."
+                        title={t("cancelTitle", { name: res.guestName })}
+                        description={t("cancelDesc")}
                         trigger={
-                          <Button variant="ghost" size="icon" className="size-8 text-destructive" aria-label="Cancel reservation">
+                          <Button variant="ghost" size="icon" className="size-8 text-destructive" aria-label={t("cancelAria")}>
                             <Trash2 className="size-3.5" />
                           </Button>
                         }

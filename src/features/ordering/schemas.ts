@@ -48,4 +48,6 @@ export const zListOrders = z.object({
   zoneIds: z.array(z.string()).optional(),
   sessionId: z.string().optional(),
   guestName: z.string().optional(),
+  /** Newest-first, capped — a venue's order history grows forever. */
+  limit: z.number().int().min(1).max(200).optional(),
 });

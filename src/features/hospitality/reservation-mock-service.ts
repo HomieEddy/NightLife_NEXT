@@ -171,6 +171,7 @@ export const mockReservationService = {
       depositTermsNote: input.depositTermsNote?.trim() || undefined,
       cancellationPolicyNote: input.cancellationPolicyNote?.trim() || undefined,
       seatingNumber: input.seatingNumber,
+      bookingLocale: venue.guestLocale === "fr" ? "fr" : "en",
       createdAt: new Date().toISOString(),
     };
     // RV-07: compute holdUntil from venue's grace period
@@ -330,6 +331,8 @@ export const mockReservationService = {
     guestPhone?: string;
     note?: string;
     eventId?: string;
+    /** Law 25 affirmative consent — required by the public booking form. */
+    consent: true;
   }): Promise<Reservation> {
     const v = await mockVenueService.getVenue();
     if (v.publicSlug !== input.venueSlug) {

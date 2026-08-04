@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Pencil, Plus, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
@@ -25,24 +26,26 @@ import { z } from "zod";
 
 type CertificationTypeEntry = [CertificationType, string];
 
-const zCertCreate = z.object({
-  staffId: z.string().min(1, "Staff member is required"),
-  certType: z.enum(["smart-serve", "first-aid", "security-licence", "food-handler", "other"] as const).default("smart-serve"),
-  issuedAt: z.string().min(1, "Issue date is required"),
-  expiresAt: z.string().min(1, "Expiry date is required"),
-  issuingBody: z.string().default(""),
-  refNumber: z.string().default(""),
-});
-
-type CreateValues = z.infer<typeof zCertCreate>;
-const EMPTY_CREATE: CreateValues = { staffId: "", certType: "smart-serve", issuedAt: new Date().toISOString().slice(0, 10), expiresAt: "", issuingBody: "", refNumber: "" };
-
 export function CertificationsTab() {
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<Certification | null>(null);
+
+  const t = useTranslations("shared");
+
+  const zCertCreate = useMemo(() => z.object({
+    staffId: z.string().min(1, t("certifications.validation.staffRequired")),
+    certType: z.enum(["smart-serve", "first-aid", "security-licence", "food-handler", "other"] as const).default("smart-serve"),
+    issuedAt: z.string().min(1, t("certifications.validation.issueDateRequired")),
+    expiresAt: z.string().min(1, t("certifications.validation.expiryDateRequired")),
+    issuingBody: z.string().default(""),
+    refNumber: z.string().default(""),
+  }), [t]);
+
+  type CreateValues = z.infer<typeof zCertCreate>;
+  const EMPTY_CREATE = useMemo<CreateValues>(() => ({ staffId: "", certType: "smart-serve", issuedAt: new Date().toISOString().slice(0, 10), expiresAt: "", issuingBody: "", refNumber: "" }), []);
 
   // Filters
   const [typeFilter, setTypeFilter] = useState("all");
@@ -89,13 +92,13 @@ export function CertificationsTab() {
       });
     },
     onSuccess: () => {
-      toast.success("Certification added");
+      toast.success(t("certifications.addSuccess"));
       setShowCreate(false);
       resetCreate(EMPTY_CREATE);
       invalidate();
     },
     onError: () => {
-      toast.error("Could not add certification");
+      toast.error(t("certifications.addError"));
     },
   });
 
@@ -109,7 +112,7 @@ export function CertificationsTab() {
       });
     },
     onSuccess: () => {
-      toast.success("Certification updated");
+      toast.success(t("certifications.updateSuccess"));
       setEditing(null);
       setEditExpiresAt("");
       setEditIssuingBody("");
@@ -117,7 +120,7 @@ export function CertificationsTab() {
       invalidate();
     },
     onError: () => {
-      toast.error("Could not update certification");
+      toast.error(t("certifications.updateError"));
     },
   });
 
@@ -127,7 +130,7 @@ export function CertificationsTab() {
       return certificationService.revokeCertification(certId, me.id, me.name);
     },
     onSuccess: () => {
-      toast.success("Certification revoked");
+      toast.success(t("certifications.revokeSuccess"));
       invalidate();
     },
   });
@@ -138,12 +141,19 @@ export function CertificationsTab() {
       return certificationService.verifyCertification(certId, me.id, me.name);
     },
     onSuccess: () => {
-      toast.success("Certification verified");
+      toast.success(t("certifications.verifySuccess"));
       invalidate();
     },
   });
 
   const staffName = (id: string) => staffList.find((s) => s.id === id)?.name ?? id;
+  const tCertType = (type: CertificationType) => t(`certifications.types.${type}` as any);
+  const tStatus = (status: string) => {
+    if (status === "active") return t("certifications.statusActive");
+    if (status === "expired") return t("certifications.statusExpired");
+    if (status === "revoked") return t("certifications.statusRevoked");
+    return status;
+  };
 
   const visible = useMemo(() => {
     let result = certs ?? [];
@@ -188,10 +198,10 @@ export function CertificationsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {visible.length} of {certs?.length ?? 0} certification{visible.length !== 1 ? "s" : ""}
+          {t("certifications.countOf", { visible: visible.length, total: certs?.length ?? 0 })}
         </p>
         <Button size="sm" variant="outline" onClick={() => setShowCreate(true)} disabled={showCreate || !!editing}>
-          <Plus className="size-3.5" /> Add
+          <Plus className="size-3.5" /> {t("certifications.addButton")}
         </Button>
       </div>
 
@@ -199,27 +209,27 @@ export function CertificationsTab() {
       <Card>
         <CardContent className="grid gap-3 pt-4 sm:grid-cols-3">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full"><SelectValue placeholder="Type" /></SelectTrigger>
+            <SelectTrigger className="w-full"><SelectValue placeholder={t("certifications.filterType")} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              {(Object.entries(CERTIFICATION_TYPE_LABELS) as CertificationTypeEntry[]).map(([value, label]) => (
-                <SelectItem key={value} value={value}>{label}</SelectItem>
+              <SelectItem value="all">{t("certifications.filterAllTypes")}</SelectItem>
+              {(Object.entries(CERTIFICATION_TYPE_LABELS) as CertificationTypeEntry[]).map(([value]) => (
+                <SelectItem key={value} value={value}>{tCertType(value as CertificationType)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-full"><SelectValue placeholder={t("certifications.filterStatus")} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="expired">Expired</SelectItem>
-              <SelectItem value="revoked">Revoked</SelectItem>
+              <SelectItem value="all">{t("certifications.filterAllStatuses")}</SelectItem>
+              <SelectItem value="active">{t("certifications.statusActive")}</SelectItem>
+              <SelectItem value="expired">{t("certifications.statusExpired")}</SelectItem>
+              <SelectItem value="revoked">{t("certifications.statusRevoked")}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={staffFilter} onValueChange={setStaffFilter}>
-            <SelectTrigger className="w-full"><SelectValue placeholder="Staff" /></SelectTrigger>
+            <SelectTrigger className="w-full"><SelectValue placeholder={t("certifications.filterStaff")} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All staff</SelectItem>
+              <SelectItem value="all">{t("certifications.filterAllStaff")}</SelectItem>
               {staffList.map((s) => (
                 <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
               ))}
@@ -235,9 +245,9 @@ export function CertificationsTab() {
             <form onSubmit={onCreateCert}>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Staff member</Label>
+                <Label>{t("certifications.staffMember")}</Label>
                 <Select value={watchCreate("staffId")} onValueChange={(v) => svCreate("staffId", v)}>
-                  <SelectTrigger className="h-9 w-full"><SelectValue placeholder="Select…" /></SelectTrigger>
+                  <SelectTrigger className="h-9 w-full"><SelectValue placeholder={t("certifications.selectPlaceholder")} /></SelectTrigger>
                   <SelectContent>
                     {staffList.map((s) => (
                       <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
@@ -247,12 +257,12 @@ export function CertificationsTab() {
                 {errsCreate.staffId && <p className="text-xs text-red-600">{errsCreate.staffId.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>Type</Label>
+                <Label>{t("certifications.typeLabel")}</Label>
                 <Select value={watchCreate("certType")} onValueChange={(v) => svCreate("certType", v as CreateValues["certType"])}>
                   <SelectTrigger className="h-9 w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(Object.entries(CERTIFICATION_TYPE_LABELS) as CertificationTypeEntry[]).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    {(Object.entries(CERTIFICATION_TYPE_LABELS) as CertificationTypeEntry[]).map(([value]) => (
+                      <SelectItem key={value} value={value}>{tCertType(value as CertificationType)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -260,29 +270,29 @@ export function CertificationsTab() {
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="cert-issued">Issued</Label>
+                <Label htmlFor="cert-issued">{t("certifications.issued")}</Label>
                 <Input id="cert-issued" type="date" {...regCreate("issuedAt")} className="h-9" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cert-expires">Expires</Label>
+                <Label htmlFor="cert-expires">{t("certifications.expires")}</Label>
                 <Input id="cert-expires" type="date" {...regCreate("expiresAt")} className="h-9" />
                 {errsCreate.expiresAt && <p className="text-xs text-red-600">{errsCreate.expiresAt.message}</p>}
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="cert-body">Issuing body</Label>
-                <Input id="cert-body" {...regCreate("issuingBody")} className="h-9" placeholder="e.g. Croix-Rouge" />
+                <Label htmlFor="cert-body">{t("certifications.issuingBody")}</Label>
+                <Input id="cert-body" {...regCreate("issuingBody")} className="h-9" placeholder={t("certifications.issuingBodyPlaceholder")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="cert-ref">Reference #</Label>
-                <Input id="cert-ref" {...regCreate("refNumber")} className="h-9" placeholder="Optional" />
+                <Label htmlFor="cert-ref">{t("certifications.referenceNumber")}</Label>
+                <Input id="cert-ref" {...regCreate("refNumber")} className="h-9" placeholder={t("certifications.referencePlaceholder")} />
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" type="button" className="h-9 flex-1" onClick={cancelCreate}>Cancel</Button>
+              <Button variant="ghost" type="button" className="h-9 flex-1" onClick={cancelCreate}>{t("certifications.cancel")}</Button>
               <Button type="submit" className="h-9 flex-1" disabled={subCreate || createMutation.isPending}>
-                Save certification
+                {t("certifications.saveCertification")}
               </Button>
             </div>
             </form>
@@ -295,28 +305,28 @@ export function CertificationsTab() {
         <Card className="border-primary/40">
           <CardContent className="space-y-3 px-4 pt-4">
             <p className="text-sm font-medium">
-              Edit {CERTIFICATION_TYPE_LABELS[editing.type]} — {staffName(editing.staffId)}
+              {t("certifications.editTitle", { type: tCertType(editing.type), staff: staffName(editing.staffId) })}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="edit-expires">Expires</Label>
+                <Label htmlFor="edit-expires">{t("certifications.expires")}</Label>
                 <Input id="edit-expires" type="date" value={editExpiresAt} onChange={(e) => setEditExpiresAt(e.target.value)} className="h-9" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="edit-body">Issuing body</Label>
+                <Label htmlFor="edit-body">{t("certifications.issuingBody")}</Label>
                 <Input id="edit-body" value={editIssuingBody} onChange={(e) => setEditIssuingBody(e.target.value)} className="h-9" />
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="edit-ref">Reference #</Label>
+                <Label htmlFor="edit-ref">{t("certifications.referenceNumber")}</Label>
                 <Input id="edit-ref" value={editRefNumber} onChange={(e) => setEditRefNumber(e.target.value)} className="h-9" />
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" type="button" className="h-9 flex-1" onClick={cancelEdit}>Cancel</Button>
+              <Button variant="ghost" type="button" className="h-9 flex-1" onClick={cancelEdit}>{t("certifications.cancel")}</Button>
               <Button className="h-9 flex-1" disabled={!editExpiresAt || updateMutation.isPending} onClick={saveEdit}>
-                Save changes
+                {t("certifications.saveChanges")}
               </Button>
             </div>
           </CardContent>
@@ -326,7 +336,7 @@ export function CertificationsTab() {
       {certs === undefined ? (
         <ListSkeleton rows={3} rowHeight="h-14" />
       ) : visible.length === 0 ? (
-        <EmptyState icon={ShieldOff} title="No certifications match" description="Add a certification for a staff member to start tracking." />
+        <EmptyState icon={ShieldOff} title={t("certifications.emptyTitle")} description={t("certifications.emptyDesc")} />
       ) : (
         <>
         <div className="space-y-2">
@@ -335,7 +345,7 @@ export function CertificationsTab() {
               <CardContent className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">
-                    {CERTIFICATION_TYPE_LABELS[cert.type] ?? cert.type}
+                    {tCertType(cert.type)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {staffName(cert.staffId)}
@@ -343,31 +353,31 @@ export function CertificationsTab() {
                     {cert.referenceNumber && ` · #${cert.referenceNumber}`}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Expires {new Date(cert.expiresAt).toLocaleDateString()}
+                    {t("certifications.expiresLabel")} {new Date(cert.expiresAt).toLocaleDateString()}
                     {" · "}
                     <span className={cert.status === "expired" ? "text-red-600" : cert.status === "revoked" ? "text-muted-foreground line-through" : "text-emerald-600"}>
-                      {cert.status}
+                      {tStatus(cert.status)}
                     </span>
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
                   {cert.status === "active" && (
                     <>
-                      <Button size="sm" variant="ghost" className="h-8" aria-label="Edit" onClick={() => startEdit(cert)}>
+                      <Button size="sm" variant="ghost" className="h-8" aria-label={t("certifications.editAria")} onClick={() => startEdit(cert)}>
                         <Pencil className="size-3.5" />
                       </Button>
                       <ConfirmDialog
-                        trigger={<Button size="sm" variant="outline" className="h-8 text-xs">Verify</Button>}
-                        title="Verify this certification?"
-                        description="Records that you've checked this document and updates the verified-at timestamp."
-                        confirmLabel="Verify"
+                        trigger={<Button size="sm" variant="outline" className="h-8 text-xs">{t("certifications.verifyButton")}</Button>}
+                        title={t("certifications.verifyTitle")}
+                        description={t("certifications.verifyDesc")}
+                        confirmLabel={t("certifications.verifyConfirm")}
                         onConfirm={() => verifyMutation.mutate(cert.id)}
                       />
                       <ConfirmDialog
-                        trigger={<Button size="sm" variant="outline" className="h-8 text-xs text-red-600" aria-label="Revoke">Revoke</Button>}
-                        title="Revoke this certification?"
-                        description={`This permanently revokes ${staffName(cert.staffId)}'s ${CERTIFICATION_TYPE_LABELS[cert.type]}.`}
-                        confirmLabel="Revoke"
+                        trigger={<Button size="sm" variant="outline" className="h-8 text-xs text-red-600" aria-label={t("certifications.revokeAria")}>{t("certifications.revokeButton")}</Button>}
+                        title={t("certifications.revokeTitle")}
+                        description={t("certifications.revokeDesc", { staff: staffName(cert.staffId), type: tCertType(cert.type) })}
+                        confirmLabel={t("certifications.revokeConfirm")}
                         destructive
                         onConfirm={() => revokeMutation.mutate(cert.id)}
                       />

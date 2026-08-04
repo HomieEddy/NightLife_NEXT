@@ -26,7 +26,8 @@ interface PushSendInput {
 
 export async function sendPush(input: PushSendInput): Promise<{ ok: boolean; error?: string }> {
   if (PUSH_DRIVER === "log") {
-    logger.info(`[push:log] To: ${input.subscription.endpoint} | Title: ${input.payload.title}`);
+    // endpoint identifies the device — structured field, redacted.
+    logger.info("[push:log]", { endpoint: input.subscription.endpoint, title: input.payload.title });
     return { ok: true };
   }
 
@@ -34,12 +35,20 @@ export async function sendPush(input: PushSendInput): Promise<{ ok: boolean; err
     const vapid = getVapidKeys();
     webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
 
+    // Web Push payloads cap at 4096 bytes — truncate so a long body can't
+    // 413 (counted as a failure with no retry).
+    const payloadText = JSON.stringify(input.payload);
+    const payload =
+      new TextEncoder().encode(payloadText).length <= 4096
+        ? payloadText
+        : JSON.stringify({ ...input.payload, body: (input.payload.body ?? "").slice(0, 400) });
+
     const result = await webpush.sendNotification(
       {
         endpoint: input.subscription.endpoint,
         keys: input.subscription.keys as webpush.PushSubscription["keys"],
       },
-      JSON.stringify(input.payload),
+      payload,
     );
     return { ok: result.statusCode >= 200 && result.statusCode < 300 };
   } catch (err) {

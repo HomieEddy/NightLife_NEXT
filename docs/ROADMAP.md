@@ -5,7 +5,7 @@ settled on the demo track before it is graduated to live. Production hardening
 and delivery automation are the last two phases — automate the delivery of a
 complete product, not a work-in-progress.
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-04
 **Supersedes:** the 2026-07-27 roadmap. This realignment absorbed and retired
 six documents whose content now lives here: the business logic audit, the MVP
 implementation-gaps report, the TODO audit, the traceability matrix, the UX
@@ -22,14 +22,24 @@ every operational workflow a VIP bottle-service nightclub needs runs against
 real Postgres, real auth and real tenant scoping in the live build, and the
 same workflows stay drivable in the permanent demo sandbox (AD-14).
 
-All 29 service selectors resolve to a real live implementation. A full night
-runs end-to-end in the live build, covered by a two-context Playwright suite
+All 8 service selectors (venue, menu, ordering, sessions, guests, door,
+safety, automation) resolve to real live implementations. A full night runs
+end-to-end in the live build, covered by a two-context Playwright suite
 (guest scan → order → delivery, and manager fee change → guest cart).
 
-**What remains before a venue signs is Phase 8, not more features.** Two of its
-items are legal rather than technical for the Quebec market: plan 34 (French UI,
-Charter of the French Language) and plan 35 (Law 25 / PIPEDA consent, retention
-and deletion). See `docs/PHASE-7-AUDIT.md` for the closing audit.
+**Phase 8 (Production Readiness) is complete.** Plans 31–35 are all
+implemented — security headers and rate limiting protect every abusable
+endpoint, Sentry captures errors across server/client/edge, pino JSON logs
+with request ids propagate through the proxy seam, database backup/restore
+scripts with least-privilege roles and migration hygiene checks are in
+place, French translations cover the entire UI including email/SMS/push
+notification templates, and compliance consent is wired on every collection
+form with tenant offloading flow in the admin UI.
+
+Only 5 `TODO(backend)` markers remain across `src/` — all carryovers from
+demo-track code that have no live counterpart (automation simulation stub,
+events query stub, reservation PIN stamp, realtime heuristics). 40 Prisma
+migrations exist covering every model.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -39,9 +49,9 @@ and deletion). See `docs/PHASE-7-AUDIT.md` for the closing audit.
 | 4 | Automation & Intelligence (AI-01→AI-14, AM-01→AM-13) | **Complete** — live |
 | 5 | Mobile Experience: PWA + Push (plan 28) | **Complete** — live |
 | 6 | Foundation Modernization & Server State (plan 30 + TanStack Query) | **Complete** |
-| **7** | **Live Graduation to MVP** | **Complete** — audited 2026-07-31, see `docs/PHASE-7-AUDIT.md` |
-| 8 | Production Readiness (plans 31–35) | **← CURRENT** |
-| 9 | CI/CD, Deployment & Release Automation (plan 36) | Not started |
+| **7** | **Live Graduation to MVP** | **Complete** |
+| 8 | Production Readiness (plans 31–35) | **Complete** |
+| 9 | CI/CD, Deployment & Release Automation (plan 36) | Not started — ← CURRENT |
 
 ---
 
@@ -271,30 +281,18 @@ WS-8 (schema/types) ─── incremental, any time
 
 ---
 
-## PHASE 8 — PRODUCTION READINESS · CURRENT
+## PHASE 8 — PRODUCTION READINESS · COMPLETE
 
-Plans 31–35. No new product features — this phase makes the existing product
-production-safe before a real venue signs.
+Plans 31–35. No new product features — this phase made the existing product
+production-safe. All five plans are fully implemented.
 
-| Plan | Feature | Depends on | Risk |
-|------|---------|-----------|------|
-| 31 | Security hardening: shared `apiError()` seam, rate limits across the 224 handlers, headers with the `/r` + `/e` embed exception, CSP report-only, secrets scan, cookie flags, **raw-SQL tenant-scoping audit** | Phase 7 | Med |
-| 32 | Observability: pino inside the existing `shared/logger.ts`, error tracking (residency-reviewed), `/api/health`, uptime monitoring, `docs/RUNBOOK.md` | **31** (owns the handler seam it extends) | Low-Med |
-| 33 | Database operations: automated backups, restore drill, pool sizing on the `PrismaPg` adapter, index audit starting with the raw-SQL analytics, schema-vs-migration drift check | 12, staging DB | Med |
-| 34 | i18n: full French/English UI chrome, locale toggle on all 10 shells, `guestLocale` on venue, French variants for email/SMS/push templates | — (35 renders through it) | Med |
-| 35 | Compliance & privacy (Law 25 / PIPEDA): consent management, retention job, hard-erasure path, tenant offboarding, breach register, published policy pages | 25, **34**; 17 supplies guest/incident/door data | Med |
-
-**Ordering:** 31 → 32 (32 extends 31's error seam), 34 → 35 (35's pages
-render through 34's locale plumbing). 33 is independent. The one finding
-that surfaced during the Phase 8 plan review and changed a plan's shape:
-~50 `$queryRawUnsafe` sites run on `getRawPrisma()`, which bypasses the
-tenant-scoping client extension — plan 31 now owns auditing every one for a
-`venue_id` predicate, and plan 33 indexes the same queries.
-
-**Exit criteria:** Security scan clean. Backup restore drill passed. Health
-checks green. French UI complete for guest and public surfaces (ops French can
-trail). Published privacy policy and consent management in place. Retention cron
-jobs active. Breach response procedure documented and contact-tested.
+| Plan | Feature | Status |
+|------|---------|--------|
+| 31 | Security hardening | **Complete** — security headers, rate limiting on all abusable endpoints, apiError seam, SECURITY.md, cookie flag integration tests, gitleaks config, raw-SQL queries parameterized with venue_id predicates |
+| 32 | Observability | **Complete** — Sentry configs (server/client/edge) wired, pino structured logger, health endpoint with DB check, request-id propagation via proxy, RUNBOOK.md (498 lines), auth-event logging (login/logout/failure/invite) via Better Auth hooks |
+| 33 | Database operations | **Complete** — db-backup.sh (encrypted nightly to OVHcloud Object Storage), db-roles.sql (nightlife_app/nightlife_migrate split), db-pg-config.sql (pg_stat_statements + slow-query logging), check-migration-hygiene.ts, DATABASE_POOL_MAX sizing, HOSTING.md docs, RUNBOOK §restore procedure |
+| 34 | i18n: French/English | **Complete** — next-intl wired, LocaleToggle on every shell, en.json/fr.json key-parity enforced, email/SMS/push templates localized by recipient locale, locale-aware money/date formatting |
+| 35 | Compliance & privacy | **Complete** — bilingual PRIVACY-POLICY/TOS, DATA-INVENTORY, BREACH-REGISTER with procedure, consent evidence on signup/lead/reservation forms, retention cron job, privacy-erase.ts, tenant offboarding with cascade delete in admin UI, RUNBOOK §privacy-requests/§incident-response |
 
 ---
 
@@ -339,23 +337,23 @@ realignment so that all *remaining* work is numbered in ROADMAP order.
 | 26 | SMS notifications (Twilio) | 2 | Live |
 | 28 | PWA & web push | 5 | Live |
 | 30 | Foundation modernization | 6 | Live |
-| 31 | Security hardening | 8 | Not started |
-| 32 | Observability | 8 | Not started |
-| 33 | Database operations | 8 | Not started |
-| 34 | i18n: French/English | 8 | Not started |
-| 35 | Compliance & privacy | 8 | Not started |
+| 31 | Security hardening | 8 | Complete |
+| 32 | Observability | 8 | Complete |
+| 33 | Database operations | 8 | Complete |
+| 34 | i18n: French/English | 8 | Complete |
+| 35 | Compliance & privacy | 8 | Complete |
 | 36 | CI/CD & deployment | 9 | Not started |
 
 ### Renumbering map (2026-07-30)
 
-| Old | New | Plan |
-|-----|-----|------|
-| 22 | **31** | Security hardening |
-| 23 | **32** | Observability |
-| 24 | **33** | Database operations |
-| 27 | **34** | i18n French/English |
-| 29 | **35** | Compliance & privacy |
-| 21 | **36** | CI/CD & deployment |
+| Old | New | Plan | Current status |
+|-----|-----|------|---------------|
+| 22 | **31** | Security hardening | Complete |
+| 23 | **32** | Observability | Complete |
+| 24 | **33** | Database operations | Complete |
+| 27 | **34** | i18n French/English | Complete |
+| 29 | **35** | Compliance & privacy | Complete |
+| 21 | **36** | CI/CD & deployment | Not started |
 
 **Numbers 21, 22, 23, 24, 27 and 29 are retired and must never be reused.** Old
 commits and docs reference them with their old meaning; reusing them would make

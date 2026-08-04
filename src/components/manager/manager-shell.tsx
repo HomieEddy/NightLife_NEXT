@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Bell,
   ChevronDown,
@@ -20,6 +21,7 @@ import { TooltipIconButton } from "@/components/shared/tooltip-icon-button";
 import { isManagerOnboarded } from "@/lib/onboarding";
 import { RoleBadge } from "@/components/shared/role-badge";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
 import { AuthBanner } from "@/components/shared/auth-banner";
 import { CommandPalette } from "@/components/shared/command-palette";
 import { ShortcutHelp } from "@/components/shared/shortcut-help";
@@ -46,6 +48,8 @@ import {
 } from "@/features/shared/navigation";
 
 export function ManagerShell({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("manager.shell");
+  const nt = useTranslations("shared");
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useAuth();
@@ -100,7 +104,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
     switch (action.key) {
       case "last-call":
         toggleLastCall(managerName);
-        toast.success("Last call started");
+        toast.success(t("lastCallStarted"));
         break;
       case "broadcast":
         setAttentionSheetOpen(true);
@@ -197,6 +201,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
               <BrandLogo href="/manager/onboarding" />
               <ThemeToggle />
+              <LocaleToggle />
             </div>
           </header>
           <main className="mx-auto w-full max-w-5xl p-4 sm:p-6">{children}</main>
@@ -206,7 +211,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
   }
 
   function navItemLink(
-    item: { href: string; label: string; icon: React.ComponentType<{ className?: string }> },
+    item: { href: string; label: string; labelKey?: string; icon: React.ComponentType<{ className?: string }> },
     badge?: number,
     extraClasses?: string,
     onClick?: () => void,
@@ -227,7 +232,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <item.icon className="size-4" />
-        <span className="flex-1">{item.label}</span>
+        <span className="flex-1">{nt(item.labelKey as any ?? item.label)}</span>
         {badge !== undefined && badge > 0 && (
           <span className="flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
             {badge > 9 ? "9+" : badge}
@@ -250,7 +255,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                 onClick={() => toggleCollapsed(group.label)}
               >
                 <ChevronDown className={cn("size-3 transition-transform", collapsed_ && "-rotate-90")} />
-                {group.label}
+                {nt(group.labelKey as any ?? group.label)}
               </button>
               {!collapsed_ && (
                 <div className="space-y-0.5">
@@ -281,7 +286,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <item.icon className="size-3.5" />
-            {item.label}
+            {nt(item.labelKey as any ?? item.label)}
           </Link>
         ))}
         <div className="mt-2 text-[11px] text-muted-foreground">
@@ -294,9 +299,9 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
 
   // Mobile bottom nav primaries
   const mobilePrimaries = [
-    { href: "/manager", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/manager/orders", label: "Orders", icon: Receipt, badge: badgeCounts.orders },
-    { href: "/manager/floor-map", label: "Floor map", icon: Map },
+    { href: "/manager", label: "Dashboard", labelKey: "nav.items.dashboard", icon: LayoutDashboard },
+    { href: "/manager/orders", label: "Orders", labelKey: "nav.items.orders", icon: Receipt, badge: badgeCounts.orders },
+    { href: "/manager/floor-map", label: "Floor map", labelKey: "nav.items.floorMap", icon: Map },
   ];
 
   return (
@@ -311,13 +316,13 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             variant="ghost"
             size="icon-sm"
             onClick={() => setPaletteOpen(true)}
-            tooltip="Search"
+            tooltip={t("search")}
           >
             <Search className="size-4" />
           </TooltipIconButton>
           <Sheet open={attentionSheetOpen} onOpenChange={setAttentionSheetOpen}>
             <SheetTrigger asChild>
-              <button className="relative rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label="Attention feed">
+              <button className="relative rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors" aria-label={t("attentionFeed")}>
                 <Bell className="size-4" />
                 {attentionCount > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[8px] font-bold text-destructive-foreground">
@@ -328,7 +333,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             </SheetTrigger>
             <SheetContent side="right" className="w-80 overflow-y-auto">
               <div className="p-4">
-                <h2 className="text-sm font-semibold mb-3">Attention feed</h2>
+                <h2 className="text-sm font-semibold mb-3">{t("attentionFeed")}</h2>
                 <PulseTab
                   items={attentionItems}
                   lastCallActive={lastCallActive}
@@ -339,6 +344,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             </SheetContent>
           </Sheet>
           <ThemeToggle />
+          <LocaleToggle />
         </div>
         <nav className="flex-1 overflow-y-auto p-3">
           {groupedNav()}
@@ -356,13 +362,13 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => setPaletteOpen(true)}
-                tooltip="Search"
+                tooltip={t("search")}
               >
                 <Search className="size-4" />
               </TooltipIconButton>
               <Sheet open={attentionSheetOpen} onOpenChange={setAttentionSheetOpen}>
                 <SheetTrigger asChild>
-                  <button className="relative rounded-md p-2 text-muted-foreground hover:bg-accent" aria-label="Attention">
+                  <button className="relative rounded-md p-2 text-muted-foreground hover:bg-accent" aria-label={t("attention")}>
                     <Bell className="size-4" />
                     {attentionCount > 0 && (
                       <span className="absolute -right-0.5 -top-0.5 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[8px] font-bold text-destructive-foreground">
@@ -373,7 +379,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                 </SheetTrigger>
                 <SheetContent side="right" className="w-full max-w-sm overflow-y-auto">
                   <div className="p-4">
-                    <h2 className="text-sm font-semibold mb-3">Attention feed</h2>
+                    <h2 className="text-sm font-semibold mb-3">{t("attentionFeed")}</h2>
                     <PulseTab
                       items={attentionItems}
                       lastCallActive={lastCallActive}
@@ -385,6 +391,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
               </Sheet>
               <RoleBadge role="manager" clickable />
               <ThemeToggle />
+              <LocaleToggle />
             </div>
           </div>
         </header>
@@ -412,18 +419,18 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                       {item.badge > 9 ? "9+" : item.badge}
                     </span>
                   )}
-                  <span className="truncate max-w-[64px]">{item.label}</span>
+                  <span className="truncate max-w-[64px]">{nt(item.labelKey as any ?? item.label)}</span>
                 </Link>
               );
             })}
             <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
               <SheetTrigger asChild>
                 <button
-                  aria-label="More navigation"
+                  aria-label={t("more")}
                   className={cn("flex min-h-14 flex-col items-center justify-center gap-0.5 min-w-0 py-1 px-2 text-xs text-muted-foreground transition-colors")}
                 >
                   <Menu className="size-5" />
-                  <span className="truncate max-w-[64px]">More</span>
+                  <span className="truncate max-w-[64px]">{t("more")}</span>
                 </button>
               </SheetTrigger>
               <SheetContent side="bottom" className="h-[75dvh] overflow-y-auto rounded-t-xl">

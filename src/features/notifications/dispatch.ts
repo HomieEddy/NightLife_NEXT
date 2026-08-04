@@ -17,12 +17,21 @@ import { type DispatchPayload, type PushDispatchPayload } from "./types";
 import { sendEmail } from "./email";
 import { sendSms } from "./sms";
 import { sendPush, expireSubscription } from "./push";
-import { reservationPinSms, reservationConfirmationSms, reservationReminderSms } from "./sms-templates";
+import { reservationPinSms, reservationConfirmationSms, reservationReminderSms, reservationPinSmsFr, reservationConfirmationSmsFr, reservationReminderSmsFr } from "./sms-templates";
 
 type RenderFn = (props: Record<string, unknown>) => ReturnType<typeof import("@react-email/components").render>;
 
 const templates: Record<string, { subject: string; render: RenderFn }> = {};
 const smsTemplateFns: Record<string, (data: Record<string, unknown>) => string> = {};
+
+/** Venue default language for recipients with no recorded locale. */
+export async function resolveVenueLocale(prisma: PrismaClient, venueId: string): Promise<"en" | "fr"> {
+  const venue = await prisma.venue.findUnique({
+    where: { id: venueId },
+    select: { guestLocale: true },
+  });
+  return venue?.guestLocale === "fr" ? "fr" : "en";
+}
 
 export function registerTemplate(name: string, subject: string, render: RenderFn) {
   templates[name] = { subject, render };
@@ -32,12 +41,20 @@ export function registerSmsTemplate(name: string, fn: (data: Record<string, unkn
   smsTemplateFns[name] = fn;
 }
 
-// Register built-in SMS templates
+// Register built-in SMS templates — English
 registerSmsTemplate("reservation-confirmation", (d) =>
   reservationPinSms(d.venueName as string, (d.reservationPin ?? "••••••") as string),
 );
 registerSmsTemplate("reservation-reminder", (d) =>
   reservationReminderSms(d.venueName as string, d.guestName as string, d.time as string),
+);
+
+// French variants — keyed "template:fr", resolved by locale in dispatch()
+registerSmsTemplate("reservation-confirmation:fr", (d) =>
+  reservationPinSmsFr(d.venueName as string, (d.reservationPin ?? "••••••") as string),
+);
+registerSmsTemplate("reservation-reminder:fr", (d) =>
+  reservationReminderSmsFr(d.venueName as string, d.guestName as string, d.time as string),
 );
 
 async function logSend(
@@ -68,9 +85,15 @@ async function logSend(
   });
 }
 
-async function checkIdempotent(prisma: PrismaClient, template: string, recipient: string, ik: string): Promise<boolean> {
+async function checkIdempotent(
+  prisma: PrismaClient,
+  venueId: string,
+  template: string,
+  recipient: string,
+  ik: string,
+): Promise<boolean> {
   const existing = await prisma.notificationLog.findFirst({
-    where: { template, recipient, status: "sent" },
+    where: { venueId, template, recipient, status: "sent" },
   });
   return !!(existing && existing.meta && (existing.meta as Record<string, unknown>).ik === ik);
 }
@@ -82,18 +105,23 @@ export async function dispatch(
   let sent = 0;
   let failed = 0;
   const hasTemplate = templates[payload.template];
+  const locale = payload.locale ?? (await resolveVenueLocale(prisma, payload.venueId));
 
   for (const recipient of payload.recipients) {
     const sendBoth = recipient.email && recipient.phone && payload.template === "reservation-confirmation";
 
+    // Resolve template with locale fallback: "template:fr" → "template"
+    const localeKey = `${payload.template}:${locale}`;
+    const tpl = templates[localeKey] ?? templates[payload.template];
+
     // Email channel
-    if (recipient.email && hasTemplate) {
+    if (recipient.email && tpl) {
       const ik = payload.idempotencyKey ? `${payload.template}:email:${recipient.email}:${payload.idempotencyKey}` : undefined;
-      if (!ik || !(await checkIdempotent(prisma, payload.template, recipient.email, ik))) {
-        const rendered = hasTemplate.render(payload.data);
+      if (!ik || !(await checkIdempotent(prisma, payload.venueId, payload.template, recipient.email, ik))) {
+        const rendered = tpl.render(payload.data);
         const result = await sendEmail({
           to: recipient.email,
-          subject: hasTemplate.subject,
+          subject: tpl.subject,
           react: rendered as ReturnType<typeof import("@react-email/components").render>,
         });
         await logSend(prisma, { venueId: payload.venueId, channel: "email", template: payload.template, recipient: recipient.email, ok: result.ok, providerId: result.providerId, error: result.error, ik, data: payload.data });
@@ -103,10 +131,11 @@ export async function dispatch(
 
     // SMS channel — for PIN delivery (sendBoth) or phone-only recipient
     if (recipient.phone && (sendBoth || !recipient.email)) {
-      const smsFn = smsTemplateFns[payload.template];
+      const smsLocaleKey = `${payload.template}:${locale}`;
+      const smsFn = smsTemplateFns[smsLocaleKey] ?? smsTemplateFns[payload.template];
       if (smsFn) {
         const ik = payload.idempotencyKey ? `${payload.template}:sms:${recipient.phone}:${payload.idempotencyKey}` : undefined;
-        if (!ik || !(await checkIdempotent(prisma, payload.template, recipient.phone, ik))) {
+        if (!ik || !(await checkIdempotent(prisma, payload.venueId, payload.template, recipient.phone, ik))) {
           const body = smsFn(payload.data);
           const result = await sendSms({ to: recipient.phone, body }, payload.venueId);
           await logSend(prisma, { venueId: payload.venueId, channel: "sms", template: payload.template, recipient: recipient.phone, ok: result.ok, providerId: result.providerId, error: result.error, ik, data: payload.data });
@@ -130,6 +159,7 @@ export async function dispatchPush(
 ): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
+  const locale = payload.locale ?? (await resolveVenueLocale(prisma, payload.venueId));
 
   const subscriptions = await prisma.pushSubscription.findMany({
     where: { venueId: payload.venueId, expired: false },
@@ -149,7 +179,7 @@ export async function dispatchPush(
     const ik = payload.idempotencyKey
       ? `push:${payload.eventType}:${sub.endpoint}:${payload.idempotencyKey}`
       : undefined;
-    if (ik && (await checkIdempotent(prisma, payload.eventType, sub.endpoint, ik))) continue;
+    if (ik && (await checkIdempotent(prisma, payload.venueId, payload.eventType, sub.endpoint, ik))) continue;
 
     const result = await sendPush({
       subscription: {
@@ -182,7 +212,7 @@ export async function dispatchPush(
       ok: result.ok,
       error: result.error,
       ik,
-      data: { title: payload.title, body: payload.body, url: payload.url },
+      data: { title: payload.title, body: payload.body, url: payload.url, locale },
     });
   }
 

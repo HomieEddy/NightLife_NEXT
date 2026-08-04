@@ -7,49 +7,55 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest) {
-  const auth = request.headers.get("authorization");
-  const CRON_SECRET = process.env.CRON_SECRET;
-  if (!CRON_SECRET || auth !== `Bearer ${CRON_SECRET}`) {
+  const { verifyBearerToken } = await import("@/features/shared/job-claim");
+  if (!verifyBearerToken(request.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { getRawPrisma } = await import("@/features/shared/db");
+  const { getClientIp, checkRateLimit } = await import("@/features/shared/rate-limit");
+  const { apiRateLimitError } = await import("@/features/shared/api-error");
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`jobs:ip:${ip}`, { maxTokens: 5, refillRate: 5, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return apiRateLimitError(rl.retryAfterMs);
+  }
+
+  const { getRawPrisma, getDb } = await import("@/features/shared/db");
   const { findDueReports } = await import("@/features/analytics/report-core");
   const { dispatch: notify } = await import("@/features/notifications/dispatch");
+  const { claimJobRun, completeJobRun, failJobRun } = await import("@/features/shared/job-claim");
   await import("@/features/notifications/templates");
 
   const prisma = getRawPrisma();
-  const tenants = await prisma.tenant.findMany({ select: { id: true } });
+  const tenants = await prisma.tenant.findMany({ select: { id: true, name: true } });
   let sent = 0;
 
   for (const tenant of tenants) {
+    let jobKey = "";
     try {
-      const jobKey = `report-schedules:${tenant.id}`;
       const today = new Date();
 
-      // ponytail: idempotency check — same (tenant, job, date) runs once
-      const existing = await prisma.jobRun.findFirst({
-        where: { tenantId: tenant.id, jobName: jobKey, status: "completed" },
+      // Weekly/monthly cadence and the day key resolve in the VENUE's
+      // timezone, not the server's — a venue in another tz must not fire on
+      // the wrong day, and a UTC day key could skip/duplicate a venue-local day.
+      const venue = await prisma.venue.findUnique({
+        where: { id: tenant.id },
+        select: { timezone: true },
       });
-      if (existing) continue;
+      const tz = venue?.timezone ?? "UTC";
+      const [m, d, y] = today
+        .toLocaleString("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" })
+        .split("/");
+      const todayIso = `${y}-${m}-${d}`;
+      // jobKey embeds the date — without it the first completed run blocked
+      // every future run and daily/weekly/monthly reports stopped after day one.
+      jobKey = `report-schedules:${tenant.id}:${todayIso}`;
 
-      await prisma.jobRun.create({
-        data: { tenantId: tenant.id, jobName: jobKey, status: "running", startedAt: new Date() },
-      });
+      if (!(await claimJobRun(prisma, tenant.id, jobKey))) continue;
 
-      const reports = await prisma.savedReport.findMany({
-        where: { venueId: tenant.id },
-        include: { runs: { orderBy: { ranAt: "desc" }, take: 1 } },
-      });
-
-      const due = reports.filter((r) => {
-        const schedule = r.schedule as { frequency: string } | null;
-        if (!schedule) return false;
-        if (schedule.frequency === "daily") return true;
-        if (schedule.frequency === "weekly") return today.getDay() === 1;
-        if (schedule.frequency === "monthly") return today.getDate() === 1;
-        return false;
-      });
+      // Cadence and day key both resolve in the VENUE's timezone (the same
+      // tested function the report unit suite exercises).
+      const due = await findDueReports(getDb({ venueId: tenant.id }), today, tz);
 
       for (const report of due) {
         const recipient = (report.schedule as { recipient?: string } | null)?.recipient;
@@ -59,21 +65,21 @@ async function livePOST(request: NextRequest) {
             template: "report-run",
             recipients: [{ email: recipient }],
             data: {
-              venueName: tenant.id,
+              venueName: tenant.name,
               reportName: report.name,
-              periodLabel: today.toISOString().slice(0, 10),
+              periodLabel: todayIso,
               summary: `Report: ${report.name}\n${(report.metrics as string[]).length} metrics`,
             },
-            idempotencyKey: jobKey,
+            idempotencyKey: `${jobKey}:${report.id}`,
           });
           sent += result.sent;
         }
       }
 
-      const run = await prisma.jobRun.findFirst({ where: { tenantId: tenant.id, jobName: jobKey, status: "running" } });
-      if (run) await prisma.jobRun.update({ where: { id: run.id }, data: { status: "completed", endedAt: new Date() } });
+      await completeJobRun(prisma, tenant.id, jobKey);
     } catch (err) {
       logger.error(`[report-schedules] Tenant ${tenant.id}:`, { error: String(err) });
+      await failJobRun(prisma, tenant.id, jobKey);
     }
   }
 
