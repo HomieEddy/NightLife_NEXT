@@ -1832,6 +1832,8 @@ model NotificationLog {
 
   @@index([venueId, channel])
   @@index([venueId, template])
+  // Retention truncation and recent-log listings range over createdAt.
+  @@index([venueId, createdAt])
   @@map("notification_logs")
 }
 

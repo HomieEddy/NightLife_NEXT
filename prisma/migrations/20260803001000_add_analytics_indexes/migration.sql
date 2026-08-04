@@ -2,13 +2,9 @@
 -- plan 33 index audit. Each index cites its driving query. No speculative
 -- indexes — every one has EXPLAIN evidence from a real query in the codebase.
 
--- 1. stock_movements (venue_id, created_at)
---    Query: computeNightlyRollup (analytics-core.ts:455)
---      WHERE venue_id = $1 AND created_at BETWEEN $2 AND $3 AND type = 'sale'
---    Without index: Seq Scan on stock_movements for nightly rollup
---    With index: Index Scan using the composite, type is a filter
-CREATE INDEX IF NOT EXISTS "idx_stock_movements_venue_created"
-  ON "stock_movements" ("venue_id", "created_at");
+-- 1. stock_movements (venue_id, created_at) — REMOVED: duplicates the
+--    schema's @@index([venueId, createdAt]) on the model; Prisma already
+--    creates one identical index in the table's own migration.
 
 -- 2. staff_profiles (venue_id, role) — REMOVED: staff_profiles has no venue_id
 --    column. Promoters are scoped through their membership, so the index

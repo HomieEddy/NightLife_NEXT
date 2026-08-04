@@ -454,12 +454,14 @@ export async function getOrderSlaAnalytics(
   const criticalMin = (venueCfg?.slaThresholds as { orderCriticalMinutes?: number } | null)?.orderCriticalMinutes ?? 12;
   const breachCount = minutes.filter((m) => m >= criticalMin).length;
 
-  // Auto-escalation count from job_runs for this venue in the night window
+  // Auto-escalation count from job_runs for this venue in the night window.
+  // Prefix LIKE (not ILIKE) — the unique (tenant_id, job_name) index serves
+  // it, and job names follow `<rule-code>:<tenant>:<date>`.
   const escResult = await rawPrisma.$queryRawUnsafe<Array<{ count: bigint }>>(
     `SELECT COUNT(*)::bigint AS count
      FROM job_runs
      WHERE tenant_id = $1
-       AND job_name ILIKE '%auto-escalate%'
+       AND job_name LIKE 'auto-escalate-orders:%'
        AND status = 'completed'
        AND started_at >= $2::timestamptz
        AND started_at < $3::timestamptz`,

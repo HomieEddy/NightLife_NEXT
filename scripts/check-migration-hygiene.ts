@@ -70,10 +70,17 @@ function collectMigrationTables(): Set<string> {
     if (!fs.existsSync(sql)) continue;
     const content = fs.readFileSync(sql, "utf-8");
 
-    // Match CREATE TABLE [IF NOT EXISTS] ["table"] (
-    const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?"?(\w+)"?\s*\(/gi;
+    // Strip SQL comments so a commented-out CREATE TABLE can't fake a table.
+    const noComments = content
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("--"))
+      .join("\n");
+
+    // Match CREATE TABLE [IF NOT EXISTS] [schema.]"table" ( — handles
+    // schema-qualified names like CREATE TABLE "public"."orders".
+    const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?\w+"?\.)?"?(\w+)"?\s*\(/gi;
     let m: RegExpExecArray | null;
-    while ((m = re.exec(content)) !== null) {
+    while ((m = re.exec(noComments)) !== null) {
       tables.add(m[1]);
     }
   }

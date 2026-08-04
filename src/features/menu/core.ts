@@ -7,6 +7,7 @@
 import type { getDb } from "@/features/shared/db";
 import { getRawPrisma } from "@/features/shared/db";
 import { fromCents } from "@/features/shared/money";
+import { MAX_PAGE_SIZE } from "@/lib/types";
 import type {
   BottlePackage,
   HappyHourRule,
@@ -353,7 +354,7 @@ export async function listMovements(
   db: ScopedDb,
   limit = 25,
 ): Promise<StockMovement[]> {
-  const capped = Math.min(limit, 200); // MAX_PAGE_SIZE backstop
+  const capped = Math.max(1, Math.min(limit, MAX_PAGE_SIZE)); // floor + backstop
   const rows = await db.stockMovement.findMany({
     orderBy: { createdAt: "desc" },
     take: capped,

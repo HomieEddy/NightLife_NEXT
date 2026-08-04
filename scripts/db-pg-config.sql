@@ -9,6 +9,14 @@
 
 -- ── pg_stat_statements ─────────────────────────────────────────────
 
+-- pg_stat_statements needs its library preloaded — a plain CREATE EXTENSION
+-- succeeds but the view stays empty until Postgres restarts with the
+-- preload. Run ONCE per cluster (superuser), then restart Postgres:
+--
+--   ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';
+--   (restart postgres)
+--   psql -U postgres -d nightlife -f scripts/db-pg-config.sql
+
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 
 -- ── Slow-query logging ─────────────────────────────────────────────
