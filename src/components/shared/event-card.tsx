@@ -2,15 +2,16 @@
 
 import type { ReactNode } from "react";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { formatTime } from "@/features/shared/format";
+import { dateLocale, formatTime } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import type { VenueEvent } from "@/lib/types";
 
-function eventDate(iso: string) {
+function eventDate(iso: string, locale = "en") {
   const d = new Date(iso);
+  const tag = dateLocale(locale);
   return {
-    weekday: d.toLocaleDateString("en-US", { weekday: "long" }),
-    monthDay: d.toLocaleDateString("en-US", { month: "long", day: "numeric" }),
+    weekday: d.toLocaleDateString(tag, { weekday: "long" }),
+    monthDay: d.toLocaleDateString(tag, { month: "long", day: "numeric" }),
   };
 }
 
@@ -20,6 +21,7 @@ export function EventCard({
   actions,
   detail,
   className,
+  locale = "en",
 }: {
   event: VenueEvent;
   zoneName?: string;
@@ -28,8 +30,10 @@ export function EventCard({
   /** Extra content between the header and actions (e.g. guestlist, reservation count). */
   detail?: ReactNode;
   className?: string;
+  /** Date-language for the gold date block (en/fr). */
+  locale?: string;
 }) {
-  const { weekday, monthDay } = eventDate(event.startsAt);
+  const { weekday, monthDay } = eventDate(event.startsAt, locale);
 
   return (
     <div

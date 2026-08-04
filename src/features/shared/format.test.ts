@@ -14,11 +14,12 @@ describe("formatMoney", () => {
     expect(result).toMatch(/20\.70/);
   });
 
-  it("formats CAD fractional in fr-CA (narrow no-break space, comma decimal)", () => {
+  it("formats CAD fractional in fr-CA (no-break spaces, comma decimal, trailing $)", () => {
     const result = formatMoney(1234.56, "CAD", "fr");
-    // fr-CA: 1 234,56 $ — comma is decimal separator, space is U+202F NBSP
-    expect(result).toMatch(/\$/);
-    expect(result).toMatch(/56/);
+    // fr-CA: "1 234,56 $" — both separators are U+00A0 NO-BREAK SPACE, the
+    // decimal separator a comma, the $ trailing. Pinned exactly so an ICU
+    // version bump that changes separators (e.g. to U+202F) fails the suite.
+    expect(result).toBe("1\u00A0234,56\u00A0$");
   });
 
   it("formats CAD integer in fr", () => {

@@ -3,6 +3,7 @@
 import { Suspense, use, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useLocale } from "next-intl";
 import {
   CalendarDays,
   Check,
@@ -62,6 +63,7 @@ export default function PublicReservationPage({
 }
 
 function ReservationContent({ venueSlug }: { venueSlug: string }) {
+  const locale = useLocale();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const dateParam = searchParams.get("date");
@@ -163,11 +165,14 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
           <h1 className="text-display text-2xl">Request received!</h1>
           <p className="max-w-sm text-muted-foreground">
             {data.venue.name} will review your reservation for{" "}
-            {new Date(date + "T12:00:00").toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
+            {new Date(date + "T12:00:00").toLocaleDateString(
+              locale === "fr" ? "fr-CA" : "en-CA",
+              {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              },
+            )}
             . You&apos;ll receive a confirmation with your table PIN.
           </p>
         </div>
