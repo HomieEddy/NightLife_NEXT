@@ -25,7 +25,7 @@ const templates: Record<string, { subject: string; render: RenderFn }> = {};
 const smsTemplateFns: Record<string, (data: Record<string, unknown>) => string> = {};
 
 /** Venue default language for recipients with no recorded locale. */
-async function resolveVenueLocale(prisma: PrismaClient, venueId: string): Promise<"en" | "fr"> {
+export async function resolveVenueLocale(prisma: PrismaClient, venueId: string): Promise<"en" | "fr"> {
   const venue = await prisma.venue.findUnique({
     where: { id: venueId },
     select: { guestLocale: true },
