@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { logger } from "@/features/shared/logger";
 import { checkRateLimit, getClientIp } from "@/features/shared/rate-limit";
+import { apiRateLimitError } from "@/features/shared/api-error";
 
 /**
  * Report-only CSP violation collector (plan 31). Browsers POST JSON reports
- * to the `report-uri` in the report-only Content-Security-Policy header, so
- * the gap between report-only and enforced CSP can be measured before
- * flipping to enforcement. Never blocks anything — logging only.
+ * to the `report-to` endpoint in the report-only Content-Security-Policy
+ * header, so the gap between report-only and enforced CSP can be measured
+ * before flipping to enforcement. Never blocks anything — logging only.
  */
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
     refillRate: 60,
     windowMs: 60_000,
   });
-  if (!rl.allowed) return new NextResponse(null, { status: 429 });
+  if (!rl.allowed) return apiRateLimitError(rl.retryAfterMs);
 
   try {
     const report = await request.json();
