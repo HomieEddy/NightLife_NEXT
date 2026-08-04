@@ -3,8 +3,14 @@ import { assertLiveMode } from "./app-mode";
 
 const liveSchema = z.object({
   DATABASE_URL: z.string().url(),
-  AUTH_SECRET: z.string().min(16),
+  // Better Auth requires >= 32 chars for AUTH_SECRET (it uses it as an
+  // encryption key, not just a signer). QR tokens are HS256 — 16 is fine.
+  AUTH_SECRET: z.string().min(32),
   QR_TOKEN_SECRET: z.string().min(16),
+  // The canonical origin of the app — Better Auth uses it for callbacks and
+  // absolute links; without it, redirects break behind the proxy.
+  BETTER_AUTH_URL: z.string().url().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().url().optional(),
   STRIPE_SECRET_KEY: z.string().min(1).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
@@ -37,6 +43,8 @@ export function getLiveEnv(): LiveEnv {
     DATABASE_URL: process.env.DATABASE_URL,
     AUTH_SECRET: process.env.AUTH_SECRET,
     QR_TOKEN_SECRET: process.env.QR_TOKEN_SECRET,
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     RESEND_API_KEY: process.env.RESEND_API_KEY,

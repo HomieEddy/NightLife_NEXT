@@ -1,7 +1,24 @@
+import { timingSafeEqual } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 
 /** A run stuck in "running" longer than this is considered crashed and stealable. */
 export const STALE_RUN_MS = 30 * 60_000;
+
+/**
+ * Constant-time `Bearer <secret>` check for the cron routes — string
+ * inequality leaks timing on the secret's prefix.
+ */
+export function verifyBearerToken(
+  header: string | null,
+  secret: string | undefined,
+): boolean {
+  if (!secret) return false;
+  const expected = `Bearer ${secret}`;
+  const a = Buffer.from(header ?? "");
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 /**
  * Atomically claims a job run for (tenantId, jobName) — the unique

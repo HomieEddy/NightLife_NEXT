@@ -22,6 +22,9 @@ export const auth = betterAuth({
   },
   session: {
     cookieCache: { enabled: true, maxAge: 60 * 5 },
+    // Staff sessions last a work week — long enough to survive a long night
+    // and re-login-free operations, short enough that a leaked cookie rots.
+    expiresIn: 60 * 60 * 24 * 7,
   },
   user: {
     additionalFields: {

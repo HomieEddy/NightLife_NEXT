@@ -10,13 +10,13 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest) {
-  const auth = request.headers.get("authorization");
-  const CRON_SECRET = process.env.CRON_SECRET;
-  if (!CRON_SECRET || auth !== `Bearer ${CRON_SECRET}`) {
+  const { verifyBearerToken } = await import("@/features/shared/job-claim");
+  if (!verifyBearerToken(request.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { getClientIp, checkRateLimit } = await import("@/features/shared/rate-limit");
+  const { apiRateLimitError } = await import("@/features/shared/api-error");
   const ip = getClientIp(request);
   const rl = checkRateLimit(`jobs:ip:${ip}`, {
     maxTokens: 5,
@@ -24,10 +24,7 @@ async function livePOST(request: NextRequest) {
     windowMs: 60_000,
   });
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
-    );
+    return apiRateLimitError(rl.retryAfterMs);
   }
 
   const { getRawPrisma, getDb } = await import("@/features/shared/db");

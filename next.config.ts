@@ -55,7 +55,8 @@ const nextConfig: NextConfig = {
     const cspEmbed = "frame-ancestors *;";
     // Report-only script CSP — enforced CSP with Next inline runtime chunks
     // is its own project (plan 31 defers it). Report violations so we can
-    // measure the gap without breaking the app.
+    // measure the gap without breaking the app. report-to replaces the
+    // deprecated report-uri (the Report-To header below defines the group).
     const cspReportOnly = [
       "default-src 'self';",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline';",
@@ -63,21 +64,31 @@ const nextConfig: NextConfig = {
       "img-src 'self' data: blob: https:;",
       "font-src 'self';",
       "connect-src 'self';",
-      "report-uri /api/csp-report;",
+      "report-to csp-endpoint;",
     ].join(" ");
+
+    const reportToHeader = JSON.stringify({
+      group: "csp-endpoint",
+      max_age: 60 * 60 * 24,
+      endpoints: [{ url: "/api/csp-report" }],
+    });
 
     return [
       // ── All routes: baseline security headers ───────────────────────
+      // The negative match excludes /r/ and /e/ prefixes specifically —
+      // the old `((?!r|e).*)` also stripped headers from any future
+      // top-level route starting with "r" or "e".
       {
-        source: "/((?!r|e).*)", // everything except /r/* and /e/*
+        source: "/((?!r/|e/).*)",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
           { key: "Content-Security-Policy", value: cspBase },
           { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+          { key: "Report-To", value: reportToHeader },
           ...(isProduction
-            ? [{ key: "Strict-Transport-Security", value: "max-age=86400; includeSubDomains" }]
+            ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]
             : []),
         ],
       },
@@ -89,8 +100,9 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Content-Security-Policy", value: cspEmbed },
           { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+          { key: "Report-To", value: reportToHeader },
           ...(isProduction
-            ? [{ key: "Strict-Transport-Security", value: "max-age=86400; includeSubDomains" }]
+            ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]
             : []),
         ],
       },
@@ -101,8 +113,9 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Content-Security-Policy", value: cspEmbed },
           { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+          { key: "Report-To", value: reportToHeader },
           ...(isProduction
-            ? [{ key: "Strict-Transport-Security", value: "max-age=86400; includeSubDomains" }]
+            ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]
             : []),
         ],
       },

@@ -7,20 +7,17 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest) {
-  const auth = request.headers.get("authorization");
-  const CRON_SECRET = process.env.CRON_SECRET;
-  if (!CRON_SECRET || auth !== `Bearer ${CRON_SECRET}`) {
+  const { verifyBearerToken } = await import("@/features/shared/job-claim");
+  if (!verifyBearerToken(request.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { getClientIp, checkRateLimit } = await import("@/features/shared/rate-limit");
+  const { apiRateLimitError } = await import("@/features/shared/api-error");
   const ip = getClientIp(request);
   const rl = checkRateLimit(`jobs:ip:${ip}`, { maxTokens: 5, refillRate: 5, windowMs: 60_000 });
   if (!rl.allowed) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
-    );
+    return apiRateLimitError(rl.retryAfterMs);
   }
 
   const { getRawPrisma } = await import("@/features/shared/db");
@@ -37,19 +34,25 @@ async function livePOST(request: NextRequest) {
     let jobKey = "";
     try {
       const today = new Date();
-      // jobKey embeds the date — without it the first completed run blocked
-      // every future run and daily/weekly/monthly reports stopped after day one.
-      jobKey = `report-schedules:${tenant.id}:${today.toISOString().slice(0, 10)}`;
 
-      if (!(await claimJobRun(prisma, tenant.id, jobKey))) continue;
-
-      // Weekly/monthly cadence resolves in the VENUE's timezone, not the
-      // server's — a venue in another tz must not fire on the wrong day.
+      // Weekly/monthly cadence and the day key resolve in the VENUE's
+      // timezone, not the server's — a venue in another tz must not fire on
+      // the wrong day, and a UTC day key could skip/duplicate a venue-local day.
       const venue = await prisma.venue.findUnique({
         where: { id: tenant.id },
         select: { timezone: true },
       });
       const tz = venue?.timezone ?? "UTC";
+      const [m, d, y] = today
+        .toLocaleString("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" })
+        .split("/");
+      const todayIso = `${y}-${m}-${d}`;
+      // jobKey embeds the date — without it the first completed run blocked
+      // every future run and daily/weekly/monthly reports stopped after day one.
+      jobKey = `report-schedules:${tenant.id}:${todayIso}`;
+
+      if (!(await claimJobRun(prisma, tenant.id, jobKey))) continue;
+
       const weekday = today.toLocaleString("en-US", { timeZone: tz, weekday: "long" });
       const dayOfMonth = Number(today.toLocaleString("en-US", { timeZone: tz, day: "2-digit" }));
 
@@ -77,7 +80,7 @@ async function livePOST(request: NextRequest) {
             data: {
               venueName: tenant.name,
               reportName: report.name,
-              periodLabel: today.toISOString().slice(0, 10),
+              periodLabel: todayIso,
               summary: `Report: ${report.name}\n${(report.metrics as string[]).length} metrics`,
             },
             idempotencyKey: `${jobKey}:${report.id}`,
