@@ -460,8 +460,8 @@ privacy officer and the lead developer.
 
 | Role | Who | Contact |
 |---|---|---|
-| Privacy Officer | [TBD] | [TBD] |
-| Lead Developer | Eddy | [TBD] |
+| Privacy Officer | Eddy | privacy@nightlife.app |
+| Lead Developer | Eddy | eddy@nightlife.app |
 | CAI breach notification | — | https://www.cai.gouv.qc.ca/ |
 | OVHcloud abuse (if VPS compromised) | — | OVHcloud console → support |
 

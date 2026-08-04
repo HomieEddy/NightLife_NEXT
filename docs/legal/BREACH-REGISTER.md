@@ -3,7 +3,7 @@
 **Purpose:** Law 25 §3.8 / PIPEDA mandatory internal record of every
 confidentiality incident involving personal information.
 
-**Privacy officer:** [TBD — designate before go-live]
+**Privacy officer:** Eddy (owner) — privacy@nightlife.app
 
 **Last updated:** 2026-08-03
 
