@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, KeyRound, Loader2, Lock, MapPin, Minus, Plus, QrCode, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -46,8 +47,6 @@ export default function QrEntryPage({
   const { startSession } = useGuest();
 
   const [loading, setLoading] = useState(true);
-  const [result, setResult] = useState<{ table: VenueTable; zone: Zone; venue: Venue } | null>(null);
-  const [activeReservation, setActiveReservation] = useState<Reservation | null>(null);
   const [name, setName] = useState("");
   const [partySize, setPartySize] = useState(2);
   const [joining, setJoining] = useState(false);
@@ -59,37 +58,34 @@ export default function QrEntryPage({
   const [pinAttempts, setPinAttempts] = useState(0);
   const [validatingPin, setValidatingPin] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      let tableResult: { table: VenueTable; zone: Zone; venue: Venue } | null = null;
-      try {
-        tableResult = await venueService.getTableBySlug(tableCode);
-      } catch {
-        tableResult = null;
-      }
-      if (cancelled) return;
-      setResult(tableResult);
-
-      // The PIN gate is a separate read: if it fails, the guest still gets the
-      // table. Folding it into the lookup above once turned any gate-check
-      // error into a bogus "Table not found" for every scan.
+  // Table lookup through TanStack Query — retries on flaky mobile connections
+  // instead of a one-shot effect. The PIN gate is a separate read: if it
+  // fails, the guest still gets the table (a folded gate-check used to turn
+  // any gate error into a bogus "Table not found" for every scan).
+  const {
+    data: gate,
+    isPending: gatePending,
+    refetch: refetchGate,
+  } = useQuery({
+    queryKey: ["qr-entry", tableCode],
+    queryFn: async () => {
+      const tableResult = await venueService.getTableBySlug(tableCode);
+      let reservation: Reservation | null = null;
       if (tableResult) {
         try {
-          const reservation = await reservationService.getActiveReservationForTable(
-            tableResult.table.id,
-          );
-          if (!cancelled) setActiveReservation(reservation);
+          reservation = await reservationService.getActiveReservationForTable(tableResult.table.id);
         } catch {
-          if (!cancelled) setActiveReservation(null);
+          reservation = null;
         }
       }
-      if (!cancelled) setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [tableCode]);
+      return { tableResult, reservation };
+    },
+  });
+  const result = gate?.tableResult ?? null;
+  const activeReservation = gate?.reservation ?? null;
+  useEffect(() => {
+    if (!gatePending) setLoading(false);
+  }, [gatePending]);
 
   async function handlePinSubmit() {
     if (!result || pin.length !== 6) return;
@@ -99,7 +95,7 @@ export default function QrEntryPage({
       const res = await reservationService.validatePinAndSeat(result.table.id, pin);
       if (res.ok) {
         toast.success(t("pinConfirmed"));
-        setActiveReservation(null);
+        await refetchGate();
       } else {
         const attempts = pinAttempts + 1;
         setPinAttempts(attempts);

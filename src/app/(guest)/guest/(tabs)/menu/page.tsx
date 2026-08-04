@@ -30,6 +30,13 @@ export default function GuestMenuPage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [activeCategory, setActiveCategory] = useState<string>("packages");
   const [query, setQuery] = useState("");
+  // Debounce the filter input — reset() and the list slice re-run per query
+  // change; on a full live menu every keystroke was a full re-slice.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 150);
+    return () => clearTimeout(t);
+  }, [query]);
   const [openItem, setOpenItem] = useState<MenuItem | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const fadeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -82,26 +89,26 @@ export default function GuestMenuPage() {
     let result = items;
     if (activeCategory !== "all" && activeCategory !== "packages")
       result = result.filter((i) => i.categoryId === activeCategory);
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
+    if (debouncedQuery.trim()) {
+      const q = debouncedQuery.trim().toLowerCase();
       result = result.filter(
         (i) => i.name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q),
       );
     }
     return result;
-  }, [items, activeCategory, query]);
+  }, [items, activeCategory, debouncedQuery]);
 
   const visiblePackages = useMemo(() => {
-    if (!query.trim()) return packages;
-    const q = query.trim().toLowerCase();
+    if (!debouncedQuery.trim()) return packages;
+    const q = debouncedQuery.trim().toLowerCase();
     return packages.filter(
       (p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
     );
-  }, [packages, query]);
+  }, [packages, debouncedQuery]);
 
   const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
 
-  useEffect(() => { reset(); }, [query, activeCategory, reset]);
+  useEffect(() => { reset(); }, [debouncedQuery, activeCategory, reset]);
 
   if (loadError) {
     return (

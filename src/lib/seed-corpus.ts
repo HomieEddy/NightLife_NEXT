@@ -84,8 +84,14 @@ export function daysAgo(n: number): Date {
   return d;
 }
 
+/** Local calendar date string — UTC slicing drifted a day for four hours
+ *  every evening (the generator checks local weekdays; the UTC date of a
+ *  20:00+ local instant is the NEXT day, breaking open-night determinism). */
 export function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export function minsAgo(m: number): string {
