@@ -20,7 +20,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-/** Club-poster display face — landing/marketing headlines only. */
+/** Club-poster display face — poster headlines (text-display is used across
+ *  every role surface, so these stay preloaded in the root layout). */
 const anton = Anton({
   weight: "400",
   variable: "--font-anton",
