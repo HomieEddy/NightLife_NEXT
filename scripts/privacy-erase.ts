@@ -25,7 +25,7 @@ import type { PrismaClient } from "@prisma/client";
 // Types
 // ══════════════════════════════════════════════════════════════════════
 
-interface PersonMatch {
+export interface PersonMatch {
   guestProfiles: string[];
   guestSessions: string[];
   reservations: string[];
@@ -80,7 +80,7 @@ async function lookupByProfiles(
   };
 }
 
-async function locateByEmail(prisma: PrismaClient, email: string): Promise<PersonMatch> {
+export async function locateByEmail(prisma: PrismaClient, email: string): Promise<PersonMatch> {
   const normalised = email.trim().toLowerCase();
   const match = emptyMatch();
 
@@ -122,7 +122,7 @@ async function locateByEmail(prisma: PrismaClient, email: string): Promise<Perso
   return match;
 }
 
-async function locateByPhone(prisma: PrismaClient, phone: string): Promise<PersonMatch> {
+export async function locateByPhone(prisma: PrismaClient, phone: string): Promise<PersonMatch> {
   const normalised = phone.trim();
   const match = emptyMatch();
 
@@ -158,7 +158,7 @@ async function locateByPhone(prisma: PrismaClient, phone: string): Promise<Perso
   return match;
 }
 
-async function locateByGuestId(prisma: PrismaClient, guestId: string): Promise<PersonMatch> {
+export async function locateByGuestId(prisma: PrismaClient, guestId: string): Promise<PersonMatch> {
   const profile = await prisma.guestProfile.findUnique({
     where: { id: guestId },
     select: { email: true, phone: true },
@@ -185,7 +185,7 @@ async function locateByGuestId(prisma: PrismaClient, guestId: string): Promise<P
 // Erase — perform the actual data removal/anonymization
 // ══════════════════════════════════════════════════════════════════════
 
-async function eraseGuestData(prisma: PrismaClient, match: PersonMatch): Promise<string[]> {
+export async function eraseGuestData(prisma: PrismaClient, match: PersonMatch): Promise<string[]> {
   const actions: string[] = [];
 
   // All-or-nothing: a mid-way failure must not leave the subject half-erased.
@@ -418,7 +418,18 @@ async function main() {
   console.log("\nDone.\n");
 }
 
-main().catch((err) => {
-  console.error("Fatal:", err);
-  process.exit(1);
-});
+// Entry guard — the module is imported by tests for locate/erase functions;
+// only the CLI invocation runs main().
+const isCliEntry =
+  typeof process.argv[1] === "string" &&
+  decodeURIComponent(import.meta.url)
+    .toLowerCase()
+    .replace(/\\/g, "/")
+    .endsWith(process.argv[1].toLowerCase().replace(/\\/g, "/"));
+
+if (isCliEntry) {
+  main().catch((err) => {
+    console.error("Fatal:", err);
+    process.exit(1);
+  });
+}
