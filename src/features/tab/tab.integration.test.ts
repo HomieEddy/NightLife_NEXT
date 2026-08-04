@@ -260,6 +260,31 @@ describe("tab ledger integration (plan 16)", () => {
       expect(second.ok).toBe(false);
       if (!second.ok) expect(second.error).toContain("already been reversed");
     });
+
+    it("INV-T3 concurrency: two parallel full comps — only one wins", async () => {
+      await seedOrder(raw, venueA, "order-adj-race", "sess-1", 1000);
+      const db = getDb(sessionA);
+      const both = await Promise.all([
+        createAdjustment(db, venueA, {
+          orderId: "order-adj-race", kind: "comp", reasonCode: "vip-comp",
+          authorStaffId: "st-tab", authorStaffName: "Tab Tester",
+        }),
+        createAdjustment(db, venueA, {
+          orderId: "order-adj-race", kind: "comp", reasonCode: "vip-comp",
+          authorStaffId: "st-tab", authorStaffName: "Tab Tester",
+        }),
+      ]);
+      const wins = both.filter((r) => r.ok);
+      const losses = both.filter((r) => !r.ok);
+      expect(wins).toHaveLength(1);
+      expect(losses).toHaveLength(1);
+      expect(losses[0].error).toContain("remains un-adjusted");
+
+      const adjustments = await listAdjustments(db, "sess-1");
+      const race = adjustments.filter((a) => a.orderId === "order-adj-race");
+      // Exactly one live comp for the target.
+      expect(race.filter((a) => a.kind === "comp" && !a.reversedByAdjustmentId)).toHaveLength(1);
+    });
   });
 
   // ── Session transfer / merge ────────────────────────────────────────────
