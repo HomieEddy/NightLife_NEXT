@@ -77,9 +77,15 @@ async function logSend(
   });
 }
 
-async function checkIdempotent(prisma: PrismaClient, template: string, recipient: string, ik: string): Promise<boolean> {
+async function checkIdempotent(
+  prisma: PrismaClient,
+  venueId: string,
+  template: string,
+  recipient: string,
+  ik: string,
+): Promise<boolean> {
   const existing = await prisma.notificationLog.findFirst({
-    where: { template, recipient, status: "sent" },
+    where: { venueId, template, recipient, status: "sent" },
   });
   return !!(existing && existing.meta && (existing.meta as Record<string, unknown>).ik === ik);
 }
@@ -103,7 +109,7 @@ export async function dispatch(
     // Email channel
     if (recipient.email && tpl) {
       const ik = payload.idempotencyKey ? `${payload.template}:email:${recipient.email}:${payload.idempotencyKey}` : undefined;
-      if (!ik || !(await checkIdempotent(prisma, payload.template, recipient.email, ik))) {
+      if (!ik || !(await checkIdempotent(prisma, payload.venueId, payload.template, recipient.email, ik))) {
         const rendered = tpl.render(payload.data);
         const result = await sendEmail({
           to: recipient.email,
@@ -120,7 +126,7 @@ export async function dispatch(
       const smsFn = smsTemplateFns[payload.template];
       if (smsFn) {
         const ik = payload.idempotencyKey ? `${payload.template}:sms:${recipient.phone}:${payload.idempotencyKey}` : undefined;
-        if (!ik || !(await checkIdempotent(prisma, payload.template, recipient.phone, ik))) {
+        if (!ik || !(await checkIdempotent(prisma, payload.venueId, payload.template, recipient.phone, ik))) {
           const body = smsFn(payload.data);
           const result = await sendSms({ to: recipient.phone, body }, payload.venueId);
           await logSend(prisma, { venueId: payload.venueId, channel: "sms", template: payload.template, recipient: recipient.phone, ok: result.ok, providerId: result.providerId, error: result.error, ik, data: payload.data });
@@ -164,7 +170,7 @@ export async function dispatchPush(
     const ik = payload.idempotencyKey
       ? `push:${payload.eventType}:${sub.endpoint}:${payload.idempotencyKey}`
       : undefined;
-    if (ik && (await checkIdempotent(prisma, payload.eventType, sub.endpoint, ik))) continue;
+    if (ik && (await checkIdempotent(prisma, payload.venueId, payload.eventType, sub.endpoint, ik))) continue;
 
     const result = await sendPush({
       subscription: {

@@ -113,13 +113,16 @@ export { renderCsv } from "@/features/analytics/report-csv";
 /**
  * Returns reports whose schedule is due based on the given date.
  * daily = every day, weekly = Mondays, monthly = 1st of month.
+ * The weekday/month-day resolve in the venue's timezone (a venue across a
+ * date line must not fire weekly/monthly reports on the wrong day).
  */
 export async function findDueReports(
   db: ScopedDb,
   today: Date,
+  timezone = "UTC",
 ): Promise<SavedReport[]> {
-  const dayOfWeek = today.getDay(); // 0=Sun..6=Sat
-  const dayOfMonth = today.getDate();
+  const weekday = today.toLocaleString("en-US", { timeZone: timezone, weekday: "long" });
+  const dayOfMonth = Number(today.toLocaleString("en-US", { timeZone: timezone, day: "2-digit" }));
 
   const all = await db.savedReport.findMany({
     include: { runs: { orderBy: { ranAt: "desc" }, take: 1 } },
@@ -133,7 +136,7 @@ export async function findDueReports(
         case "daily":
           return true;
         case "weekly":
-          return dayOfWeek === 1; // Monday
+          return weekday === "Monday";
         case "monthly":
           return dayOfMonth === 1;
         default:

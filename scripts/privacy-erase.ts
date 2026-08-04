@@ -36,6 +36,10 @@ interface PersonMatch {
   /** The normalised email/phone the logs were matched by — used to scope the
    *  recipient truncation to this subject only. */
   notificationRecipient?: string;
+  /** Venues the subject has records in — the truncation is scoped to them,
+   *  never every tenant's logs (a shared email must not erase another
+   *  venue's notification history). */
+  venueIds: string[];
   waitlist: string[];
   eventGuests: string[];
   staffProfiles: string[];
@@ -46,7 +50,7 @@ function emptyMatch(): PersonMatch {
   return {
     guestProfiles: [], guestSessions: [], reservations: [],
     leads: [], incidents: [], admissions: [], notificationLogs: 0,
-    waitlist: [], eventGuests: [], staffProfiles: [], users: [],
+    waitlist: [], eventGuests: [], staffProfiles: [], users: [], venueIds: [],
   };
 }
 
@@ -58,9 +62,9 @@ function emptyMatch(): PersonMatch {
 async function lookupByProfiles(
   prisma: PrismaClient,
   profileIds: string[],
-): Promise<Pick<PersonMatch, "guestSessions" | "incidents" | "admissions" | "waitlist" | "eventGuests">> {
+): Promise<Pick<PersonMatch, "guestSessions" | "incidents" | "admissions" | "waitlist" | "eventGuests" | "venueIds">> {
   const [sessions, incidents, admissions, waitlist, eventGuests] = await Promise.all([
-    prisma.guestSession.findMany({ where: { guestProfileId: { in: profileIds } }, select: { id: true } }),
+    prisma.guestSession.findMany({ where: { guestProfileId: { in: profileIds } }, select: { id: true, venueId: true } }),
     prisma.incident.findMany({ where: { guestProfileId: { in: profileIds } }, select: { id: true } }),
     prisma.admission.findMany({ where: { guestProfileId: { in: profileIds } }, select: { id: true } }),
     prisma.waitlistEntry.findMany({ where: { guestProfileId: { in: profileIds } }, select: { id: true } }),
@@ -72,6 +76,7 @@ async function lookupByProfiles(
     admissions: admissions.map((a) => a.id),
     waitlist: waitlist.map((w) => w.id),
     eventGuests: eventGuests.map((e) => e.id),
+    venueIds: [...new Set(sessions.map((s) => s.venueId))],
   };
 }
 
@@ -81,9 +86,10 @@ async function locateByEmail(prisma: PrismaClient, email: string): Promise<Perso
 
   const guestProfiles = await prisma.guestProfile.findMany({
     where: { email: normalised },
-    select: { id: true },
+    select: { id: true, venueId: true },
   });
   match.guestProfiles = guestProfiles.map((g) => g.id);
+  match.venueIds = guestProfiles.map((g) => g.venueId);
 
   if (match.guestProfiles.length > 0) {
     Object.assign(match, await lookupByProfiles(prisma, match.guestProfiles));
@@ -91,9 +97,10 @@ async function locateByEmail(prisma: PrismaClient, email: string): Promise<Perso
 
   const reservations = await prisma.reservation.findMany({
     where: { guestEmail: normalised },
-    select: { id: true },
+    select: { id: true, venueId: true },
   });
   match.reservations = reservations.map((r) => r.id);
+  match.venueIds = [...new Set([...match.venueIds, ...reservations.map((r) => r.venueId)])];
 
   const leads = await prisma.lead.findMany({
     where: { email: normalised },
@@ -121,9 +128,10 @@ async function locateByPhone(prisma: PrismaClient, phone: string): Promise<Perso
 
   const guestProfiles = await prisma.guestProfile.findMany({
     where: { phone: normalised },
-    select: { id: true },
+    select: { id: true, venueId: true },
   });
   match.guestProfiles = guestProfiles.map((g) => g.id);
+  match.venueIds = guestProfiles.map((g) => g.venueId);
 
   if (match.guestProfiles.length > 0) {
     Object.assign(match, await lookupByProfiles(prisma, match.guestProfiles));
@@ -131,9 +139,10 @@ async function locateByPhone(prisma: PrismaClient, phone: string): Promise<Perso
 
   const reservations = await prisma.reservation.findMany({
     where: { guestPhone: normalised },
-    select: { id: true },
+    select: { id: true, venueId: true },
   });
   match.reservations = reservations.map((r) => r.id);
+  match.venueIds = [...new Set([...match.venueIds, ...reservations.map((r) => r.venueId)])];
 
   const leads = await prisma.lead.findMany({
     where: { phone: normalised },
@@ -270,10 +279,14 @@ async function eraseGuestData(prisma: PrismaClient, match: PersonMatch): Promise
     }
 
     // 8. Truncate notification log recipients — scoped to THIS subject's
-    //    recipient value only, never every tenant's logs.
+    //    recipient value AND venues only, never every tenant's logs (a shared
+    //    email address must not erase another venue's notification history).
     if (match.notificationLogs > 0 && match.notificationRecipient) {
       const result = await tx.notificationLog.updateMany({
-        where: { recipient: match.notificationRecipient },
+        where: {
+          recipient: match.notificationRecipient,
+          venueId: { in: match.venueIds },
+        },
         data: { recipient: "" },
       });
       actions.push(`Truncated recipient in ${result.count} notification logs`);

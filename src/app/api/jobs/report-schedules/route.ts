@@ -20,7 +20,7 @@ async function livePOST(request: NextRequest) {
     return apiRateLimitError(rl.retryAfterMs);
   }
 
-  const { getRawPrisma } = await import("@/features/shared/db");
+  const { getRawPrisma, getDb } = await import("@/features/shared/db");
   const { findDueReports } = await import("@/features/analytics/report-core");
   const { dispatch: notify } = await import("@/features/notifications/dispatch");
   const { claimJobRun, completeJobRun, failJobRun } = await import("@/features/shared/job-claim");
@@ -53,22 +53,9 @@ async function livePOST(request: NextRequest) {
 
       if (!(await claimJobRun(prisma, tenant.id, jobKey))) continue;
 
-      const weekday = today.toLocaleString("en-US", { timeZone: tz, weekday: "long" });
-      const dayOfMonth = Number(today.toLocaleString("en-US", { timeZone: tz, day: "2-digit" }));
-
-      const reports = await prisma.savedReport.findMany({
-        where: { venueId: tenant.id },
-        include: { runs: { orderBy: { ranAt: "desc" }, take: 1 } },
-      });
-
-      const due = reports.filter((r) => {
-        const schedule = r.schedule as { frequency: string } | null;
-        if (!schedule) return false;
-        if (schedule.frequency === "daily") return true;
-        if (schedule.frequency === "weekly") return weekday === "Monday";
-        if (schedule.frequency === "monthly") return dayOfMonth === 1;
-        return false;
-      });
+      // Cadence and day key both resolve in the VENUE's timezone (the same
+      // tested function the report unit suite exercises).
+      const due = await findDueReports(getDb({ venueId: tenant.id }), today, tz);
 
       for (const report of due) {
         const recipient = (report.schedule as { recipient?: string } | null)?.recipient;
