@@ -60,7 +60,7 @@ export async function publish(event: DomainEvent): Promise<void> {
   await prisma.$transaction((tx) => publishInTransaction(tx, event));
   // Fire-and-forget push dispatch — non-blocking so SSE latency not impacted.
   // v1 simplification: always push to subscribed staff; dedup/presence
-  // heuristics are a TODO(backend) earned by real complaint, not speculation.
+  // ponytail: always push to all subscribed staff; dedup/presence heuristics when scale demands
   try {
     await dispatchPushForEvent(event);
   } catch {

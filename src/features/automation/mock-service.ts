@@ -3,7 +3,6 @@
  *
  * Phase 4 (AM-01 through AM-13). Every automation rule ships as a toggle in the manager UI.
  * In demo mode, "triggering" a rule adds a realistic-looking execution log entry.
- * TODO(backend): Coolify cron → /api/jobs/* → real handlers, idempotent, job_runs dedup.
  */
 import type {
   AutomationRule,
@@ -117,7 +116,6 @@ export const mockAutomationService = {
 
   /** Simulate triggering an automation (demo only — in live mode this is a cron job). */
   async triggerRule(ruleId: string): Promise<AutomationExecution> {
-    // TODO(backend): remove — demo simulation only.
     await delay(400 + Math.random() * 200);
     const rule = rules.find((r) => r.id === ruleId);
     if (!rule) throw new Error("Automation rule not found");

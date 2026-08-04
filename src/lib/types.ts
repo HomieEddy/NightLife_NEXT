@@ -338,7 +338,6 @@ export interface GuestSession {
   createdAt: string; // ISO
   settledExternallyAt?: string;
   settlementMethod?: SettlementMethod;
-  // TODO(backend): stamped at seat time from the reservation that gated the table
   promoterId?: string;
   /**
    * The venue's commitment for this tab, snapshotted from the table (or the

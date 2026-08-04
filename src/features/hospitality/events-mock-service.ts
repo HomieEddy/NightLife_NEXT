@@ -104,7 +104,6 @@ export const mockEventsService = {
     return clone(guest);
   },
 
-  // TODO(backend): query by venue slug + status IN ('published','live') + startsAt >= now
   async listPublicEvents(
     venueSlug: string,
   ): Promise<{ venueName: string; events: VenueEvent[] } | null> {
