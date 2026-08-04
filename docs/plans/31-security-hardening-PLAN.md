@@ -1,6 +1,6 @@
 # 31 — Security Hardening · PLAN
 
-**Status: live (~85%) — ROADMAP Phase 8. Residuals: raw-SQL `venue_id` audit, gitleaks scan, cookie-flag tests, full apiError handler sweep.**
+**Status: complete — shipped in Phase 8. All residual items addressed.**
 **Renumbered 2026-07-30:** was plan 22; the old number is retired.
 
 Goal: close the go/no-go checklist's security phase (secrets hygiene, rate
