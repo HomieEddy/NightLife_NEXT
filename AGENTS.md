@@ -524,6 +524,14 @@ makes it obsolete.
   or misspelled values fail configuration. Demo resource guards reject DB/auth/
   HTTP/SSE access, while live selectors reject mock execution. Tests set live
   mode explicitly; browser/build verification must exercise both modes.
+- Demo request defense (proxy, demo mode only): known-abusive bot UAs get a
+  hard 403 and per-IP floods a 429 — 240 req/min on pages, 60 req/min on
+  `/api`, with trusted crawlers (search engines, social preview scrapers)
+  exempt so indexing and OG unfurls never trip it. The limiter is the shared
+  in-memory token bucket (`src/features/shared/rate-limit.ts`): exact on the
+  OVHcloud persistent process, best-effort per warm instance on Vercel. Live
+  mode is untouched — it keeps its per-route limiting. Bot classes live in
+  `src/features/shared/bot-block.ts`.
 - Venue timezone, opening hours and `nightStartHour`/`nightEndHour` are persisted
   live settings. Every business-night consumer receives that venue config — no
   Toronto/18:00 fallback is allowed in server analytics.
