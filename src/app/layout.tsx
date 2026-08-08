@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import { Anton, Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
@@ -79,6 +81,9 @@ export default async function RootLayout({
             <Toaster position="top-center" richColors />
           </ThemeProvider>
         </NextIntlClientProvider>
+        {/* Vercel Web Analytics tracks the demo app only; the live build deploys
+            to OVHcloud (AD-15) and owns its analytics stack. */}
+        {isDemoMode() && <Analytics />}
       </body>
     </html>
   );

@@ -124,6 +124,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveAlias: appMode === "live"
       ? {
+          "@vercel/analytics/react": "./src/features/shared/vercel-analytics-stub.tsx",
           "@/components/shared/demo-controls": "./src/components/shared/demo-controls.live.tsx",
           "@/components/shared/app-mode-banner": "./src/components/shared/app-mode-banner.live.tsx",
           "@/components/shared/demo-links": "./src/components/shared/demo-links.live.tsx",

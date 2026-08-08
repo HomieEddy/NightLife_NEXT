@@ -20,7 +20,11 @@
     "db:seed:staging": "dotenv -e .env -- npx tsx prisma/seed-staging.ts",
     "db:seed:live-history": "dotenv -e .env -- npx tsx scripts/seed-live-history.ts",
     "db:privacy-erase": "dotenv -e .env -- npx tsx scripts/privacy-erase.ts",
-    "promo:screenshots": "tsx promo-main/scripts/promo-screenshots.ts"
+    "promo:env": "tsx promo-main/env/promo-env.ts",
+    "promo:capture": "tsx promo-main/capture/run.ts",
+    "promo:studio": "npm --prefix promo-main run studio",
+    "promo:render": "npm --prefix promo-main run render --",
+    "promo:screenshots": "tsx promo-main/capture/screenshots.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
@@ -35,6 +39,7 @@
     "@sentry/nextjs": "^10.69.0",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-virtual": "^3.14.9",
+    "@vercel/analytics": "^2.0.1",
     "better-auth": "^1.6.23",
     "bullmq": "^5.81.2",
     "class-variance-authority": "^0.7.1",
