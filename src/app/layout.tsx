@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import { Anton, Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
 import { isDemoMode } from "@/features/shared/app-mode";
+import { DEMO_APP_URL, LIVE_APP_URL } from "@/features/shared/app-origins";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
@@ -40,12 +41,22 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
+  // Relative URLs in metadata (canonical, og:url, og:image) resolve against
+  // the build's own origin — demo deploys to Vercel, live to OVHcloud.
+  metadataBase: new URL(isDemoMode() ? DEMO_APP_URL : LIVE_APP_URL),
   title: {
     default: "NightLifeNext — Nightclub Operations, Reimagined",
     template: "%s · NightLifeNext",
   },
   description:
     "QR ordering, table service, and live operations for nightclubs and lounges.",
+  openGraph: {
+    siteName: "NightLifeNext",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export const viewport: Viewport = {

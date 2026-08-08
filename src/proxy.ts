@@ -31,6 +31,14 @@ export function proxy(request: NextRequest) {
   };
 
   if (getAppMode() === "demo") {
+    // The demo build's home is the tour — a hard 308 before streaming so
+    // crawlers consolidate the root into /demo (the page component also
+    // redirects, covering client-side navigation).
+    if (request.nextUrl.pathname === "/") {
+      return persistLang(
+        NextResponse.redirect(new URL("/demo", request.url), 308),
+      );
+    }
     return persistLang(NextResponse.next());
   }
 
@@ -59,6 +67,11 @@ export function proxy(request: NextRequest) {
     });
     return response;
   };
+
+  // The marketing landing is public — no session required.
+  if (request.nextUrl.pathname === "/") {
+    return finish(NextResponse.next());
+  }
 
   // /r and /e are public embed surfaces (no session) — pass through.
   if (
@@ -116,6 +129,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/r/:path*",
     "/e/:path*",
     "/manager/:path*",

@@ -7,6 +7,14 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t("title"),
     description: t("description"),
+    // Canonical resolves against metadataBase (the demo origin).
+    alternates: { canonical: "/demo" },
+    openGraph: {
+      title: t("title"),
+      description: t("description"),
+      url: "/demo",
+    },
+    twitter: { card: "summary_large_image" },
   };
 }
 
