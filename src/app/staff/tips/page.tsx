@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { DollarSign, Lock } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import { useAuth } from "@/context/auth-context";
 import { formatMoney } from "@/features/shared/format";
 
 export default function StaffTipsPage() {
+  const t = useTranslations("staff.tips");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
 
@@ -46,15 +48,15 @@ export default function StaffTipsPage() {
     <div className="animate-fade-in space-y-5 p-4">
       <div>
         <h1 className="text-display flex items-center gap-2 text-xl">
-          <DollarSign className="size-5 text-primary" /> My tips
+          <DollarSign className="size-5 text-primary" /> {t("title")}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">Closed distributions shown here after the manager finalizes them.</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t("description")}</p>
       </div>
 
       {closedDistributions === null ? (
         <ListSkeleton rows={3} rowHeight="h-24" />
       ) : closedDistributions.length === 0 ? (
-        <EmptyState icon={DollarSign} title="No closed distributions yet" description="Your tip share appears here once the manager closes the night's distribution." />
+        <EmptyState icon={DollarSign} title={t("emptyTitle")} description={t("emptyDesc")} />
       ) : (
         <div className="stagger-children space-y-3">
           {closedDistributions.map((d) => {
@@ -64,15 +66,15 @@ export default function StaffTipsPage() {
                 <CardContent className="space-y-3 px-4">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-semibold">{d.businessDate}</p>
-                    <Badge variant="outline"><Lock className="size-3 mr-1" /> Closed</Badge>
+                    <Badge variant="outline"><Lock className="size-3 mr-1" /> {t("closed")}</Badge>
                   </div>
                   {myLine ? (
                     <p className="text-2xl font-semibold tabular-nums">{formatMoney(myLine.shareCents, "CAD")}</p>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Not included in this distribution.</p>
+                    <p className="text-sm text-muted-foreground">{t("notIncluded")}</p>
                   )}
                   <div className="text-xs text-muted-foreground">
-                    Total pool: {formatMoney(d.poolCents, "CAD")} · {
+                    {t("totalPool", { amount: formatMoney(d.poolCents, "CAD") })} · {
                       d.lines.map((l) => `${staffMap.get(l.staffId) ?? l.staffId} ${formatMoney(l.shareCents, "CAD")}`).join(", ")
                     }
                   </div>

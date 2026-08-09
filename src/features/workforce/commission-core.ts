@@ -1,3 +1,4 @@
+import { HttpError } from "@/features/shared/api-error";
 import type { getDb } from "@/features/shared/db";
 import type { CommissionLine, CommissionRule, CommissionStatement } from "@/lib/types";
 
@@ -173,8 +174,8 @@ export async function approveCommissionStatement(
   const existing = await db.commissionStatement.findFirst({
     where: { id: statementId },
   });
-  if (!existing) throw new Error("Statement not found.");
-  if (existing.status !== "draft") throw new Error("Statement is not in draft status.");
+  if (!existing) throw new HttpError(404, "Statement not found.");
+  if (existing.status !== "draft") throw new HttpError(409, "Statement is not in draft status.");
 
   const row = await db.commissionStatement.update({
     where: { id: statementId },

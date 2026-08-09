@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { ArrowLeftRight, CalendarDays, CalendarOff, Clock } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +31,7 @@ function shiftTime(s: Shift): string {
 
 export default function StaffSchedulePage() {
   const { user } = useAuth();
+  const t = useTranslations("staff.schedule");
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
 
@@ -77,7 +79,7 @@ export default function StaffSchedulePage() {
     mutationFn: (shift: Shift) =>
       timeService.requestSwap({ venueId: shift.venueId, shiftId: shift.id, requestedByStaffId: me!.id, status: "open" }),
     onSuccess: () => {
-      toast.success("Swap requested — others with the same role can claim it.");
+      toast.success(t("swapRequestedToast"));
       invalidate();
     },
   });
@@ -85,7 +87,7 @@ export default function StaffSchedulePage() {
   const claimSwapMutation = useMutation({
     mutationFn: (swapId: string) => timeService.claimSwap(swapId, me!.id),
     onSuccess: () => {
-      toast.success("Swap claimed — manager will approve.");
+      toast.success(t("swapClaimedToast"));
       invalidate();
     },
   });
@@ -98,14 +100,14 @@ export default function StaffSchedulePage() {
     },
     onSuccess: () => {
       setToOpen(false); setToStart(""); setToEnd(""); setToReason("");
-      toast.success("Time off requested.");
+      toast.success(t("timeOffRequestedToast"));
       invalidate();
     },
-    onError: () => toast.error("Pick start and end dates."),
+    onError: () => toast.error(t("pickDatesError")),
   });
 
   function handleRequestTimeOff() {
-    if (!toStart || !toEnd) { toast.error("Pick start and end dates."); return; }
+    if (!toStart || !toEnd) { toast.error(t("pickDatesError")); return; }
     timeOffMutation.mutate();
   }
 
@@ -123,13 +125,13 @@ export default function StaffSchedulePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-display flex items-center gap-2 text-xl">
-            <CalendarDays className="size-5 text-primary" /> My schedule
+            <CalendarDays className="size-5 text-primary" /> {t("title")}
           </h1>
-          {me && <p className="mt-0.5 text-sm text-muted-foreground capitalize">{me.role} · published shifts</p>}
+          {me && <p className="mt-0.5 text-sm text-muted-foreground capitalize">{me.role} · {t("publishedShifts")}</p>}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setToOpen(true)}>
-            <CalendarOff className="size-3.5 mr-1" /> Time off
+            <CalendarOff className="size-3.5 mr-1" /> {t("timeOff")}
           </Button>
         </div>
       </div>
@@ -139,8 +141,8 @@ export default function StaffSchedulePage() {
       ) : publishedShifts.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
-          title="No published shifts"
-          description="Published shifts will appear here once the manager generates and publishes a schedule."
+          title={t("emptyTitle")}
+          description={t("emptyDesc")}
         />
       ) : (
         <div className="stagger-children space-y-3">
@@ -158,10 +160,10 @@ export default function StaffSchedulePage() {
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className={STATUS_STYLES[shift.status] ?? ""}>{shift.status}</Badge>
                     <ConfirmDialog
-                      trigger={<Button variant="ghost" size="icon" aria-label="Offer swap"><ArrowLeftRight className="size-4" /></Button>}
-                      title={`Swap ${new Date(shift.businessDate).toLocaleDateString("en-CA", { weekday: "short" })} shift?`}
-                      description="Your shift will be posted for same-role staff to claim."
-                      confirmLabel="Offer swap"
+                      trigger={<Button variant="ghost" size="icon" aria-label={t("offerSwap")}><ArrowLeftRight className="size-4" /></Button>}
+                      title={t("swapTitle", { day: new Date(shift.businessDate).toLocaleDateString("en-CA", { weekday: "short" }) })}
+                      description={t("swapDesc")}
+                      confirmLabel={t("offerSwap")}
                       onConfirm={() => requestSwapMutation.mutate(shift)}
                     />
                   </div>
@@ -173,12 +175,12 @@ export default function StaffSchedulePage() {
           {/* Open swaps */}
           {swapRequests.filter((s) => s.status === "open").length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold mt-6 mb-2">Open swaps</h2>
+              <h2 className="text-sm font-semibold mt-6 mb-2">{t("openSwaps")}</h2>
               {swapRequests.filter((s) => s.status === "open").map((s) => (
                 <Card key={s.id} className="py-3 mb-2">
                   <CardContent className="flex items-center justify-between px-4">
-                    <p className="text-sm">Shift swap open — claim to take this shift</p>
-                    <Button size="sm" onClick={() => claimSwapMutation.mutate(s.id)}>Claim</Button>
+                    <p className="text-sm">{t("swapOpenClaim")}</p>
+                    <Button size="sm" onClick={() => claimSwapMutation.mutate(s.id)}>{t("claim")}</Button>
                   </CardContent>
                 </Card>
               ))}
@@ -188,7 +190,7 @@ export default function StaffSchedulePage() {
           {/* Time-off requests */}
           {timeOffRequests.length > 0 && (
             <div>
-              <h2 className="text-sm font-semibold mt-6 mb-2">Time off</h2>
+              <h2 className="text-sm font-semibold mt-6 mb-2">{t("timeOff")}</h2>
               {timeOffRequests.map((r) => (
                 <Card key={r.id} className="py-2 mb-2">
                   <CardContent className="flex items-center justify-between px-4">
@@ -209,19 +211,19 @@ export default function StaffSchedulePage() {
       <Dialog open={toOpen} onOpenChange={setToOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Request time off</DialogTitle>
-            <DialogDescription>Dates you can't work. A manager will approve or deny.</DialogDescription>
+            <DialogTitle>{t("requestTimeOff")}</DialogTitle>
+            <DialogDescription>{t("requestTimeOffDesc")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="to-start">Start</Label><Input id="to-start" type="date" value={toStart} onChange={(e) => setToStart(e.target.value)} /></div>
-              <div><Label htmlFor="to-end">End</Label><Input id="to-end" type="date" value={toEnd} onChange={(e) => setToEnd(e.target.value)} /></div>
+              <div><Label htmlFor="to-start">{t("start")}</Label><Input id="to-start" type="date" value={toStart} onChange={(e) => setToStart(e.target.value)} /></div>
+              <div><Label htmlFor="to-end">{t("end")}</Label><Input id="to-end" type="date" value={toEnd} onChange={(e) => setToEnd(e.target.value)} /></div>
             </div>
-            <div><Label htmlFor="to-reason">Reason (optional)</Label><Input id="to-reason" value={toReason} onChange={(e) => setToReason(e.target.value)} placeholder="Vacation" /></div>
+            <div><Label htmlFor="to-reason">{t("reasonOptional")}</Label><Input id="to-reason" value={toReason} onChange={(e) => setToReason(e.target.value)} placeholder={t("vacation")} /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setToOpen(false)}>Cancel</Button>
-            <Button onClick={handleRequestTimeOff}>Request</Button>
+            <Button variant="outline" onClick={() => setToOpen(false)}>{t("cancel")}</Button>
+            <Button onClick={handleRequestTimeOff}>{t("request")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

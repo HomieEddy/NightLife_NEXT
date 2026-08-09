@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
+import { cookieName } from "@/i18n/config";
 
 function demoHandler() {
   return NextResponse.json({ error: "Guest join is disabled in demo mode" }, { status: 404 });
@@ -10,9 +11,21 @@ async function livePOST(request: NextRequest) {
   const { verifyTableToken } = await import("@/features/shared/table-token");
   const { createSession } = await import("@/features/sessions/core");
   const { zCreateSession } = await import("@/features/sessions/schemas");
+  const { checkRateLimit, getClientIp } = await import("@/features/shared/rate-limit");
+  const { apiRateLimitError } = await import("@/features/shared/api-error");
 
+  const ip = getClientIp(request);
   const body = await request.json();
   const token = body.token as string | undefined;
+
+  // Rate limit: per-IP burst (general abuse). Generous on purpose — a
+  // nightclub's guests share one NAT IP, so a whole party scanning at once
+  // must not trip it; the per-table bucket below is the real QR-spam guard.
+  const ipRl = checkRateLimit(`guest-join:ip:${ip}`, { maxTokens: 60, refillRate: 60, windowMs: 60_000 });
+  if (!ipRl.allowed) {
+    return apiRateLimitError(ipRl.retryAfterMs);
+  }
+
   if (!token) return NextResponse.json({ error: "Missing token" }, { status: 400 });
 
   const parsed = zCreateSession.safeParse(body);
@@ -32,6 +45,14 @@ async function livePOST(request: NextRequest) {
   );
   if (!verified.valid) return NextResponse.json({ error: "Invalid or revoked QR code" }, { status: 403 });
 
+  // Per-table burst (QR spam) — keyed on the verified table, so an attacker
+  // holding one QR can't burn another table's quota. 60 per 5 min tolerates a
+  // full table re-scanning in a wave; sustained spam still gets cut off.
+  const tableRl = checkRateLimit(`guest-join:table:${table.id}`, { maxTokens: 60, refillRate: 60, windowMs: 300_000 });
+  if (!tableRl.allowed) {
+    return apiRateLimitError(tableRl.retryAfterMs);
+  }
+
   // Check venue auto-approve setting
   const venue = await platformDb.venue.findUnique({ where: { id: table.venueId } });
   if (!venue) return NextResponse.json({ error: "Venue not found" }, { status: 404 });
@@ -47,6 +68,16 @@ async function livePOST(request: NextRequest) {
     path: "/",
     maxAge: 60 * 60 * 12, // 12 hours
   });
+  // Seed the locale from the venue's guestLocale when the visitor has no
+  // preference yet — a francophone venue's guests get French without
+  // touching the toggle.
+  if (!request.cookies.get(cookieName)) {
+    response.cookies.set(cookieName, venue.guestLocale === "fr" ? "fr" : "en", {
+      path: "/",
+      sameSite: "lax",
+      maxAge: 365 * 24 * 60 * 60,
+    });
+  }
   return response;
 }
 

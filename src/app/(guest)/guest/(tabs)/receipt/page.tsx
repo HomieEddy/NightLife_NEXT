@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, ChevronDown, Mail, Minus, Moon, Plus, ReceiptText, Tag, Users, X } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -63,10 +64,11 @@ function Totals({ subtotal, feeBreakdown, tip, total, promotionCode, promotionCe
   promotionCode?: string;
   promotionCents?: number;
 }) {
+  const t = useTranslations("guest.receipt");
   return (
     <div className="space-y-1 text-sm">
       <div className="flex justify-between text-muted-foreground">
-        <span>Subtotal</span>
+        <span>{t("subtotal")}</span>
         <span className="tabular-nums">{formatMoney(subtotal)}</span>
       </div>
       {promotionCode && promotionCents ? (
@@ -84,11 +86,11 @@ function Totals({ subtotal, feeBreakdown, tip, total, promotionCode, promotionCe
         </div>
       ))}
       <div className="flex justify-between text-muted-foreground">
-        <span>Tips</span>
+        <span>{t("tip")}</span>
         <span className="tabular-nums">{formatMoney(tip)}</span>
       </div>
       <div className="flex justify-between pt-1 text-base font-semibold">
-        <span>Total</span>
+        <span>{t("total")}</span>
         <CountUp value={total} format={formatMoney} duration={1.2} startOnMount className="tabular-nums" />
       </div>
     </div>
@@ -128,6 +130,7 @@ interface CustomShare {
 
 /** Even or custom (uneven) split calculator — collapsed behind a toggle. */
 function SplitBill({ total }: { total: number }) {
+  const t = useTranslations("guest.receipt");
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"even" | "custom">("even");
   const [people, setPeople] = useState(2);
@@ -170,7 +173,7 @@ function SplitBill({ total }: { total: number }) {
           className="flex w-full items-center justify-between"
         >
           <span className="flex items-center gap-1.5 text-sm font-medium">
-            <Users className="size-4 text-primary" /> Split the bill
+            <Users className="size-4 text-primary" /> {t("splitBill")}
           </span>
           <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", open && "rotate-180")} />
         </button>
@@ -180,8 +183,8 @@ function SplitBill({ total }: { total: number }) {
             <div className="flex gap-1.5">
               {(
                 [
-                  { id: "even", label: "Split evenly" },
-                  { id: "custom", label: "Custom amounts" },
+                  { id: "even", label: t("splitEvenly") },
+                  { id: "custom", label: t("customAmounts") },
                 ] as const
               ).map((opt) => (
                 <button
@@ -207,7 +210,7 @@ function SplitBill({ total }: { total: number }) {
               <>
                 <div className="flex items-center justify-center gap-4">
                   <TooltipIconButton
-                    tooltip="Fewer people"
+                    tooltip={t("fewerPeople")}
                     variant="outline"
                     onClick={() => setPeople((p) => Math.max(2, p - 1))}
                   >
@@ -215,17 +218,17 @@ function SplitBill({ total }: { total: number }) {
                   </TooltipIconButton>
                   <span className="w-10 text-center text-2xl font-bold tabular-nums">{people}</span>
                   <TooltipIconButton
-                    tooltip="More people"
+                    tooltip={t("morePeople")}
                     variant="outline"
                     onClick={() => setPeople((p) => Math.min(8, p + 1))}
                   >
                     <Plus className="size-4" />
                   </TooltipIconButton>
                 </div>
-                <p className="text-center text-xs text-muted-foreground">people splitting evenly</p>
+                <p className="text-center text-xs text-muted-foreground">{t("peopleSplitting")}</p>
                 <div className="rounded-lg bg-accent/50 p-3 text-center">
                   <p className="text-2xl font-bold tabular-nums">{formatMoney(perPerson)}</p>
-                  <p className="text-xs text-muted-foreground">per person</p>
+                  <p className="text-xs text-muted-foreground">{t("perPerson")}</p>
                 </div>
               </>
             ) : (
@@ -234,11 +237,11 @@ function SplitBill({ total }: { total: number }) {
                   {shares.map((share, i) => (
                     <div key={share.id} className="flex items-center gap-2">
                       <Input
-                        placeholder={`Guest ${i + 1}`}
+                        placeholder={`${t("guest")} ${i + 1}`}
                         value={share.name}
                         onChange={(e) => patchShare(share.id, { name: e.target.value })}
                         className="flex-1"
-                        aria-label="Name (optional)"
+                        aria-label={t("nameOptional")}
                       />
                       <div className="relative w-28 shrink-0">
                         <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
@@ -253,11 +256,11 @@ function SplitBill({ total }: { total: number }) {
                             patchShare(share.id, { amount: Math.max(0, Number(e.target.value)) })
                           }
                           className="pl-5 tabular-nums"
-                          aria-label="Amount"
+                          aria-label={t("amount")}
                         />
                       </div>
                       <TooltipIconButton
-                        tooltip="Remove person"
+                        tooltip={t("removePerson")}
                         variant="ghost"
                         className="shrink-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                         disabled={shares.length <= 2}
@@ -270,10 +273,10 @@ function SplitBill({ total }: { total: number }) {
                 </div>
                 <div className="flex items-center justify-between">
                   <Button variant="outline" size="sm" onClick={addShare}>
-                    <Plus className="size-3.5" /> Add person
+                    <Plus className="size-3.5" /> {t("addPerson")}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => resplitEvenly(shares.length)}>
-                    Reset to even
+                    {t("resetToEven")}
                   </Button>
                 </div>
                 <div
@@ -285,12 +288,12 @@ function SplitBill({ total }: { total: number }) {
                   )}
                 >
                   {remaining === 0 ? (
-                    <span className="font-medium">Fully assigned — {formatMoney(total)}</span>
+                    <span className="font-medium">{t("fullyAssigned", { total: formatMoney(total) })}</span>
                   ) : remaining > 0 ? (
-                    <span className="font-medium">{formatMoney(remaining)} still unassigned</span>
+                    <span className="font-medium">{t("stillUnassigned", { amount: formatMoney(remaining) })}</span>
                   ) : (
                     <span className="font-medium">
-                      {formatMoney(Math.abs(remaining))} over the total
+                      {t("overTotal", { amount: formatMoney(Math.abs(remaining)) })}
                     </span>
                   )}
                 </div>
@@ -305,6 +308,7 @@ function SplitBill({ total }: { total: number }) {
 
 /** Full-night receipt shown after the host approves the tab closure. */
 function NightReceipt() {
+  const t = useTranslations("guest.receipt");
   const { guestName, table, venue, sessionId } = useGuest();
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [adjustments, setAdjustments] = useState<TabAdjustment[]>([]);
@@ -333,8 +337,8 @@ function NightReceipt() {
   }, [guestName, sessionId]);
 
   function sendEmail() {
-    if (!email.trim()) return toast.error("Enter an email address.");
-    toast.success(`Receipt sent to ${email.trim()} (demo)`);
+    if (!email.trim()) return toast.error(t("enterEmail"));
+    toast.success(t("receiptSent", { email: email.trim() }));
   }
 
   if (orders === null) return <ListSkeleton rows={1} rowHeight="h-96" />;
@@ -350,9 +354,9 @@ function NightReceipt() {
         <div className="flex size-16 items-center justify-center rounded-full bg-primary/15 glow-primary">
           <Moon className="size-8 text-primary" />
         </div>
-        <h1 className="text-display text-xl">Tab closed — thanks for the night!</h1>
+        <h1 className="text-display text-xl">{t("tabClosed")}</h1>
         <p className="text-sm text-muted-foreground">
-          {guestName}, here&apos;s everything from tonight.
+          {t("everythingFromTonight", { name: guestName })}
         </p>
       </div>
 
@@ -365,24 +369,24 @@ function NightReceipt() {
               {venue?.address}, {venue?.city}
             </p>
             <div className="my-2 border-y border-dashed border-zinc-400 py-1 font-semibold tracking-widest">
-              GUEST RECEIPT
+              {t("guestReceipt")}
             </div>
           </div>
 
           <div className="flex justify-between">
-            <span>TABLE</span>
+            <span>{t("table")}</span>
             <span>
               {table?.tableCode ?? "—"}
               {table?.zoneName ? ` · ${table.zoneName}` : ""}
             </span>
           </div>
           <div className="flex justify-between">
-            <span>GUEST</span>
+            <span>{t("guest")}</span>
             <span>{guestName}</span>
           </div>
           {firstAt && (
             <div className="flex justify-between">
-              <span>DATE</span>
+              <span>{t("date")}</span>
               <span>
                 {formatDate(firstAt)} {formatTime(firstAt)}
               </span>
@@ -428,7 +432,7 @@ function NightReceipt() {
                 </div>
               ) : null}
               <div className="flex justify-between text-[10px] text-zinc-500">
-                <span>served</span>
+                <span>{t("served")}</span>
                 <span className="tabular-nums">{formatMoney(order.total)}</span>
               </div>
               <div className="border-t border-dashed border-zinc-300" />
@@ -437,12 +441,12 @@ function NightReceipt() {
 
           <div className="space-y-0.5 pt-1">
             <div className="flex justify-between">
-              <span>SUBTOTAL</span>
+              <span>{t("subtotalUpper")}</span>
               <span className="tabular-nums">{formatMoney(subtotal)}</span>
             </div>
             {promoCents > 0 && (
               <div className="flex justify-between text-zinc-600">
-                <span>PROMO DISCOUNT</span>
+                <span>{t("promoDiscount")}</span>
                 <span className="tabular-nums">−{formatMoney(promoCents / 100)}</span>
               </div>
             )}
@@ -453,49 +457,49 @@ function NightReceipt() {
               </div>
             ))}
             <div className="flex justify-between">
-              <span>TIP</span>
+              <span>{t("tipUpper")}</span>
               <span className="tabular-nums">{formatMoney(tip)}</span>
             </div>
             {balance && balance.voidCents > 0 && (
               <div className="flex justify-between text-zinc-600">
-                <span>VOID</span>
+                <span>{t("voidUpper")}</span>
                 <span className="tabular-nums">−{formatMoney(balance.voidCents / 100)}</span>
               </div>
             )}
             {balance && balance.compCents > 0 && (
               <div className="flex justify-between text-zinc-600">
-                <span>COMP</span>
+                <span>{t("compUpper")}</span>
                 <span className="tabular-nums">−{formatMoney(balance.compCents / 100)}</span>
               </div>
             )}
             {balance && balance.discountCents > 0 && (
               <div className="flex justify-between text-zinc-600">
-                <span>DISCOUNT</span>
+                <span>{t("discountUpper")}</span>
                 <span className="tabular-nums">−{formatMoney(balance.discountCents / 100)}</span>
               </div>
             )}
             <div className="flex justify-between border-t border-dashed border-zinc-400 pt-1 text-sm font-bold">
-              <span>{balance && balance.adjustmentsCents > 0 ? "GROSS TOTAL" : "TOTAL"}</span>
+              <span>{balance && balance.adjustmentsCents > 0 ? t("grossTotal") : t("totalUpper")}</span>
               <span className="tabular-nums">{formatMoney(total)}</span>
             </div>
             {balance && balance.adjustmentsCents > 0 && (
               <div className="flex justify-between text-sm font-bold">
-                <span>NET TOTAL</span>
+                <span>{t("netTotal")}</span>
                 <span className="tabular-nums">{formatMoney(balance.netCents / 100)}</span>
               </div>
             )}
             {balance && balance.shortfallCents > 0 && (
               <div className="flex justify-between text-zinc-600">
-                <span>MINIMUM SPEND SHORTFALL</span>
+                <span>{t("minSpendShortfall")}</span>
                 <span className="tabular-nums">{formatMoney(balance.shortfallCents / 100)}</span>
               </div>
             )}
           </div>
 
           <p className="text-center text-[10px] text-zinc-500">
-            {isDemoMode() ? "DEMO RECEIPT · NO PAYMENT PROCESSED" : "EXTERNAL SETTLEMENT RECEIPT"}
+            {isDemoMode() ? t("demoReceipt") : t("externalReceipt")}
           </p>
-          <p className="text-center text-[10px] text-zinc-500">THANK YOU · COME AGAIN</p>
+          <p className="text-center text-[10px] text-zinc-500">{t("thankYou")}</p>
         </div>
       </div>
 
@@ -512,7 +516,7 @@ function NightReceipt() {
           onChange={(e) => setEmail(e.target.value)}
         />
         <Button onClick={sendEmail} className="w-full">
-          <Mail className="size-4" /> Email receipt
+          <Mail className="size-4" /> {t("emailReceipt")}
         </Button>
       </div>
 
@@ -525,6 +529,7 @@ function NightReceipt() {
 
 /** Single-order receipt (linked from a delivered order card). */
 function SingleOrderReceipt({ orderId }: { orderId: string }) {
+  const t = useTranslations("guest.receipt");
   const { venue } = useGuest();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -548,11 +553,11 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
     return (
       <EmptyState
         icon={ReceiptText}
-        title="No receipt to show"
-        description="Place an order first — your receipt will appear here."
+        title={t("noReceiptTitle")}
+        description={t("noReceiptDesc")}
         action={
           <Button asChild>
-            <Link href="/guest/menu">Browse menu</Link>
+            <Link href="/guest/menu">{t("browseMenu")}</Link>
           </Button>
         }
       />
@@ -563,9 +568,9 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-2 py-4 text-center animate-pop-in">
         <CheckCircle2 className="size-10 text-emerald-600 dark:text-emerald-400" />
-        <h1 className="text-display text-xl">Thanks for the night!</h1>
+        <h1 className="text-display text-xl">{t("thanksForNight")}</h1>
         <p className="text-sm text-muted-foreground">
-          Order {order.code} · {formatTime(order.placedAt)}
+          {t("orderAt", { code: order.code, time: formatTime(order.placedAt) })}
         </p>
       </div>
 
@@ -585,17 +590,17 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
           />
           <Separator />
           <p className="text-center text-xs text-muted-foreground">
-            {isDemoMode() ? "Demo receipt — no payment was processed." : "Settled externally with venue staff."}
+            {isDemoMode() ? t("demoReceiptSingle") : t("settledExternally")}
           </p>
         </CardContent>
       </Card>
 
       <div className="flex gap-2 animate-fade-up">
         <Button variant="outline" className="flex-1" asChild>
-          <Link href="/guest/orders">My orders</Link>
+          <Link href="/guest/orders">{t("myOrders")}</Link>
         </Button>
         <Button variant="outline" className="flex-1" asChild>
-          <Link href="/guest/menu">Order something else</Link>
+          <Link href="/guest/menu">{t("orderSomethingElse")}</Link>
         </Button>
       </div>
     </div>
@@ -603,6 +608,7 @@ function SingleOrderReceipt({ orderId }: { orderId: string }) {
 }
 
 function ReceiptContent() {
+  const t = useTranslations("guest.receipt");
   const searchParams = useSearchParams();
   const { lastOrderId, closureStatus } = useGuest();
   const orderId = searchParams.get("order");
@@ -614,11 +620,11 @@ function ReceiptContent() {
   return (
     <EmptyState
       icon={ReceiptText}
-      title="No receipt to show"
-      description="Place an order first — your receipt will appear here."
+      title={t("noReceiptTitle")}
+      description={t("noReceiptDesc")}
       action={
         <Button asChild>
-          <Link href="/guest/menu">Browse menu</Link>
+          <Link href="/guest/menu">{t("browseMenu")}</Link>
         </Button>
       }
     />

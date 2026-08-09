@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/features/shared/utils";
-import nMark from "../../../public/brand/n-mark.png";
+import nMark from "../../../public/brand/n-mark-128.png";
 
 export function BrandLogo({
   href = "/",
@@ -15,7 +15,7 @@ export function BrandLogo({
   return (
     <Link href={href} className={cn("flex items-center gap-2 font-semibold", className)}>
       <span className="flex size-7 items-center justify-center overflow-hidden rounded-lg glow-gold">
-        <Image src={nMark} alt="NightLifeNext" className="size-full object-cover" />
+        <Image src={nMark} alt="NightLifeNext" sizes="28px" className="size-full object-cover" />
       </span>
       {variant === "full" && (
         <span className="text-display text-base">

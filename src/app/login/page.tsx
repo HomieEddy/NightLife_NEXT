@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/context/auth-context";
 import { authService } from "@/features/platform/auth-service";
 import { isDemoMode } from "@/features/shared/app-mode";
@@ -37,6 +39,7 @@ function LoginShell({ children, homeHref }: { children: React.ReactNode; homeHre
       <header className="flex h-14 items-center justify-between px-4">
         <BrandLogo href={homeHref} />
         <ThemeToggle />
+        <LocaleToggle />
       </header>
       <main className="flex flex-1 items-center justify-center p-4">
         {children}
@@ -45,7 +48,7 @@ function LoginShell({ children, homeHref }: { children: React.ReactNode; homeHre
   );
 }
 
-function BackToLanding({ href, label = "Back to NightLifeNext" }: { href: string; label?: string }) {
+function BackToLanding({ href, label }: { href: string; label: string }) {
   return (
     <Button variant="ghost" size="sm" asChild>
       <Link href={href}><ArrowLeft className="size-4" /> {label}</Link>
@@ -53,18 +56,19 @@ function BackToLanding({ href, label = "Back to NightLifeNext" }: { href: string
   );
 }
 
-function useErrorToasts() {
+function useErrorToasts(t: ReturnType<typeof useTranslations<"auth">>) {
   const searchParams = useSearchParams();
   useEffect(() => {
     const err = searchParams.get("error");
-    if (err === "suspended") toast.error("Account suspended.");
-    if (err === "forbidden") toast.error("Access denied.");
-  }, [searchParams]);
+    if (err === "suspended") toast.error(t("accountSuspended"));
+    if (err === "forbidden") toast.error(t("accessDenied"));
+  }, [searchParams, t]);
 }
 
 // ── Demo login ──────────────────────────────────────────────────────
 
 function DemoLogin() {
+  const t = useTranslations("auth");
   const router = useRouter();
   const { signIn } = useAuth();
   const [personas, setPersonas] = useState<AuthUser[]>([]);
@@ -73,7 +77,7 @@ function DemoLogin() {
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  useErrorToasts();
+  useErrorToasts(t);
 
   useEffect(() => {
     authService.listPersonas().then(setPersonas);
@@ -83,17 +87,17 @@ function DemoLogin() {
     setSigningIn(persona.id);
     const user = await signIn({ email: persona.email, pin: "0000", role: persona.role });
     setSigningIn(null);
-    if (!user) { toast.error("Sign-in failed."); return; }
+    if (!user) { toast.error(t("signInFailed")); return; }
     router.push(ROLE_HOME[user.role]);
   }
 
   async function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !pin.trim()) { toast.error("Enter your email and PIN."); return; }
+    if (!email.trim() || !pin.trim()) { toast.error(t("enterEmailPin")); return; }
     setSubmitting(true);
     const user = await signIn({ email, pin, role: "manager" });
     setSubmitting(false);
-    if (!user) { toast.error("No matching account."); return; }
+    if (!user) { toast.error(t("noMatchingAccount")); return; }
     router.push(ROLE_HOME[user.role]);
   }
 
@@ -105,15 +109,15 @@ function DemoLogin() {
             <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/15 text-primary">
               <Sparkles className="size-5" />
             </div>
-            <h1 className="text-display text-xl">Welcome to the demo</h1>
+            <h1 className="text-display text-xl">{t("demoWelcome")}</h1>
             <p className="text-sm text-muted-foreground">
-              Pick a role to explore NightLifeNext.
+              {t("demoSubtitle")}
             </p>
           </div>
 
           <div className="space-y-1.5">
             <p className="pb-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Venue team
+              {t("venueTeam")}
             </p>
             {personas.map((p) => {
               const floorRole = p.staffRole ?? (p.role === "manager" ? "manager" : null);
@@ -136,7 +140,7 @@ function DemoLogin() {
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{p.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Sign in as <span className="font-medium capitalize">{floorRole ?? p.role}</span>
+                      {t("signInAsRole", { role: floorRole ?? p.role })}
                     </p>
                   </div>
                   <LogIn className="size-4 shrink-0 text-muted-foreground" />
@@ -150,29 +154,29 @@ function DemoLogin() {
               className="cursor-pointer text-center text-xs text-muted-foreground hover:text-foreground"
               onClick={(e) => { e.preventDefault(); setShowManual(!showManual); }}
             >
-              {showManual ? "Hide manual sign-in" : "Manual sign-in with email + PIN"}
+              {showManual ? t("hideManualSignIn") : t("manualSignIn")}
             </summary>
             {showManual && (
               <form onSubmit={handleManualSubmit} className="mt-3 space-y-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t("email")}</Label>
                   <Input id="email" type="email" autoComplete="username" placeholder="you@velvetmtl.club" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="pin">PIN</Label>
+                  <Label htmlFor="pin">{t("pin")}</Label>
                   <Input id="pin" type="password" inputMode="numeric" autoComplete="current-password" placeholder="••••" value={pin} onChange={(e) => setPin(e.target.value)} />
                 </div>
                 <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting ? "Signing in…" : "Sign in"}
+                  {submitting ? t("signingIn") : t("signIn")}
                 </Button>
               </form>
             )}
           </details>
 
           <p className="text-center text-xs text-muted-foreground">
-            Demo only — no real authentication.
+            {t("demoOnly")}
           </p>
-          <div className="text-center"><BackToLanding href="/demo" label="Back to demo" /></div>
+          <div className="text-center"><BackToLanding href="/demo" label={t("backToDemo")} /></div>
         </CardContent>
       </Card>
     </LoginShell>
@@ -182,23 +186,24 @@ function DemoLogin() {
 // ── Live login ──────────────────────────────────────────────────────
 
 function LiveLogin() {
+  const t = useTranslations("auth");
   const router = useRouter();
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  useErrorToasts();
+  useErrorToasts(t);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
-      toast.error("Enter your email and password.");
+      toast.error(t("enterEmailPassword"));
       return;
     }
     setSubmitting(true);
     const user = await signIn({ email, pin: password, role: "manager" });
     setSubmitting(false);
-    if (!user) { toast.error("Invalid email or password."); return; }
+    if (!user) { toast.error(t("invalidCredentials")); return; }
     router.push(ROLE_HOME[user.role]);
   }
 
@@ -210,15 +215,15 @@ function LiveLogin() {
             <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/15 text-primary">
               <LogIn className="size-5" />
             </div>
-            <h1 className="text-display text-xl">Sign in</h1>
+            <h1 className="text-display text-xl">{t("signIn")}</h1>
             <p className="text-sm text-muted-foreground">
-              Enter your credentials to continue.
+              {t("enterCredentials")}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("email")}</Label>
               <Input
                 id="email"
                 type="email"
@@ -229,7 +234,7 @@ function LiveLogin() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t("password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -240,10 +245,10 @@ function LiveLogin() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Signing in…" : "Sign in"}
+              {submitting ? t("signingIn") : t("signIn")}
             </Button>
           </form>
-          <div className="text-center"><BackToLanding href="/" /></div>
+          <div className="text-center"><BackToLanding href="/" label={t("backToLanding")} /></div>
         </CardContent>
       </Card>
     </LoginShell>

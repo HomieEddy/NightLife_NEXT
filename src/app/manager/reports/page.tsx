@@ -38,17 +38,12 @@ import {
 } from "@/features/analytics/report-service";
 import { reportsKeys } from "@/features/analytics/query-keys";
 import { renderCsv } from "@/features/analytics/report-csv";
+import { useTranslations } from "next-intl";
 import { formatMoney, formatPct, timeAgo } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import { useAuth } from "@/context/auth-context";
 import { zReportConfigInput } from "@/lib/form-schemas";
 import type { z } from "zod";
-
-const RANGE_OPTIONS = [
-  { days: 7, label: "Last 7 days" },
-  { days: 30, label: "Last 30 days" },
-  { days: 90, label: "Last 90 days" },
-];
 
 const isoDaysAgo = (days: number) => {
   const d = new Date();
@@ -96,6 +91,14 @@ function ReportsPageContent() {
   const [viewing, setViewing] = useState<{ report: SavedReport; data: HistoricalAnalytics } | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
 
+  const t = useTranslations("manager.reports");
+
+  const RANGE_OPTIONS = [
+    { days: 7, label: t("range7") },
+    { days: 30, label: t("range30") },
+    { days: 90, label: t("range90") },
+  ];
+
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     resolver: zodResolver(zReportConfigInput),
     defaultValues: EMPTY_VALUES,
@@ -123,12 +126,12 @@ function ReportsPageContent() {
       };
       if (editingId) {
         await reportService.updateReport(editingId, input);
-        return `${input.name} updated`;
+        return t("updatedToast", { name: input.name });
       } else {
         return reportService.createReport(input).then(() =>
           input.schedule
-            ? `${input.name} saved — runs ${input.schedule.frequency}`
-            : `${input.name} saved`,
+            ? t("savedScheduledToast", { name: input.name, frequency: input.schedule.frequency })
+            : t("savedToast", { name: input.name }),
         );
       }
     },
@@ -138,7 +141,7 @@ function ReportsPageContent() {
       reset(EMPTY_VALUES);
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("saveFailed")),
   });
 
   const removeMutation = useMutation({
@@ -146,7 +149,7 @@ function ReportsPageContent() {
     onSuccess: (_, report) => {
       if (viewing?.report.id === report.id) setViewing(null);
       if (editingId === report.id) { setEditingId(null); reset(EMPTY_VALUES); }
-      toast.info(`${report.name} deleted`);
+      toast.info(t("deletedToast", { name: report.name }));
       invalidate();
     },
   });
@@ -195,38 +198,38 @@ function ReportsPageContent() {
     setRunningId(report.id);
     downloadCsv(report, await run(report));
     setRunningId(null);
-    toast.success(`${report.name} downloaded as CSV`);
+    toast.success(t("downloadedCsvToast", { name: report.name }));
   }
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Reports"
-        description="Build, save and schedule recurring reports over historical data."
-        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Reports" }]}
+        title={t("title")}
+        description={t("description")}
+        breadcrumbs={[{ label: t("breadcrumbInsights"), href: "/manager/reports" }, { label: t("breadcrumbReports") }]}
       />
 
       {/* ---------- Builder ---------- */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {editingId ? "Edit report" : "New report"}
+            {editingId ? t("editReport") : t("newReport")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={onSave}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="report-name">Name</Label>
+              <Label htmlFor="report-name">{t("nameLabel")}</Label>
               <Input
                 id="report-name"
-                placeholder="e.g. Saturday deep-dive"
+                placeholder={t("namePlaceholder")}
                 {...register("name")}
               />
               {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
             <div className="space-y-1.5">
-              <Label>Data range (rolling)</Label>
+              <Label>{t("rangeLabel")}</Label>
               <Select
                 value={String(watch("rangeDays"))}
                 onValueChange={(v) => setValue("rangeDays", Number(v))}
@@ -246,7 +249,7 @@ function ReportsPageContent() {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Included metrics</Label>
+            <Label>{t("metricsLabel")}</Label>
             <div className="flex flex-wrap gap-1.5">
               {REPORT_METRICS.map((metric) => (
                 <button
@@ -271,22 +274,22 @@ function ReportsPageContent() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="flex items-center gap-1.5 text-sm font-medium">
-                  <CalendarClock className="size-3.5 text-primary" /> Schedule this report
+                  <CalendarClock className="size-3.5 text-primary" /> {t("scheduleLabel")}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  The report engine runs it automatically and emails the result.
+                  {t("scheduleDesc")}
                 </p>
               </div>
               <Switch
                 checked={scheduled}
                 onCheckedChange={(v) => setValue("scheduled", v)}
-                aria-label="Schedule report"
+                aria-label={t("scheduleAria")}
               />
             </div>
             {scheduled && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label>Frequency</Label>
+                  <Label>{t("frequencyLabel")}</Label>
                   <Select
                     value={watch("frequency")}
                     onValueChange={(v) => setValue("frequency", v as FormValues["frequency"])}
@@ -295,14 +298,14 @@ function ReportsPageContent() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="daily">Daily (every morning)</SelectItem>
-                      <SelectItem value="weekly">Weekly (Monday morning)</SelectItem>
-                      <SelectItem value="monthly">Monthly (1st of the month)</SelectItem>
+                      <SelectItem value="daily">{t("frequencyDaily")}</SelectItem>
+                      <SelectItem value="weekly">{t("frequencyWeekly")}</SelectItem>
+                      <SelectItem value="monthly">{t("frequencyMonthly")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="report-email">Send to</Label>
+                  <Label htmlFor="report-email">{t("sendToLabel")}</Label>
                   <Input
                     id="report-email"
                     type="email"
@@ -323,12 +326,12 @@ function ReportsPageContent() {
                   reset(EMPTY_VALUES);
                 }}
               >
-                Cancel edit
+                {t("cancelEdit")}
               </Button>
             )}
             <Button type="submit" disabled={saveMutation.isPending}>
               {saveMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-              {saveMutation.isPending ? "Saving…" : editingId ? "Save changes" : "Save report"}
+              {saveMutation.isPending ? t("saving") : editingId ? t("saveChanges") : t("saveReport")}
             </Button>
           </div>
           </form>
@@ -348,10 +351,10 @@ function ReportsPageContent() {
               </span>
               <span className="flex gap-1">
                 <Button variant="outline" size="sm" onClick={() => download(viewing.report)}>
-                  <Download className="size-3.5" /> CSV
+                  <Download className="size-3.5" /> {t("viewCsv")}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setViewing(null)}>
-                  <X className="size-3.5" /> Close
+                  <X className="size-3.5" /> {t("closeView")}
                 </Button>
               </span>
             </CardTitle>
@@ -360,10 +363,10 @@ function ReportsPageContent() {
             {viewing.report.metrics.includes("revenue") && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="Revenue" value={formatMoney(viewing.data.totalRevenue)} icon={FileText} hint={`${viewing.data.days} nights`} />
-                  <MetricCard label="Orders" value={String(viewing.data.totalOrders)} icon={FileText} />
-                  <MetricCard label="Avg order" value={formatMoney(viewing.data.avgOrderValue)} icon={FileText} />
-                  <MetricCard label="Best night" value={formatMoney(viewing.data.bestNight.revenue)} icon={FileText} hint={viewing.data.bestNight.label} />
+                  <MetricCard label={t("metricRevenue")} value={formatMoney(viewing.data.totalRevenue)} icon={FileText} hint={t("nightsCount", { count: viewing.data.days })} />
+                  <MetricCard label={t("metricOrders")} value={String(viewing.data.totalOrders)} icon={FileText} />
+                  <MetricCard label={t("metricAvgOrder")} value={formatMoney(viewing.data.avgOrderValue)} icon={FileText} />
+                  <MetricCard label={t("metricBestNight")} value={formatMoney(viewing.data.bestNight.revenue)} icon={FileText} hint={viewing.data.bestNight.label} />
                 </div>
                 <RevenueChart
                   data={viewing.data.days > 21 ? aggregateWeekly(viewing.data.series) : viewing.data.series}
@@ -373,7 +376,7 @@ function ReportsPageContent() {
             )}
             {viewing.report.metrics.includes("zones") && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Revenue by zone</p>
+                <p className="text-sm font-medium">{t("revenueByZone")}</p>
                 {viewing.data.revenueByZone.map((z) => (
                   <div key={z.zoneId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
                     <span>{z.zoneName}</span>
@@ -384,13 +387,13 @@ function ReportsPageContent() {
             )}
             {viewing.report.metrics.includes("top-items") && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Top items</p>
-                {viewing.data.topItems.map((t) => (
-                  <div key={t.name} className="flex justify-between border-b py-1.5 text-sm last:border-0">
-                    <span>{t.name}</span>
+                <p className="text-sm font-medium">{t("topItems")}</p>
+                {viewing.data.topItems.map((item) => (
+                  <div key={item.name} className="flex justify-between border-b py-1.5 text-sm last:border-0">
+                    <span>{item.name}</span>
                     <span className="text-muted-foreground">
-                      {t.count} sold ·{" "}
-                      <span className="font-medium text-foreground tabular-nums">{formatMoney(t.revenue)}</span>
+                      {item.count} {t("soldLabel")} ·{" "}
+                      <span className="font-medium text-foreground tabular-nums">{formatMoney(item.revenue)}</span>
                     </span>
                   </div>
                 ))}
@@ -398,14 +401,14 @@ function ReportsPageContent() {
             )}
             {viewing.report.metrics.includes("staff") && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Staff performance</p>
+                <p className="text-sm font-medium">{t("staffPerformance")}</p>
                 {viewing.data.staffPerformance.map((s) => (
                   <div key={s.staffId} className="flex items-center justify-between border-b py-1.5 text-sm last:border-0">
                     <span className="flex items-center gap-2">
                       {s.name} <RoleBadge role={s.role} className="px-1.5 py-0 text-[10px]" />
                     </span>
                     <span className="text-muted-foreground">
-                      {s.ordersDelivered} orders ·{" "}
+                      {s.ordersDelivered} {t("ordersDelivered")} ·{" "}
                       <span className="font-medium text-foreground tabular-nums">{formatMoney(s.revenueServed)}</span>
                     </span>
                   </div>
@@ -414,13 +417,13 @@ function ReportsPageContent() {
             )}
             {viewing.report.metrics.includes("inventory") && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Inventory depletion</p>
+                <p className="text-sm font-medium">{t("inventoryDepletion")}</p>
                 {viewing.data.categoryDepletion.map((c) => (
                   <div key={c.categoryId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
                     <span>{c.categoryName}</span>
                     <span className="text-muted-foreground">
-                      {c.unitsSold} sold · {c.unitsInStock} in stock
-                      {c.sellThrough != null && ` · ${formatPct(c.sellThrough)} sell-through`}
+                      {c.unitsSold} {t("soldLabel")} · {c.unitsInStock} {t("inStock")}
+                      {c.sellThrough != null && ` · ${formatPct(c.sellThrough)} ${t("sellThrough")}`}
                     </span>
                   </div>
                 ))}
@@ -428,44 +431,44 @@ function ReportsPageContent() {
             )}
             {viewing.report.metrics.includes("sessions") && viewing.data.sessions && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Guest sessions</p>
+                <p className="text-sm font-medium">{t("guestSessions")}</p>
                 <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
-                  <div><span className="text-muted-foreground">Sessions:</span> {viewing.data.sessions.totalSessions}</div>
-                  <div><span className="text-muted-foreground">Approval:</span> {formatPct(viewing.data.sessions.approvalRate)}</div>
-                  <div><span className="text-muted-foreground">Avg duration:</span> {viewing.data.sessions.avgDurationMinutes} min</div>
-                  <div><span className="text-muted-foreground">Rev/session:</span> {formatMoney(viewing.data.sessions.revenuePerSession)}</div>
+                  <div><span className="text-muted-foreground">{t("sessionsLabel")}</span> {viewing.data.sessions.totalSessions}</div>
+                  <div><span className="text-muted-foreground">{t("approvalLabel")}</span> {formatPct(viewing.data.sessions.approvalRate)}</div>
+                  <div><span className="text-muted-foreground">{t("avgDurationLabel")}</span> {viewing.data.sessions.avgDurationMinutes} {t("minUnit")}</div>
+                  <div><span className="text-muted-foreground">{t("revPerSessionLabel")}</span> {formatMoney(viewing.data.sessions.revenuePerSession)}</div>
                 </div>
               </div>
             )}
             {viewing.report.metrics.includes("reservations") && viewing.data.reservations && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Reservations</p>
+                <p className="text-sm font-medium">{t("reservationsSection")}</p>
                 <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
-                  <div><span className="text-muted-foreground">Requested:</span> {viewing.data.reservations.requested}</div>
-                  <div><span className="text-muted-foreground">Seated:</span> {viewing.data.reservations.seated}</div>
-                  <div><span className="text-muted-foreground">No-show:</span> {formatPct(viewing.data.reservations.noShowRate)}</div>
-                  <div><span className="text-muted-foreground">Covers:</span> {viewing.data.reservations.totalCovers}</div>
+                  <div><span className="text-muted-foreground">{t("requestedLabel")}</span> {viewing.data.reservations.requested}</div>
+                  <div><span className="text-muted-foreground">{t("seatedLabel")}</span> {viewing.data.reservations.seated}</div>
+                  <div><span className="text-muted-foreground">{t("noShowLabel")}</span> {formatPct(viewing.data.reservations.noShowRate)}</div>
+                  <div><span className="text-muted-foreground">{t("coversLabel")}</span> {viewing.data.reservations.totalCovers}</div>
                 </div>
               </div>
             )}
             {viewing.report.metrics.includes("happy-hours") && viewing.data.happyHours && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Happy hours</p>
+                <p className="text-sm font-medium">{t("happyHoursSection")}</p>
                 <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-3">
-                  <div><span className="text-muted-foreground">HH orders:</span> {viewing.data.happyHours.totalHhOrders}</div>
-                  <div><span className="text-muted-foreground">HH revenue:</span> {formatMoney(viewing.data.happyHours.totalHhRevenue)}</div>
-                  <div><span className="text-muted-foreground">Discount:</span> {formatMoney(viewing.data.happyHours.totalDiscountGiven)}</div>
+                  <div><span className="text-muted-foreground">{t("hhOrdersLabel")}</span> {viewing.data.happyHours.totalHhOrders}</div>
+                  <div><span className="text-muted-foreground">{t("hhRevenueLabel")}</span> {formatMoney(viewing.data.happyHours.totalHhRevenue)}</div>
+                  <div><span className="text-muted-foreground">{t("discountLabel")}</span> {formatMoney(viewing.data.happyHours.totalDiscountGiven)}</div>
                 </div>
               </div>
             )}
             {viewing.report.metrics.includes("events") && viewing.data.events && viewing.data.events.events.length > 0 && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Events</p>
+                <p className="text-sm font-medium">{t("eventsSection")}</p>
                 {viewing.data.events.events.map((e) => (
                   <div key={e.eventId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
                     <span>{e.eventName}</span>
                     <span className="text-muted-foreground">
-                      {e.checkedIn} checked in · {formatPct(e.capacityUtilization)} util ·{" "}
+                      {e.checkedIn} {t("checkedInLabel")} · {formatPct(e.capacityUtilization)} {t("utilLabel")} ·{" "}
                       <span className="font-medium text-foreground tabular-nums">{formatMoney(e.eventRevenue)}</span>
                     </span>
                   </div>
@@ -474,12 +477,12 @@ function ReportsPageContent() {
             )}
             {viewing.report.metrics.includes("promotions") && viewing.data.promotions && viewing.data.promotions.promotions.length > 0 && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Promotions</p>
+                <p className="text-sm font-medium">{t("promotionsSection")}</p>
                 {viewing.data.promotions.promotions.map((p) => (
                   <div key={p.promotionId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
                     <span>{p.code}</span>
                     <span className="text-muted-foreground">
-                      {p.redemptions} used · {formatMoney(p.discountCost)} discount ·{" "}
+                      {p.redemptions} {t("usedLabel")} · {formatMoney(p.discountCost)} {t("discountCostLabel")} ·{" "}
                       <span className="font-medium text-foreground tabular-nums">{formatMoney(p.attributedRevenue)}</span>
                     </span>
                   </div>
@@ -488,13 +491,13 @@ function ReportsPageContent() {
             )}
             {viewing.report.metrics.includes("promoter-funnel") && viewing.data.promoters && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Promoter funnel</p>
+                <p className="text-sm font-medium">{t("promoterFunnel")}</p>
                 {viewing.data.promoters.promoters.map((p) => (
                   <div key={p.promoterId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
                     <span>{p.promoterName}</span>
                     <span className="text-muted-foreground">
-                      {p.reservationsCreated} created · {p.reservationsSeated} seated · {formatPct(p.showUpRate)} show-up ·{" "}
-                      <span className="font-medium text-foreground tabular-nums">{p.guestsFunneled} guests</span>
+                      {p.reservationsCreated} {t("createdLabel")} · {p.reservationsSeated} {t("seatedVerb")} · {formatPct(p.showUpRate)} {t("showUpLabel")} ·{" "}
+                      <span className="font-medium text-foreground tabular-nums">{p.guestsFunneled} {t("guestsLabel")}</span>
                     </span>
                   </div>
                 ))}
@@ -502,38 +505,38 @@ function ReportsPageContent() {
             )}
             {viewing.report.metrics.includes("promoter-revenue") && viewing.data.promoters && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Promoter revenue</p>
+                <p className="text-sm font-medium">{t("promoterRevenue")}</p>
                 {viewing.data.promoters.promoters.map((p) => (
                   <div key={p.promoterId} className="flex justify-between border-b py-1.5 text-sm last:border-0">
                     <span>{p.promoterName}</span>
                     <span className="text-muted-foreground">
-                      {formatMoney(p.avgSpendPerGuest)} / guest ·{" "}
+                      {formatMoney(p.avgSpendPerGuest)} {t("perGuestLabel")} ·{" "}
                       <span className="font-medium text-foreground tabular-nums">{formatMoney(p.attributedRevenue)}</span>
                     </span>
                   </div>
                 ))}
                 <div className="flex justify-between pt-1 text-sm font-medium">
-                  <span>Total</span>
+                  <span>{t("totalLabel")}</span>
                   <span className="tabular-nums">{formatMoney(viewing.data.promoters.totalAttributedRevenue)}</span>
                 </div>
               </div>
             )}
             {viewing.report.metrics.includes("order-funnel") && viewing.data.orderFunnel && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Order funnel</p>
+                <p className="text-sm font-medium">{t("orderFunnel")}</p>
                 <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
-                  <div><span className="text-muted-foreground">Placed:</span> {viewing.data.orderFunnel.placed}</div>
-                  <div><span className="text-muted-foreground">Delivered:</span> {viewing.data.orderFunnel.delivered}</div>
-                  <div><span className="text-muted-foreground">Cancelled:</span> {viewing.data.orderFunnel.cancelled} ({formatPct(viewing.data.orderFunnel.cancellationRate)})</div>
-                  <div><span className="text-muted-foreground">Fee revenue:</span> {formatMoney(viewing.data.orderFunnel.serviceFeeRevenue)}</div>
+                  <div><span className="text-muted-foreground">{t("placedLabel")}</span> {viewing.data.orderFunnel.placed}</div>
+                  <div><span className="text-muted-foreground">{t("deliveredLabel")}</span> {viewing.data.orderFunnel.delivered}</div>
+                  <div><span className="text-muted-foreground">{t("cancelledLabel")}</span> {viewing.data.orderFunnel.cancelled} ({formatPct(viewing.data.orderFunnel.cancellationRate)})</div>
+                  <div><span className="text-muted-foreground">{t("feeRevenueLabel")}</span> {formatMoney(viewing.data.orderFunnel.serviceFeeRevenue)}</div>
                 </div>
               </div>
             )}
             {viewing.report.metrics.includes("service-fees") && viewing.data.orderFunnel && (
               <div className="space-y-2">
-                <p className="text-sm font-medium">Service fees</p>
+                <p className="text-sm font-medium">{t("serviceFees")}</p>
                 <div className="text-sm">
-                  <span className="text-muted-foreground">Total fee revenue:</span>{" "}
+                  <span className="text-muted-foreground">{t("totalFeeRevenue")}</span>{" "}
                   <span className="font-medium tabular-nums">{formatMoney(viewing.data.orderFunnel.serviceFeeRevenue)}</span>
                 </div>
               </div>
@@ -545,7 +548,7 @@ function ReportsPageContent() {
       {/* ---------- Saved & scheduled reports ---------- */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Saved & scheduled reports</CardTitle>
+          <CardTitle className="text-base">{t("savedReports")}</CardTitle>
         </CardHeader>
         <CardContent>
           {reports === undefined ? (
@@ -553,20 +556,20 @@ function ReportsPageContent() {
           ) : reports.length === 0 ? (
             <EmptyState
               icon={FileText}
-              title="No reports yet"
-              description="Build one above — save it for on-demand runs or schedule it."
+              title={t("noReports")}
+              description={t("noReportsDesc")}
             />
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Metrics</TableHead>
-                    <TableHead>Range</TableHead>
-                    <TableHead>Schedule</TableHead>
-                    <TableHead>Last run</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{t("tableName")}</TableHead>
+                    <TableHead>{t("tableMetrics")}</TableHead>
+                    <TableHead>{t("tableRange")}</TableHead>
+                    <TableHead>{t("tableSchedule")}</TableHead>
+                    <TableHead>{t("tableLastRun")}</TableHead>
+                    <TableHead className="text-right">{t("tableActions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -583,7 +586,7 @@ function ReportsPageContent() {
                         </div>
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-muted-foreground">
-                        {report.rangeDays} days
+                        {t("rangeDays", { count: report.rangeDays })}
                       </TableCell>
                       <TableCell>
                         {report.schedule ? (
@@ -591,17 +594,17 @@ function ReportsPageContent() {
                             <CalendarClock className="size-3" /> {report.schedule.frequency}
                           </Badge>
                         ) : (
-                          <span className="text-xs text-muted-foreground">On demand</span>
+                          <span className="text-xs text-muted-foreground">{t("onDemand")}</span>
                         )}
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                        {report.lastRunAt ? timeAgo(report.lastRunAt) : "Never"}
+                        {report.lastRunAt ? timeAgo(report.lastRunAt) : t("never")}
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end">
                           <TooltipIconButton
                             variant="ghost"
-                            tooltip="View report"
+                            tooltip={t("viewReport")}
                             disabled={runningId !== null}
                             onClick={() => view(report)}
                           >
@@ -613,7 +616,7 @@ function ReportsPageContent() {
                           </TooltipIconButton>
                           <TooltipIconButton
                             variant="ghost"
-                            tooltip="Download CSV"
+                            tooltip={t("downloadCsv")}
                             disabled={runningId !== null}
                             onClick={() => download(report)}
                           >
@@ -621,7 +624,7 @@ function ReportsPageContent() {
                           </TooltipIconButton>
                           <TooltipIconButton
                             variant="ghost"
-                            tooltip="Edit report"
+                            tooltip={t("editReportTooltip")}
                             onClick={() => startEdit(report)}
                           >
                             <Pencil className="size-4" />
@@ -632,18 +635,18 @@ function ReportsPageContent() {
                                 variant="ghost"
                                 size="icon"
                                 className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                                aria-label="Delete report"
+                                aria-label={t("deleteReportAria")}
                               >
                                 <Trash2 className="size-4" />
                               </Button>
                             }
-                            title={`Delete ${report.name}?`}
+                            title={t("deleteTitle", { name: report.name })}
                             description={
                               report.schedule
-                                ? "Its schedule is cancelled — no more automatic runs."
-                                : "The saved configuration is removed."
+                                ? t("deleteScheduledDesc")
+                                : t("deleteUnscheduledDesc")
                             }
-                            confirmLabel="Delete report"
+                            confirmLabel={t("deleteConfirm")}
                             destructive
                             onConfirm={() => removeMutation.mutate(report)}
                           />

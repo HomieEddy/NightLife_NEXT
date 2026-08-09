@@ -119,6 +119,7 @@ export async function listSessions(
   const rows = await db.guestSession.findMany({
     where,
     orderBy: { createdAt: "desc" },
+    take: 200,
   });
   return rows.map(toSession);
 }

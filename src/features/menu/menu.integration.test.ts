@@ -599,6 +599,13 @@ describe("menu/inventory/packages integration (plan 04)", () => {
     }
   });
 
+  it("caps listMovements at MAX_PAGE_SIZE (plan 33 pagination backstop)", async () => {
+    const db = getDb(sessionA);
+    // Request far more than the cap — the service layer must clamp it.
+    const result = await listMovements(db, 5000);
+    expect(result.length).toBeLessThanOrEqual(200);
+  });
+
   // ── Tenant isolation ─────────────────────────────────────────────────
 
   it("never leaks categories across venues (AD-3 canary)", async () => {

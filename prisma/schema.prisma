@@ -40,7 +40,9 @@ model JobRun {
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
 
-  @@index([tenantId, jobName])
+  // One run per (tenant, job, date) — jobKeys embed the date. The unique
+  // constraint is the atomic overrun claim (createMany skipDuplicates).
+  @@unique([tenantId, jobName])
   @@map("job_runs")
 }
 
@@ -57,6 +59,8 @@ model User {
   banned          Boolean?
   banReason       String?   @map("ban_reason")
   banExpires      DateTime? @map("ban_expires") @db.Timestamptz
+  /// When the user accepted the privacy policy (invite-accept flow).
+  consentAt       DateTime? @map("consent_at") @db.Timestamptz
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -198,7 +202,6 @@ model StaffProfile {
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@map("staff_profiles")
 }
 
@@ -232,6 +235,7 @@ model Venue {
   coatCheckEnabled       Boolean  @default(false) @map("coat_check_enabled")
   doorRequiresIdCheck    Boolean  @default(false) @map("door_requires_id_check")
   legalDrinkingAge       Int      @default(18) @map("legal_drinking_age")
+  guestLocale            String   @default("en") @map("guest_locale")
   evacuationState        String   @default("normal") @map("evacuation_state")
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -413,6 +417,7 @@ model StockMovement {
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
   @@index([venueId])
+  @@index([venueId, createdAt])
   @@index([menuItemId])
   @@map("stock_movements")
 }
@@ -619,6 +624,7 @@ model GuestSession {
   helpRequests HelpRequest[]
 
   @@index([venueId, status])
+  @@index([venueId, createdAt])
   @@index([tableId])
   @@map("guest_sessions")
 }
@@ -817,6 +823,9 @@ model Reservation {
   bumpedFromId    String?           @map("bumped_from_id")
   bumpReason      String?           @map("bump_reason")
   alternativeTableId String?        @map("alternative_table_id")
+  bookingLocale       String          @default("en") @map("booking_locale")
+  /// When the guest accepted the privacy policy on the booking form.
+  consentAt           DateTime?       @map("consent_at") @db.Timestamptz
   createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -824,6 +833,7 @@ model Reservation {
 
   @@index([venueId, startsAt])
   @@index([venueId, status])
+  @@index([venueId, promoterId])
   @@map("reservations")
 }
 
@@ -1008,6 +1018,8 @@ model Lead {
   source      String   @default("landing-page")
   dealValue   Int      @default(0) @map("deal_value")
   notes       String   @default("")
+  /// When the contact accepted the privacy policy on the lead form.
+  consentAt   DateTime? @map("consent_at") @db.Timestamptz
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -1820,6 +1832,8 @@ model NotificationLog {
 
   @@index([venueId, channel])
   @@index([venueId, template])
+  // Retention truncation and recent-log listings range over createdAt.
+  @@index([venueId, createdAt])
   @@map("notification_logs")
 }
 
@@ -1962,4 +1976,14 @@ model VenueRolePermissions {
 
   @@unique([venueId, role])
   @@map("venue_role_permissions")
+}
+
+/// Per-venue monotonic order-code sequence. Created lazily on first order;
+/// incremented atomically (INSERT ... ON CONFLICT) so concurrent orders never
+/// mint the same code. Seed value is 0; the first order of a venue gets seq 1.
+model VenueCounter {
+  venueId String @id @map("venue_id")
+  seq     Int    @default(0)
+
+  @@map("venue_counters")
 }

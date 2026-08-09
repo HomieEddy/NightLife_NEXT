@@ -115,6 +115,7 @@ const reservationSelect = {
   bumpedFromId: true,
   bumpReason: true,
   alternativeTableId: true,
+  bookingLocale: true,
   createdAt: true,
 } as const;
 
@@ -143,6 +144,7 @@ function buildReservationData(input: any, isCreate: boolean) {
   if (input.cancellationPolicyNote !== undefined) data.cancellationPolicyNote = input.cancellationPolicyNote?.trim() || null;
   if (input.seatingNumber !== undefined) data.seatingNumber = input.seatingNumber || null;
   if (input.holdUntil !== undefined) data.holdUntil = input.holdUntil ? new Date(input.holdUntil) : null;
+  if (input.bookingLocale !== undefined) data.bookingLocale = input.bookingLocale;
   return data;
 }
 
@@ -205,6 +207,10 @@ export async function createReservation(
     depositTermsNote: input.depositTermsNote?.trim() || null,
     cancellationPolicyNote: input.cancellationPolicyNote?.trim() || null,
     seatingNumber: input.seatingNumber ?? null,
+    bookingLocale: input.bookingLocale ?? "en",
+    // Consent is validated on the public booking form (zPublicReservationInput);
+    // stamp the evidence here, server-side, at the moment of creation.
+    consentAt: input.source === "public" ? new Date() : null,
   };
   const row = await db.reservation.create({ data, select: reservationSelect });
   return toReservation(row);
@@ -571,6 +577,9 @@ export async function createPublicReservation(
     channel: "embed",
     guestEmail: input.guestEmail,
     guestPhone: input.guestPhone,
+    // A guest booking through the venue's embed gets the venue's default
+    // language for confirmation/PIN/reminder messages.
+    bookingLocale: venue.guestLocale === "fr" ? "fr" : "en",
     eventId: input.eventId,
   });
 }

@@ -5,6 +5,7 @@ import { FeatureGate } from "@/components/shared/feature-gate";
 import { Suspense, useState } from "react";
 import { Clock, Loader2, Pencil, Percent, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,8 +33,6 @@ import { zHappyHourInput } from "@/lib/form-schemas";
 import type { HappyHourRule } from "@/lib/types";
 import type { z } from "zod";
 
-const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 type FormValues = z.infer<typeof zHappyHourInput>;
 const EMPTY_VALUES: FormValues = {
   name: "",
@@ -46,7 +45,9 @@ const EMPTY_VALUES: FormValues = {
 };
 
 function HappyHourContent() {
+  const t = useTranslations("manager.happyHours");
   const { user } = useAuth();
+  const DAY_LABELS = [t("sun"), t("mon"), t("tue"), t("wed"), t("thu"), t("fri"), t("sat")];
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
@@ -82,10 +83,10 @@ function HappyHourContent() {
   const toggleMutation = useMutation({
     mutationFn: (rule: HappyHourRule) => menuService.toggleHappyHourRule(rule.id),
     onSuccess: (_, rule) => {
-      toast.success(`${rule.name} ${rule.isActive ? "deactivated" : "activated"}`);
+      toast.success(t("toggledToast", { name: rule.name, action: rule.isActive ? t("deactivated") : t("activated") }));
       invalidate();
     },
-    onError: () => toast.error("Could not toggle rule"),
+    onError: () => toast.error(t("couldNotToggle")),
   });
 
   const saveMutation = useMutation({
@@ -97,10 +98,10 @@ function HappyHourContent() {
       };
       if (editingId) {
         await menuService.updateHappyHourRule(editingId, input);
-        return `${input.name} updated`;
+        return t("updatedToast", { name: input.name });
       } else {
         await menuService.createHappyHourRule(input);
-        return `${input.name} created`;
+        return t("createdToast", { name: input.name });
       }
     },
     onSuccess: (message) => {
@@ -108,13 +109,13 @@ function HappyHourContent() {
       setDialogOpen(false);
       invalidate();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : t("saveFailed")),
   });
 
   const removeMutation = useMutation({
     mutationFn: (rule: HappyHourRule) => menuService.deleteHappyHourRule(rule.id),
     onSuccess: (_, rule) => {
-      toast.info(`${rule.name} deleted`);
+      toast.info(t("deletedToast", { name: rule.name }));
       invalidate();
     },
   });
@@ -155,7 +156,7 @@ function HappyHourContent() {
     );
   }
 
-  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? id;
+  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? t("noCategory");
 
   const visible = (rules ?? []).filter((rule) => {
     if (activeFilter === "active" && !rule.isActive) return false;
@@ -172,12 +173,12 @@ function HappyHourContent() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Happy hour"
-        description="Time-based discounts, applied automatically to guest orders."
-        breadcrumbs={[{ label: "Catalogue", href: "/manager/menu" }, { label: "Happy Hour" }]}
+        title={t("title")}
+        description={t("description")}
+        breadcrumbs={[{ label: t("catalogue"), href: "/manager/menu" }, { label: t("breadcrumb") }]}
         actions={
           <Button onClick={openCreate}>
-            <Plus className="size-4" /> New rule
+            <Plus className="size-4" /> {t("newRule")}
           </Button>
         }
       />
@@ -187,7 +188,7 @@ function HappyHourContent() {
           <SearchInput
             value={query}
             onChange={setQuery}
-            placeholder="Search rules…"
+            placeholder={t("searchPlaceholder")}
             className="w-full sm:w-56"
           />
           <div className="flex flex-wrap gap-1.5">
@@ -203,7 +204,7 @@ function HappyHourContent() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {s === "all" ? "All" : s}
+                {t(s)}
               </button>
             ))}
           </div>
@@ -219,7 +220,7 @@ function HappyHourContent() {
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            All days
+            {t("allDays")}
           </button>
           {DAY_LABELS.map((label, i) => (
             <button
@@ -244,8 +245,8 @@ function HappyHourContent() {
       ) : visible.length === 0 ? (
         <EmptyState
           icon={Clock}
-          title="No rules match"
-          description={rules.length === 0 ? "Create a rule to discount categories during set hours." : "Try adjusting the filters."}
+          title={t("noRules")}
+          description={rules.length === 0 ? t("noRulesDesc") : t("adjustFilters")}
         />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -276,17 +277,17 @@ function HappyHourContent() {
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     <ConfirmDialog
-                      trigger={<Switch checked={rule.isActive} aria-label="Toggle rule" />}
-                      title={rule.isActive ? `Deactivate ${rule.name}?` : `Activate ${rule.name}?`}
+                      trigger={<Switch checked={rule.isActive} aria-label={t("toggleRule")} />}
+                      title={rule.isActive ? t("deactivateTitle", { name: rule.name }) : t("activateTitle", { name: rule.name })}
                       description={
                         rule.isActive
-                          ? "The discount stops applying to guest orders."
-                          : `Guests get −${rule.discountPct}% on the selected categories during the set hours.`
+                          ? t("deactivateDesc")
+                          : t("activateDesc", { pct: rule.discountPct })
                       }
-                      confirmLabel={rule.isActive ? "Deactivate" : "Activate"}
+                      confirmLabel={rule.isActive ? t("deactivate") : t("activate")}
                       onConfirm={() => toggleMutation.mutate(rule)}
                     />
-                    <TooltipIconButton variant="ghost" tooltip="Edit rule" onClick={() => openEdit(rule)}>
+                    <TooltipIconButton variant="ghost" tooltip={t("editRule")} onClick={() => openEdit(rule)}>
                       <Pencil className="size-4" />
                     </TooltipIconButton>
                     <ConfirmDialog
@@ -295,14 +296,14 @@ function HappyHourContent() {
                           variant="ghost"
                           size="icon"
                           className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                          aria-label="Delete rule"
+                          aria-label={t("deleteRule")}
                         >
                           <Trash2 className="size-4" />
                         </Button>
                       }
-                      title={`Delete ${rule.name}?`}
-                      description="The discount stops applying immediately."
-                      confirmLabel="Delete rule"
+                      title={t("deleteTitle", { name: rule.name })}
+                      description={t("deleteDesc")}
+                      confirmLabel={t("deleteConfirm")}
                       destructive
                       onConfirm={() => removeMutation.mutate(rule)}
                     />
@@ -325,7 +326,7 @@ function HappyHourContent() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  Applies to:
+                  {t("appliesTo")}
                   {rule.appliesToCategoryIds.map((id) => (
                     <EntityChip key={id} type="menu-category" id={id} label={categoryName(id)} />
                   ))}
@@ -337,36 +338,36 @@ function HappyHourContent() {
       )}
 
       <p className="text-xs text-muted-foreground">
-        Prototype note: discounts are not yet applied to guest cart pricing.
+        {t("prototypeNote")}
       </p>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85dvh] max-w-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit rule" : "New happy hour rule"}</DialogTitle>
+            <DialogTitle>{editingId ? t("editRuleTitle") : t("newRuleTitle")}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit((data) => saveMutation.mutate(data))} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="rule-name">Name</Label>
-              <Input id="rule-name" placeholder="e.g. Early bird bottles" {...register("name")} />
+              <Label htmlFor="rule-name">{t("nameLabel")}</Label>
+              <Input id="rule-name" placeholder={t("namePlaceholder")} {...register("name")} />
               {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="rule-start">Start</Label>
+                <Label htmlFor="rule-start">{t("startTime")}</Label>
                 <Input id="rule-start" type="time" {...register("startTime")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="rule-end">End</Label>
+                <Label htmlFor="rule-end">{t("endTime")}</Label>
                 <Input id="rule-end" type="time" {...register("endTime")} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="rule-pct">Discount %</Label>
+                <Label htmlFor="rule-pct">{t("discountPct")}</Label>
                 <Input id="rule-pct" type="number" min={1} max={90} {...register("discountPct", { valueAsNumber: true })} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Days</Label>
+              <Label>{t("daysLabel")}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {DAY_LABELS.map((day, i) => (
                   <button
@@ -386,7 +387,7 @@ function HappyHourContent() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Applies to categories</Label>
+              <Label>{t("appliesToCategories")}</Label>
               <div className="flex flex-wrap gap-1.5">
                 {categories.map((cat) => (
                   <button
@@ -407,11 +408,11 @@ function HappyHourContent() {
             </div>
             <DialogFooter>
               <Button variant="ghost" type="button" onClick={() => setDialogOpen(false)}>
-                Cancel
+                {t("cancel")}
               </Button>
               <Button type="submit" disabled={saveMutation.isPending}>
                 {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-                {saveMutation.isPending ? "Saving…" : editingId ? "Save" : "Create rule"}
+                {saveMutation.isPending ? t("saving") : editingId ? t("save") : t("createRule")}
               </Button>
             </DialogFooter>
           </form>

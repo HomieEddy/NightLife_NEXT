@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clock, Minus, Plus, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,20 +23,21 @@ import type { z } from "zod";
 
 const QUOTE_PRESETS = [15, 30, 45];
 
-const STATUS_LABEL: Record<WaitlistEntryWithPosition["status"], string> = {
-  waiting: "Waiting",
-  notified: "Notified",
-  seated: "Seated",
-  left: "Left",
-  expired: "Expired",
-};
-
 /** Shares the same waitlist state as /staff/door — a table on reservations page for manager visibility. */
 export function WaitlistPanel() {
+  const t = useTranslations("shared");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
   const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const STATUS_LABEL: Record<WaitlistEntryWithPosition["status"], string> = {
+    waiting: t("waitlist.waiting"),
+    notified: t("waitlist.notified"),
+    seated: t("waitlist.seated"),
+    left: t("waitlist.left"),
+    expired: t("waitlist.expired"),
+  };
 
   type FormValues = z.infer<typeof zWaitlistEntryInput>;
   const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm({
@@ -66,11 +68,11 @@ export function WaitlistPanel() {
       waitlistService.join({ name: data.name.trim(), partySize: data.partySize, quotedMinutes: data.quotedMinutes }),
     onSuccess: (_, data) => {
       reset({ name: "", partySize: 2, quotedMinutes: 15 });
-      toast.success(`${data.name.trim()} added to the waitlist`);
+      toast.success(t("waitlist.addedToast", { name: data.name.trim() }));
       invalidate();
     },
     onError: () => {
-      toast.error("Could not add to the waitlist");
+      toast.error(t("waitlist.couldNotAdd"));
     },
   });
 
@@ -95,7 +97,7 @@ export function WaitlistPanel() {
         {entries === undefined ? (
           <ListSkeleton rows={3} rowHeight="h-16" />
         ) : active.length === 0 ? (
-          <EmptyState icon={Users} title="No one waiting" description="Walk-ins added at the door show up here." />
+          <EmptyState icon={Users} title={t("waitlist.emptyTitle")} description={t("waitlist.emptyDesc")} />
         ) : (
           <div className="space-y-2">
             {active.map((entry) => {
@@ -106,19 +108,19 @@ export function WaitlistPanel() {
                   <CardContent className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
                       <p className="font-medium">
-                        #{entry.position ?? "—"} {entry.name} <span className="font-normal text-muted-foreground">— party of {entry.partySize}</span>
+                        #{entry.position ?? "—"} {entry.name} <span className="font-normal text-muted-foreground">— {t("waitlist.partyOf", { count: entry.partySize })}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {elapsed}m elapsed, quoted {entry.quotedMinutes}m · {STATUS_LABEL[entry.status]}
+                        {t("waitlist.elapsed", { elapsed, quoted: entry.quotedMinutes })} · {STATUS_LABEL[entry.status]}
                         {entry.phone && ` · ${entry.phone}`}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-1.5">
                       {entry.status === "waiting" && (
-                        <Button size="sm" variant="outline" onClick={() => statusMutation.mutate({ id: entry.id, status: "notified" })}>Notify</Button>
+                        <Button size="sm" variant="outline" onClick={() => statusMutation.mutate({ id: entry.id, status: "notified" })}>{t("waitlist.notify")}</Button>
                       )}
-                      <Button size="sm" onClick={() => statusMutation.mutate({ id: entry.id, status: "seated" })}>Seat</Button>
-                      <Button size="sm" variant="ghost" onClick={() => statusMutation.mutate({ id: entry.id, status: "left" })}>Leave</Button>
+                      <Button size="sm" onClick={() => statusMutation.mutate({ id: entry.id, status: "seated" })}>{t("waitlist.seat")}</Button>
+                      <Button size="sm" variant="ghost" onClick={() => statusMutation.mutate({ id: entry.id, status: "left" })}>{t("waitlist.leave")}</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -129,10 +131,10 @@ export function WaitlistPanel() {
 
         {history.length > 0 && (
           <div className="space-y-1.5 pt-2">
-            <p className="text-xs font-medium text-muted-foreground">Earlier tonight</p>
+            <p className="text-xs font-medium text-muted-foreground">{t("waitlist.earlierTonight")}</p>
             {history.slice(0, 8).map((entry) => (
               <div key={entry.id} className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                <span>{entry.name} · party of {entry.partySize}</span>
+                <span>{entry.name} · {t("waitlist.partyOf", { count: entry.partySize })}</span>
                 <span className="text-xs text-muted-foreground">{STATUS_LABEL[entry.status]}</span>
               </div>
             ))}
@@ -142,12 +144,12 @@ export function WaitlistPanel() {
 
       <Card>
         <CardContent className="space-y-3 pt-4">
-          <p className="text-sm font-medium">Add a walk-in</p>
+          <p className="text-sm font-medium">{t("waitlist.addWalkIn")}</p>
           <form onSubmit={onJoin} className="space-y-3">
-          <Input placeholder="Name" {...register("name")} />
+          <Input placeholder={t("waitlist.name")} {...register("name")} />
           {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
           <div className="flex items-center gap-2">
-            <Label className="w-20 shrink-0 text-xs">Party</Label>
+            <Label className="w-20 shrink-0 text-xs">{t("waitlist.party")}</Label>
             <Button type="button" variant="outline" size="icon" className="size-9" onClick={() => setValue("partySize", Math.max(1, partySize - 1))}>
               <Minus className="size-4" />
             </Button>
@@ -157,7 +159,7 @@ export function WaitlistPanel() {
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <Label className="w-20 shrink-0 text-xs">Quote</Label>
+            <Label className="w-20 shrink-0 text-xs">{t("waitlist.quote")}</Label>
             <div className="flex gap-1.5">
               {QUOTE_PRESETS.map((m) => (
                 <Button
@@ -173,7 +175,7 @@ export function WaitlistPanel() {
             </div>
           </div>
           <Button type="submit" className="w-full" disabled={isSubmitting || joinMutation.isPending}>
-            <UserPlus className="size-4" /> Add to waitlist
+            <UserPlus className="size-4" /> {t("waitlist.addToWaitlist")}
           </Button>
           </form>
         </CardContent>

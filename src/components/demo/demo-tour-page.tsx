@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +14,7 @@ import { DemoSidebar } from "@/components/demo/demo-sidebar";
 import { DemoTabProvider } from "@/components/demo/demo-tab-context";
 import { DemoTourTabs } from "@/components/demo/demo-tour-tabs";
 import { DemoQuickJumpPills } from "@/components/demo/demo-quick-jump-pills";
-import { DEMO_GROUPS, featureAnchorId, HOUSE_RULES } from "./demo-guide-content";
+import { DEMO_GROUPS, demoKeys, featureAnchorId, HOUSE_RULES } from "./demo-guide-content";
 
 // The "Getting started" group and its extra companion hold intro content
 const GETTING_STARTED = DEMO_GROUPS.find((g) => g.id === "getting-started");
@@ -19,6 +22,7 @@ const GETTING_STARTED_EXTRA = DEMO_GROUPS.find((g) => g.id === "getting-started-
 const HOW_IT_WORKS = DEMO_GROUPS.find((g) => g.id === "how-it-works");
 
 export default function DemoTourPage() {
+  const t = useTranslations("demo");
   return (
     <DemoTabProvider>
     <div className="relative flex min-h-screen flex-col lg:flex-row">
@@ -52,16 +56,15 @@ export default function DemoTourPage() {
                 variant="outline"
                 className="mb-6 gap-1.5 border-gold/40 bg-background/50 text-gold-deep backdrop-blur dark:text-gold"
               >
-                <Sparkles className="size-3" /> Fully interactive — mock data, real flows
+                <Sparkles className="size-3" /> {t("hero.badge")}
               </Badge>
               <h1 className="text-display mx-auto max-w-3xl text-[clamp(2.5rem,7vw,5rem)]">
-                Take the{" "}
-                <span className="text-gradient-gold">live demo</span>{" "}
-                <span className="text-outline">tour</span>
+                {t("hero.titleTake")}{" "}
+                <span className="text-gradient-gold">{t("hero.titleLiveDemo")}</span>{" "}
+                <span className="text-outline">{t("hero.titleTour")}</span>
               </h1>
               <p className="text-voice mx-auto mt-5 max-w-xl text-base text-muted-foreground sm:text-lg">
-                Three surfaces, one nightclub. Manager runs the venue, staff works the floor, guests
-                order from the table. Every feature linked straight into the sandbox.
+                {t("hero.subtitle")}
               </p>
             </Reveal>
 
@@ -84,9 +87,11 @@ export default function DemoTourPage() {
                     <GETTING_STARTED.icon className="size-4 text-gold-deep dark:text-gold" />
                   </div>
                   <div>
-                    <h2 className="text-display text-xl sm:text-2xl">{GETTING_STARTED.label}</h2>
+                    <h2 className="text-display text-xl sm:text-2xl">
+                      {t(demoKeys.group(GETTING_STARTED.id, "label"))}
+                    </h2>
                     <p className="text-voice text-sm text-muted-foreground">
-                      {GETTING_STARTED.intro}
+                      {t(demoKeys.group(GETTING_STARTED.id, "intro"))}
                     </p>
                   </div>
                 </div>
@@ -109,16 +114,18 @@ export default function DemoTourPage() {
                       <div className="min-w-0 w-full sm:w-auto sm:flex-1">
                         <div className="flex items-center gap-2">
                           <f.icon className="size-4 text-gold-deep dark:text-gold" />
-                          <h3 className="font-semibold">{f.title}</h3>
+                          <h3 className="font-semibold">{t(demoKeys.feature(f, "title"))}</h3>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{f.what}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {t(demoKeys.feature(f, "what"))}
+                        </p>
                         <p className="text-voice mt-0.5 text-sm text-muted-foreground">
-                          {f.why}
+                          {t(demoKeys.feature(f, "why"))}
                         </p>
                       </div>
                       <Button size="sm" asChild>
                         <Link href={f.href}>
-                          Open guest QR <ArrowRight className="size-3.5" />
+                          {t("hero.openGuestQr")} <ArrowRight className="size-3.5" />
                         </Link>
                       </Button>
                     </CardContent>
@@ -137,16 +144,21 @@ export default function DemoTourPage() {
                           <f.icon className="size-4 text-gold-deep dark:text-gold" />
                         </div>
                         <div>
-                          <h3 className="font-semibold">{f.title}</h3>
+                          <h3 className="font-semibold">{t(demoKeys.feature(f, "title"))}</h3>
                         </div>
                       </div>
-                      <p className="mt-3 text-sm text-muted-foreground">{f.what}</p>
-                      <p className="text-voice mt-1 text-sm text-muted-foreground">{f.why}</p>
+                      <p className="mt-3 text-sm text-muted-foreground">
+                        {t(demoKeys.feature(f, "what"))}
+                      </p>
+                      <p className="text-voice mt-1 text-sm text-muted-foreground">
+                        {t(demoKeys.feature(f, "why"))}
+                      </p>
                       <Link
                         href={f.href}
                         className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-gold-deep hover:underline dark:text-gold"
                       >
-                        Open {f.title.split(" ")[0].toLowerCase()} <ArrowRight className="size-3" />
+                        {t("hero.open")} {t(demoKeys.feature(f, "title")).split(" ")[0].toLowerCase()}{" "}
+                        <ArrowRight className="size-3" />
                       </Link>
                     </CardContent>
                   </Card>
@@ -172,11 +184,10 @@ export default function DemoTourPage() {
                 </div>
                 <div>
                   <h2 className="text-display text-xl sm:text-2xl">
-                    {HOW_IT_WORKS?.label ?? "How the demo works"}
+                    {t(demoKeys.group(HOW_IT_WORKS?.id ?? "how-it-works", "label"))}
                   </h2>
                   <p className="text-voice text-sm text-muted-foreground">
-                    {HOW_IT_WORKS?.intro ??
-                      "The sandbox rules — ten seconds, then go play."}
+                    {t(demoKeys.group(HOW_IT_WORKS?.id ?? "how-it-works", "intro"))}
                   </p>
                 </div>
               </div>
@@ -188,18 +199,20 @@ export default function DemoTourPage() {
             >
               {HOUSE_RULES.map((rule) => (
                 <div
-                  key={rule.title}
+                  key={rule.id}
                   className="border-gold/15 p-5 max-lg:[&:nth-child(n+2)]:border-t lg:[&:nth-child(n+2)]:border-l sm:max-lg:[&:nth-child(2)]:border-t-0 sm:max-lg:[&:nth-child(even)]:border-l"
                 >
                   <rule.icon className="size-4 text-gold-deep dark:text-gold" />
-                  <h3 className="mt-3 text-sm font-semibold">{rule.title}</h3>
-                  <p className="text-voice mt-1 text-sm text-muted-foreground">{rule.line}</p>
+                  <h3 className="mt-3 text-sm font-semibold">{t(demoKeys.rule(rule.id, "title"))}</h3>
+                  <p className="text-voice mt-1 text-sm text-muted-foreground">
+                    {t(demoKeys.rule(rule.id, "line"))}
+                  </p>
                   {rule.href && (
                     <Link
                       href={rule.href}
                       className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-gold-deep hover:underline dark:text-gold"
                     >
-                      {rule.linkLabel} <ArrowRight className="size-3" />
+                      {t(demoKeys.rule(rule.id, "linkLabel"))} <ArrowRight className="size-3" />
                     </Link>
                   )}
                 </div>

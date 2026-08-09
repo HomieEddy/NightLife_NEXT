@@ -191,8 +191,8 @@ export async function getSummaryForVenue(
 
   const [tonightStats, lastNightStats, activeTables, totalTables] =
     await Promise.all([
-      queryNightStats(db, venueId, tonight),
-      queryNightStats(db, venueId, lastNight),
+      queryNightStats(db, venueId, tonight, nightConfig.timezone),
+      queryNightStats(db, venueId, lastNight, nightConfig.timezone),
       db.venueTable.count({ where: { status: "occupied" } }),
       db.venueTable.count(),
     ]);
@@ -271,7 +271,14 @@ interface NightStats {
   categoryDepletion: CategoryDepletionPoint[];
 }
 
-async function queryNightStats(db: ScopedDb, venueId: string, night: NightBoundary): Promise<NightStats> {
+async function queryNightStats(
+  db: ScopedDb,
+  venueId: string,
+  night: NightBoundary,
+  timezone?: string,
+): Promise<NightStats> {
+  // Bucketing timezone — the explicit param wins, otherwise the boundary's.
+  const tz = timezone ?? night.timezone ?? "UTC";
   // The night's label is already the venue-local calendar date (see night.ts) —
   // noon avoids any UTC-parsing day-boundary edge case when reading its weekday.
   const nightDayOfWeek = new Date(`${night.label}T12:00:00`).getDay();
@@ -344,10 +351,13 @@ async function queryNightStats(db: ScopedDb, venueId: string, night: NightBounda
     .slice(0, 10)
     .map((i) => ({ name: i.name, count: i.count, revenue: fromCents(i.revenueCents) }));
 
-  // Revenue by hour
+  // Revenue by hour — bucketed in the VENUE's timezone (a Montréal club at
+  // 23:00 UTC is 19:00 local; the old getUTCHours() shifted the whole curve).
   const hourBuckets = new Map<number, { revenue: number; orders: number }>();
   for (const order of orders) {
-    const h = order.placedAt.getUTCHours();
+    const h = Number(
+      order.placedAt.toLocaleString("en-US", { timeZone: tz, hour: "2-digit", hourCycle: "h23" }),
+    );
     const bucket = hourBuckets.get(h) ?? { revenue: 0, orders: 0 };
     bucket.revenue += fromCents(order.totalCents);
     bucket.orders += 1;

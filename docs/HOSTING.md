@@ -2,7 +2,8 @@
 
 Status: decided · Owner: Eddy · Last updated: 2026-07-20
 Cross-ref: `docs/ARD.md` AD-15, `AGENTS.md` §9.11 ·
-VPS provisioning/hardening: `docs/RUNBOOK-VPS-SETUP.md`
+VPS provisioning/hardening: `docs/RUNBOOK-VPS-SETUP.md` ·
+Operations runbook: `docs/RUNBOOK.md`
 
 ## Decision
 
@@ -92,28 +93,30 @@ Three local loops, fastest to most prod-shaped:
 |---|---|---|---|---|
 | **Native demo** | `npm run dev:demo` | None (mock data) | Native | UI work, demo-only features |
 | **PGlite live** | `npm run dev:pglite` | In-process PGlite | Native | Live features, fastest iteration |
-| **Compose stack** | `npm run dev:stack` | Real Postgres 17 | Via bind mount | Mode-pair testing, LISTEN/NOTIFY, migration validation |
+| **Compose stack** | `docker compose up` | Real Postgres 17 | Via bind mount | Mode-pair testing, LISTEN/NOTIFY, migration validation |
 
 The compose stack (`compose.yaml`) runs four services by default:
 
-- `db` — Postgres 17 on port 5432
+- `db` — Postgres 17 on host port **5433** (mapped from 5432)
 - `migrate` — one-shot: applies migrations + idempotent seed
 - `app-live` — Next.js dev server on port 3000 (`NEXT_PUBLIC_APP_MODE=live`)
 - `app-demo` — Next.js dev server on port 3001 (`NEXT_PUBLIC_APP_MODE=demo`, no DB)
 
 A fifth service, `app-prod`, runs only under the `prod-shape` profile (below).
 
-Dev-grade secrets are embedded in the compose file — `docker compose up` works
-on a clean clone with no `.env`. The `app-demo` service has no `DATABASE_URL`
-so the demo resource guard is exercised exactly as it would be on Vercel.
+Dev-grade secrets are embedded in the compose file (overridable via
+`AUTH_SECRET`/`QR_TOKEN_SECRET` env vars) — `docker compose up` works on a
+clean clone with no `.env`. The `app-demo` service has no `DATABASE_URL` so
+the demo resource guard is exercised exactly as it would be on Vercel.
 
-Helper scripts:
+There are no `dev:stack*` npm scripts — the stack is driven directly by
+`docker compose`:
 
-- `npm run dev:stack` — start everything
-- `npm run dev:stack:reset` — `down -v` (wipes DB) then `up` (factory reset)
-- `npm run dev:stack:prod-shape` — builds and serves via the `runner` Dockerfile
-  stage (port 3100), catching static-generation and Suspense errors that dev
-  mode forgives
+- `docker compose up` — start everything
+- `docker compose down -v && docker compose up` — factory reset (wipes the DB)
+- `docker compose --profile prod-shape up --build` — builds and serves via the
+  `runner` Dockerfile stage (port 3100), catching static-generation and
+  Suspense errors that dev mode forgives
 
 An optional `prod-shape` compose profile builds the `runner` Dockerfile stage
 and serves on port 3100 — useful for verifying `next build` behavior locally.
@@ -163,6 +166,88 @@ hotfix/critical ─────────────────────�
 
 Compare: Vercel Pro + Neon at 10 venues would run $500–2k/mo for equivalent
 compute + database + bandwidth.
+
+## Database backups
+
+Automated nightly backup via `scripts/db-backup.sh`, scheduled by cron on the
+VPS (or Coolify's scheduled-backup feature where available):
+
+```bash
+# /etc/cron.d/nightlife-backup — runs daily at 3:00 AM local
+0 3 * * * nightlife /opt/nightlife/scripts/db-backup.sh >> /var/log/nightlife/backup.log 2>&1
+```
+
+**Pipeline:** pg_dump → gzip → age-encrypt → rclone upload → local prune.
+
+**Environment variables** (set in Coolify service env or /etc/default/nightlife-backup):
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | (required) | Postgres connection string |
+| `BACKUP_DIR` | `/var/backups/nightlife` | Local staging directory |
+| `AGE_PUBLIC_KEY` | (none) | age public key for encryption; skips encrypt if unset |
+| `RCLONE_REMOTE` | (none) | rclone remote:path for upload; local-only if unset |
+| `DAILY_RETENTION` | 7 | Daily backups to keep |
+| `WEEKLY_RETENTION` | 4 | Weekly (Sunday) backups to keep |
+| `MONTHLY_RETENTION` | 12 | Monthly (1st-of-month) backups to keep |
+
+**Retention:** 7 daily + 4 weekly + 12 monthly. Pruning is a no-op on days that
+aren't a Sunday or the 1st of the month — only the Sunday/1st-of-month dumps
+that exceed their retention windows are removed.
+
+**Encryption key:** generate once with `age-keygen`, store the private key in a
+password manager and the public key as `AGE_PUBLIC_KEY` in the VPS env. The key
+must be stored outside the VPS — losing the VPS must not lose the key. Recovery
+path: retrieve the private key from the password manager, use `age --decrypt` to
+recover the backup.
+
+**Storage:** OVHcloud Object Storage (S3-compatible, Beauharnois QC) via rclone.
+Staging backups use the same pipeline with shorter retention (configured via
+`DAILY_RETENTION=3` on the staging VPS). Both buckets are in Canada for Law 25
+compliance.
+
+**Restore drill:** executed monthly per `docs/RUNBOOK.md §restore`. A backup
+that hasn't been restored is not a backup.
+
+## Database roles
+
+The app connects as `nightlife_app`, not superuser. Migrations run as
+`nightlife_migrate` (DDL rights) only during `prisma migrate deploy`. Grant
+scripts are in `scripts/db-roles.sql` — idempotent, run once per database.
+
+| Role | Rights | Used by |
+|---|---|---|
+| `nightlife_app` | CONNECT + DML (SELECT/INSERT/UPDATE/DELETE) on application tables | App runtime |
+| `nightlife_migrate` | CONNECT + DDL (CREATE/ALTER/DROP TABLE/INDEX) + DML | `prisma migrate deploy` step |
+
+**Connection strings:** Coolify deploys `DATABASE_URL` as `nightlife_app` and
+sets `DIRECT_DATABASE_URL` as `nightlife_migrate` for the migrate step. The
+migrate role never runs application queries; the app role can never alter
+schema. Verify with: `docker exec <pg> psql -U nightlife_app -c "CREATE TABLE
+test_ping (x int)"` — must fail with "permission denied".
+
+**`sslmode=require`** is mandatory for any connection crossing a network
+boundary (Coolify → separate DB server). On the same VPS with both PG and app
+in Docker (the current Coolify default), `sslmode=disable` is acceptable.
+
+## Connection pooling
+
+The `PrismaPg` adapter in `src/features/shared/db.ts` passes `max` from
+`DATABASE_POOL_MAX`. **Set it in production** — without it the adapter runs at
+its default (effectively unbounded), which risks exhausting Postgres
+connections under SSE load.
+
+| Setting | Value | Rationale |
+|---|---|---|
+| `DATABASE_POOL_MAX` | 10 | `(4 cores × 2) + 2` = 10, with headroom for SSE LISTEN/NOTIFY channels and the migrate step |
+
+A startup log line prints the configured pool size at boot. Tuning: observe
+`pg_stat_activity` on staging under SSE load (`docker exec <pg> psql -U
+nightlife_app -c "SELECT count(*) FROM pg_stat_activity WHERE backend_type =
+'client backend'"`). If connections approach `DATABASE_POOL_MAX`, increase it
+and re-profile. PgBouncer is deferred — one app process, one DB, same box, no
+horizontal pooler needed (revisit at multi-VPS scale per Future
+Considerations).
 
 ## Future considerations
 

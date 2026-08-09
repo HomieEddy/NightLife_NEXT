@@ -284,6 +284,27 @@ export async function createAdjustment(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      // INV-T3 re-check inside the transaction, with the order row locked —
+      // two concurrent comps can no longer both pass the remaining check and
+      // both insert. The pre-read above is just for early error messages.
+      await tx.$queryRawUnsafe(
+        `SELECT id FROM orders WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
+        input.orderId,
+        venueId,
+      );
+      const currentRows = await tx.tabAdjustment.findMany({
+        where: {
+          orderId: input.orderId,
+          orderItemId: input.orderItemId ?? null,
+          reversedByAdjustmentId: null,
+        },
+      });
+      const current: TabAdjustment[] = currentRows.map(toTabAdjustment);
+      if (!isAdjustmentAmountValid(targetCents, targetCents, current)) {
+        const remaining = targetCents - current.reduce((s, a) => s + a.amountCents, 0);
+        throw new Error(`Cannot adjust: only ${(remaining / 100).toFixed(2)} remains un-adjusted on this target`);
+      }
+
       // INV-O4: for voids, lock the menu item rows for the items we're returning.
       if (input.kind === "void") {
         const itemIds = new Set<string>();
@@ -586,11 +607,27 @@ export async function closeCashout(
   input: z.infer<typeof import("./schemas").zCloseCashout>,
 ): Promise<{ ok: true; cashout: ShiftCashout } | { ok: false; error: string }> {
   // Recompute expected from the actual ledger — the client's number is a preview.
+  // Scope every read to the night window for the business date (mirror of
+  // businessDateFor): the old version pulled the venue's ENTIRE history.
+  const windowStart = new Date(
+    `${input.businessDate}T${String(nightEndHour).padStart(2, "0")}:00:00`,
+  );
+  const windowEnd = new Date(windowStart.getTime() + 24 * 3600_000);
   const sessions = await db.guestSession.findMany({
-    where: { status: "closed" },
+    where: { status: "closed", settledExternallyAt: { gte: windowStart, lt: windowEnd } },
   });
-  const orders = await db.order.findMany({ include: { items: true, feeLines: true } });
-  const adjustments = await db.tabAdjustment.findMany({ where: { reversedByAdjustmentId: null } });
+  const sessionIds = sessions.map((s) => s.id);
+  const orders = sessionIds.length > 0
+    ? await db.order.findMany({
+        where: { sessionId: { in: sessionIds } },
+        include: { items: true, feeLines: true },
+      })
+    : [];
+  const adjustments = sessionIds.length > 0
+    ? await db.tabAdjustment.findMany({
+        where: { reversedByAdjustmentId: null, sessionId: { in: sessionIds } },
+      })
+    : [];
 
   const expected = computeCashoutExpected(
     sessions.map((s) => ({

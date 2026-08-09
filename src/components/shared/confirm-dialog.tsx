@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,7 @@ export function ConfirmDialog({
   trigger,
   title,
   description,
-  confirmLabel = "Confirm",
+  confirmLabel,
   destructive = false,
   onConfirm,
 }: {
@@ -27,6 +28,7 @@ export function ConfirmDialog({
   destructive?: boolean;
   onConfirm: () => void | Promise<void>;
 }) {
+  const t = useTranslations("shared.confirm");
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -50,14 +52,14 @@ export function ConfirmDialog({
         </DialogHeader>
         <DialogFooter className="gap-2">
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             variant={destructive ? "destructive" : "default"}
             onClick={handleConfirm}
             disabled={busy}
           >
-            {busy ? "Working…" : confirmLabel}
+            {busy ? t("working") : (confirmLabel ?? t("confirm"))}
           </Button>
         </DialogFooter>
       </DialogContent>

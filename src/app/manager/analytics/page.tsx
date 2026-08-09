@@ -3,6 +3,7 @@
 import { FeatureGate } from "@/components/shared/feature-gate";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   ArrowRight, Boxes, CalendarCheck, CircleDollarSign,
@@ -44,65 +45,7 @@ const isoDaysAgo = (days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-const PRESETS = [
-  { id: "7", label: "Last 7 days", days: 7 },
-  { id: "30", label: "Last 30 days", days: 30 },
-  { id: "90", label: "Last 90 days", days: 90 },
-] as const;
-
 const CATEGORY_KEY = "nlx-analytics-category";
-const ANALYTICS_CATEGORIES = [
-  {
-    id: "revenue",
-    label: "Revenue",
-    tabs: ["sales", "happy-hours", "promos", "bottles"],
-  },
-  {
-    id: "operations",
-    label: "Operations",
-    tabs: ["capacity", "table-turn", "funnel", "sla", "inventory", "reservations"],
-  },
-  {
-    id: "people",
-    label: "People",
-    tabs: ["staff", "promoters", "guests"],
-  },
-  {
-    id: "intelligence",
-    label: "Intelligence",
-    tabs: ["trends", "incidents", "summary"],
-  },
-] as const;
-type CategoryId = (typeof ANALYTICS_CATEGORIES)[number]["id"];
-
-const TAB_LABELS: Record<string, string> = {
-  sales: "Sales",
-  "happy-hours": "Happy Hours",
-  promos: "Promos",
-  bottles: "Bottles",
-  capacity: "Capacity",
-  "table-turn": "Table Turn",
-  funnel: "Funnel",
-  sla: "SLA",
-  inventory: "Inventory",
-  reservations: "Reservations",
-  staff: "Staff",
-  promoters: "Promoters",
-  guests: "Guests",
-  trends: "Trends",
-  incidents: "Incidents",
-  summary: "Summary",
-};
-
-function readSavedCategory(): CategoryId {
-  try {
-    const saved = localStorage.getItem(CATEGORY_KEY);
-    if (saved && ANALYTICS_CATEGORIES.some((c) => c.id === saved)) {
-      return saved as CategoryId;
-    }
-  } catch {}
-  return "revenue";
-}
 
 /** One cell in a stat grid: muted label over a big tabular number. */
 function Stat({ label, info, children }: { label: string; info?: string; children: React.ReactNode }) {
@@ -126,6 +69,67 @@ export default function ManagerAnalyticsPage() {
 }
 
 function AnalyticsPageContent() {
+  const t = useTranslations("manager.analytics");
+
+  const ANALYTICS_CATEGORIES = [
+    {
+      id: "revenue",
+      label: t("categories.revenue"),
+      tabs: ["sales", "happy-hours", "promos", "bottles"],
+    },
+    {
+      id: "operations",
+      label: t("categories.operations"),
+      tabs: ["capacity", "table-turn", "funnel", "sla", "inventory", "reservations"],
+    },
+    {
+      id: "people",
+      label: t("categories.people"),
+      tabs: ["staff", "promoters", "guests"],
+    },
+    {
+      id: "intelligence",
+      label: t("categories.intelligence"),
+      tabs: ["trends", "incidents", "summary"],
+    },
+  ] as const;
+  type CategoryId = (typeof ANALYTICS_CATEGORIES)[number]["id"];
+
+  function readSavedCategory(): CategoryId {
+    try {
+      const saved = localStorage.getItem(CATEGORY_KEY);
+      if (saved && ANALYTICS_CATEGORIES.some((c) => c.id === saved)) {
+        return saved as CategoryId;
+      }
+    } catch {}
+    return "revenue";
+  }
+
+  const TAB_LABELS: Record<string, string> = {
+    sales: t("tabs.sales"),
+    "happy-hours": t("tabs.happy-hours"),
+    promos: t("tabs.promos"),
+    bottles: t("tabs.bottles"),
+    capacity: t("tabs.capacity"),
+    "table-turn": t("tabs.table-turn"),
+    funnel: t("tabs.funnel"),
+    sla: t("tabs.sla"),
+    inventory: t("tabs.inventory"),
+    reservations: t("tabs.reservations"),
+    staff: t("tabs.staff"),
+    promoters: t("tabs.promoters"),
+    guests: t("tabs.guests"),
+    trends: t("tabs.trends"),
+    incidents: t("tabs.incidents"),
+    summary: t("tabs.summary"),
+  };
+
+  const PRESETS = [
+    { id: "7", label: t("presets.last7days"), days: 7 },
+    { id: "30", label: t("presets.last30days"), days: 30 },
+    { id: "90", label: t("presets.last90days"), days: 90 },
+  ] as const;
+
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const [preset, setPreset] = useState<string>("7");
@@ -186,9 +190,9 @@ function AnalyticsPageContent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Analytics"
-        description="Historical performance — tonight's live numbers live on the Dashboard."
-        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Analytics" }]}
+        title={t("page.title")}
+        description={t("page.description")}
+        breadcrumbs={[{ label: t("page.breadcrumbInsights"), href: "/manager/reports" }, { label: t("page.breadcrumbAnalytics") }]}
       />
 
       {/* ---------- Range controls ---------- */}
@@ -240,17 +244,17 @@ function AnalyticsPageContent() {
               );
               if (result.csvContent) {
                 downloadCsv(result.csvContent, `analytics-${from}-to-${to}.csv`);
-                toast.success("CSV downloaded");
+                toast.success(t("range.csvDownloaded"));
               }
             } catch {
-              toast.error("Export failed");
+              toast.error(t("range.exportFailed"));
             } finally {
               setExporting(false);
             }
           }}
         >
           <Download className="size-3.5" />
-          {exporting ? "Exporting..." : "Export CSV"}
+          {exporting ? t("range.exporting") : t("range.exportCsv")}
         </Button>
       </div>
 
@@ -304,19 +308,19 @@ function AnalyticsPageContent() {
           <TabsContent value="sales" className="space-y-6 pt-4">
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <MetricCard
-                label="Revenue"
+                label={t("salesCards.revenue.label")}
                 value={formatMoney(data.totalRevenue)}
                 icon={CircleDollarSign}
-                info="Total revenue from all delivered orders in this date range, before fees."
-                hint={`${data.days} nights`}
+                info={t("salesCards.revenue.info")}
+                hint={t("common.nights", { days: data.days })}
               />
-              <MetricCard label="Orders" value={String(data.totalOrders)} icon={Receipt} info="Total orders placed across all nights in this range." />
-              <MetricCard label="Avg order" value={formatMoney(data.avgOrderValue)} icon={CircleDollarSign} info="Total revenue divided by total orders in the range." />
+              <MetricCard label={t("salesCards.orders.label")} value={String(data.totalOrders)} icon={Receipt} info={t("salesCards.orders.info")} />
+              <MetricCard label={t("salesCards.avgOrder.label")} value={formatMoney(data.avgOrderValue)} icon={CircleDollarSign} info={t("salesCards.avgOrder.info")} />
               <MetricCard
-                label="Best night"
+                label={t("salesCards.bestNight.label")}
                 value={formatMoney(data.bestNight.revenue)}
                 icon={Trophy}
-                info="Single night with the highest revenue in the range."
+                info={t("salesCards.bestNight.info")}
                 hint={data.bestNight.label}
               />
             </div>
@@ -324,7 +328,7 @@ function AnalyticsPageContent() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
-                  Revenue {data.days > 21 ? "by week" : "by night"}
+                  {t("sales.revenueChartTitle")} {data.days > 21 ? t("sales.byWeek") : t("sales.byNight")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -335,7 +339,7 @@ function AnalyticsPageContent() {
             <div className="grid gap-4 lg:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Revenue by zone</CardTitle>
+                  <CardTitle className="text-base">{t("sales.revenueByZone")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {data.revenueByZone.map((zone) => (
@@ -351,7 +355,7 @@ function AnalyticsPageContent() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Top items</CardTitle>
+                  <CardTitle className="text-base">{t("sales.topItems")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-3">
@@ -367,7 +371,7 @@ function AnalyticsPageContent() {
                             item.name
                           )}
                         </span>
-                        <span className="text-xs text-muted-foreground">{item.count} sold</span>
+                        <span className="text-xs text-muted-foreground">{item.count} {t("sales.sold")}</span>
                         <span className="font-medium tabular-nums">{formatMoney(item.revenue)}</span>
                       </li>
                     ))}
@@ -380,46 +384,46 @@ function AnalyticsPageContent() {
             {data.orderFunnel && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Order funnel</CardTitle>
+                  <CardTitle className="text-base">{t("sales.orderFunnel")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm lg:grid-cols-4">
-                    <Stat label="Placed" info="Total orders placed by guests in this range.">{data.orderFunnel.placed}</Stat>
-                    <Stat label="Delivered" info="Orders successfully delivered to the table.">{data.orderFunnel.delivered}</Stat>
-                    <Stat label="Cancelled" info="Orders cancelled before delivery, shown with cancellation rate.">{data.orderFunnel.cancelled}{" "}
+                    <Stat label={t("sales.funnel.placed.label")} info={t("sales.funnel.placed.info")}>{data.orderFunnel.placed}</Stat>
+                    <Stat label={t("sales.funnel.delivered.label")} info={t("sales.funnel.delivered.info")}>{data.orderFunnel.delivered}</Stat>
+                    <Stat label={t("sales.funnel.cancelled.label")} info={t("sales.funnel.cancelled.info")}>{data.orderFunnel.cancelled}{" "}
                         <span className="text-xs text-muted-foreground">({formatPct(data.orderFunnel.cancellationRate)})</span></Stat>
-                    <Stat label="Service fee revenue" info="Revenue collected from service fees applied to orders.">{formatMoney(data.orderFunnel.serviceFeeRevenue)}</Stat>
-                    <Stat label="Tip rate" info="Percentage of orders that included a tip.">{formatPct(data.orderFunnel.tipRate)}</Stat>
-                    <Stat label="Avg tip" info="Average tip amount on orders that included a tip.">{formatMoney(data.orderFunnel.avgTip)}</Stat>
-                    <Stat label="Gift orders" info="Orders sent as gifts to another table, with total gift revenue.">{data.orderFunnel.giftOrders}{" "}
+                    <Stat label={t("sales.funnel.serviceFee.label")} info={t("sales.funnel.serviceFee.info")}>{formatMoney(data.orderFunnel.serviceFeeRevenue)}</Stat>
+                    <Stat label={t("sales.funnel.tipRate.label")} info={t("sales.funnel.tipRate.info")}>{formatPct(data.orderFunnel.tipRate)}</Stat>
+                    <Stat label={t("sales.funnel.avgTip.label")} info={t("sales.funnel.avgTip.info")}>{formatMoney(data.orderFunnel.avgTip)}</Stat>
+                    <Stat label={t("sales.funnel.giftOrders.label")} info={t("sales.funnel.giftOrders.info")}>{data.orderFunnel.giftOrders}{" "}
                         <span className="text-xs text-muted-foreground">({formatMoney(data.orderFunnel.giftRevenue)})</span></Stat>
-                    <Stat label="Modifier attach" info="Percentage of order items that included at least one modifier (e.g. extra shot, premium mixer).">{formatPct(data.orderFunnel.modifierAttachRate)}</Stat>
+                    <Stat label={t("sales.funnel.modifierAttach.label")} info={t("sales.funnel.modifierAttach.info")}>{formatPct(data.orderFunnel.modifierAttachRate)}</Stat>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Comps, voids & discounts — live from tonight's tab ledger (plan 16) */}
+            {/* Comps, voids & discounts */}
             {data.adjustments && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Comps, voids & discounts</CardTitle>
+                  <CardTitle className="text-base">{t("sales.compVoid.title")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm lg:grid-cols-3">
-                    <Stat label="Voids" info="Lines removed from revenue with stock returned to inventory.">
+                    <Stat label={t("sales.compVoid.voids.label")} info={t("sales.compVoid.voids.info")}>
                       {data.adjustments.voidCount}{" "}
                       <span className="text-xs text-muted-foreground">
                         ({formatMoney(data.adjustments.voidCents / 100)} · {formatPct(data.adjustments.voidRate)})
                       </span>
                     </Stat>
-                    <Stat label="Comps" info="Lines waived as a house gift — inventory stays depleted.">
+                    <Stat label={t("sales.compVoid.comps.label")} info={t("sales.compVoid.comps.info")}>
                       {data.adjustments.compCount}{" "}
                       <span className="text-xs text-muted-foreground">
                         ({formatMoney(data.adjustments.compCents / 100)} · {formatPct(data.adjustments.compRate)})
                       </span>
                     </Stat>
-                    <Stat label="Discounts" info="Revenue reduced by a negotiated delta.">
+                    <Stat label={t("sales.compVoid.discounts.label")} info={t("sales.compVoid.discounts.info")}>
                       {data.adjustments.discountCount}{" "}
                       <span className="text-xs text-muted-foreground">
                         ({formatMoney(data.adjustments.discountCents / 100)} · {formatPct(data.adjustments.discountRate)})
@@ -428,7 +432,7 @@ function AnalyticsPageContent() {
                   </div>
                   {data.adjustments.byReason.length > 0 && (
                     <div className="space-y-1 border-t pt-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">By reason</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t("sales.compVoid.byReason")}</p>
                       {data.adjustments.byReason.map((r) => (
                         <div key={`${r.kind}:${r.reasonCode}`} className="flex justify-between text-sm">
                           <span className="capitalize text-muted-foreground">{r.kind} · {r.reasonCode}</span>
@@ -440,7 +444,7 @@ function AnalyticsPageContent() {
                 </CardContent>
               </Card>
             )}
-            {/* Per-staff comp/void monitoring (was Comp/Void tab) */}
+            {/* Per-staff comp/void monitoring */}
             {data.adjustments && (
               <>
                 <div className="flex justify-end">
@@ -449,7 +453,7 @@ function AnalyticsPageContent() {
                     size="sm"
                     onClick={() => setShowCompDetails(!showCompDetails)}
                   >
-                    {showCompDetails ? "Hide" : "Show"} per-staff comp/void details
+                    {showCompDetails ? t("sales.compVoid.hidePerStaff") : t("sales.compVoid.showPerStaff")}
                   </Button>
                 </div>
                 {showCompDetails && <CompVoidTab />}
@@ -463,22 +467,22 @@ function AnalyticsPageContent() {
             {data.orderEta && (
               <div className="grid grid-cols-3 gap-3">
                 <MetricCard
-                  label="Avg accept wait"
-                  value={`${data.orderEta.avgAcceptMinutes} min`}
+                  label={t("staffCards.avgAcceptWait.label")}
+                  value={`${data.orderEta.avgAcceptMinutes} ${t("common.min")}`}
                   icon={Timer}
-                  info="Average time from order placed to a host accepting it."
+                  info={t("staffCards.avgAcceptWait.info")}
                 />
                 <MetricCard
-                  label="Avg prep & delivery"
-                  value={`${data.orderEta.avgPrepMinutes} min`}
+                  label={t("staffCards.avgPrepDelivery.label")}
+                  value={`${data.orderEta.avgPrepMinutes} ${t("common.min")}`}
                   icon={Timer}
-                  info="Average time from order accepted to delivered at the table."
+                  info={t("staffCards.avgPrepDelivery.info")}
                 />
                 <MetricCard
-                  label="Avg total ETA"
-                  value={`${data.orderEta.avgTotalMinutes} min`}
+                  label={t("staffCards.avgTotalEta.label")}
+                  value={`${data.orderEta.avgTotalMinutes} ${t("common.min")}`}
                   icon={Timer}
-                  info="Average end-to-end time from order placed to delivered."
+                  info={t("staffCards.avgTotalEta.info")}
                   featured
                 />
               </div>
@@ -486,37 +490,37 @@ function AnalyticsPageContent() {
 
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <MetricCard
-                label="Orders delivered"
+                label={t("staffCards.ordersDelivered.label")}
                 value={String(orderStaff.reduce((s, p) => s + p.ordersDelivered, 0))}
                 icon={Receipt}
-                info="Total orders delivered by bartenders and hosts in the range."
-                hint={`${data.days} nights`}
+                info={t("staffCards.ordersDelivered.info")}
+                hint={t("common.nights", { days: data.days })}
               />
               <MetricCard
-                label="Revenue served"
+                label={t("staffCards.revenueServed.label")}
                 value={formatMoney(orderStaff.reduce((s, p) => s + p.revenueServed, 0))}
                 icon={CircleDollarSign}
-                info="Total revenue from orders delivered by bartenders and hosts."
+                info={t("staffCards.revenueServed.info")}
               />
               <MetricCard
-                label="Fastest server"
+                label={t("staffCards.fastestServer.label")}
                 value={fastestServer?.name.split(" ")[0] ?? "—"}
                 icon={Users}
-                info="Bartender or host with the lowest average delivery time."
-                hint={`${fastestServer?.avgDeliveryMinutes ?? 0} min avg`}
+                info={t("staffCards.fastestServer.info")}
+                hint={t("common.minAvg", { mins: fastestServer?.avgDeliveryMinutes ?? 0 })}
               />
               <MetricCard
-                label="Top earner"
+                label={t("staffCards.topEarner.label")}
                 value={topEarner?.name.split(" ")[0] ?? "—"}
                 icon={Trophy}
-                info="Bartender or host who served the highest total revenue."
-                hint="By revenue served"
+                info={t("staffCards.topEarner.info")}
+                hint={t("staff.byRevenueServed")}
               />
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Orders delivered per server</CardTitle>
+                <CardTitle className="text-base">{t("staff.ordersPerServer")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {orderStaff
@@ -533,7 +537,7 @@ function AnalyticsPageContent() {
                       }
                       right={
                         <span className="shrink-0 text-xs text-muted-foreground">
-                          {perf.ordersDelivered} orders · {perf.avgDeliveryMinutes} min avg ·{" "}
+                          {perf.ordersDelivered} {t("common.orders")} · {t("common.minAvg", { mins: perf.avgDeliveryMinutes })} ·{" "}
                           <span className="font-medium text-foreground tabular-nums">
                             {formatMoney(perf.revenueServed)}
                           </span>
@@ -548,19 +552,19 @@ function AnalyticsPageContent() {
             {/* Order fulfilment — bartenders & hosts */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Order fulfilment</CardTitle>
+                <CardTitle className="text-base">{t("staff.orderFulfilment")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b text-left text-muted-foreground">
-                        <th className="pb-2 pr-4 font-medium">Name</th>
-                        <th className="pb-2 pr-4 font-medium">Role</th>
-                        <th className="pb-2 pr-4 text-right font-medium">Accept wait</th>
-                        <th className="pb-2 pr-4 text-right font-medium">Delivery</th>
-                        <th className="pb-2 pr-4 text-right font-medium">Revenue</th>
-                        <th className="pb-2 text-right font-medium">Orders/hr</th>
+                        <th className="pb-2 pr-4 font-medium">{t("staff.orderFulfilmentHeaders.name")}</th>
+                        <th className="pb-2 pr-4 font-medium">{t("staff.orderFulfilmentHeaders.role")}</th>
+                        <th className="pb-2 pr-4 text-right font-medium">{t("staff.orderFulfilmentHeaders.acceptWait")}</th>
+                        <th className="pb-2 pr-4 text-right font-medium">{t("staff.orderFulfilmentHeaders.delivery")}</th>
+                        <th className="pb-2 pr-4 text-right font-medium">{t("staff.orderFulfilmentHeaders.revenue")}</th>
+                        <th className="pb-2 text-right font-medium">{t("staff.orderFulfilmentHeaders.ordersPerHr")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -568,8 +572,8 @@ function AnalyticsPageContent() {
                         <tr key={p.staffId} className="border-b last:border-0">
                           <td className="py-2 pr-4">{p.name}</td>
                           <td className="py-2 pr-4"><RoleBadge role={p.role} className="px-1.5 py-0 text-[10px]" /></td>
-                          <td className="py-2 pr-4 text-right tabular-nums">{p.avgAcceptMinutes ?? "—"} min</td>
-                          <td className="py-2 pr-4 text-right tabular-nums">{p.avgDeliveryMinutes} min</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">{p.avgAcceptMinutes ?? "—"} {t("common.min")}</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">{p.avgDeliveryMinutes} {t("common.min")}</td>
                           <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(p.revenueServed)}</td>
                           <td className="py-2 text-right tabular-nums">{p.ordersPerShiftHour ?? "—"}</td>
                         </tr>
@@ -585,7 +589,7 @@ function AnalyticsPageContent() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <HandHelping className="size-4 text-primary" /> Help fulfilment
+                    <HandHelping className="size-4 text-primary" /> {t("staff.helpFulfilment")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -593,10 +597,10 @@ function AnalyticsPageContent() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b text-left text-muted-foreground">
-                          <th className="pb-2 pr-4 font-medium">Name</th>
-                          <th className="pb-2 pr-4 font-medium">Role</th>
-                          <th className="pb-2 pr-4 text-right font-medium">Help resolved</th>
-                          <th className="pb-2 text-right font-medium">Avg help min</th>
+                          <th className="pb-2 pr-4 font-medium">{t("staff.helpFulfilmentHeaders.name")}</th>
+                          <th className="pb-2 pr-4 font-medium">{t("staff.helpFulfilmentHeaders.role")}</th>
+                          <th className="pb-2 pr-4 text-right font-medium">{t("staff.helpFulfilmentHeaders.helpResolved")}</th>
+                          <th className="pb-2 text-right font-medium">{t("staff.helpFulfilmentHeaders.avgHelpMin")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -605,7 +609,7 @@ function AnalyticsPageContent() {
                             <td className="py-2 pr-4">{p.name}</td>
                             <td className="py-2 pr-4"><RoleBadge role={p.role} className="px-1.5 py-0 text-[10px]" /></td>
                             <td className="py-2 pr-4 text-right tabular-nums">{p.helpResolved ?? 0}</td>
-                            <td className="py-2 text-right tabular-nums">{p.avgHelpMinutes ?? "—"} min</td>
+                            <td className="py-2 text-right tabular-nums">{p.avgHelpMinutes ?? "—"} {t("common.min")}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -618,7 +622,7 @@ function AnalyticsPageContent() {
             <div className="flex justify-end">
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/manager/staff">
-                  Manage staff & schedule <ArrowRight className="size-3.5" />
+                  {t("staff.manageStaff")} <ArrowRight className="size-3.5" />
                 </Link>
               </Button>
             </div>
@@ -628,43 +632,43 @@ function AnalyticsPageContent() {
           <TabsContent value="inventory" className="space-y-6 pt-4">
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <MetricCard
-                label="Units sold"
+                label={t("inventoryCards.unitsSold.label")}
                 value={String(data.categoryDepletion.reduce((s, c) => s + c.unitsSold, 0))}
                 icon={Boxes}
-                info="Total inventory units sold across all categories in the range."
-                hint={`${data.days} nights`}
+                info={t("inventoryCards.unitsSold.info")}
+                hint={t("common.nights", { days: data.days })}
               />
               <MetricCard
-                label="Top category"
+                label={t("inventoryCards.topCategory.label")}
                 value={
                   [...data.categoryDepletion].sort((a, b) => b.unitsSold - a.unitsSold)[0]
                     ?.categoryName ?? "—"
                 }
                 icon={Trophy}
-                info="Menu category with the most units sold in the range."
+                info={t("inventoryCards.topCategory.info")}
               />
               <MetricCard
-                label="Avg units / night"
+                label={t("inventoryCards.avgUnitsPerNight.label")}
                 value={String(
                   Math.round(
                     data.categoryDepletion.reduce((s, c) => s + c.unitsSold, 0) / data.days,
                   ),
                 )}
                 icon={Receipt}
-                info="Total units sold divided by the number of nights in the range."
+                info={t("inventoryCards.avgUnitsPerNight.info")}
               />
               <MetricCard
-                label="In stock now"
+                label={t("inventoryCards.inStock.label")}
                 value={String(data.categoryDepletion.reduce((s, c) => s + c.unitsInStock, 0))}
                 icon={Boxes}
-                info="Current inventory on hand across all categories."
-                hint="Live count"
+                info={t("inventoryCards.inStock.info")}
+                hint={t("common.liveCount")}
               />
             </div>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Sold vs in stock by category</CardTitle>
+                <CardTitle className="text-base">{t("inventory.soldVsStock")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {data.categoryDepletion.map((cat) => (
@@ -672,8 +676,8 @@ function AnalyticsPageContent() {
                     <div className="flex items-center justify-between text-sm">
                       <EntityChip type="menu-category" id={cat.categoryId} label={cat.categoryName} />
                       <span className="text-xs text-muted-foreground">
-                        {cat.unitsSold} sold · {cat.unitsInStock} left
-                        {cat.sellThrough != null && ` · ${formatPct(cat.sellThrough)} sell-through`}
+                        {cat.unitsSold} {t("common.sold")} · {cat.unitsInStock} {t("common.left")}
+                        {cat.sellThrough != null && ` · ${formatPct(cat.sellThrough)} ${t("common.sellThrough")}`}
                       </span>
                     </div>
                     <div className="flex h-2 overflow-hidden rounded-full bg-muted">
@@ -689,8 +693,8 @@ function AnalyticsPageContent() {
                   </div>
                 ))}
                 <p className="text-[11px] text-muted-foreground">
-                  <span className="mr-1 inline-block size-2 rounded-full bg-primary" /> Sold in range
-                  <span className="ml-3 mr-1 inline-block size-2 rounded-full bg-primary/30" /> Remaining
+                  <span className="mr-1 inline-block size-2 rounded-full bg-primary" /> {t("inventory.soldInRange")}
+                  <span className="ml-3 mr-1 inline-block size-2 rounded-full bg-primary/30" /> {t("inventory.remaining")}
                 </p>
               </CardContent>
             </Card>
@@ -699,14 +703,14 @@ function AnalyticsPageContent() {
             {data.inventoryDepth && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Inventory depth</CardTitle>
+                  <CardTitle className="text-base">{t("inventory.depthTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm lg:grid-cols-4">
-                    <Stat label="Sold-out events / night" info="Average number of stock-out incidents per night in the range.">{data.inventoryDepth.soldOutEventsPerNight}</Stat>
-                    <Stat label="Total sold-out minutes" info="Cumulative minutes items were unavailable before restock.">{data.inventoryDepth.totalSoldOutMinutes}</Stat>
-                    <Stat label="Restock / sale ratio" info="Units restocked divided by units sold — above 100% means building stock.">{formatPct(data.inventoryDepth.restockSaleRatio)}</Stat>
-                    <Stat label="Dead items" info="Stocked items with zero orders in the range — potential menu bloat.">{data.inventoryDepth.deadItems}</Stat>
+                    <Stat label={t("inventory.depth.soldOutPerNight.label")} info={t("inventory.depth.soldOutPerNight.info")}>{data.inventoryDepth.soldOutEventsPerNight}</Stat>
+                    <Stat label={t("inventory.depth.soldOutMinutes.label")} info={t("inventory.depth.soldOutMinutes.info")}>{data.inventoryDepth.totalSoldOutMinutes}</Stat>
+                    <Stat label={t("inventory.depth.restockRatio.label")} info={t("inventory.depth.restockRatio.info")}>{formatPct(data.inventoryDepth.restockSaleRatio)}</Stat>
+                    <Stat label={t("inventory.depth.deadItems.label")} info={t("inventory.depth.deadItems.info")}>{data.inventoryDepth.deadItems}</Stat>
                   </div>
                 </CardContent>
               </Card>
@@ -715,7 +719,7 @@ function AnalyticsPageContent() {
             <div className="flex justify-end">
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/manager/inventory">
-                  Open inventory <ArrowRight className="size-3.5" />
+                  {t("inventory.openInventory")} <ArrowRight className="size-3.5" />
                 </Link>
               </Button>
             </div>
@@ -726,33 +730,33 @@ function AnalyticsPageContent() {
             {data.sessions ? (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="Sessions" value={String(data.sessions.totalSessions)} icon={Users} info="Total guest sessions (scan → close) across all nights." hint={`${data.days} nights`} />
-                  <MetricCard label="Approval rate" value={formatPct(data.sessions.approvalRate)} icon={Users} info="Percentage of session join requests approved by the host." />
-                  <MetricCard label="Avg duration" value={`${data.sessions.avgDurationMinutes} min`} icon={Clock} info="Average time from session approval to tab closure." />
-                  <MetricCard label="Rev / session" value={formatMoney(data.sessions.revenuePerSession)} icon={CircleDollarSign} info="Total revenue divided by total sessions in the range." />
+                  <MetricCard label={t("guestsCards.sessions.label")} value={String(data.sessions.totalSessions)} icon={Users} info={t("guestsCards.sessions.info")} hint={t("common.nights", { days: data.days })} />
+                  <MetricCard label={t("guestsCards.approvalRate.label")} value={formatPct(data.sessions.approvalRate)} icon={Users} info={t("guestsCards.approvalRate.info")} />
+                  <MetricCard label={t("guestsCards.avgDuration.label")} value={`${data.sessions.avgDurationMinutes} ${t("common.min")}`} icon={Clock} info={t("guestsCards.avgDuration.info")} />
+                  <MetricCard label={t("guestsCards.revPerSession.label")} value={formatMoney(data.sessions.revenuePerSession)} icon={CircleDollarSign} info={t("guestsCards.revPerSession.info")} />
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Session metrics</CardTitle>
+                      <CardTitle className="text-base">{t("guests.sessionMetrics")}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                        <Stat label="Denial rate" info="Percentage of session join requests denied by the host.">{formatPct(data.sessions.denialRate)}</Stat>
-                        <Stat label="Avg approval wait" info="Average minutes guests waited for host approval after scanning.">{data.sessions.avgApprovalMinutes} min</Stat>
-                        <Stat label="Avg party size" info="Average number of guests per approved session.">{data.sessions.avgPartySize}</Stat>
-                        <Stat label="Rev / guest" info="Total revenue divided by total guests (sessions × party size).">{formatMoney(data.sessions.revenuePerGuest)}</Stat>
-                        <Stat label="Avg closure time" info="Average minutes from last order to tab closure by staff.">{data.sessions.avgClosureMinutes} min</Stat>
+                        <Stat label={t("guests.denialRate.label")} info={t("guests.denialRate.info")}>{formatPct(data.sessions.denialRate)}</Stat>
+                        <Stat label={t("guests.avgApprovalWait.label")} info={t("guests.avgApprovalWait.info")}>{data.sessions.avgApprovalMinutes} {t("common.min")}</Stat>
+                        <Stat label={t("guests.avgPartySize.label")} info={t("guests.avgPartySize.info")}>{data.sessions.avgPartySize}</Stat>
+                        <Stat label={t("guests.revPerGuest.label")} info={t("guests.revPerGuest.info")}>{formatMoney(data.sessions.revenuePerGuest)}</Stat>
+                        <Stat label={t("guests.avgClosureTime.label")} info={t("guests.avgClosureTime.info")}>{data.sessions.avgClosureMinutes} {t("common.min")}</Stat>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Tab settlement</CardTitle>
+                      <CardTitle className="text-base">{t("guests.tabSettlement")}</CardTitle>
                       <p className="text-xs text-muted-foreground">
-                        How staff recorded each closed tab — the app doesn&apos;t process payments.
+                        {t("guests.tabSettlementDesc")}
                       </p>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -773,12 +777,12 @@ function AnalyticsPageContent() {
                 </div>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">No session data available for this range.</p>
+              <p className="text-sm text-muted-foreground">{t("guests.empty")}</p>
             )}
-            {/* Guest retention metrics (was Retention tab) */}
+            {/* Guest retention metrics */}
             <div className="border-t pt-4 mt-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Guest lifecycle &mdash; repeat rate, churn &amp; engagement
+                {t("guests.lifecycle")}
               </p>
             </div>
             <GuestRetentionTab />
@@ -789,30 +793,30 @@ function AnalyticsPageContent() {
             {data.reservations ? (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="Requested" value={String(data.reservations.requested)} icon={CalendarCheck} info="Total reservation requests received in the range." />
-                  <MetricCard label="Seated" value={String(data.reservations.seated)} icon={CalendarCheck} info="Guests who checked in and were seated at their table." hint={`${formatPct(data.reservations.seatedRate)} of confirmed`} />
-                  <MetricCard label="No-show rate" value={formatPct(data.reservations.noShowRate)} icon={Users} info="Percentage of confirmed reservations where the guest didn't arrive." hint="of confirmed" />
-                  <MetricCard label="Total covers" value={String(data.reservations.totalCovers)} icon={Users} info="Sum of party sizes across all seated reservations." />
+                  <MetricCard label={t("reservationsCards.requested.label")} value={String(data.reservations.requested)} icon={CalendarCheck} info={t("reservationsCards.requested.info")} />
+                  <MetricCard label={t("reservationsCards.seated.label")} value={String(data.reservations.seated)} icon={CalendarCheck} info={t("reservationsCards.seated.info")} hint={`${formatPct(data.reservations.seatedRate)} ${t("common.ofConfirmed")}`} />
+                  <MetricCard label={t("reservationsCards.noShowRate.label")} value={formatPct(data.reservations.noShowRate)} icon={Users} info={t("reservationsCards.noShowRate.info")} hint={t("common.ofConfirmed")} />
+                  <MetricCard label={t("reservationsCards.totalCovers.label")} value={String(data.reservations.totalCovers)} icon={Users} info={t("reservationsCards.totalCovers.info")} />
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-2">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Reservation funnel</CardTitle>
+                      <CardTitle className="text-base">{t("reservations.funnel")}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                        <Stat label="Confirmed" info="Reservations approved by the venue.">{data.reservations.confirmed} <span className="text-xs text-muted-foreground">({formatPct(data.reservations.confirmRate)} of requested)</span></Stat>
-                        <Stat label="Completed" info="Reservations where the guest arrived and the visit finished.">{data.reservations.completed}</Stat>
-                        <Stat label="Cancelled" info="Reservations cancelled before the scheduled date.">{data.reservations.cancelled} <span className="text-xs text-muted-foreground">({formatPct(data.reservations.cancellationRate)} of requested)</span></Stat>
-                        <Stat label="Avg lead time" info="Average days between booking and the reserved date.">{data.reservations.avgLeadDays} days</Stat>
+                        <Stat label={t("reservations.funnelStats.confirmed.label")} info={t("reservations.funnelStats.confirmed.info")}>{data.reservations.confirmed} <span className="text-xs text-muted-foreground">({formatPct(data.reservations.confirmRate)} {t("common.ofRequested")})</span></Stat>
+                        <Stat label={t("reservations.funnelStats.completed.label")} info={t("reservations.funnelStats.completed.info")}>{data.reservations.completed}</Stat>
+                        <Stat label={t("reservations.funnelStats.cancelled.label")} info={t("reservations.funnelStats.cancelled.info")}>{data.reservations.cancelled} <span className="text-xs text-muted-foreground">({formatPct(data.reservations.cancellationRate)} {t("common.ofRequested")})</span></Stat>
+                        <Stat label={t("reservations.funnelStats.avgLeadTime.label")} info={t("reservations.funnelStats.avgLeadTime.info")}>{data.reservations.avgLeadDays} {t("common.reservationDays")}</Stat>
                       </div>
                     </CardContent>
                   </Card>
 
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Source split</CardTitle>
+                      <CardTitle className="text-base">{t("reservations.sourceSplit")}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       {data.reservations.sourceSplit.map((s) => (
@@ -833,7 +837,7 @@ function AnalyticsPageContent() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Channel breakdown</CardTitle>
+                    <CardTitle className="text-base">{t("reservations.channelBreakdown")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {data.reservations.channelSplit.map((c) => (
@@ -853,7 +857,7 @@ function AnalyticsPageContent() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Party size distribution</CardTitle>
+                    <CardTitle className="text-base">{t("reservations.partySizeDist")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-end gap-2">
@@ -877,13 +881,13 @@ function AnalyticsPageContent() {
                 <div className="flex justify-end">
                   <Button variant="ghost" size="sm" asChild>
                     <Link href="/manager/reservations">
-                      Manage reservations <ArrowRight className="size-3.5" />
+                      {t("reservations.manage")} <ArrowRight className="size-3.5" />
                     </Link>
                   </Button>
                 </div>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">No reservation data available for this range.</p>
+              <p className="text-sm text-muted-foreground">{t("reservations.empty")}</p>
             )}
           </TabsContent>
 
@@ -892,26 +896,26 @@ function AnalyticsPageContent() {
             {data.happyHours ? (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="HH orders" value={String(data.happyHours.totalHhOrders)} icon={Receipt} info="Orders placed during active happy hour windows in the range." />
-                  <MetricCard label="HH revenue" value={formatMoney(data.happyHours.totalHhRevenue)} icon={CircleDollarSign} info="Revenue from happy hour orders (at discounted prices)." />
-                  <MetricCard label="Discount given" value={formatMoney(data.happyHours.totalDiscountGiven)} icon={CircleDollarSign} info="Total discount amount applied by happy hour rules." />
-                  <MetricCard label="Rules active" value={String(data.happyHours.rules.length)} icon={Clock} info="Number of distinct happy hour rules that were active during this range." />
+                  <MetricCard label={t("happyHoursCards.hhOrders.label")} value={String(data.happyHours.totalHhOrders)} icon={Receipt} info={t("happyHoursCards.hhOrders.info")} />
+                  <MetricCard label={t("happyHoursCards.hhRevenue.label")} value={formatMoney(data.happyHours.totalHhRevenue)} icon={CircleDollarSign} info={t("happyHoursCards.hhRevenue.info")} />
+                  <MetricCard label={t("happyHoursCards.discountGiven.label")} value={formatMoney(data.happyHours.totalDiscountGiven)} icon={CircleDollarSign} info={t("happyHoursCards.discountGiven.info")} />
+                  <MetricCard label={t("happyHoursCards.rulesActive.label")} value={String(data.happyHours.rules.length)} icon={Clock} info={t("happyHoursCards.rulesActive.info")} />
                 </div>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Per rule breakdown</CardTitle>
+                    <CardTitle className="text-base">{t("happyHours.perRule")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b text-left text-muted-foreground">
-                            <th className="pb-2 pr-4 font-medium">Rule</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Orders</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Revenue</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Discount</th>
-                            <th className="pb-2 text-right font-medium">Category uplift</th>
+                            <th className="pb-2 pr-4 font-medium">{t("happyHours.tableHeaders.rule")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("happyHours.tableHeaders.orders")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("happyHours.tableHeaders.revenue")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("happyHours.tableHeaders.discount")}</th>
+                            <th className="pb-2 text-right font-medium">{t("happyHours.tableHeaders.categoryUplift")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -931,7 +935,7 @@ function AnalyticsPageContent() {
                 </Card>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">No happy hour data available for this range.</p>
+              <p className="text-sm text-muted-foreground">{t("happyHours.empty")}</p>
             )}
           </TabsContent>
 
@@ -941,25 +945,25 @@ function AnalyticsPageContent() {
             {data.events && data.events.events.length > 0 && (
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <MetricCard label="Events" value={String(data.events.totalEvents)} icon={PartyPopper} info="Total scheduled events that occurred in this range." />
-                  <MetricCard label="Avg utilization" value={formatPct(data.events.avgCapacityUtilization)} icon={Users} info="Average check-ins divided by event capacity across all events." />
+                  <MetricCard label={t("promos.events.eventsLabel.label")} value={String(data.events.totalEvents)} icon={PartyPopper} info={t("promos.events.eventsLabel.info")} />
+                  <MetricCard label={t("promos.events.avgUtilization.label")} value={formatPct(data.events.avgCapacityUtilization)} icon={Users} info={t("promos.events.avgUtilization.info")} />
                 </div>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Per event breakdown</CardTitle>
+                    <CardTitle className="text-base">{t("promos.events.perEvent")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b text-left text-muted-foreground">
-                            <th className="pb-2 pr-4 font-medium">Event</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Invited</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Confirmed</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Checked in</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Utilization</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Event rev</th>
-                            <th className="pb-2 text-right font-medium">Avg weekday rev</th>
+                            <th className="pb-2 pr-4 font-medium">{t("promos.events.tableHeaders.event")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promos.events.tableHeaders.invited")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promos.events.tableHeaders.confirmed")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promos.events.tableHeaders.checkedIn")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promos.events.tableHeaders.utilization")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promos.events.tableHeaders.eventRev")}</th>
+                            <th className="pb-2 text-right font-medium">{t("promos.events.tableHeaders.avgWeekdayRev")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -984,14 +988,14 @@ function AnalyticsPageContent() {
                 <div className="flex justify-end">
                   <Button variant="ghost" size="sm" asChild>
                     <Link href="/manager/events">
-                      Manage events <ArrowRight className="size-3.5" />
+                      {t("promos.events.manageEvents")} <ArrowRight className="size-3.5" />
                     </Link>
                   </Button>
                 </div>
               </>
             )}
             {!(data.events && data.events.events.length > 0) && (
-              <p className="text-sm text-muted-foreground">No event data available for this range.</p>
+              <p className="text-sm text-muted-foreground">{t("promos.events.empty")}</p>
             )}
 
             {/* Promotions */}
@@ -999,25 +1003,25 @@ function AnalyticsPageContent() {
               <>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Promotions</CardTitle>
+                    <CardTitle className="text-base">{t("promos.promotions.title")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                      <MetricCard label="Redemptions" value={String(data.promotions.totalRedemptions)} icon={Tag} info="Total promo code redemptions in the range." />
-                      <MetricCard label="Discount cost" value={formatMoney(data.promotions.totalDiscountCost)} icon={CircleDollarSign} info="Total value of discounts applied via promo codes." />
+                      <MetricCard label={t("promos.promotions.redemptions.label")} value={String(data.promotions.totalRedemptions)} icon={Tag} info={t("promos.promotions.redemptions.info")} />
+                      <MetricCard label={t("promos.promotions.discountCost.label")} value={formatMoney(data.promotions.totalDiscountCost)} icon={CircleDollarSign} info={t("promos.promotions.discountCost.info")} />
                     </div>
                     <div className="border-t pt-4">
-                      <p className="text-sm font-medium mb-3">Per promotion breakdown</p>
+                      <p className="text-sm font-medium mb-3">{t("promos.promotions.perPromotion")}</p>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b text-left text-muted-foreground">
-                              <th className="pb-2 pr-4 font-medium">Code</th>
-                              <th className="pb-2 pr-4 text-right font-medium">Redemptions</th>
-                              <th className="pb-2 pr-4 text-right font-medium">Discount cost</th>
-                              <th className="pb-2 pr-4 text-right font-medium">Attributed rev</th>
-                              <th className="pb-2 pr-4 text-right font-medium">AOV with</th>
-                              <th className="pb-2 text-right font-medium">AOV without</th>
+                              <th className="pb-2 pr-4 font-medium">{t("promos.promotions.tableHeaders.code")}</th>
+                              <th className="pb-2 pr-4 text-right font-medium">{t("promos.promotions.tableHeaders.redemptions")}</th>
+                              <th className="pb-2 pr-4 text-right font-medium">{t("promos.promotions.tableHeaders.discountCost")}</th>
+                              <th className="pb-2 pr-4 text-right font-medium">{t("promos.promotions.tableHeaders.attributedRev")}</th>
+                              <th className="pb-2 pr-4 text-right font-medium">{t("promos.promotions.tableHeaders.aovWith")}</th>
+                              <th className="pb-2 text-right font-medium">{t("promos.promotions.tableHeaders.aovWithout")}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1042,13 +1046,13 @@ function AnalyticsPageContent() {
                 <div className="flex justify-end">
                   <Button variant="ghost" size="sm" asChild>
                     <Link href="/manager/promotions">
-                      Manage promotions <ArrowRight className="size-3.5" />
+                      {t("promos.promotions.manage")} <ArrowRight className="size-3.5" />
                     </Link>
                   </Button>
                 </div>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">No promotion data available for this range.</p>
+              <p className="text-sm text-muted-foreground">{t("promos.promotions.empty")}</p>
             )}
           </TabsContent>
 
@@ -1058,41 +1062,41 @@ function AnalyticsPageContent() {
               <>
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   <MetricCard
-                    label="Total attributed"
+                    label={t("promotersCards.totalAttributed.label")}
                     value={formatMoney(data.promoters.totalAttributedRevenue)}
                     icon={CircleDollarSign}
-                    info="Revenue from orders placed in sessions attributed to a promoter."
-                    hint={`${data.days} nights`}
+                    info={t("promotersCards.totalAttributed.info")}
+                    hint={t("common.nights", { days: data.days })}
                   />
                   <MetricCard
-                    label="Guests funneled"
+                    label={t("promotersCards.guestsFunneled.label")}
                     value={String(data.promoters.totalGuestsFunneled)}
                     icon={Users}
-                    info="Total guests who arrived through promoter-sourced reservations."
+                    info={t("promotersCards.guestsFunneled.info")}
                   />
                   <MetricCard
-                    label="Top promoter"
+                    label={t("promotersCards.topPromoter.label")}
                     value={
                       [...data.promoters.promoters].sort((a, b) => b.attributedRevenue - a.attributedRevenue)[0]
                         ?.promoterName.split(" ")[0] ?? "—"
                     }
                     icon={Trophy}
-                    info="Promoter with the highest attributed revenue in the range."
-                    hint="By revenue"
+                    info={t("promotersCards.topPromoter.info")}
+                    hint={t("common.byRevenue")}
                   />
                   <MetricCard
-                    label="Avg show-up"
+                    label={t("promotersCards.avgShowUp.label")}
                     value={formatPct(
                       data.promoters.promoters.reduce((s, p) => s + p.showUpRate, 0) / data.promoters.promoters.length,
                     )}
                     icon={CalendarCheck}
-                    info="Average show-up rate across all promoters (seated ÷ confirmed)."
+                    info={t("promotersCards.avgShowUp.info")}
                   />
                 </div>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Promoter leaderboard</CardTitle>
+                    <CardTitle className="text-base">{t("promoters.leaderboard")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {(() => {
@@ -1109,7 +1113,7 @@ function AnalyticsPageContent() {
                           }
                           right={
                             <span className="shrink-0 text-xs text-muted-foreground">
-                              {p.guestsFunneled} guests ·{" "}
+                              {p.guestsFunneled} {t("common.guests")} ·{" "}
                               <span className="font-medium text-foreground tabular-nums">
                                 {formatMoney(p.attributedRevenue)}
                               </span>
@@ -1124,21 +1128,21 @@ function AnalyticsPageContent() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Reservation funnel by promoter</CardTitle>
+                    <CardTitle className="text-base">{t("promoters.funnelByPromoter")}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b text-left text-muted-foreground">
-                            <th className="pb-2 pr-4 font-medium">Promoter</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Created</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Confirmed</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Seated</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Show-up</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Guests</th>
-                            <th className="pb-2 pr-4 text-right font-medium">Revenue</th>
-                            <th className="pb-2 text-right font-medium">Avg / guest</th>
+                            <th className="pb-2 pr-4 font-medium">{t("promoters.funnelHeaders.promoter")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promoters.funnelHeaders.created")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promoters.funnelHeaders.confirmed")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promoters.funnelHeaders.seated")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promoters.funnelHeaders.showUp")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promoters.funnelHeaders.guests")}</th>
+                            <th className="pb-2 pr-4 text-right font-medium">{t("promoters.funnelHeaders.revenue")}</th>
+                            <th className="pb-2 text-right font-medium">{t("promoters.funnelHeaders.avgPerGuest")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1161,12 +1165,12 @@ function AnalyticsPageContent() {
                 </Card>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">No promoter data available for this range.</p>
+              <p className="text-sm text-muted-foreground">{t("promoters.empty")}</p>
             )}
-            {/* Detailed promoter performance (was Promo Perf tab) */}
+            {/* Detailed promoter performance */}
             <div className="border-t pt-4 mt-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Detailed performance &mdash; commission &amp; guest list
+                {t("promoters.detailPerf")}
               </p>
             </div>
             <PromoterPerformanceTab />

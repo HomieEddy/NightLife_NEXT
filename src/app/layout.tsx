@@ -1,5 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/react";
 import { Anton, Cormorant_Garamond, Geist, Geist_Mono } from "next/font/google";
+import { isDemoMode } from "@/features/shared/app-mode";
+import { DEMO_APP_URL, LIVE_APP_URL } from "@/features/shared/app-origins";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -18,7 +23,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-/** Club-poster display face — landing/marketing headlines only. */
+/** Club-poster display face — poster headlines (text-display is used across
+ *  every role surface, so these stay preloaded in the root layout). */
 const anton = Anton({
   weight: "400",
   variable: "--font-anton",
@@ -35,12 +41,22 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
+  // Relative URLs in metadata (canonical, og:url, og:image) resolve against
+  // the build's own origin — demo deploys to Vercel, live to OVHcloud.
+  metadataBase: new URL(isDemoMode() ? DEMO_APP_URL : LIVE_APP_URL),
   title: {
     default: "NightLifeNext — Nightclub Operations, Reimagined",
     template: "%s · NightLifeNext",
   },
   description:
     "QR ordering, table service, and live operations for nightclubs and lounges.",
+  openGraph: {
+    siteName: "NightLifeNext",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export const viewport: Viewport = {
@@ -49,28 +65,36 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
     <html
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        {/* Dark is the brand default; light is opt-in via the header toggle. */}
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <AppModeBanner />
-          <TooltipProvider>
-            <QueryProvider>
-              <AuthProvider>{children}</AuthProvider>
-            </QueryProvider>
-          </TooltipProvider>
-          <Toaster position="top-center" richColors />
-        </ThemeProvider>
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {/* Dark is the brand default; light is opt-in via the header toggle. */}
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+            <AppModeBanner />
+            <TooltipProvider>
+              <QueryProvider>
+                <AuthProvider>{children}</AuthProvider>
+              </QueryProvider>
+            </TooltipProvider>
+            <Toaster position="top-center" richColors />
+          </ThemeProvider>
+        </NextIntlClientProvider>
+        {/* Vercel Web Analytics tracks the demo app only; the live build deploys
+            to OVHcloud (AD-15) and owns its analytics stack. */}
+        {isDemoMode() && <Analytics />}
       </body>
     </html>
   );

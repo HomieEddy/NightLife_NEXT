@@ -10,8 +10,18 @@ async function livePOST(request: NextRequest, { params }: { params: Promise<{ ve
   const { getRawPrisma } = await import("@/features/shared/db");
   const { createPublicReservation } = await import("@/features/hospitality/reservation-core");
   const { zPublicReservationInput } = await import("@/features/hospitality/reservation-schemas");
+  const { checkRateLimit, getClientIp } = await import("@/features/shared/rate-limit");
+  const { apiRateLimitError } = await import("@/features/shared/api-error");
 
   const { venueSlug } = await params;
+
+  // Rate limit: per-IP + per-venue to prevent booking-form abuse.
+  const ip = getClientIp(request);
+  const rl = checkRateLimit(`resv-create:${venueSlug}:${ip}`, { maxTokens: 10, refillRate: 10, windowMs: 300_000 });
+  if (!rl.allowed) {
+    return apiRateLimitError(rl.retryAfterMs);
+  }
+
   const body = await request.json();
   const parsed = zPublicReservationInput.safeParse({ ...body, venueSlug });
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });

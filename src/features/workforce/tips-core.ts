@@ -8,7 +8,9 @@ type ScopedDb = ReturnType<typeof getDb>;
 /**
  * Distribute a tip pool according to a rule.
  *
- * INV-W2: Σ lines[i].shareCents === poolCents (exactly).
+ * INV-W2: Σ lines[i].shareCents === distributable pool (exactly) — the
+ * distributable pool is poolCents minus the rule's houseRetentionPct
+ * (the venue's cut, kept before staff splits).
  * Remainder cents from integer division are distributed largest-remainder
  * — same discipline as evenShares() in this codebase.
  */
@@ -19,6 +21,10 @@ export function distributeTips(
 ): TipDistributionLine[] {
   const included = staffBasis.filter((s) => rule.includeRoles.includes(s.role as never));
   if (included.length === 0) return [];
+
+  // House retention: the venue keeps this % of the pool before distribution.
+  const retention = Math.max(0, Math.min(100, rule.houseRetentionPct ?? 0));
+  const distributable = Math.round((poolCents * (100 - retention)) / 100);
 
   let weights: number[];
   switch (rule.basis) {
@@ -42,7 +48,7 @@ export function distributeTips(
 
   // Largest-remainder distribution
   const lines = included.map((s, i) => {
-    const raw = (poolCents * weights[i]) / totalWeight;
+    const raw = (distributable * weights[i]) / totalWeight;
     const share = Math.floor(raw);
     const remainder = raw - share;
     return {
@@ -54,7 +60,7 @@ export function distributeTips(
   });
 
   const distributed = lines.reduce((sum, l) => sum + l.shareCents, 0);
-  const remaining = poolCents - distributed;
+  const remaining = distributable - distributed;
 
   // Distribute remaining cents one each to entries with largest remainders
   const byRemainder = [...lines]

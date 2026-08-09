@@ -32,7 +32,8 @@ export async function sendSms(input: SmsSendInput, venueId: string): Promise<{ o
   if (!canSendSms(venueId)) return { ok: false, error: "Daily SMS cap reached" };
 
   if (SMS_DRIVER === "log") {
-    logger.info(`[sms:log] To: ${input.to} | ${input.body.slice(0, 80)}`);
+    // phone/body as structured fields — the redact paths censor the number.
+    logger.info("[sms:log]", { phone: input.to, body: input.body.slice(0, 80) });
     dailyCounts.set(venueId, (dailyCounts.get(venueId) ?? 0) + 1);
     return { ok: true, providerId: "log" };
   }

@@ -43,6 +43,7 @@ export const mockVenue: Venue = {
   lastCallPolicy: "allow-last-round" as const,
   requiredBreakAfterMinutes: 300,
   breakDurationMinutes: 30,
+  guestLocale: "fr", // Quebec → French-first
 };
 
 export const mockZones: Zone[] = [

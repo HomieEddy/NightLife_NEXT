@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
+import { MAX_PAGE_SIZE } from "@/lib/types";
 
 function demoHandler() {
   return NextResponse.json({ error: "Menu routes are disabled in demo mode" }, { status: 404 });
@@ -13,7 +14,8 @@ async function liveGET(request: NextRequest) {
   const auth = await requireApiArea("staff");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const limit = Number(request.nextUrl.searchParams.get("limit")) || 25;
+  const requested = Number(request.nextUrl.searchParams.get("limit")) || 25;
+  const limit = Math.min(Math.max(requested, 1), MAX_PAGE_SIZE);
   const { venueId } = sessionToDbContext(auth.session);
   const db = getDb({ venueId });
   return NextResponse.json(await listMovements(db, limit));

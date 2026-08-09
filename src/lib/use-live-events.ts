@@ -86,6 +86,10 @@ export function useLiveEvents({
 
       eventSource.onopen = () => {
         retryMs = INITIAL_RETRY_MS;
+        // SSE is live — stop the reconciliation poller (it kept running
+        // forever before, doubling traffic on every SSE-connected page).
+        stopFallback();
+        // One final reconcile for anything missed while connecting.
         fallbackRef.current?.();
       };
 

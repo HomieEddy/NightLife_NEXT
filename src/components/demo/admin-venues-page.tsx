@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 // Plan 10 graduates this demo-only surface.
 
 import { useMemo, useState } from "react";
@@ -39,6 +41,7 @@ const PLANS: TenantPlan[] = ["starter", "pro", "enterprise"];
 const STATUSES: TenantStatus[] = ["active", "trial", "suspended"];
 
 export default function AdminVenuesPage() {
+  const t = useTranslations("admin.venues");
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [planFilter, setPlanFilter] = useState<"all" | TenantPlan>("all");
@@ -80,7 +83,7 @@ export default function AdminVenuesPage() {
     mutationFn: ({ tenant, plan }: { tenant: Tenant; plan: TenantPlan }) =>
       adminService.updateTenant(tenant.id, { plan }),
     onSuccess: (_, { tenant, plan }) => {
-      toast.success(`${tenant.venueName} moved to ${plan}`);
+      toast.success(t("toastPlanChanged", { venue: tenant.venueName, plan }));
       setPendingPlan(null);
       invalidate();
     },
@@ -90,7 +93,7 @@ export default function AdminVenuesPage() {
     mutationFn: ({ tenant, status }: { tenant: Tenant; status: TenantStatus }) =>
       adminService.updateTenant(tenant.id, { status }),
     onSuccess: (_, { tenant, status }) => {
-      toast.success(`${tenant.venueName} is now ${status}`);
+      toast.success(t("toastStatusChanged", { venue: tenant.venueName, status }));
       invalidate();
     },
   });
@@ -98,7 +101,7 @@ export default function AdminVenuesPage() {
   const deleteMutation = useMutation({
     mutationFn: (tenant: Tenant) => adminService.deleteTenant(tenant.id),
     onSuccess: (_, tenant) => {
-      toast.info(`${tenant.venueName} deleted`);
+      toast.info(t("toastDeleted", { venue: tenant.venueName }));
       invalidate();
     },
   });
@@ -106,12 +109,12 @@ export default function AdminVenuesPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Tenants"
-        description="Every venue running on NightLifeNext."
+        title={t("title")}
+        description={t("description")}
         actions={
           <Button asChild>
             <Link href="/admin/onboarding">
-              <Rocket className="size-4" /> Provision tenant
+              <Rocket className="size-4" /> {t("provisionTenant")}
             </Link>
           </Button>
         }
@@ -119,10 +122,10 @@ export default function AdminVenuesPage() {
 
       {/* ---------- Portfolio summary ---------- */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard label="MRR" value={formatMoney(totals.mrr)} icon={CircleDollarSign} hint="Active tenants" />
-        <MetricCard label="Active" value={String(totals.active)} icon={Building2} />
-        <MetricCard label="Trials" value={String(totals.trials)} icon={Play} hint="14-day trials" />
-        <MetricCard label="Suspended" value={String(totals.suspended)} icon={Ban} />
+        <MetricCard label={t("metricMrr")} value={formatMoney(totals.mrr)} icon={CircleDollarSign} hint={t("metricMrrHint")} />
+        <MetricCard label={t("metricActive")} value={String(totals.active)} icon={Building2} />
+        <MetricCard label={t("metricTrials")} value={String(totals.trials)} icon={Play} hint={t("metricTrialsHint")} />
+        <MetricCard label={t("metricSuspended")} value={String(totals.suspended)} icon={Ban} />
       </div>
 
       {/* ---------- Filters ---------- */}
@@ -130,7 +133,7 @@ export default function AdminVenuesPage() {
         <div className="relative min-w-52 flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search venue, slug, city…"
+            placeholder={t("searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -138,10 +141,10 @@ export default function AdminVenuesPage() {
         </div>
         <Select value={planFilter} onValueChange={(v) => setPlanFilter(v as typeof planFilter)}>
           <SelectTrigger className="w-36">
-            <SelectValue placeholder="Plan" />
+            <SelectValue placeholder={t("filterPlanPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All plans</SelectItem>
+            <SelectItem value="all">{t("filterPlanAll")}</SelectItem>
             {PLANS.map((plan) => (
               <SelectItem key={plan} value={plan} className="capitalize">
                 {plan}
@@ -151,10 +154,10 @@ export default function AdminVenuesPage() {
         </Select>
         <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
           <SelectTrigger className="w-36">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder={t("filterStatusPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="all">{t("filterStatusAll")}</SelectItem>
             {STATUSES.map((status) => (
               <SelectItem key={status} value={status} className="capitalize">
                 {status}
@@ -169,20 +172,20 @@ export default function AdminVenuesPage() {
       ) : visible.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title="No tenants match"
-          description="Try a different search or status filter."
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Venue</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Tables</TableHead>
-                <TableHead className="text-right">MRR</TableHead>
-                <TableHead className="text-right">Since</TableHead>
+                <TableHead>{t("columnVenue")}</TableHead>
+                <TableHead>{t("columnPlan")}</TableHead>
+                <TableHead>{t("columnStatus")}</TableHead>
+                <TableHead className="text-right">{t("columnTables")}</TableHead>
+                <TableHead className="text-right">{t("columnMrr")}</TableHead>
+                <TableHead className="text-right">{t("columnSince")}</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -231,7 +234,7 @@ export default function AdminVenuesPage() {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" aria-label="Tenant actions">
+                        <Button variant="ghost" size="icon" aria-label={t("actionsAriaLabel")}>
                           <MoreVertical className="size-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -240,24 +243,24 @@ export default function AdminVenuesPage() {
                           <ConfirmDialog
                             trigger={
                               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                <Play className="size-4" /> Reactivate
+                                <Play className="size-4" /> {t("reactivateAction")}
                               </DropdownMenuItem>
                             }
-                            title={`Reactivate ${tenant.venueName}?`}
-                            description="Billing resumes and their staff regain access immediately."
-                            confirmLabel="Reactivate"
+                            title={t("confirmReactivateTitle", { venue: tenant.venueName })}
+                            description={t("confirmReactivateDesc")}
+                            confirmLabel={t("actionReactivate")}
                             onConfirm={() => statusMutation.mutate({ tenant, status: "active" })}
                           />
                         ) : (
                           <ConfirmDialog
                             trigger={
                               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                <Ban className="size-4" /> Suspend
+                                <Ban className="size-4" /> {t("suspendAction")}
                               </DropdownMenuItem>
                             }
-                            title={`Suspend ${tenant.venueName}?`}
-                            description="All venue panels are locked and billing pauses until reactivated."
-                            confirmLabel="Suspend tenant"
+                            title={t("confirmSuspendTitle", { venue: tenant.venueName })}
+                            description={t("confirmSuspendDesc")}
+                            confirmLabel={t("actionSuspendTenant")}
                             destructive
                             onConfirm={() => statusMutation.mutate({ tenant, status: "suspended" })}
                           />
@@ -266,12 +269,12 @@ export default function AdminVenuesPage() {
                           <ConfirmDialog
                             trigger={
                               <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                <Play className="size-4" /> Convert trial to paid
+                                <Play className="size-4" /> {t("convertTrialAction")}
                               </DropdownMenuItem>
                             }
-                            title={`Activate ${tenant.venueName}?`}
-                            description={`Ends the trial and starts billing on the ${tenant.plan} plan.`}
-                            confirmLabel="Start billing"
+                            title={t("confirmActivateTitle", { venue: tenant.venueName })}
+                            description={t("confirmActivateDesc", { plan: tenant.plan })}
+                            confirmLabel={t("actionStartBilling")}
                             onConfirm={() => statusMutation.mutate({ tenant, status: "active" })}
                           />
                         )}
@@ -281,12 +284,12 @@ export default function AdminVenuesPage() {
                               variant="destructive"
                               onSelect={(e) => e.preventDefault()}
                             >
-                              <Trash2 className="size-4" /> Delete tenant
+                              <Trash2 className="size-4" /> {t("deleteAction")}
                             </DropdownMenuItem>
                           }
-                          title={`Delete ${tenant.venueName}?`}
-                          description="Removes the tenant and all venue data. This cannot be undone."
-                          confirmLabel="Delete permanently"
+                          title={t("confirmDeleteTitle", { venue: tenant.venueName })}
+                          description={t("confirmDeleteDesc")}
+                          confirmLabel={t("actionDeletePermanently")}
                           destructive
                           onConfirm={() => deleteMutation.mutate(tenant)}
                         />
@@ -305,18 +308,18 @@ export default function AdminVenuesPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              Move {pendingPlan?.tenant.venueName} to {pendingPlan?.plan}?
+              {t("planChangeTitle", { venue: pendingPlan?.tenant.venueName ?? "", plan: pendingPlan?.plan ?? "" })}
             </DialogTitle>
             <DialogDescription>
-              The plan changes at the next billing cycle; feature limits apply immediately.
+              {t("planChangeDesc")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setPendingPlan(null)} disabled={planMutation.isPending}>
-              Cancel
+              {t("actionCancel")}
             </Button>
             <Button onClick={() => pendingPlan && planMutation.mutate(pendingPlan)} disabled={planMutation.isPending}>
-              {planMutation.isPending ? "Applying…" : "Change plan"}
+              {planMutation.isPending ? t("actionApplying") : t("actionChangePlan")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -42,7 +42,8 @@ COPY --from=builder /app/prisma ./prisma/
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.ts ./
 COPY --from=builder /app/tsconfig.json ./
-COPY --from=builder /app/src/lib/app-mode.ts ./src/lib/app-mode.ts
+# next.config.ts imports ./src/features/shared/app-mode (build-directory logic)
+COPY --from=builder /app/src/features/shared/app-mode.ts ./src/features/shared/app-mode.ts
 # Copy the mode-specific build output
 RUN --mount=from=builder,source=/app,target=/builder \
     cp -r /builder/.next-${NEXT_PUBLIC_APP_MODE} ./.next-${NEXT_PUBLIC_APP_MODE}

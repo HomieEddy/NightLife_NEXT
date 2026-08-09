@@ -3,6 +3,7 @@
 // Plan 10 graduates this demo-only surface.
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { ExternalLink, Loader2, Plus, Radar, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -44,6 +45,7 @@ export default function AdminSettingsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<LinkDraft>(EMPTY_DRAFT);
+  const t = useTranslations("admin.settings");
 
   const { data: links } = useQuery({
     queryKey: adminKeys.telemetry,
@@ -63,7 +65,7 @@ export default function AdminSettingsPage() {
       return adminService.createTelemetryLink(input);
     },
     onSuccess: () => {
-      toast.success(editingId ? `${draft.name.trim()} updated` : `${draft.name.trim()} added`);
+      toast.success(editingId ? t("linkUpdatedToast", { name: draft.name.trim() }) : t("linkAddedToast", { name: draft.name.trim() }));
       setDialogOpen(false);
       invalidate();
     },
@@ -72,7 +74,7 @@ export default function AdminSettingsPage() {
   const deleteMutation = useMutation({
     mutationFn: (link: TelemetryLink) => adminService.deleteTelemetryLink(link.id),
     onSuccess: (_, link) => {
-      toast.info(`${link.name} removed`);
+      toast.info(t("linkRemovedToast", { name: link.name }));
       invalidate();
     },
   });
@@ -91,11 +93,11 @@ export default function AdminSettingsPage() {
 
   async function save() {
     if (!draft.name.trim()) {
-      toast.error("Name is required.");
+      toast.error(t("nameRequired"));
       return;
     }
     if (!validUrl(draft.url.trim())) {
-      toast.error("Enter a valid http(s) URL.");
+      toast.error(t("invalidUrl"));
       return;
     }
     saveMutation.mutate();
@@ -104,11 +106,11 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Platform settings"
-        description="Shortcuts to the observability tools running outside the app — links only, the stats stay in their dashboards."
+        title={t("title")}
+        description={t("description")}
         actions={
           <Button onClick={openCreate}>
-            <Plus className="size-4" /> Add link
+            <Plus className="size-4" /> {t("addLink")}
           </Button>
         }
       />
@@ -116,7 +118,7 @@ export default function AdminSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Radar className="size-4 text-primary" /> Telemetry shortcuts
+            <Radar className="size-4 text-primary" /> {t("cardTitle")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -125,11 +127,11 @@ export default function AdminSettingsPage() {
           ) : links.length === 0 ? (
             <EmptyState
               icon={Radar}
-              title="No telemetry links yet"
-              description="Add shortcuts to Sentry, Grafana or any tool you use to watch the platform."
+              title={t("emptyTitle")}
+              description={t("emptyDesc")}
               action={
                 <Button variant="outline" onClick={openCreate}>
-                  <Plus className="size-4" /> Add link
+                  <Plus className="size-4" /> {t("addLink")}
                 </Button>
               }
             />
@@ -150,11 +152,11 @@ export default function AdminSettingsPage() {
                   <div className="flex shrink-0 items-center gap-1">
                     <Button variant="outline" size="sm" asChild>
                       <a href={link.url} target="_blank" rel="noreferrer">
-                        <ExternalLink className="size-3.5" /> Open
+                        <ExternalLink className="size-3.5" /> {t("open")}
                       </a>
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => openEdit(link)}>
-                      Edit
+                      {t("edit")}
                     </Button>
                     <ConfirmDialog
                       trigger={
@@ -162,14 +164,14 @@ export default function AdminSettingsPage() {
                           variant="ghost"
                           size="icon"
                           className="text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                          aria-label={`Delete ${link.name}`}
+                          aria-label={t("deleteAria", { name: link.name })}
                         >
                           <Trash2 className="size-4" />
                         </Button>
                       }
-                      title={`Remove ${link.name}?`}
-                      description="The shortcut disappears from the admin overview. The external tool itself is untouched."
-                      confirmLabel="Remove link"
+                      title={t("deleteTitle", { name: link.name })}
+                      description={t("deleteDesc")}
+                      confirmLabel={t("deleteConfirm")}
                       destructive
                       onConfirm={() => deleteMutation.mutate(link)}
                     />
@@ -184,30 +186,30 @@ export default function AdminSettingsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit telemetry link" : "Add telemetry link"}</DialogTitle>
+            <DialogTitle>{editingId ? t("dialogEditTitle") : t("dialogAddTitle")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="tel-name">Name</Label>
+              <Label htmlFor="tel-name">{t("labelName")}</Label>
               <Input
                 id="tel-name"
-                placeholder="e.g. Sentry — errors"
+                placeholder={t("namePlaceholder")}
                 value={draft.name}
                 onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="tel-url">URL</Label>
+              <Label htmlFor="tel-url">{t("labelUrl")}</Label>
               <Input
                 id="tel-url"
                 type="url"
-                placeholder="https://sentry.io/organizations/…"
+                placeholder={t("urlPlaceholder")}
                 value={draft.url}
                 onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="tel-category">Category</Label>
+              <Label htmlFor="tel-category">{t("labelCategory")}</Label>
               <Select
                 value={draft.category}
                 onValueChange={(category) =>
@@ -229,11 +231,11 @@ export default function AdminSettingsPage() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setDialogOpen(false)} disabled={saveMutation.isPending}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button onClick={save} disabled={saveMutation.isPending}>
               {saveMutation.isPending && <Loader2 className="size-4 animate-spin" />}
-              {saveMutation.isPending ? "Saving…" : editingId ? "Save changes" : "Add link"}
+              {saveMutation.isPending ? t("saving") : editingId ? t("saveChanges") : t("addLink")}
             </Button>
           </DialogFooter>
         </DialogContent>

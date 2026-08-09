@@ -118,4 +118,12 @@ export const defaultAutomationRules: RuleDef[] = [
     config: { preferSameZone: true, respectMinimumSpend: true },
     enabled: false,
   },
+  {
+    code: "auto-close-abandoned-sessions",
+    label: "Auto-close abandoned sessions",
+    description: "Detect and close sessions with no orders for the configurable threshold period.",
+    category: "orders",
+    config: { thresholdMinutes: 60, notifyManager: true },
+    enabled: false,
+  },
 ];

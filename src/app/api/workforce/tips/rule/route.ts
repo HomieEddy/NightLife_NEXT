@@ -32,7 +32,8 @@ async function livePOST(request: NextRequest) {
 
   const { venueId } = sessionToDbContext(auth.session);
   const db = getDb({ venueId });
-  return NextResponse.json(await saveTipPoolRule(db, parsed.data));
+  // venueId in the body is ignored — the session is the only source of truth.
+  return NextResponse.json(await saveTipPoolRule(db, { ...parsed.data, venueId }));
 }
 
 export const GET = isDemoMode() ? demoHandler : liveGET;

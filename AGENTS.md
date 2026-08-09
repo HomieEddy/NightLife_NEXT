@@ -1,7 +1,11 @@
 <!-- BEGIN:nextjs-agent-rules -->
+
 # This is NOT the Next.js you know
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
 <!-- END:nextjs-agent-rules -->
 
 # AGENTS.md — how to work on NightLifeNext
@@ -520,6 +524,14 @@ makes it obsolete.
   or misspelled values fail configuration. Demo resource guards reject DB/auth/
   HTTP/SSE access, while live selectors reject mock execution. Tests set live
   mode explicitly; browser/build verification must exercise both modes.
+- Demo request defense (proxy, demo mode only): known-abusive bot UAs get a
+  hard 403 and per-IP floods a 429 — 240 req/min on pages, 60 req/min on
+  `/api`, with trusted crawlers (search engines, social preview scrapers)
+  exempt so indexing and OG unfurls never trip it. The limiter is the shared
+  in-memory token bucket (`src/features/shared/rate-limit.ts`): exact on the
+  OVHcloud persistent process, best-effort per warm instance on Vercel. Live
+  mode is untouched — it keeps its per-route limiting. Bot classes live in
+  `src/features/shared/bot-block.ts`.
 - Venue timezone, opening hours and `nightStartHour`/`nightEndHour` are persisted
   live settings. Every business-night consumer receives that venue config — no
   Toronto/18:00 fallback is allowed in server analytics.

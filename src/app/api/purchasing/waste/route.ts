@@ -18,7 +18,7 @@ async function livePOST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
   const { venueId, db } = auth;
-  const entry = await recordWaste(db, parsed.data.itemId, parsed.data.quantity, parsed.data.reason, parsed.data.staffId);
+  const entry = await recordWaste(db, venueId, parsed.data.itemId, parsed.data.quantity, parsed.data.reason, parsed.data.staffId);
 
   publish({
     type: "WasteRecorded",

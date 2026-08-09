@@ -102,15 +102,18 @@ Templates in React Email. Dev mode logs to console.
 ## AD-9 · Background work: platform cron + idempotent jobs
 
 **Choice:** Scheduled triggers via Coolify cron hitting authenticated route handlers:
-`/api/jobs/report-schedules`, `/api/jobs/nightly-rollup`, `/api/jobs/reservation-hold-expiry`,
-`/api/jobs/session-timeout`, `/api/jobs/certification-expiry`, `/api/jobs/compliance-deadline`.
-Jobs are idempotent; `job_runs` table prevents double-execution.
+`/api/jobs/report-schedules`, `/api/jobs/nightly-rollup`,
+`/api/jobs/reservation-reminders`, `/api/jobs/data-retention`.
+Jobs are idempotent; the `job_runs` unique `(tenant_id, job_name)` constraint
+is the atomic overrun claim (a date-keyed name means one run per venue per day).
 
 **Implementation status:** landed. Handlers live under `src/app/api/jobs/*`
-(report schedules, nightly rollup, hold expiry, session timeout, certification
-expiry, compliance deadline) with `job_runs` deduplication. Staging and
-production dispatch through BullMQ (AD-22); local live dev uses the cron
-fallback.
+(report schedules, nightly rollup, reservation reminders, data retention).
+The earlier planned jobs (hold-expiry, session-timeout, certification-expiry,
+compliance-deadline) were folded into the data-retention and automation
+surfaces rather than shipped as standalone crons; automation rules (AM-*)
+remain mock-only until the live engine lands. Staging and production dispatch
+through BullMQ (AD-22); local live dev uses the cron fallback.
 
 ---
 

@@ -89,17 +89,23 @@ groups.
 - Night-aware analytics and reporting
 - Split-bill receipts and one-tap tab closure
 - Printable QR sheets
+- **i18n:** full English and French across every page, including email/SMS/push
+  notification templates with locale-aware dispatch
+- **Compliance:** built-in Law 25 / PIPEDA data inventory, consent collection,
+  privacy-erase flow, data retention policies, and breach register
 
-## Data residency
+## Data residency & compliance
 
-The platform is hosted in Beauharnois, Québec. Guest and staff data never
-leaves Canada, and the system is built to respect PIPEDA and Québec's Law 25
-from the infrastructure up, not patched in afterward.
+Hosted in Beauharnois, Québec on OVHcloud. Guest and staff data never leaves
+Canada. Law 25 and PIPEDA requirements are built into the platform from the
+infrastructure up: consent evidence is captured at every collection point,
+privacy-erase cascades across all tenant data, retention policies are
+enforced by cron, and a breach register tracks every security incident.
 
 ## Plans
 
 | Plan | For | |
-|---|---|---|
+|------|-----|---|
 | Starter | Single-room venues | |
 | Pro | Multi-zone clubs | |
 | Enterprise | Groups and franchises | Coming soon |
@@ -111,16 +117,32 @@ Request a demo: [night-life-next.vercel.app/lead](https://night-life-next.vercel
 <details>
 <summary>For developers</summary>
 
-Next.js App Router, TypeScript, Prisma/PostgreSQL, Tailwind, Recharts,
-react-hook-form, dnd-kit, TanStack Virtual, react-day-picker. Start with
-[`AGENTS.md`](AGENTS.md) for how to work on this repo,
+**Status:** Phase 8 (Production Readiness) complete — Phase 9 (CI/CD) current.
+All features run on both the demo sandbox (in-memory, no database) and the live
+track (Postgres, real auth, tenant-scoped). 40+ Prisma migrations, full
+integration test suite against PGlite, and a Playwright E2E suite.
+
+**Stack:** Next.js 16 App Router, TypeScript, Prisma + PostgreSQL, Tailwind,
+react-hook-form, Zod, Better Auth, TanStack Query, Recharts, dnd-kit, GSAP,
+Three.js, Sentry, pino, next-intl, BullMQ.
+
+Start with [`AGENTS.md`](AGENTS.md) for how to work on this repo,
 [`docs/HOSTING.md`](docs/HOSTING.md) for deployment topology, and
 [`docs/ROADMAP.md`](docs/ROADMAP.md) for feature status.
 
 ```bash
 npm install
-npm run dev:demo    # mock-data sandbox, no database
-npm run dev:pglite  # live mode with in-process Postgres
+cp .env.example .env        # configure or keep defaults for demo
+
+npm run dev:demo            # mock-data sandbox, no database, port 3001
+npm run dev:live            # live mode against Postgres
+npm run dev:pglite          # live mode with in-process PGlite
+
+npx tsc --noEmit            # type-check
+npm run lint                # eslint
+npm test                    # unit tests (Vitest)
+npm run test:integration    # integration tests (Vitest, PGlite)
+npm run test:e2e            # Playwright E2E
 ```
 
 </details>

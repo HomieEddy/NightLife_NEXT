@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { GuestProvider } from "@/context/guest-context";
+
+// QR ordering surface (guest tabs + /g/[tableCode]) is app UI — a table
+// code means nothing off-site, so it is never index-worthy.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 /**
  * Guest surface shell — phone-width column even on desktop so the

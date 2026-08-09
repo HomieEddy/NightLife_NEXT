@@ -33,7 +33,8 @@ async function livePOST(request: NextRequest) {
 
   const { venueId } = sessionToDbContext(auth.session);
   const db = getDb({ venueId });
-  return NextResponse.json(await saveCommissionStatement(db, parsed.data), { status: 201 });
+  // venueId in the body is ignored — the session is the only source of truth.
+  return NextResponse.json(await saveCommissionStatement(db, { ...parsed.data, venueId }), { status: 201 });
 }
 
 export const GET = isDemoMode() ? demoHandler : liveGET;

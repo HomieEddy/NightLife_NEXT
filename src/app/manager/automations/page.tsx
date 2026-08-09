@@ -5,6 +5,7 @@ import {
   Clock, FileText, Gauge, Megaphone, PartyPopper, Play,
   Receipt, RefreshCw, Shield, ShoppingCart, UserCheck, Users, Wine, Zap,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ export default function ManagerAutomationsPage() {
 }
 
 function AutomationsPageContent() {
+  const t = useTranslations("manager.automations");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
@@ -80,19 +82,19 @@ function AutomationsPageContent() {
     mutationFn: ({ ruleId, current }: { ruleId: string; current: boolean }) =>
       automationService.setEnabled(ruleId, !current),
     onSuccess: (updated) => {
-      toast.success(updated.enabled ? "Automation enabled" : "Automation disabled");
+      toast.success(updated.enabled ? t("automationEnabled") : t("automationDisabled"));
       queryClient.invalidateQueries({ queryKey: automationKeys.rules(venueId) });
     },
-    onError: () => toast.error("Could not update rule"),
+    onError: () => toast.error(t("couldNotUpdate")),
   });
 
   const triggerMutation = useMutation({
     mutationFn: (rule: AutomationRule) => automationService.triggerRule(rule.id),
     onSuccess: () => {
-      toast.success("Automation triggered — log entry added");
+      toast.success(t("triggered"));
       queryClient.invalidateQueries({ queryKey: automationKeys.executions(venueId) });
     },
-    onError: () => toast.error("Trigger failed"),
+    onError: () => toast.error(t("triggerFailed")),
   });
 
   if (!rules || !executions) {
@@ -118,22 +120,22 @@ function AutomationsPageContent() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Automations"
-        description="Configure and trigger automated workflows. Each runs as a scheduled job on the live track."
-        breadcrumbs={[{ label: "Insights", href: "/manager/reports" }, { label: "Automations" }]}
+        title={t("title")}
+        description={t("description")}
+        breadcrumbs={[{ label: t("insights"), href: "/manager/reports" }, { label: t("title") }]}
       />
 
       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <Zap className="size-4 text-primary" />
-          {rules.filter((r) => r.enabled).length} / {rules.length} enabled
+          {t("enabledCount", { enabled: rules.filter((r) => r.enabled).length, total: rules.length })}
         </span>
         <span className="flex items-center gap-1.5">
           <Bot className="size-4" />
-          {executions.length} executions
+          {t("executions", { count: executions.length })}
         </span>
         <Button variant="ghost" size="sm" onClick={invalidate}>
-          <RefreshCw className="size-3.5" /> Refresh
+          <RefreshCw className="size-3.5" /> {t("refresh")}
         </Button>
       </div>
 
@@ -161,7 +163,7 @@ function AutomationsPageContent() {
                       checked={rule.enabled}
                       onCheckedChange={() => toggleMutation.mutate({ ruleId: rule.id, current: rule.enabled })}
                       disabled={toggleMutation.isPending && toggleMutation.variables?.ruleId === rule.id}
-                      aria-label={`${rule.enabled ? "Disable" : "Enable"} ${rule.label}`}
+                      aria-label={`${rule.enabled ? t("disable") : t("enable")} ${rule.label}`}
                     />
                   </div>
                 </CardHeader>
@@ -178,8 +180,8 @@ function AutomationsPageContent() {
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>
                       {rule.lastTriggeredAt
-                        ? `Last triggered: ${new Date(rule.lastTriggeredAt).toLocaleString()}`
-                        : "Never triggered"}
+                        ? t("lastTriggered", { date: new Date(rule.lastTriggeredAt).toLocaleString() })
+                        : t("neverTriggered")}
                     </span>
                     <Button
                       variant="ghost"
@@ -190,8 +192,8 @@ function AutomationsPageContent() {
                     >
                       <Play className="size-3" />
                       {triggerMutation.isPending && triggerMutation.variables?.id === rule.id
-                        ? "Running..."
-                        : "Trigger now"}
+                        ? t("running")
+                        : t("triggerNow")}
                     </Button>
                   </div>
                 </CardContent>
@@ -203,11 +205,11 @@ function AutomationsPageContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Execution log</CardTitle>
+          <CardTitle className="text-base">{t("executionLog")}</CardTitle>
         </CardHeader>
         <CardContent>
           {executions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No executions yet. Trigger an automation above to see results.</p>
+            <p className="text-sm text-muted-foreground">{t("noExecutions")}</p>
           ) : (
             <div className="space-y-3">
               {executions.map((exe) => {
@@ -224,8 +226,8 @@ function AutomationsPageContent() {
                       <div className="flex items-center gap-2 text-sm">
                         <span className="font-medium">{rule?.label ?? exe.code}</span>
                         {exe.actionApplied
-                          ? <Badge variant="default" className="h-4 px-1 text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Applied</Badge>
-                          : <Badge variant="outline" className="h-4 px-1 text-[10px]">Advisory</Badge>
+                          ? <Badge variant="default" className="h-4 px-1 text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">{t("applied")}</Badge>
+                          : <Badge variant="outline" className="h-4 px-1 text-[10px]">{t("advisory")}</Badge>
                         }
                       </div>
                       <p className="text-xs text-muted-foreground">{exe.result}</p>

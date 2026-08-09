@@ -1,14 +1,50 @@
+import pino from "pino";
+
+/** Fields whose values contain PII, secrets, or auth material. */
+const REDACT_PATHS = [
+  "email",
+  "phone",
+  "authorization",
+  "cookie",
+  "pin",
+  "token",
+  "secret",
+  "password",
+  "*.email",
+  "*.phone",
+  "*.pin",
+  "*.token",
+  "*.secret",
+  "*.password",
+  "headers.authorization",
+  "headers.cookie",
+  "headers.*authorization",
+  "headers.*cookie",
+  "endpoint",
+];
+
+const instance = pino({
+  level: process.env.LOG_LEVEL ?? (process.env.NODE_ENV === "production" ? "info" : "debug"),
+  redact: { paths: REDACT_PATHS, censor: "[REDACTED]" },
+  formatters: {
+    level(label) {
+      return { level: label };
+    },
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+});
+
 type LogMeta = Record<string, unknown>;
 
-/** ponytail: console wrapper — swap for structured transport if needed */
+/** Structured JSON logger — pino under the hood. Call signature kept stable so existing importers don't churn. */
 export const logger = {
   info(msg: string, meta?: LogMeta) {
-    console.log(JSON.stringify({ level: "info", ts: new Date().toISOString(), msg, ...meta }));
+    instance.info(meta ?? {}, msg);
   },
   warn(msg: string, meta?: LogMeta) {
-    console.warn(JSON.stringify({ level: "warn", ts: new Date().toISOString(), msg, ...meta }));
+    instance.warn(meta ?? {}, msg);
   },
   error(msg: string, meta?: LogMeta) {
-    console.error(JSON.stringify({ level: "error", ts: new Date().toISOString(), msg, ...meta }));
+    instance.error(meta ?? {}, msg);
   },
 };

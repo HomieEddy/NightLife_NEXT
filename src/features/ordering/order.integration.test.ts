@@ -637,4 +637,61 @@ describe("orders & fees integration (plan 05)", () => {
       scopedDb.order.findUnique({ where: { id: result.order.id } }),
     );
   });
+
+  // ── Concurrency guards (regression) ────────────────────────────────
+
+  it("venue_counters mints distinct sequential codes under concurrent submission", async () => {
+    const db = getDb(sessionA);
+    // Dedicated high-stock item so the race is about codes, not inventory.
+    const raceItem = await createItem(db, venueA, {
+      categoryId: catId,
+      name: "Race Bottle",
+      description: "",
+      priceCents: toCents(100),
+      icon: "champagne",
+      tags: [],
+      inventory: 200,
+    });
+    const results = await Promise.all(
+      Array.from({ length: 20 }, (_, i) =>
+        submitOrder(db, venueA, {
+          tableId: "t1",
+          tableCode: "VIP-01",
+          zoneId: "z1",
+          zoneName: "VIP",
+          guestName: `Race ${i}`,
+          lines: [{ menuItemId: raceItem.id, quantity: 1, modifiers: [] }],
+          tipCents: 0,
+        }),
+      ),
+    );
+    const codes = results.map((r) => (r.ok ? r.order.code : `FAILED-${(r as { error?: string }).error}`));
+    expect(new Set(codes).size).toBe(20);
+    // Sequential (no gaps possible without drops — codes are a monotonic counter).
+    const seq = codes.map((c) => Number(c.slice(2)));
+    expect(Math.max(...seq) - Math.min(...seq)).toBe(19);
+  });
+
+  it("advanceOrder CAS — a double-advance cannot skip a state", async () => {
+    const db = getDb(sessionA);
+    const result = await submitOrder(db, venueA, {
+      tableId: "t1",
+      tableCode: "VIP-01",
+      zoneId: "z1",
+      zoneName: "VIP",
+      guestName: "CAS",
+      lines: [{ menuItemId: itemId, quantity: 1, modifiers: [] }],
+      tipCents: 0,
+    });
+    if (!result.ok) return;
+
+    await Promise.all([
+      advanceOrder(db, result.order.id),
+      advanceOrder(db, result.order.id),
+    ]);
+
+    // Exactly one advance won: the order sits at "accepted", not "preparing".
+    const after = await getOrder(db, result.order.id);
+    expect(after?.status).toBe("accepted");
+  });
 });

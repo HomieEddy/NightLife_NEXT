@@ -6,6 +6,7 @@ import {
   ArrowRight, CalendarCheck, CircleDollarSign, Clock, PartyPopper, Receipt, Table2,
   Tag, Timer, Users,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import { RevenueChart } from "@/components/shared/revenue-chart";
 import { OrderCard } from "@/components/shared/order-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { QueryErrorState } from "@/components/shared/query-error-state";
 import { PulseTab } from "@/components/manager/pulse-tab";
 import { useAuth } from "@/context/auth-context";
 import { analyticsService } from "@/features/analytics/analytics-service";
@@ -37,11 +39,12 @@ import { venueKeys } from "@/features/venue/query-keys";
 import type { AnalyticsSummary, AttentionItem, Order } from "@/lib/types";
 
 export default function ManagerDashboardPage() {
+  const t = useTranslations("manager.dashboard");
   const { user } = useAuth();
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
 
-  const { data: summary } = useQuery({
+  const { data: summary, isError: summaryError } = useQuery({
     queryKey: analyticsKeys.summary(venueId),
     queryFn: () => analyticsService.getSummary(),
     enabled: !!venueId,
@@ -53,7 +56,7 @@ export default function ManagerDashboardPage() {
     enabled: !!venueId,
   });
 
-  const { data: venue } = useQuery({
+  const { data: venue, isError: venueError } = useQuery({
     queryKey: venueKeys.single(venueId),
     queryFn: () => venueService.getVenue(),
     enabled: !!venueId,
@@ -153,15 +156,26 @@ export default function ManagerDashboardPage() {
   const venueName = venue?.name ?? "Velvet Montréal";
   const currency = venue?.currency ?? "CAD";
 
+  if (summaryError || venueError) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title={t("tonightAt", { venueName })} />
+        <QueryErrorState
+          queryKeys={[analyticsKeys.summary(venueId), venueKeys.single(venueId)]}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Tonight at ${venueName}`}
-        description={`${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} · Doors 22:00 — live operations overview`}
+        title={t("tonightAt", { venueName })}
+        description={t("doorsLine", { date: new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" }) })}
         actions={
           <Button variant="outline" size="sm" asChild>
             <Link href="/manager/analytics">
-              Full analytics <ArrowRight className="size-3.5" />
+              {t("fullAnalytics")} <ArrowRight className="size-3.5" />
             </Link>
           </Button>
         }
@@ -169,10 +183,10 @@ export default function ManagerDashboardPage() {
 
       <Tabs defaultValue="tonight">
         <TabsList>
-          <TabsTrigger value="tonight">Tonight</TabsTrigger>
-          <TabsTrigger value="snapshot">Snapshot</TabsTrigger>
+          <TabsTrigger value="tonight">{t("tabs.tonight")}</TabsTrigger>
+          <TabsTrigger value="snapshot">{t("tabs.snapshot")}</TabsTrigger>
           <TabsTrigger value="pulse">
-            Pulse
+            {t("tabs.pulse")}
             {attentionItems !== null && attentionItems.length > 0 && (
               <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px]">
                 {attentionItems.length}
@@ -182,11 +196,11 @@ export default function ManagerDashboardPage() {
         </TabsList>
 
         <TabsContent value="tonight" className="space-y-6 pt-4">
-          <TonightTab summary={summary ?? null} orders={recentOrders} currency={currency} />
+          <TonightTab summary={summary ?? null} orders={recentOrders} currency={currency} t={t} />
         </TabsContent>
 
         <TabsContent value="snapshot" className="space-y-6 pt-4">
-          <SnapshotTab summary={summary ?? null} currency={currency} />
+          <SnapshotTab summary={summary ?? null} currency={currency} t={t} />
         </TabsContent>
 
         <TabsContent value="pulse" className="pt-4">
@@ -220,10 +234,12 @@ function TonightTab({
   summary,
   orders,
   currency,
+  t,
 }: {
   summary: AnalyticsSummary | null;
   orders: Order[] | null;
   currency: string;
+  t: ReturnType<typeof useTranslations<"manager.dashboard">>;
 }) {
   return (
     <>
@@ -236,32 +252,32 @@ function TonightTab({
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <MetricCard
-            label="Revenue"
+            label={t("metrics.revenue")}
             value={formatMoney(summary.revenueTonight, currency)}
             deltaPct={summary.revenueDeltaPct}
             icon={CircleDollarSign}
-            info="Total revenue from all delivered orders tonight, before fees."
+            info={t("metrics.revenueInfo")}
             featured
           />
           <MetricCard
-            label="Orders"
+            label={t("metrics.orders")}
             value={String(summary.ordersTonight)}
             deltaPct={summary.ordersDeltaPct}
             icon={Receipt}
-            info="Count of orders placed tonight across all tables."
+            info={t("metrics.ordersInfo")}
           />
           <MetricCard
-            label="Avg order"
+            label={t("metrics.avgOrder")}
             value={formatMoney(summary.avgOrderValue, currency)}
             deltaPct={summary.avgOrderDeltaPct}
             icon={CircleDollarSign}
-            info="Tonight's revenue divided by number of orders."
+            info={t("metrics.avgOrderInfo")}
           />
           <MetricCard
-            label="Active tables"
+            label={t("metrics.activeTables")}
             value={`${summary.activeTables}/${summary.totalTables}`}
             icon={Table2}
-            info="Tables with an active guest session right now vs total configured tables."
+            info={t("metrics.activeTablesInfo")}
             hint={`Avg fulfillment ${summary.avgFulfillmentMinutes} min`}
           />
         </div>
@@ -270,22 +286,22 @@ function TonightTab({
       {summary?.orderEta && (
         <div className="grid grid-cols-3 gap-3">
           <MetricCard
-            label="Accept wait"
+            label={t("metrics.acceptWait")}
             value={`${summary.orderEta.avgAcceptMinutes} min`}
             icon={Timer}
-            info="Average time from order placed to a host accepting it tonight."
+            info={t("metrics.acceptWaitInfo")}
           />
           <MetricCard
-            label="Prep & delivery"
+            label={t("metrics.prepDelivery")}
             value={`${summary.orderEta.avgPrepMinutes} min`}
             icon={Timer}
-            info="Average time from order accepted to delivered at the table tonight."
+            info={t("metrics.prepDeliveryInfo")}
           />
           <MetricCard
-            label="Total ETA"
+            label={t("metrics.totalEta")}
             value={`${summary.orderEta.avgTotalMinutes} min`}
             icon={Timer}
-            info="Average end-to-end time from order placed to delivered tonight."
+            info={t("metrics.totalEtaInfo")}
             featured
           />
         </div>
@@ -294,7 +310,7 @@ function TonightTab({
       <div className="grid gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle className="text-base">Revenue by hour</CardTitle>
+            <CardTitle className="text-base">{t("revenueByHour")}</CardTitle>
           </CardHeader>
           <CardContent>
             {summary === null ? (
@@ -307,7 +323,7 @@ function TonightTab({
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Top sellers tonight</CardTitle>
+            <CardTitle className="text-base">{t("topSellers")}</CardTitle>
           </CardHeader>
           <CardContent>
             {summary === null ? (
@@ -332,10 +348,10 @@ function TonightTab({
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Recent orders</h2>
+          <h2 className="font-semibold">{t("recentOrders")}</h2>
           <Button variant="ghost" size="sm" asChild>
             <Link href="/manager/orders">
-              Open order feed <ArrowRight className="size-3.5" />
+              {t("openOrderFeed")} <ArrowRight className="size-3.5" />
             </Link>
           </Button>
         </div>
@@ -357,9 +373,11 @@ function TonightTab({
 function SnapshotTab({
   summary,
   currency,
+  t,
 }: {
   summary: AnalyticsSummary | null;
   currency: string;
+  t: ReturnType<typeof useTranslations<"manager.dashboard">>;
 }) {
   if (summary === null) {
     return (
@@ -378,33 +396,33 @@ function SnapshotTab({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Users className="size-4 text-primary" /> Guest sessions
+              <Users className="size-4 text-primary" /> {t("cards.guestSessions")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Sessions <InfoTip text="Total guest table sessions tonight." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("sessions.sessions")} <InfoTip text={t("sessions.sessionsInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.sessions.totalSessions}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Approval <InfoTip text="Percentage of join requests approved by a host." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("sessions.approval")} <InfoTip text={t("sessions.approvalInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatPct(summary.sessions.approvalRate)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Avg duration <InfoTip text="Average time from session start to tab closure." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("sessions.avgDuration")} <InfoTip text={t("sessions.avgDurationInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.sessions.avgDurationMinutes} min</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Party size <InfoTip text="Average number of guests per session." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("sessions.partySize")} <InfoTip text={t("sessions.partySizeInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.sessions.avgPartySize}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Rev / session <InfoTip text="Total revenue divided by number of sessions." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("sessions.revPerSession")} <InfoTip text={t("sessions.revPerSessionInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.sessions.revenuePerSession, currency)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Rev / guest <InfoTip text="Total revenue divided by total guests across all sessions." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("sessions.revPerGuest")} <InfoTip text={t("sessions.revPerGuestInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.sessions.revenuePerGuest, currency)}</p>
               </div>
             </div>
@@ -417,33 +435,33 @@ function SnapshotTab({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Receipt className="size-4 text-primary" /> Order funnel
+              <Receipt className="size-4 text-primary" /> {t("cards.orderFunnel")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Placed <InfoTip text="Orders submitted by guests tonight." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("orderFunnel.placed")} <InfoTip text={t("orderFunnel.placedInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderFunnel.placed}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Delivered <InfoTip text="Orders marked delivered by a runner." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("orderFunnel.delivered")} <InfoTip text={t("orderFunnel.deliveredInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderFunnel.delivered}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Cancelled <InfoTip text="Orders cancelled before delivery, shown with cancellation rate." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("orderFunnel.cancelled")} <InfoTip text={t("orderFunnel.cancelledInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderFunnel.cancelled} <span className="text-xs text-muted-foreground">({formatPct(summary.orderFunnel.cancellationRate)})</span></p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Tip rate <InfoTip text="Percentage of orders that included a tip." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("orderFunnel.tipRate")} <InfoTip text={t("orderFunnel.tipRateInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatPct(summary.orderFunnel.tipRate)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Fee revenue <InfoTip text="Total service fees collected across all orders tonight." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("orderFunnel.feeRevenue")} <InfoTip text={t("orderFunnel.feeRevenueInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.orderFunnel.serviceFeeRevenue, currency)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Gift orders <InfoTip text="Bottles sent to another table as a gift." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("orderFunnel.giftOrders")} <InfoTip text={t("orderFunnel.giftOrdersInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderFunnel.giftOrders}</p>
               </div>
             </div>
@@ -456,33 +474,33 @@ function SnapshotTab({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <CalendarCheck className="size-4 text-primary" /> Reservations
+              <CalendarCheck className="size-4 text-primary" /> {t("cards.reservations")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Requested <InfoTip text="Total reservation requests received tonight." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("reservations.requested")} <InfoTip text={t("reservations.requestedInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.requested}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Seated <InfoTip text="Guests who checked in and were seated." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("reservations.seated")} <InfoTip text={t("reservations.seatedInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.seated} <span className="text-xs text-muted-foreground">({formatPct(summary.reservations.seatedRate)})</span></p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">No-shows <InfoTip text="Confirmed reservations where the guest never arrived, as a percentage of confirmed." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("reservations.noShows")} <InfoTip text={t("reservations.noShowsInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatPct(summary.reservations.noShowRate)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Covers <InfoTip text="Total guests across all seated reservations." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("reservations.covers")} <InfoTip text={t("reservations.coversInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.totalCovers}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Cancelled <InfoTip text="Reservations cancelled before arrival, as a percentage of requested." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("reservations.cancelled")} <InfoTip text={t("reservations.cancelledInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.cancelled} <span className="text-xs text-muted-foreground">({formatPct(summary.reservations.cancellationRate)})</span></p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Avg lead <InfoTip text="Average days between booking and the reservation date." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("reservations.avgLead")} <InfoTip text={t("reservations.avgLeadInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.reservations.avgLeadDays} days</p>
               </div>
             </div>
@@ -495,21 +513,21 @@ function SnapshotTab({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Clock className="size-4 text-primary" /> Happy hours
+              <Clock className="size-4 text-primary" /> {t("cards.happyHours")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">HH orders <InfoTip text="Orders placed during active happy hour windows." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("happyHours.hhOrders")} <InfoTip text={t("happyHours.hhOrdersInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.happyHours.totalHhOrders}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">HH revenue <InfoTip text="Revenue from orders placed during happy hour (at discounted prices)." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("happyHours.hhRevenue")} <InfoTip text={t("happyHours.hhRevenueInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.happyHours.totalHhRevenue, currency)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Discount given <InfoTip text="Total discount amount applied by happy hour rules." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("happyHours.discountGiven")} <InfoTip text={t("happyHours.discountGivenInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.happyHours.totalDiscountGiven, currency)}</p>
               </div>
             </div>
@@ -532,17 +550,17 @@ function SnapshotTab({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <PartyPopper className="size-4 text-primary" /> Events
+              <PartyPopper className="size-4 text-primary" /> {t("cards.events")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Events tonight <InfoTip text="Number of scheduled events running tonight." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("events.eventsTonight")} <InfoTip text={t("events.eventsTonightInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.events.totalEvents}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Avg utilization <InfoTip text="Average check-in count divided by event capacity across tonight's events." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("events.avgUtilization")} <InfoTip text={t("events.avgUtilizationInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatPct(summary.events.avgCapacityUtilization)}</p>
               </div>
             </div>
@@ -563,17 +581,17 @@ function SnapshotTab({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Tag className="size-4 text-primary" /> Promotions
+              <Tag className="size-4 text-primary" /> {t("cards.promotions")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Redemptions <InfoTip text="Total number of promo codes redeemed tonight." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("promotions.redemptions")} <InfoTip text={t("promotions.redemptionsInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.promotions.totalRedemptions}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Discount cost <InfoTip text="Total value of discounts applied via promo codes tonight." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("promotions.discountCost")} <InfoTip text={t("promotions.discountCostInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{formatMoney(summary.promotions.totalDiscountCost, currency)}</p>
               </div>
             </div>
@@ -594,21 +612,21 @@ function SnapshotTab({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Timer className="size-4 text-primary" /> Order ETA
+              <Timer className="size-4 text-primary" /> {t("cards.orderEta")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Accept wait <InfoTip text="Average time from order placed to accepted by a host." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("metrics.acceptWait")} <InfoTip text={t("metrics.acceptWaitInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderEta.avgAcceptMinutes} min</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Prep & delivery <InfoTip text="Average time from accepted to delivered at the table." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("metrics.prepDelivery")} <InfoTip text={t("metrics.prepDeliveryInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderEta.avgPrepMinutes} min</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Total ETA <InfoTip text="End-to-end average from placed to delivered." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("metrics.totalEta")} <InfoTip text={t("metrics.totalEtaInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.orderEta.avgTotalMinutes} min</p>
               </div>
             </div>
@@ -621,19 +639,19 @@ function SnapshotTab({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Users className="size-4 text-primary" /> Help fulfilment
+              <Users className="size-4 text-primary" /> {t("cards.helpFulfilment")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Help resolved <InfoTip text="Total guest help requests resolved by runners tonight." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("helpFulfilment.helpResolved")} <InfoTip text={t("helpFulfilment.helpResolvedInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">
                   {summary.staffPerformance.filter((p) => p.role === "runner").reduce((s, p) => s + (p.helpResolved ?? 0), 0)}
                 </p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Avg help time <InfoTip text="Weighted average minutes to resolve a guest help request." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("helpFulfilment.avgHelpTime")} <InfoTip text={t("helpFulfilment.avgHelpTimeInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">
                   {weightedAvg(summary.staffPerformance.filter((p) => p.role === "runner"), (p) => p.avgHelpMinutes, (p) => p.helpResolved ?? 0).toFixed(1)} min
                 </p>
@@ -648,21 +666,21 @@ function SnapshotTab({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Receipt className="size-4 text-primary" /> Inventory depth
+              <Receipt className="size-4 text-primary" /> {t("cards.inventoryDepth")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Sold-out events <InfoTip text="Number of times an item went out of stock during tonight's service." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("inventoryDepth.soldOutEvents")} <InfoTip text={t("inventoryDepth.soldOutEventsInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.inventoryDepth.soldOutEventsPerNight}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Sold-out min <InfoTip text="Total minutes items were unavailable before restock tonight." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("inventoryDepth.soldOutMin")} <InfoTip text={t("inventoryDepth.soldOutMinInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.inventoryDepth.totalSoldOutMinutes}</p>
               </div>
               <div>
-                <p className="text-muted-foreground flex items-center gap-1">Dead items <InfoTip text="Stocked items with zero orders tonight — potential menu bloat." /></p>
+                <p className="text-muted-foreground flex items-center gap-1">{t("inventoryDepth.deadItems")} <InfoTip text={t("inventoryDepth.deadItemsInfo")} /></p>
                 <p className="text-lg font-semibold tabular-nums">{summary.inventoryDepth.deadItems}</p>
               </div>
             </div>

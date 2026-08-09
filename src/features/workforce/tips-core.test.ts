@@ -155,4 +155,38 @@ describe("distributeTips", () => {
       expect(lines[0].shareCents).toBe(0);
     });
   });
+
+  describe("house retention", () => {
+    const rule: TipPoolRule = {
+      id: "r6", venueId: "v1", name: "Retained", basis: "hours-weighted",
+      includeRoles: ["bartender", "runner", "host"],
+      houseRetentionPct: 10, active: true,
+    };
+
+    it("keeps the retention for the house — shares sum to 90% of the pool", () => {
+      const poolCents = 100000;
+      const lines = distributeTips(poolCents, rule, staffBasis);
+      const total = lines.reduce((s, l) => s + l.shareCents, 0);
+      expect(total).toBe(90000);
+      // Shares are still hours-proportional against the distributable pool:
+      // 90000 * (480/1080) = 40000, etc.
+      const byId = Object.fromEntries(lines.map((l) => [l.staffId, l.shareCents]));
+      expect(byId["st-a"]).toBe(40000);
+      expect(byId["st-b"]).toBe(30000);
+      expect(byId["st-c"]).toBe(20000);
+    });
+
+    it("100% retention leaves every share at zero", () => {
+      const full: TipPoolRule = { ...rule, houseRetentionPct: 100 };
+      const lines = distributeTips(100000, full, staffBasis);
+      expect(lines.reduce((s, l) => s + l.shareCents, 0)).toBe(0);
+    });
+
+    it("retention is clamped to the 0-100 range", () => {
+      const over: TipPoolRule = { ...rule, houseRetentionPct: 150 };
+      expect(distributeTips(10000, over, staffBasis).reduce((s, l) => s + l.shareCents, 0)).toBe(0);
+      const under: TipPoolRule = { ...rule, houseRetentionPct: -5 };
+      expect(distributeTips(10000, under, staffBasis).reduce((s, l) => s + l.shareCents, 0)).toBe(10000);
+    });
+  });
 });

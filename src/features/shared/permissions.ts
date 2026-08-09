@@ -502,7 +502,11 @@ type ScopedPredicate = (
 ) => boolean;
 
 const ownedByActor: ScopedPredicate = (actor, resource) =>
-  resource?.ownerStaffId != null && resource.ownerStaffId === actor.staffId;
+  // No resource on an *-own action means acting on yourself (routes can only
+  // self-scope without naming a row); acting on another staff member still
+  // requires the explicit resource, so this can never widen beyond self.
+  resource == null ||
+  (resource.ownerStaffId != null && resource.ownerStaffId === actor.staffId);
 
 const notOwnedByActor: ScopedPredicate = (actor, resource) =>
   resource?.ownerStaffId != null && resource.ownerStaffId !== actor.staffId;

@@ -1,3 +1,4 @@
+import { HttpError } from "@/features/shared/api-error";
 import type { getDb } from "@/features/shared/db";
 import { Prisma } from "@prisma/client";
 import type { BreakEntry, Shift, ShiftTemplate, TimeEntry, TimeOffRequest, ShiftSwapRequest } from "@/lib/types";
@@ -146,7 +147,7 @@ export async function clockIn(
   const open = await db.timeEntry.findFirst({
     where: { staffId, clockOutAt: null },
   });
-  if (open) throw new Error("Already clocked in — clock out first.");
+  if (open) throw new HttpError(409, "Already clocked in — clock out first.");
 
   const row = await db.timeEntry.create({
     data: {
@@ -169,7 +170,7 @@ export async function clockOut(
   const open = await db.timeEntry.findFirst({
     where: { staffId, clockOutAt: null },
   });
-  if (!open) throw new Error("No open clock-in found — clock in first.");
+  if (!open) throw new HttpError(409, "No open clock-in found — clock in first.");
 
   const now = new Date();
   const breaks = (Array.isArray(open.breaks) ? open.breaks : []) as unknown as unknown as BreakEntry[];
@@ -190,7 +191,7 @@ export async function startBreak(
   const open = await db.timeEntry.findFirst({
     where: { staffId, clockOutAt: null },
   });
-  if (!open) throw new Error("Not clocked in.");
+  if (!open) throw new HttpError(409, "Not clocked in.");
 
   const breaks = (Array.isArray(open.breaks) ? open.breaks : []) as unknown as BreakEntry[];
   const newBreak: BreakEntry = { startedAt: new Date().toISOString(), paid: false };
@@ -209,11 +210,11 @@ export async function endBreak(
   const open = await db.timeEntry.findFirst({
     where: { staffId, clockOutAt: null },
   });
-  if (!open) throw new Error("Not clocked in.");
+  if (!open) throw new HttpError(409, "Not clocked in.");
 
   const breaks = (Array.isArray(open.breaks) ? open.breaks : []) as unknown as BreakEntry[];
   const lastIdx = breaks.length - 1;
-  if (lastIdx < 0 || breaks[lastIdx].endedAt) throw new Error("No active break.");
+  if (lastIdx < 0 || breaks[lastIdx].endedAt) throw new HttpError(409, "No active break.");
 
   breaks[lastIdx] = { ...breaks[lastIdx], endedAt: new Date().toISOString() };
   const updated = await db.timeEntry.update({
@@ -246,7 +247,7 @@ export async function editTimeEntry(
   reason: string,
 ): Promise<TimeEntry> {
   const orig = await db.timeEntry.findFirst({ where: { id: entryId } });
-  if (!orig) throw new Error("Entry not found.");
+  if (!orig) throw new HttpError(404, "Entry not found.");
 
   const row = await db.timeEntry.create({
     data: {

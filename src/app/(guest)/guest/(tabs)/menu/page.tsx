@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Martini, QrCode, Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DemoQrScanAction } from "@/components/shared/demo-links";
 import { ListSkeleton } from "@/components/shared/list-skeleton";
+import { QueryErrorState } from "@/components/shared/query-error-state";
 import { MenuItemCard } from "@/components/shared/menu-item-card";
 import { ClosureGate } from "@/components/guest/closure-gate";
 import { ItemDetailModal } from "@/components/guest/item-detail-modal";
@@ -18,13 +20,23 @@ import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sent
 import type { MenuCategory, MenuItem } from "@/lib/types";
 
 export default function GuestMenuPage() {
+  const t = useTranslations("guest.menu");
   const { table } = useGuest();
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [packages, setPackages] = useState<PackageWithQuote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [activeCategory, setActiveCategory] = useState<string>("packages");
   const [query, setQuery] = useState("");
+  // Debounce the filter input — reset() and the list slice re-run per query
+  // change; on a full live menu every keystroke was a full re-slice.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 150);
+    return () => clearTimeout(t);
+  }, [query]);
   const [openItem, setOpenItem] = useState<MenuItem | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const fadeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -48,55 +60,77 @@ export default function GuestMenuPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     Promise.all([
       menuService.listCategories(),
       menuService.listItems(),
       menuService.listPackages(),
-    ]).then(([cats, its, pkgs]) => {
-      if (!cancelled) {
-        setCategories(cats);
-        setItems(its);
-        setPackages(pkgs);
-        setLoading(false);
-      }
-    });
+    ])
+      .then(([cats, its, pkgs]) => {
+        if (!cancelled) {
+          setCategories(cats);
+          setItems(its);
+          setPackages(pkgs);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setLoadError(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const visible = useMemo(() => {
     let result = items;
     if (activeCategory !== "all" && activeCategory !== "packages")
       result = result.filter((i) => i.categoryId === activeCategory);
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
+    if (debouncedQuery.trim()) {
+      const q = debouncedQuery.trim().toLowerCase();
       result = result.filter(
         (i) => i.name.toLowerCase().includes(q) || i.description.toLowerCase().includes(q),
       );
     }
     return result;
-  }, [items, activeCategory, query]);
+  }, [items, activeCategory, debouncedQuery]);
 
   const visiblePackages = useMemo(() => {
-    if (!query.trim()) return packages;
-    const q = query.trim().toLowerCase();
+    if (!debouncedQuery.trim()) return packages;
+    const q = debouncedQuery.trim().toLowerCase();
     return packages.filter(
       (p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q),
     );
-  }, [packages, query]);
+  }, [packages, debouncedQuery]);
 
   const { sliced, hasMore, loadMore, reset } = useInfiniteSlice(visible, 10);
 
-  useEffect(() => { reset(); }, [query, activeCategory, reset]);
+  useEffect(() => { reset(); }, [debouncedQuery, activeCategory, reset]);
+
+  if (loadError) {
+    return (
+      <div className="p-4">
+        <QueryErrorState
+          message={t("nothingMatches")}
+          onRetry={() => {
+            setLoadError(false);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      </div>
+    );
+  }
 
   if (!table) {
     return (
       <div className="p-6">
         <EmptyState
           icon={QrCode}
-          title="No table joined"
-          description="Scan the QR code on your table to browse the menu."
+          title={t("noTable")}
+          description={t("noTableDesc")}
           action={<DemoQrScanAction />}
         />
       </div>
@@ -109,7 +143,7 @@ export default function GuestMenuPage() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
-          placeholder="Search drinks, bottles, bites…"
+          placeholder={t("searchPlaceholder")}
           value={query}
           onChange={(e) => handleSearchChange(e.target.value)}
           className="h-11 pl-9"
@@ -118,7 +152,7 @@ export default function GuestMenuPage() {
 
       <div className="relative">
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-          {[{ id: "packages", name: "Packages" }, { id: "all", name: "All bottles" }, ...categories].map((cat) => (
+          {[{ id: "packages", name: t("packages") }, { id: "all", name: t("allBottles") }, ...categories].map((cat) => (
             <button
               key={cat.id}
               type="button"
@@ -143,14 +177,14 @@ export default function GuestMenuPage() {
         visiblePackages.length === 0 && visible.length === 0 ? (
           <EmptyState
             icon={Martini}
-            title="Nothing matches"
-            description="Try a different search or category."
+            title={t("nothingMatches")}
+            description={t("tryDifferentSearch")}
           />
         ) : (
           <div id="menu-results" key={`search-${query}`} className={cn("space-y-3 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
             {query.trim() && (
               <p className="text-xs text-muted-foreground">
-                {visiblePackages.length + visible.length} result{(visiblePackages.length + visible.length) !== 1 ? "s" : ""} for &ldquo;{query.trim()}&rdquo;
+                {t("resultCount", { count: visiblePackages.length + visible.length, query: query.trim() })}
               </p>
             )}
             {visiblePackages.map((pkg, i) => (
@@ -166,8 +200,8 @@ export default function GuestMenuPage() {
         packages.length === 0 ? (
           <EmptyState
             icon={Martini}
-            title="No packages tonight"
-            description="Browse the bottle list instead."
+            title={t("noPackages")}
+            description={t("browseBottles")}
           />
         ) : (
           <div id="menu-results" key="packages" className={cn("space-y-3 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>
@@ -179,8 +213,8 @@ export default function GuestMenuPage() {
       ) : visible.length === 0 ? (
         <EmptyState
           icon={Martini}
-          title="Nothing matches"
-          description="Try a different search or category."
+          title={t("nothingMatches")}
+          description={t("tryDifferentSearch")}
         />
       ) : (
         <div id="menu-results" key={`${activeCategory}-${query}`} className={cn("space-y-2.5 stagger-children transition-opacity duration-200", transitioning ? "opacity-0" : "opacity-100")}>

@@ -579,28 +579,40 @@ export async function saveStocktake(db: ScopedDb, st: Stocktake): Promise<Stockt
 }
 
 export async function commitStocktake(db: ScopedDb, stId: string): Promise<Stocktake> {
-  const st = await db.stocktake.findUnique({ where: { id: stId } });
-  assertRow(st);
-  if (st.status !== "counting") throw new Error("Only a stocktake in 'counting' status can be committed.");
-  const stLines = (st.lines as Array<Row>) as {
-    id: string; menuItemId: string; varianceQty: number; varianceCents: number;
-  }[];
-  for (const line of stLines) {
-    if (line.varianceQty === 0) continue;
-    const item = await db.menuItem.findUnique({ where: { id: line.menuItemId } });
-    const itemName = item?.name ?? line.menuItemId;
-    await db.stockMovement.create({
-      data: { menuItemId: line.menuItemId, itemName, type: "adjustment", delta: line.varianceQty, note: `Stocktake ${st.businessDate} — count variance`, stocktakeId: stId },
-    } as Row);
-    if (item) {
-      await db.menuItem.update({ where: { id: line.menuItemId }, data: { inventory: { increment: line.varianceQty } } });
+  // One transaction: every movement, inventory update and the status flip
+  // commit together, or none do. The final CAS (status → committed) is the
+  // concurrency guard — a second concurrent commit reads the old status,
+  // applies its movements, then claims 0 rows and rolls the whole batch back.
+  return db.$transaction(async (tx) => {
+    const st = await tx.stocktake.findUnique({ where: { id: stId } });
+    assertRow(st);
+    if (st.status !== "counting") throw new Error("Only a stocktake in 'counting' status can be committed.");
+    const stLines = (st.lines as Array<Row>) as {
+      id: string; menuItemId: string; varianceQty: number; varianceCents: number;
+    }[];
+    for (const line of stLines) {
+      if (line.varianceQty === 0) continue;
+      const item = await tx.menuItem.findUnique({ where: { id: line.menuItemId } });
+      const itemName = item?.name ?? line.menuItemId;
+      await tx.stockMovement.create({
+        data: { menuItemId: line.menuItemId, itemName, type: "adjustment", delta: line.varianceQty, note: `Stocktake ${st.businessDate} — count variance`, stocktakeId: stId },
+      } as Row);
+      if (item) {
+        await tx.menuItem.update({ where: { id: line.menuItemId }, data: { inventory: { increment: line.varianceQty } } });
+      }
     }
-  }
-  const totalVarianceCents = stLines.reduce((sum, l) => sum + (l.varianceCents ?? 0), 0);
-  await db.stocktake.update({ where: { id: stId }, data: { status: "committed", committedAt: new Date(), totalVarianceCents } });
-  const updated = await db.stocktake.findUnique({ where: { id: stId } });
-  assertRow(updated);
-  return stRowToDTO(updated);
+    const totalVarianceCents = stLines.reduce((sum, l) => sum + (l.varianceCents ?? 0), 0);
+    const claimed = await tx.stocktake.updateMany({
+      where: { id: stId, status: "counting" },
+      data: { status: "committed", committedAt: new Date(), totalVarianceCents },
+    });
+    if (claimed.count === 0) {
+      throw new Error("Stocktake was already committed by another process.");
+    }
+    const updated = await tx.stocktake.findUnique({ where: { id: stId } });
+    assertRow(updated);
+    return stRowToDTO(updated);
+  });
 }
 
 // ── Eighty-six entries ───────────────────────────────────────────────
@@ -622,18 +634,42 @@ export async function eightySixItem(db: ScopedDb, itemId: string, reason: string
 // ── Waste ────────────────────────────────────────────────────────────
 
 export async function recordWaste(
-  db: ScopedDb, itemId: string, quantity: number, reason: string, _staffId: string,
+  db: ScopedDb,
+  venueId: string,
+  itemId: string,
+  quantity: number,
+  reason: string,
+  _staffId: string,
 ): Promise<Row> {
   const absQty = Math.abs(quantity);
-  const item = await db.menuItem.findUnique({ where: { id: itemId } });
-  const itemName = item?.name ?? itemId;
-  const mvt = await db.stockMovement.create({
-    data: { menuItemId: itemId, itemName, type: "waste", delta: -absQty, wasteReason: reason, note: reason },
-  } as Row) as Row;
-  if (item) {
-    await db.menuItem.update({ where: { id: itemId }, data: { inventory: Math.max(0, item.inventory - absQty) } });
-  }
-  return { id: mvt.id, menuItemId: mvt.menuItemId ?? mvt.menu_item_id, itemName: mvt.itemName ?? mvt.item_name, type: mvt.type, delta: mvt.delta, note: mvt.note ?? reason, wasteReason: mvt.wasteReason ?? mvt.waste_reason ?? reason, createdAt: toISO(mvt.created_at ?? mvt.createdAt) };
+  // Movement and inventory update commit together with a locked read — the
+  // old version read inventory outside the tx and clamped at 0, letting the
+  // ledger diverge (movement -5, inventory only -3).
+  return db.$transaction(async (tx) => {
+    const locked = await tx.$queryRawUnsafe<{ id: string; name: string; inventory: number }[]>(
+      `SELECT id, name, inventory FROM menu_items WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
+      itemId,
+      venueId,
+    );
+    const item = locked[0];
+    const itemName = item?.name ?? itemId;
+    const mvt = await tx.stockMovement.create({
+      data: { venueId, menuItemId: itemId, itemName, type: "waste", delta: -absQty, wasteReason: reason, note: reason },
+    } as Row) as Row;
+    if (item) {
+      await tx.menuItem.update({ where: { id: itemId }, data: { inventory: item.inventory - absQty } });
+    }
+    return mvt;
+  }).then((mvt) => ({
+    id: mvt.id,
+    menuItemId: mvt.menuItemId ?? mvt.menu_item_id,
+    itemName: mvt.itemName ?? mvt.item_name,
+    type: mvt.type,
+    delta: mvt.delta,
+    note: mvt.note ?? reason,
+    wasteReason: mvt.wasteReason ?? mvt.waste_reason ?? reason,
+    createdAt: toISO(mvt.created_at ?? mvt.createdAt),
+  }));
 }
 
 // ── Profit targets ───────────────────────────────────────────────────

@@ -454,12 +454,14 @@ export async function getOrderSlaAnalytics(
   const criticalMin = (venueCfg?.slaThresholds as { orderCriticalMinutes?: number } | null)?.orderCriticalMinutes ?? 12;
   const breachCount = minutes.filter((m) => m >= criticalMin).length;
 
-  // Auto-escalation count from job_runs for this venue in the night window
+  // Auto-escalation count from job_runs for this venue in the night window.
+  // Prefix LIKE (not ILIKE) — the unique (tenant_id, job_name) index serves
+  // it, and job names follow `<rule-code>:<tenant>:<date>`.
   const escResult = await rawPrisma.$queryRawUnsafe<Array<{ count: bigint }>>(
     `SELECT COUNT(*)::bigint AS count
      FROM job_runs
      WHERE tenant_id = $1
-       AND job_name ILIKE '%auto-escalate%'
+       AND job_name LIKE 'auto-escalate-orders:%'
        AND status = 'completed'
        AND started_at >= $2::timestamptz
        AND started_at < $3::timestamptz`,
@@ -604,6 +606,9 @@ export async function getPromoterPerformanceReport(
        END AS guest_list_conversion
      FROM staff_profiles p
      JOIN users u ON u.id = p.user_id
+     -- staff_profiles has no venue_id column — scope the tenant through the
+     -- user's membership (Venue.id IS the organization id, 1:1).
+     JOIN members m ON m.user_id = p.user_id AND m.organization_id = $2
      LEFT JOIN reservations r ON r.promoter_id = p.user_id
        AND r.venue_id = $2
        AND r.created_at >= $3::timestamptz
@@ -625,7 +630,6 @@ export async function getPromoterPerformanceReport(
          AND ve.venue_id = $2
      ) pgl ON true
      WHERE p.role = 'promoter'
-       AND p.venue_id = $2
      GROUP BY p.user_id, u.name
      ORDER BY revenue_cents DESC`,
      venueId, venueId, from,
@@ -844,10 +848,11 @@ export async function getGuestRetentionMetrics(
            created_at - LAG(created_at) OVER (PARTITION BY guest_profile_id ORDER BY created_at) AS gap
          FROM guest_sessions
          WHERE venue_id = $1 AND guest_profile_id IS NOT NULL
+           AND created_at >= $2
        )
        SELECT ROUND(AVG(EXTRACT(EPOCH FROM gap) / 86400)::numeric, 1) AS avg_gap_days
        FROM session_gaps WHERE gap IS NOT NULL`,
-      venueId,
+      venueId, currFrom.toISOString(),
     ),
   ]);
 

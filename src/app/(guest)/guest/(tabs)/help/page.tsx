@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Gift, GlassWater, Hand, Shield, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PageHeader } from "@/components/shared/page-header";
 import { useGuest } from "@/context/guest-context";
@@ -11,24 +12,21 @@ import { guestsService } from "@/features/guests/services";
 import { cn } from "@/features/shared/utils";
 import type { HelpRequestType } from "@/lib/types";
 
-const HELP_OPTIONS: {
-  type: HelpRequestType;
-  label: string;
-  description: string;
-  icon: typeof Hand;
-}[] = [
-  { type: "call-waiter", label: "Call a waiter", description: "Someone will come to your table", icon: Hand },
-  { type: "refill-ice", label: "Refill ice & mixers", description: "Top up your bottle setup", icon: GlassWater },
-  { type: "clean-table", label: "Clean the table", description: "We'll tidy things up", icon: Sparkles },
-  { type: "security", label: "Security", description: "Discreet assistance, right away", icon: Shield },
-];
-
 export default function GuestHelpPage() {
+  const t = useTranslations("guest.help");
   const { table, guestName, sessionId } = useGuest();
   const [sending, setSending] = useState<HelpRequestType | null>(null);
+
+  const HELP_OPTIONS = useMemo(() => [
+    { type: "call-waiter" as HelpRequestType, label: t("callWaiter"), description: t("callWaiterDesc"), icon: Hand },
+    { type: "refill-ice" as HelpRequestType, label: t("refillIce"), description: t("refillIceDesc"), icon: GlassWater },
+    { type: "clean-table" as HelpRequestType, label: t("cleanTable"), description: t("cleanTableDesc"), icon: Sparkles },
+    { type: "security" as HelpRequestType, label: t("security"), description: t("securityDesc"), icon: Shield },
+  ], [t]);
+
   async function requestHelp(type: HelpRequestType, label: string) {
     if (!table) {
-      toast.error("Join a table first — scan the QR code.");
+      toast.error(t("joinTableFirst"));
       return;
     }
     setSending(type);
@@ -40,14 +38,14 @@ export default function GuestHelpPage() {
       type,
     });
     setSending(null);
-    toast.success(`${label} — the team has been notified.`);
+    toast.success(t("requestSentToast", { label }));
   }
 
   return (
     <div className="space-y-4 p-4 animate-fade-in">
       <PageHeader
-        title="Need something?"
-        description="One tap and the right person heads your way."
+        title={t("heading")}
+        description={t("subtitle")}
       />
       <div className="space-y-2.5 stagger-children">
         {HELP_OPTIONS.map((option) => (
@@ -56,10 +54,10 @@ export default function GuestHelpPage() {
             title={`${option.label}?`}
             description={
               option.type === "security"
-                ? "Security is notified discreetly and heads to your table."
-                : `${option.description} — the team is notified instantly.`
+                ? t("securityConfirmDesc")
+                : t("notifiedInstantly", { desc: option.description })
             }
-            confirmLabel="Send request"
+            confirmLabel={t("sendRequest")}
             onConfirm={() => requestHelp(option.type, option.label)}
             trigger={
           <button
@@ -83,7 +81,7 @@ export default function GuestHelpPage() {
             </div>
             <div>
               <p className="font-medium">
-                {sending === option.type ? "Sending…" : option.label}
+                {sending === option.type ? t("sending") : option.label}
               </p>
               <p className="text-xs text-muted-foreground">{option.description}</p>
             </div>
@@ -101,15 +99,15 @@ export default function GuestHelpPage() {
           <Gift className="size-5" />
         </div>
         <div>
-          <p className="font-medium">Send a bottle to another table</p>
+          <p className="font-medium">{t("sendBottle")}</p>
           <p className="text-xs text-muted-foreground">
-            Surprise someone — it&apos;s on your tab, they just get the delivery
+            {t("sendBottleDesc")}
           </p>
         </div>
       </Link>
 
       <p className="text-center text-xs text-muted-foreground">
-        Requests appear instantly on the staff panel.
+        {t("appearInstantly")}
       </p>
     </div>
   );
