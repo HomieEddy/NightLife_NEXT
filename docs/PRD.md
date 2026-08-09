@@ -125,10 +125,13 @@ Security hardening, observability, automated backups, French/English i18n,
 Law 25 / PIPEDA compliance. No new product features — hardening and compliance
 only.
 
-### Phase 9 — CI/CD & Deployment Automation (plan 36) · DEFERRED
+### Phase 9 — Test Coverage Reinforcement & CI/CD (plans 37, 36) · DEFERRED
 
-Automated build/deploy pipelines, blue-green deployment, infrastructure-as-code,
-database migration automation, disaster recovery runbook, production monitoring.
+Plan 37 (test coverage reinforcement) lands first: scoped coverage thresholds
+on the live track, per-file floors on money math, the missing admin-provision
+E2E flow — the gate plan 36's pipeline enforces. Then automated build/deploy
+pipelines, blue-green deployment, infrastructure-as-code, database migration
+automation, disaster recovery runbook, production monitoring.
 **Intentionally last** — automate delivery of a complete product, not a
 work-in-progress.
 
