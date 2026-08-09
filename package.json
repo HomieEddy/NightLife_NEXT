@@ -20,11 +20,6 @@
     "db:seed:staging": "dotenv -e .env -- npx tsx prisma/seed-staging.ts",
     "db:seed:live-history": "dotenv -e .env -- npx tsx scripts/seed-live-history.ts",
     "db:privacy-erase": "dotenv -e .env -- npx tsx scripts/privacy-erase.ts",
-    "promo:env": "tsx promo-main/env/promo-env.ts",
-    "promo:capture": "tsx promo-main/capture/run.ts",
-    "promo:studio": "npm --prefix promo-main run studio",
-    "promo:render": "npm --prefix promo-main run render --",
-    "promo:screenshots": "tsx promo-main/capture/screenshots.ts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
