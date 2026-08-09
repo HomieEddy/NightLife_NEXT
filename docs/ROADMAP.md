@@ -51,7 +51,7 @@ migrations exist covering every model.
 | 6 | Foundation Modernization & Server State (plan 30 + TanStack Query) | **Complete** |
 | **7** | **Live Graduation to MVP** | **Complete** |
 | 8 | Production Readiness (plans 31–35) | **Complete** |
-| 9 | CI/CD, Deployment & Release Automation (plan 36) | Not started — ← CURRENT |
+| 9 | Test coverage reinforcement (37) → CI/CD & deployment (36) | Not started — ← CURRENT |
 
 ---
 
@@ -296,22 +296,25 @@ production-safe. All five plans are fully implemented.
 
 ---
 
-## PHASE 9 — CI/CD, DEPLOYMENT & RELEASE AUTOMATION · NOT STARTED
+## PHASE 9 — TEST COVERAGE REINFORCEMENT & CI/CD, DEPLOYMENT & RELEASE AUTOMATION · NOT STARTED
 
-Plan 36. Intentionally last (AD-23). Automating deploys of an incomplete product
-is premature optimization.
+Plan 37 runs first, plan 36 after: the coverage gate plan 37 installs is part
+of what plan 36's pipeline enforces. Plan 36 stays last (AD-23) — automating
+deploys of an incomplete product is premature optimization.
 
 | Plan | Feature | Risk |
 |------|---------|------|
+| 37 | Test coverage reinforcement: scoped 70/60/65 thresholds, per-file money floors, named-gap tests, admin-provision E2E, coverage wired for CI | Low |
 | 36 | CI/CD pipeline: GitHub Actions, branch protection, lint/typecheck/test/build gates, staging auto-deploy on `dev`, production deploy on `master` with approval gate, database migration automation, rollback rehearsal, deployment audit log, infrastructure-as-code (Coolify config in repo), disaster recovery runbook, production monitoring and alerting, on-call escalation | Low |
 
 **Permitted before Phase 9:** one minimal CI gate on every PR to `dev` —
 `npx tsc --noEmit && npx eslint src && npm run test`. That is all. No staging
 deploys, no production pipelines, no infrastructure automation.
 
-**Exit criteria:** Full pipeline operational. Staging deploys on merge to `dev`.
-Production deploys with approval gate. Rollback rehearsed and documented.
-Disaster recovery runbook tested.
+**Exit criteria:** Plan 37's coverage gate green and enforced in the pipeline.
+Full pipeline operational. Staging deploys on merge to `dev`. Production
+deploys with approval gate. Rollback rehearsed and documented. Disaster
+recovery runbook tested.
 
 ---
 
@@ -343,6 +346,7 @@ realignment so that all *remaining* work is numbered in ROADMAP order.
 | 34 | i18n: French/English | 8 | Complete |
 | 35 | Compliance & privacy | 8 | Complete |
 | 36 | CI/CD & deployment | 9 | Not started |
+| 37 | Test coverage reinforcement | 9 | Not started |
 
 ### Renumbering map (2026-07-30)
 
@@ -357,7 +361,7 @@ realignment so that all *remaining* work is numbered in ROADMAP order.
 
 **Numbers 21, 22, 23, 24, 27 and 29 are retired and must never be reused.** Old
 commits and docs reference them with their old meaning; reusing them would make
-git history ambiguous. Numbering restarts at 37 for the next new plan.
+git history ambiguous. Numbering restarts at 38 for the next new plan.
 
 ---
 

@@ -426,8 +426,11 @@ Phase 8. This AD records the decision so it is not relitigated per feature.
   production pipelines, no Docker optimization, no Kubernetes, no Coolify
   automation beyond git-push deploys. Manual deploys via Coolify dashboard are
   acceptable for development velocity.
-- **Phase 9 (post-functional-completeness):** full CI/CD pipeline: GitHub Actions
-  with lint → typecheck → test → integration test gates; automated staging
+- **Phase 9 (post-functional-completeness):** first plan 37's test coverage
+  reinforcement (scoped 70/60/65 thresholds, per-file money floors — the
+  number CI can fail on), then the full CI/CD pipeline: GitHub Actions
+  with lint → typecheck → test → integration test → coverage gate;
+  automated staging
   deploy on merge to `dev`; automated production deploy on merge to `master`
   with manual approval gate; blue-green deploy strategy; database migration
   automation; rollback rehearsed and documented; infrastructure-as-code
