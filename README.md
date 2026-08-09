@@ -117,7 +117,8 @@ Request a demo: [night-life-next.vercel.app/lead](https://night-life-next.vercel
 <details>
 <summary>For developers</summary>
 
-**Status:** Phase 8 (Production Readiness) complete — Phase 9 (CI/CD) current.
+**Status:** Phase 8 (Production Readiness) complete — Phase 9 (test coverage
+reinforcement, then CI/CD) current.
 All features run on both the demo sandbox (in-memory, no database) and the live
 track (Postgres, real auth, tenant-scoped). 40+ Prisma migrations, full
 integration test suite against PGlite, and a Playwright E2E suite.

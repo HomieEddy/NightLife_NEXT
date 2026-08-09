@@ -15,8 +15,8 @@ unit test on PRs to `dev`) is permitted early as a development convenience.
 Full CI/CD with automated deploys, blue-green strategies, and rollback
 automation waits until Phases 1–6 are functionally complete.
 
-Preconditions: none on feature plans — this plan executes standalone in
-Phase 9. Branch `chore/36-cicd-deployment`.
+Preconditions: executes after plan 37 — the check job includes plan 37's
+coverage gate (`npm run test:coverage`). Branch `chore/36-cicd-deployment`.
 
 ## Reasoning
 
@@ -41,7 +41,8 @@ deployment documented.
   both. Jobs:
   1. **check** — `npm ci`, `npx tsc --noEmit`, `npx eslint src`,
      `npm run test` (unit), `npm run test:integration` (PGlite — no
-     services), `npm audit --audit-level=high`.
+     services), `npm run test:coverage` (plan 37's gate — scoped
+     70/60/65, per-file money floors), `npm audit --audit-level=high`.
   2. **build** — `next build` **twice**, once per mode
      (`NEXT_PUBLIC_APP_MODE=demo` and `live` with dummy-but-valid env) —
      the mode split means one green build proves half the product; the
@@ -84,8 +85,9 @@ deployment documented.
 
 ## Implementation strategy
 
-1. `ci.yml` (check, build×2, gitleaks); prove it red-then-green with a
-   deliberate failing commit on the PR itself.
+1. `ci.yml` (check — incl. plan 37's coverage gate — build×2, gitleaks);
+   prove it red-then-green with a deliberate failing commit on the PR
+   itself.
 2. Branch protection on `dev`/`master` + the release-PR head guard.
 3. Nightly + manual E2E workflow (Playwright), not in the gate.
 4. Coolify deploy notifications; verify staging auto-deploy end-to-end
