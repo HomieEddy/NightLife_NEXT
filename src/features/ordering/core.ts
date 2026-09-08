@@ -6,7 +6,7 @@
 import type { getDb } from "@/features/shared/db";
 import { getRawPrisma } from "@/features/shared/db";
 import { fromCents, toCents } from "@/features/shared/money";
-import { computeOrderPricing, type FeeInput, type PricingLineInput, type PromotionInput } from "./pricing";
+import { computeOrderPricing, venueFeeInput, type PricingLineInput, type PromotionInput } from "./pricing";
 import { publish } from "@/features/realtime/events";
 import { nextStatus, ORDER_FLOW } from "@/features/shared/order-status";
 import type { ModifierGroup, Order, OrderStatus, ServiceFee } from "@/lib/types";
@@ -143,15 +143,6 @@ function toOrder(row: OrderRow): Order {
 }
 
 const ORDER_INCLUDE = { items: true, feeLines: true } as const;
-
-// ── Venue fee config → pricing input adapter ─────────────────────────
-
-function venueFeeToInput(sf: ServiceFee): FeeInput {
-  if (sf.type === "flat") {
-    return { id: sf.id, name: sf.name, type: "flat", valueCents: toCents(sf.value) };
-  }
-  return { id: sf.id, name: sf.name, type: "percentage", value: Math.round(sf.value * 100) };
-}
 
 // ── Order counter (venue-scoped) ─────────────────────────────────────
 
@@ -378,7 +369,7 @@ export async function submitOrder(
     }));
 
   const serviceFees = venueRow.serviceFees as unknown as ServiceFee[];
-  const fees = serviceFees.map(venueFeeToInput);
+  const fees = serviceFees.map(venueFeeInput);
 
   const happyHourRules = happyHourRows.map((r) => ({
     id: r.id,

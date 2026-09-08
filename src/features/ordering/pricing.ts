@@ -1,9 +1,16 @@
 /**
- * Server-side pricing engine (R3). Pure function: items + fees + happy-hour
- * rules + tip → cents breakdown. No I/O, no side effects — exhaustively
- * unit-tested. Ports src/lib/fees.ts logic and adds happy-hour discounts.
+ * The pricing engine — one module for order money math: subtotal, happy-hour
+ * discounts, promotions and service fees. Pure: no I/O, no side effects.
+ * All internal math is integer cents; dollars only cross the two presentation
+ * adapters at the bottom of this file.
+ *
+ * Semantic authority: the cents engine (`computeOrderPricing`) is canonical —
+ * the demo track mirrors it, never the other way around.
  */
-import { isInHappyHourWindow, type HappyHourDiscountRule } from "@/lib/happy-hour";
+import { bestHappyHourDiscount, type HappyHourDiscountRule } from "@/lib/happy-hour";
+import { toCents, fromCents } from "@/features/shared/money";
+import type { FeeLine } from "./fees";
+import type { CartLine, HappyHourRule, Promotion, ServiceFee, Venue } from "@/lib/types";
 
 // ── Input types ───────────────────────────────────────────────────────
 
@@ -37,8 +44,9 @@ export type FeeInput = PercentageFeeInput | FlatFeeInput;
 export type HappyHourInput = HappyHourDiscountRule;
 
 export interface PromotionInput {
+  /** Number is a percent for percentage, a dollar amount for flat. */
   type: "percentage" | "flat";
-  value: number; // % for percentage, dollar amount for flat
+  value: number;
   appliesToCategoryIds: string[]; // empty = all categories
 }
 
@@ -80,6 +88,27 @@ function pricingLineTotal(line: PricingLineInput): number {
   );
 }
 
+/** Fees on a post-discount subtotal — the single application of the fee rules. */
+function feeLinesForCents(subtotalCents: number, fees: FeeInput[]): FeeLineResult[] {
+  return fees.map((fee) =>
+    fee.type === "percentage"
+      ? {
+          feeId: fee.id,
+          feeName: fee.name,
+          feeType: "percentage",
+          feeValue: fee.value,
+          amountCents: Math.round(subtotalCents * fee.value / 10000),
+        }
+      : {
+          feeId: fee.id,
+          feeName: fee.name,
+          feeType: "flat",
+          feeValue: fee.valueCents,
+          amountCents: fee.valueCents,
+        },
+  );
+}
+
 // ── Engine ────────────────────────────────────────────────────────────
 
 export function computeOrderPricing(input: PricingInput): PricingResult {
@@ -104,31 +133,15 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
     subtotalCents += pricingLineTotal(line);
   }
 
-  // 2. Happy-hour discount: for each line, find the best matching rule
-  const activeRules = happyHourRules.filter((r) => isInHappyHourWindow(r, now));
+  // 2. Happy-hour discount: per line, the best matching rule wins
   let discountCents = 0;
   let happyHourRuleId: string | undefined;
 
-  if (activeRules.length > 0) {
-    for (const line of lines) {
-      const lineTotal = pricingLineTotal(line);
-
-      let bestPct = 0;
-      let bestRuleId: string | undefined;
-      for (const rule of activeRules) {
-        const applies =
-          rule.appliesToCategoryIds.length === 0 ||
-          rule.appliesToCategoryIds.includes(line.categoryId);
-        if (applies && rule.discountPct > bestPct) {
-          bestPct = rule.discountPct;
-          bestRuleId = rule.id;
-        }
-      }
-
-      if (bestPct > 0) {
-        discountCents += Math.round(lineTotal * bestPct / 100);
-        happyHourRuleId = bestRuleId;
-      }
+  for (const line of lines) {
+    const best = bestHappyHourDiscount(happyHourRules, line.categoryId, now);
+    if (best && best.discountPct > 0) {
+      discountCents += Math.round(pricingLineTotal(line) * best.discountPct / 100);
+      happyHourRuleId = best.ruleId;
     }
   }
 
@@ -144,17 +157,8 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
           if (!promotion.appliesToCategoryIds.includes(line.categoryId)) continue;
           const lineTotal = pricingLineTotal(line);
           // Subtract line's share of the happy-hour discount before applying promo
-          let lineHhDiscount = 0;
-          if (discountCents > 0 && activeRules.length > 0) {
-            let bestPct = 0;
-            for (const rule of activeRules) {
-              const applies =
-                rule.appliesToCategoryIds.length === 0 ||
-                rule.appliesToCategoryIds.includes(line.categoryId);
-              if (applies && rule.discountPct > bestPct) bestPct = rule.discountPct;
-            }
-            lineHhDiscount = Math.round(lineTotal * bestPct / 100);
-          }
+          const best = bestHappyHourDiscount(happyHourRules, line.categoryId, now);
+          const lineHhDiscount = best ? Math.round(lineTotal * best.discountPct / 100) : 0;
           promotionCents += Math.round((lineTotal - lineHhDiscount) * promotion.value / 100);
         }
       } else {
@@ -169,27 +173,7 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
   const discountedSubtotalCents = afterHappyHourCents - promotionCents;
 
   // 4. Fees — computed on the discounted subtotal
-  const feeLines: FeeLineResult[] = [];
-  for (const fee of fees) {
-    if (fee.type === "percentage") {
-      feeLines.push({
-        feeId: fee.id,
-        feeName: fee.name,
-        feeType: "percentage",
-        feeValue: fee.value,
-        amountCents: Math.round(discountedSubtotalCents * fee.value / 10000),
-      });
-    } else {
-      feeLines.push({
-        feeId: fee.id,
-        feeName: fee.name,
-        feeType: "flat",
-        feeValue: fee.valueCents,
-        amountCents: fee.valueCents,
-      });
-    }
-  }
-
+  const feeLines = feeLinesForCents(discountedSubtotalCents, fees);
   const totalFeeCents = feeLines.reduce((s, f) => s + f.amountCents, 0);
 
   // 5. Total
@@ -205,5 +189,102 @@ export function computeOrderPricing(input: PricingInput): PricingResult {
     totalFeeCents,
     tipCents,
     totalCents,
+  };
+}
+
+// ── Dollars adapters (presentation edges) ─────────────────────────────
+
+/** Venue fee config → fee input. Percent basis-point conversion lives here, once. */
+export function venueFeeInput(fee: ServiceFee): FeeInput {
+  if (fee.type === "flat") {
+    return { id: fee.id, name: fee.name, type: "flat", valueCents: toCents(fee.value) };
+  }
+  return { id: fee.id, name: fee.name, type: "percentage", value: Math.round(fee.value * 100) };
+}
+
+/** Need the fee lines for an arbitrary subtotal (settings preview, seed, gift)? Call this. */
+export function computeFeeLinesForSubtotal(subtotal: number, venue: Venue): FeeLine[] {
+  if (subtotal <= 0) return [];
+  const lines = feeLinesForCents(toCents(subtotal), venue.serviceFees.map(venueFeeInput));
+  return venue.serviceFees.map((fee, i) => ({ fee, amount: fromCents(lines[i].amountCents) }));
+}
+
+/** Total of all configured fees for a subtotal. */
+export function computeServiceFeeForSubtotal(subtotal: number, venue: Venue): number {
+  return Math.round(
+    computeFeeLinesForSubtotal(subtotal, venue).reduce((sum, l) => sum + l.amount, 0) * 100,
+  ) / 100;
+}
+
+export interface CartPricingInput {
+  lines: CartLine[];
+  venue: Venue;
+  happyHourRules: HappyHourRule[];
+  promotion?: Promotion;
+  tip: number; // dollars, 2 dp
+  now: Date;
+}
+
+export interface CartPricingResult {
+  subtotal: number;
+  happyHourDiscount: number;
+  happyHourDiscountCents: number;
+  happyHourRuleId?: string;
+  promoDiscount: number;
+  promoDiscountCents: number;
+  afterDiscounts: number;
+  feeLines: FeeLine[];
+  serviceFee: number;
+  tip: number;
+  total: number;
+  totalCents: number;
+}
+
+/**
+ * Dollars adapter for cart-shaped callers (guest cart preview, demo order
+ * service). Converts to cents, runs the canonical engine, returns dollars —
+ * exactly one rounding boundary per amount.
+ */
+export function computeCartPricing(input: CartPricingInput): CartPricingResult {
+  const { lines, venue, happyHourRules, promotion, tip, now } = input;
+  const pricing = computeOrderPricing({
+    lines: lines.map((line) => ({
+      menuItemId: line.menuItem.id,
+      name: line.menuItem.name,
+      priceCents: toCents(line.menuItem.price),
+      quantity: line.quantity,
+      categoryId: line.menuItem.categoryId,
+      modifiers: line.modifiers.map((modifier) => ({
+        groupName: modifier.groupName,
+        optionName: modifier.optionName,
+        deltaCents: toCents(modifier.priceDelta),
+        quantity: modifier.quantity,
+      })),
+    })),
+    fees: venue.serviceFees.map(venueFeeInput),
+    happyHourRules,
+    promotion: promotion
+      ? { type: promotion.type, value: promotion.value, appliesToCategoryIds: promotion.appliesToCategoryIds }
+      : undefined,
+    tipCents: toCents(tip),
+    now,
+  });
+
+  return {
+    subtotal: fromCents(pricing.subtotalCents),
+    happyHourDiscount: fromCents(pricing.discountCents),
+    happyHourDiscountCents: pricing.discountCents,
+    happyHourRuleId: pricing.happyHourRuleId,
+    promoDiscount: fromCents(pricing.promotionCents),
+    promoDiscountCents: pricing.promotionCents,
+    afterDiscounts: fromCents(pricing.discountedSubtotalCents),
+    feeLines: venue.serviceFees.map((fee, i) => ({
+      fee,
+      amount: fromCents(pricing.feeLines[i].amountCents),
+    })),
+    serviceFee: fromCents(pricing.totalFeeCents),
+    tip: fromCents(pricing.tipCents),
+    total: fromCents(pricing.totalCents),
+    totalCents: pricing.totalCents,
   };
 }

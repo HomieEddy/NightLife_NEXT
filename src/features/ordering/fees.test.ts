@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  computeFeeLines,
-  computeServiceFee,
-  feeLabel,
-  getAutoGratuityRate,
-} from "./fees";
+import { feeLabel, getAutoGratuityRate } from "./fees";
 import type { Venue } from "@/lib/types";
 
 function venue(overrides: Partial<Venue> = {}): Venue {
@@ -39,58 +34,6 @@ function venue(overrides: Partial<Venue> = {}): Venue {
     ...overrides,
   };
 }
-
-describe("computeFeeLines", () => {
-  it("returns no lines for an empty or negative subtotal — flat fees must not fire on an empty cart", () => {
-    const v = venue({ serviceFees: [{ id: "f1", name: "Flat", type: "flat", value: 10 }] });
-    expect(computeFeeLines(0, v)).toEqual([]);
-    expect(computeFeeLines(-5, v)).toEqual([]);
-  });
-
-  it("applies flat fees at their face value", () => {
-    const v = venue({ serviceFees: [{ id: "f1", name: "Flat", type: "flat", value: 10 }] });
-    const lines = computeFeeLines(100, v);
-    expect(lines).toHaveLength(1);
-    expect(lines[0].amount).toBe(10);
-  });
-
-  it("rounds percentage fees to the cent (half-cent rounding)", () => {
-    const v = venue({ serviceFees: [{ id: "f1", name: "Pct", type: "percentage", value: 9.975 }] });
-    // 100.00 * 9.975% = 9.975 → 10.00 after rounding... use an awkward subtotal
-    const lines = computeFeeLines(33.33, v);
-    expect(lines[0].amount).toBe(Math.round(33.33 * 9.975) / 100);
-  });
-
-  it("stacks multiple fees into one line each", () => {
-    const v = venue({
-      serviceFees: [
-        { id: "f1", name: "Flat", type: "flat", value: 5 },
-        { id: "f2", name: "Pct", type: "percentage", value: 9.975 },
-      ],
-    });
-    const lines = computeFeeLines(200, v);
-    expect(lines).toHaveLength(2);
-    expect(lines[0].amount).toBe(5);
-    expect(lines[1].amount).toBe(19.95);
-  });
-});
-
-describe("computeServiceFee", () => {
-  it("sums all lines rounded to the cent", () => {
-    const v = venue({
-      serviceFees: [
-        { id: "f1", name: "Flat", type: "flat", value: 5 },
-        { id: "f2", name: "Pct", type: "percentage", value: 9.975 },
-      ],
-    });
-    expect(computeServiceFee(200, v)).toBe(24.95);
-  });
-
-  it("is zero for empty orders", () => {
-    const v = venue({ serviceFees: [{ id: "f1", name: "Flat", type: "flat", value: 10 }] });
-    expect(computeServiceFee(0, v)).toBe(0);
-  });
-});
 
 describe("feeLabel", () => {
   it("labels flat and percentage fees", () => {

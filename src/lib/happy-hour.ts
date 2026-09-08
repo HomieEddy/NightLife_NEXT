@@ -1,6 +1,7 @@
 /**
- * Happy-hour window + discount selection, shared by the live pricing engine
- * (src/server/pricing.ts) and the demo order/cart path. Pure — no I/O.
+ * Happy-hour window + discount selection — the single source of rule
+ * selection. The pricing engine (src/features/ordering/pricing.ts) is the
+ * only consumer of `bestHappyHourDiscount`. Pure — no I/O.
  */
 
 import { dayOfWeek } from "@/features/shared/dates";
@@ -64,34 +65,4 @@ export function bestHappyHourDiscount(
     }
   }
   return best;
-}
-
-export interface DiscountableLine {
-  unitPrice: number;
-  quantity: number;
-  categoryId: string | undefined; // undefined = package line
-  addOns: { priceDelta: number; quantity: number }[];
-}
-
-/**
- * Total happy-hour discount for a cart, rounded to cents. Same rule selection
- * as the live pricing engine; the cart preview and the demo order service must
- * agree on this number, so both call here.
- */
-export function cartHappyHourDiscount(
-  rules: HappyHourDiscountRule[],
-  lines: DiscountableLine[],
-  now: Date,
-): { discount: number; ruleId: string | undefined } {
-  let discount = 0;
-  let ruleId: string | undefined;
-  for (const line of lines) {
-    const best = bestHappyHourDiscount(rules, line.categoryId ?? "packages", now);
-    if (!best) continue;
-    const addOnTotal = line.addOns.reduce((sum, a) => sum + a.priceDelta * a.quantity, 0);
-    const lineTotal = line.unitPrice * line.quantity + addOnTotal;
-    discount += Math.round(lineTotal * best.discountPct) / 100;
-    ruleId = best.ruleId;
-  }
-  return { discount: Math.round(discount * 100) / 100, ruleId };
 }
