@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
+import { transition } from "@/features/inventory/ledger";
 
 function demoHandler() {
   return NextResponse.json({ error: "Bar tab routes are disabled in demo mode" }, { status: 404 });
@@ -18,12 +19,18 @@ async function livePOST(_request: NextRequest, { params }: { params: Promise<{ i
 
   const tab = await db.barTab.findFirst({ where: { id, venueId } });
   if (!tab) return NextResponse.json({ error: "Bar tab not found" }, { status: 404 });
-  if (tab.status !== "open") return NextResponse.json({ error: "Bar tab is already closed" }, { status: 409 });
 
-  const closed = await db.barTab.update({
-    where: { id },
-    data: { status: "closed", closedAt: new Date() },
+  // CAS on the status — a concurrent close (or double-click) loses exactly once.
+  const closed = await db.$transaction(async (tx) => {
+    const claimed = await transition(tx, "barTab", id, {
+      from: "open",
+      to: "closed",
+      data: { closedAt: new Date() },
+    });
+    if (!claimed) return null;
+    return tx.barTab.findFirst({ where: { id, venueId } });
   });
+  if (!closed) return NextResponse.json({ error: "Bar tab is already closed" }, { status: 409 });
   return NextResponse.json(closed);
 }
 

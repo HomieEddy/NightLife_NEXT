@@ -5,6 +5,7 @@
  */
 import type { getDb } from "@/features/shared/db";
 import { getRawPrisma } from "@/features/shared/db";
+import { applyMovement } from "@/features/inventory/ledger";
 import { publish } from "@/features/realtime/events";
 import {
   isAdjustmentAmountValid,
@@ -305,65 +306,28 @@ export async function createAdjustment(
         throw new Error(`Cannot adjust: only ${(remaining / 100).toFixed(2)} remains un-adjusted on this target`);
       }
 
-      // INV-O4: for voids, lock the menu item rows for the items we're returning.
+      // INV-O4: voids return stock through the ledger (locked move per item).
       if (input.kind === "void") {
-        const itemIds = new Set<string>();
-        for (const item of order.items) {
-          itemIds.add(item.menuItemId);
-          // If an add-on carries an inventoryItemId, lock it too.
-          const mods = item.modifiers as unknown as { groupId?: string; kind?: string; inventoryItemId?: string; quantity?: number }[];
-          for (const mod of mods) {
-            if (mod.inventoryItemId) itemIds.add(mod.inventoryItemId);
-          }
-        }
-
-        // For item-level void: only return stock for that specific item.
         if (input.orderItemId) {
           const targetItem = order.items.find((i) => i.id === input.orderItemId);
           if (targetItem) {
             const qty = input.quantity ?? targetItem.quantity;
-            const locked = await tx.$queryRawUnsafe<
-              { id: string; name: string; inventory: number; is_available: boolean }[]
-            >(
-              `SELECT id, name, inventory, is_available FROM menu_items WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
-              targetItem.menuItemId,
+            await applyMovement(tx, {
               venueId,
-            );
-            if (locked.length === 0) throw new Error(`Menu item ${targetItem.menuItemId} not found`);
-
-            await tx.$executeRawUnsafe(
-              `UPDATE menu_items SET inventory = inventory + $1, updated_at = NOW() WHERE id = $2`,
-              qty,
-              targetItem.menuItemId,
-            );
-            await tx.stockMovement.create({
-              data: {
-                venueId,
-                menuItemId: targetItem.menuItemId,
-                itemName: targetItem.name,
-                type: "adjustment",
-                delta: qty,
-                note: `Void adjustment — ${summary}`,
-              },
+              menuItemId: targetItem.menuItemId,
+              delta: qty,
+              type: "adjustment",
+              note: `Void adjustment — ${summary}`,
             });
           }
         } else {
-          // Full-order void: return stock for every item.
           for (const item of order.items) {
-            await tx.$executeRawUnsafe(
-              `UPDATE menu_items SET inventory = inventory + $1, updated_at = NOW() WHERE id = $2`,
-              item.quantity,
-              item.menuItemId,
-            );
-            await tx.stockMovement.create({
-              data: {
-                venueId,
-                menuItemId: item.menuItemId,
-                itemName: item.name,
-                type: "adjustment",
-                delta: item.quantity,
-                note: `Void adjustment — ${summary}`,
-              },
+            await applyMovement(tx, {
+              venueId,
+              menuItemId: item.menuItemId,
+              delta: item.quantity,
+              type: "adjustment",
+              note: `Void adjustment — ${summary}`,
             });
           }
         }
@@ -480,38 +444,22 @@ export async function reverseAdjustment(
             const item = order.items.find((i) => i.id === original.orderItemId);
             if (item) {
               const qty = original.quantity ?? item.quantity;
-              await tx.$executeRawUnsafe(
-                `UPDATE menu_items SET inventory = inventory - $1, updated_at = NOW() WHERE id = $2`,
-                qty,
-                item.menuItemId,
-              );
-              await tx.stockMovement.create({
-                data: {
-                  venueId,
-                  menuItemId: item.menuItemId,
-                  itemName: item.name,
-                  type: "adjustment",
-                  delta: -qty,
-                  note: `Void reversal — ${staffName}`,
-                },
+              await applyMovement(tx, {
+                venueId,
+                menuItemId: item.menuItemId,
+                delta: -qty,
+                type: "adjustment",
+                note: `Void reversal — ${staffName}`,
               });
             }
           } else {
             for (const item of order.items) {
-              await tx.$executeRawUnsafe(
-                `UPDATE menu_items SET inventory = inventory - $1, updated_at = NOW() WHERE id = $2`,
-                item.quantity,
-                item.menuItemId,
-              );
-              await tx.stockMovement.create({
-                data: {
-                  venueId,
-                  menuItemId: item.menuItemId,
-                  itemName: item.name,
-                  type: "adjustment",
-                  delta: -item.quantity,
-                  note: `Void reversal — ${staffName}`,
-                },
+              await applyMovement(tx, {
+                venueId,
+                menuItemId: item.menuItemId,
+                delta: -item.quantity,
+                type: "adjustment",
+                note: `Void reversal — ${staffName}`,
               });
             }
           }

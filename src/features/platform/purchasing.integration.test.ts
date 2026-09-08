@@ -214,6 +214,54 @@ describe("purchasing integration (plan 19)", () => {
     expect(partial.status).toBe("partially-received");
   });
 
+  it("concurrent receives of the same PO serialize on the PO row lock — no double-increment", async () => {
+    const db = getDb(sessionA);
+    const menuItemId = "mi-race-receive";
+    await rawClient.menuItem.create({ data: makeMenuItem(menuItemId, "Race Receive", { priceCents: 1000, inventory: 2, unitOfMeasure: "bottle", servingSize: 750 }) });
+
+    await savePurchaseOrder(db, {
+      id: "po-race-receive", venueId: venueA, supplierId: "sup-crud", code: "PO-RACE-001",
+      status: "draft", expectedAt: "2026-08-01T10:00:00.000Z",
+      lines: [{
+        id: "pol-r1", menuItemId, qtyOrdered: 10, qtyReceived: 0,
+        unitCostCents: 3000, lineTotalCents: 30000,
+      }],
+      subtotalCents: 30000, notes: "",
+    });
+    await submitPurchaseOrder(db, "po-race-receive", "stf-1");
+
+    await Promise.all([
+      receivePurchaseOrder(db, "po-race-receive", [{ lineId: "pol-r1", qtyReceived: 5 }]),
+      receivePurchaseOrder(db, "po-race-receive", [{ lineId: "pol-r1", qtyReceived: 5 }]),
+    ]);
+
+    const po = await rawClient.purchaseOrder.findUnique({ where: { id: "po-race-receive" } });
+    const line = ((po?.lines as Array<{ id: string; qtyReceived: number }>) ?? []).find((l) => l.id === "pol-r1");
+    expect(line?.qtyReceived).toBe(10);
+
+    const item = await rawClient.menuItem.findUnique({ where: { id: menuItemId } });
+    expect(item?.inventory).toBe(12); // 2 + 5 + 5, exactly once each
+  });
+
+  it("concurrent submits of a draft PO land exactly once (CAS)", async () => {
+    const db = getDb(sessionA);
+    await savePurchaseOrder(db, {
+      id: "po-race-submit", venueId: venueA, supplierId: "sup-crud", code: "PO-SUB-RACE-001",
+      status: "draft", expectedAt: "2026-08-01T10:00:00.000Z",
+      lines: [], subtotalCents: 0, notes: "",
+    });
+
+    const outcomes = await Promise.allSettled([
+      submitPurchaseOrder(db, "po-race-submit", "stf-1"),
+      submitPurchaseOrder(db, "po-race-submit", "stf-2"),
+    ]);
+    const fulfilled = outcomes.filter((o) => o.status === "fulfilled");
+    const rejected = outcomes.filter((o) => o.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(String((rejected[0] as PromiseRejectedResult).reason)).toMatch("Only draft POs");
+  });
+
   it("rejects receiving a draft PO", async () => {
     const db = getDb(sessionA);
     await savePurchaseOrder(db, {
