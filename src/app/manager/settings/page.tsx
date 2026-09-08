@@ -21,7 +21,7 @@ import { ordersService } from "@/features/ordering/services";
 import { venueKeys } from "@/features/venue/query-keys";
 import { ordersKeys } from "@/features/ordering/query-keys";
 import { useAuth } from "@/context/auth-context";
-import { computeFeeLines, computeServiceFee } from "@/features/ordering/fees";
+import { computeFeeLinesForSubtotal, computeServiceFeeForSubtotal } from "@/features/ordering/pricing";
 import { setManagerOnboarded } from "@/lib/onboarding";
 import { cn } from "@/features/shared/utils";
 import type { AdjustmentReason, ServiceFee, TabAdjustmentKind, Venue } from "@/lib/types";
@@ -463,7 +463,7 @@ export default function ManagerSettingsPage() {
 
               <p className="text-xs text-muted-foreground">
                 Example on a $200 order:{" "}
-                {computeFeeLines(200, draft).map((line, i) => (
+                {computeFeeLinesForSubtotal(200, draft).map((line, i) => (
                   <span key={line.fee.id}>
                     {i > 0 && " + "}
                     {line.fee.name || "Fee"}{" "}
@@ -476,7 +476,7 @@ export default function ManagerSettingsPage() {
                   <>
                     {" = "}
                     <span className="font-semibold text-foreground tabular-nums">
-                      ${computeServiceFee(200, draft).toFixed(2)}
+                      ${computeServiceFeeForSubtotal(200, draft).toFixed(2)}
                     </span>{" "}
                     in fees.
                   </>

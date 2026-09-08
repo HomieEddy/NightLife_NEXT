@@ -18,9 +18,8 @@ import { mockOrders, mockGuestSessions } from "@/features/ordering/mock-data";
 import { mockMenuItems } from "@/features/menu/mock-data";
 import { mockVenue } from "@/features/venue/mock-data";
 import { mockAdjustmentReasons } from "@/features/sessions/tab-mock-data";
-import { computeFeeLines, computeServiceFee } from "@/features/ordering/fees";
-import { cartHappyHourDiscount } from "@/lib/happy-hour";
-import { orderLineSubtotal } from "@/lib/order-line";
+import { computeCartPricing, computeFeeLinesForSubtotal, computeServiceFeeForSubtotal } from "@/features/ordering/pricing";
+import { mockPromotionsService } from "@/features/hospitality/promotions-mock-service";
 import { nextStatus, ORDER_FLOW } from "@/features/shared/order-status";
 import {
   isAdjustmentAmountValid,
@@ -122,33 +121,22 @@ export const mockOrdersService = {
   }): Promise<Order> {
     await delay(700);
     await assertSessionOrderable(input.sessionId);
-    const subtotal = input.lines.reduce(
-      (sum, line) =>
-        sum + orderLineSubtotal(line.menuItem.price, line.quantity, line.modifiers),
-      0,
-    );
     // Live settings, so fee edits in /manager/settings apply to new orders.
     const venue = await mockVenueService.getVenueSnapshot();
-
-    // Happy hour discounts covered category lines — same rule selection as the
-    // live pricing engine (src/server/pricing.ts), applied here in dollars.
-    const happyHourRules = await mockMenuService.listHappyHourRules();
+    const [happyHourRules, promo] = await Promise.all([
+      mockMenuService.listHappyHourRules(),
+      input.promoCode ? mockPromotionsService.validateCode(input.promoCode) : Promise.resolve(null),
+    ]);
     const placedAt = new Date();
-    const { discount: happyHourDiscount, ruleId: happyHourRuleId } = cartHappyHourDiscount(
+    // One engine for demo — the same cents computation the live track runs.
+    const pricing = computeCartPricing({
+      lines: input.lines,
+      venue,
       happyHourRules,
-      input.lines.map((line) => ({
-        unitPrice: line.menuItem.price,
-        quantity: line.quantity,
-        categoryId: line.menuItem.categoryId,
-        addOns: line.modifiers,
-      })),
-      placedAt,
-    );
-
-    // Promotions stack after happy hour, mirroring the live engine's order.
-    const afterDiscounts = subtotal - happyHourDiscount - (input.promoDiscount ?? 0);
-    const feeBreakdown = computeFeeLines(afterDiscounts, venue);
-    const serviceFee = computeServiceFee(afterDiscounts, venue);
+      promotion: promo ?? undefined,
+      tip: input.tip,
+      now: placedAt,
+    });
     const now = placedAt.toISOString();
     const order: Order = {
       id: uid("ord"),
@@ -169,16 +157,16 @@ export const mockOrdersService = {
         modifiers: line.modifiers,
         note: line.note,
       })),
-      subtotal,
-      serviceFee,
-      feeBreakdown,
+      subtotal: pricing.subtotal,
+      serviceFee: pricing.serviceFee,
+      feeBreakdown: pricing.feeLines,
       tip: input.tip,
-      total: Math.round((afterDiscounts + serviceFee + input.tip) * 100) / 100,
-      promotionId: input.promoId,
-      promotionCode: input.promoCode,
-      promotionCents: input.promoDiscount ? Math.round(input.promoDiscount * 100) : undefined,
-      happyHourRuleId: happyHourDiscount > 0 ? happyHourRuleId : undefined,
-      happyHourCents: happyHourDiscount > 0 ? Math.round(happyHourDiscount * 100) : undefined,
+      total: pricing.total,
+      promotionId: promo?.id,
+      promotionCode: promo?.code,
+      promotionCents: promo ? pricing.promoDiscountCents : undefined,
+      happyHourRuleId: pricing.happyHourDiscountCents > 0 ? pricing.happyHourRuleId : undefined,
+      happyHourCents: pricing.happyHourDiscountCents > 0 ? pricing.happyHourDiscountCents : undefined,
       status: "pending",
       placedAt: now,
       updatedAt: now,
@@ -246,8 +234,8 @@ export const mockOrdersService = {
     }));
     const subtotal = orderItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
     const venue = await mockVenueService.getVenueSnapshot();
-    const feeBreakdown = computeFeeLines(subtotal, venue);
-    const serviceFee = computeServiceFee(subtotal, venue);
+    const feeBreakdown = computeFeeLinesForSubtotal(subtotal, venue);
+    const serviceFee = computeServiceFeeForSubtotal(subtotal, venue);
     const now = new Date().toISOString();
     const order: Order = {
       id: uid("ord"),
