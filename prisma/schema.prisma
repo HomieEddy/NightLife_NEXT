@@ -407,6 +407,9 @@ model StockMovement {
   type            String
   delta           Int
   note            String?
+  /// Structural join to the ordering sale that drew this stock down —
+  /// replaces matching movements by note text (INV-05).
+  orderId         String?  @map("order_id")
   unitCostCents   Int?     @map("unit_cost_cents")
   purchaseOrderId String?  @map("purchase_order_id")
   stocktakeId     String?  @map("stocktake_id")
@@ -415,10 +418,12 @@ model StockMovement {
 
   venue    Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  order    Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([venueId])
   @@index([venueId, createdAt])
   @@index([menuItemId])
+  @@index([orderId])
   @@map("stock_movements")
 }
 
@@ -538,6 +543,7 @@ model Order {
   session  GuestSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   items    OrderItem[]
   feeLines FeeLine[]
+  stockMovements StockMovement[]
 
   @@index([venueId, placedAt])
   @@index([venueId, status])
