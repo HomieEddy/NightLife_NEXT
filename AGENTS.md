@@ -620,3 +620,17 @@ makes it obsolete.
   `setInterval(refresh` patterns remain. Floor coordination (broadcasts, last
   call, show lock, chat) lives in `src/features/realtime/floor-core.ts` with
   domain events published via `src/features/realtime/events.ts`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as GitHub issues in HomieEddy/NightLife_NEXT, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical labels used verbatim: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` + `docs/adr/` at the repo root (neither exists yet; created lazily by `/domain-modeling`). See `docs/agents/domain.md`.
