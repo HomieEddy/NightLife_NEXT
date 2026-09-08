@@ -72,6 +72,18 @@ export function nightForDate(labelDate: string, config: NightConfig): NightBound
   return { label: labelDate, start, end, timezone };
 }
 
+/**
+ * Today's calendar date (YYYY-MM-DD) in a given IANA timezone — the day key
+ * cron jobs embed in their claim so a UTC day boundary near midnight can't
+ * skip or duplicate a venue-local day. One definition, no reimplementation.
+ */
+export function venueDayKey(date: Date, timezone: string): string {
+  const [m, d, y] = date
+    .toLocaleString("en-US", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" })
+    .split("/");
+  return `${y}-${m}-${d}`;
+}
+
 // ── helpers ──────────────────────────────────────────────────────────
 
 function nextDay(dateStr: string): string {
