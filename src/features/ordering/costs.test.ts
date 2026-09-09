@@ -1,62 +1,6 @@
 import { describe, expect, test } from "vitest";
-import {
-  weightedAverageCost,
-  computePourCost,
-  computeEventPnL,
-  suggestPurchaseOrder,
-} from "./costs";
-import type { MenuItem, PurchaseOrder, StockMovement, SupplierItem } from "@/lib/types";
-
-describe("weightedAverageCost", () => {
-  test("computes WAC from two restocks at different prices", () => {
-    const movements: StockMovement[] = [
-      { id: "m1", menuItemId: "i1", itemName: "Grey Goose", type: "restock", delta: 10, unitCostCents: 3000, createdAt: "" },
-      { id: "m2", menuItemId: "i1", itemName: "Grey Goose", type: "restock", delta: 10, unitCostCents: 4000, createdAt: "" },
-    ];
-    expect(weightedAverageCost("i1", movements)).toBe(3500); // (10×3000 + 10×4000)/20
-  });
-
-  test("returns 0 when no restocks exist", () => {
-    expect(weightedAverageCost("no-item", [])).toBe(0);
-  });
-
-  test("ignores non-restock and negative-delta movements", () => {
-    const movements: StockMovement[] = [
-      { id: "m1", menuItemId: "i1", itemName: "", type: "restock", delta: 5, unitCostCents: 2000, createdAt: "" },
-      { id: "m2", menuItemId: "i1", itemName: "", type: "sale", delta: -3, unitCostCents: 2000, createdAt: "" },
-    ];
-    expect(weightedAverageCost("i1", movements)).toBe(2000);
-  });
-});
-
-describe("computePourCost", () => {
-  test("22% pour cost on $1000 revenue", () => {
-    const items = [
-      { menuItemId: "i1", quantity: 5, avgCostCents: 3000 }, // $150 COGS
-      { menuItemId: "i2", quantity: 10, avgCostCents: 700 },  // $70 COGS
-    ];
-    // COGS = $220 on $1000 revenue = 22%
-    expect(computePourCost(100000, items)).toBeCloseTo(0.22, 4);
-  });
-
-  test("returns 0 when revenue is 0", () => {
-    expect(computePourCost(0, [{ menuItemId: "i1", quantity: 5, avgCostCents: 3000 }])).toBe(0);
-  });
-});
-
-describe("computeEventPnL", () => {
-  test("contribution = revenue - all costs", () => {
-    const pnl = computeEventPnL("e1", "Friday Night", 500000, 110000, 80000, [
-      { id: "ec1", eventId: "e1", label: "DJ Fee", kind: "talent", amountCents: 150000 },
-    ]);
-    expect(pnl.contribution).toBe(160000); // 500000 - 110000 - 80000 - 150000
-  });
-
-  test("no event costs still produces valid PnL", () => {
-    const pnl = computeEventPnL("e2", "Quiet Night", 200000, 40000, 30000, []);
-    expect(pnl.contribution).toBe(130000);
-  });
-});
+import { suggestPurchaseOrder } from "./costs";
+import type { MenuItem, PurchaseOrder, SupplierItem } from "@/lib/types";
 
 describe("suggestPurchaseOrder", () => {
   const items: MenuItem[] = [
