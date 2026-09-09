@@ -23,8 +23,11 @@ export function distributeTips(
   if (included.length === 0) return [];
 
   // House retention: the venue keeps this % of the pool before distribution.
+  // Round the retained cut, then distribute the remainder — the same formula
+  // as computeTipDistribution in lib/workforce.ts, so the two can't diverge.
   const retention = Math.max(0, Math.min(100, rule.houseRetentionPct ?? 0));
-  const distributable = Math.round((poolCents * (100 - retention)) / 100);
+  const reserved = Math.round((poolCents * retention) / 100);
+  const distributable = poolCents - reserved;
 
   let weights: number[];
   switch (rule.basis) {
