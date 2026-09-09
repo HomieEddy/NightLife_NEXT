@@ -199,6 +199,24 @@ describe("tab ledger integration (plan 16)", () => {
       await seedOrder(raw, venueA, "order-adj-void", "sess-1", 1200);
       await seedOrder(raw, venueA, "order-adj-reverse", "sess-1", 800);
       await seedOrder(raw, venueA, "order-adj-comp", "sess-1", 600);
+      // An order whose item carries an add-on (deltaCents), exercising the
+      // cents-native line math — the old path read .priceDelta on a deltaCents
+      // shape and produced NaN.
+      await raw.order.create({
+        data: {
+          id: "order-adj-addon", venueId: venueA, code: "ADDON", sessionId: "sess-1",
+          tableId: "table-1", tableCode: "T1", zoneId: "zone-main", zoneName: "Main",
+          guestName: "Add-on Guest", status: "delivered",
+          totalCents: 1900, subtotalCents: 1900, totalFeeCents: 0, tipCents: 0,
+        },
+      });
+      await raw.orderItem.create({
+        data: {
+          id: "oi-adj-addon", orderId: "order-adj-addon", menuItemId: "mi-vodka",
+          name: "Vodka + sparkler", unitCents: 1600, quantity: 1,
+          modifiers: [{ groupName: "Presentation", optionName: "Sparkler parade", deltaCents: 300, quantity: 1 }],
+        },
+      });
     });
 
     it("creates a void adjustment and writes audit + stock movement", async () => {
@@ -218,6 +236,20 @@ describe("tab ledger integration (plan 16)", () => {
 
       const item = await raw.menuItem.findUnique({ where: { id: "mi-vodka" } });
       expect(item?.inventory).toBe(51); // was 50, +1 from void
+    });
+
+    it("voids a line with an add-on at the cents-native amount (INV regression — was NaN)", async () => {
+      const result = await createAdjustment(getDb(sessionA), venueA, {
+        orderId: "order-adj-addon",
+        orderItemId: "oi-adj-addon",
+        kind: "void",
+        reasonCode: "wrong-item",
+        authorStaffId: "st-tab", authorStaffName: "Tab Tester",
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("add-on void must succeed");
+      // 1600 + 300 deltaCents = 1900 exactly, not NaN.
+      expect(result.adjustment.amountCents).toBe(1900);
     });
 
     it("rejects adjustment for unknown reason code", async () => {

@@ -9,11 +9,12 @@ import { applyMovement } from "@/features/inventory/ledger";
 import { publish } from "@/features/realtime/events";
 import {
   isAdjustmentAmountValid,
-  orderItemAmountCents,
-  orderItemPartialAmountCents,
-  computeCashoutExpected,
+  orderItemAmountCentsFromLine,
+  orderItemPartialAmountCentsFromLine,
+  computeCashoutExpectedFromOrders,
   computeCashoutVariance,
   mergedMinimumSpendCents,
+  type CentsOrder,
 } from "@/lib/tab";
 import type {
   AdjustmentReason,
@@ -254,24 +255,24 @@ export async function createAdjustment(
   if (input.orderItemId) {
     const item = order.items.find((i) => i.id === input.orderItemId);
     if (!item) return { ok: false, error: "Order item not found" };
-    const asOrderItem = {
-      id: item.id,
-      menuItemId: item.menuItemId,
-      name: item.name,
-      unitPrice: item.unitCents / 100,
-      quantity: item.quantity,
-      modifiers: item.modifiers as never[],
-    };
+    // Live rows are cents-native: unitCents + a JSONB modifier snapshot of
+    // { deltaCents }. Feed them straight to the cents line math — rebuilding a
+    // dollar OrderItem used to read .priceDelta on a deltaCents shape (NaN)
+    // and round-trip unitCents → dollars → cents.
+    const modifiers = (item.modifiers as never[]).map((m) => ({
+      deltaCents: (m as { deltaCents: number }).deltaCents,
+      quantity: (m as { quantity?: number }).quantity,
+    }));
     if (input.quantity) {
-      targetCents = orderItemPartialAmountCents(asOrderItem, input.quantity);
+      targetCents = orderItemPartialAmountCentsFromLine(item.unitCents, item.quantity, modifiers, input.quantity);
     } else {
-      targetCents = orderItemAmountCents(asOrderItem);
+      targetCents = orderItemAmountCentsFromLine(item.unitCents, item.quantity, modifiers);
     }
     description = input.quantity
       ? `${input.quantity}x ${item.name}`
       : item.name;
   } else {
-    targetCents = Math.round(order.totalCents);
+    targetCents = order.totalCents;
     description = `Order ${order.code}`;
   }
 
@@ -577,7 +578,7 @@ export async function closeCashout(
       })
     : [];
 
-  const expected = computeCashoutExpected(
+  const expected = computeCashoutExpectedFromOrders(
     sessions.map((s) => ({
       id: s.id,
       status: s.status,
@@ -585,16 +586,24 @@ export async function closeCashout(
       settledExternallyAt: s.settledExternallyAt?.toISOString(),
       minimumSpendCents: s.minimumSpendCents ?? undefined,
     })),
-    orders.map((o) => ({
-      ...o,
-      items: o.items as never[],
-      tip: o.tipCents / 100,
-      serviceFee: o.totalFeeCents / 100,
-      total: o.totalCents / 100,
+    orders.map((o): CentsOrder => ({
+      id: o.id,
       sessionId: o.sessionId ?? undefined,
       status: o.status,
-    })) as unknown as Parameters<typeof computeCashoutExpected>[1],
-    adjustments.map((a) => ({ ...a, sessionId: a.sessionId, reversedByAdjustmentId: a.reversedByAdjustmentId ?? undefined })) as unknown as Parameters<typeof computeCashoutExpected>[2],
+      totalCents: o.totalCents,
+      serviceFeeCents: o.totalFeeCents,
+      tipCents: o.tipCents,
+      items: (o.items as never[]).map((item) => ({
+        id: (item as { id: string }).id,
+        unitCents: (item as { unitCents: number }).unitCents,
+        quantity: (item as { quantity: number }).quantity,
+        modifiers: (item as { modifiers: never[] }).modifiers.map((m) => ({
+          deltaCents: (m as { deltaCents: number }).deltaCents,
+          quantity: (m as { quantity?: number }).quantity,
+        })),
+      })),
+    })),
+    adjustments,
     input.businessDate,
     nightEndHour,
   );

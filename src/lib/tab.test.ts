@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   businessDateFor,
   computeCashoutExpected,
+  computeCashoutExpectedFromOrders,
   computeCashoutVariance,
   computeSessionBalance,
   isAdjustmentAmountValid,
@@ -222,6 +223,32 @@ describe("cash-out expected & variance", () => {
     expect(expected.cash).toBe(50000);
     expect(expected.terminal).toBe(30000);
     expect(expected.house).toBe(0);
+  });
+
+  it("settles per session with a minimum-spend shortfall folded in", () => {
+    const sessions = [
+      // Only $400 spent against an $800 minimum → shortfall $400, settled $800.
+      { id: "gs-1", status: "closed", settlementMethod: "cash" as const, settledExternallyAt: new Date(2026, 6, 26, 2, 0).toISOString(), minimumSpendCents: 80000 },
+    ];
+    const orders = [order({ id: "o1", sessionId: "gs-1", total: 400 })];
+    const expected = computeCashoutExpected(sessions, orders, [], businessDate, nightEndHour);
+    expect(expected.cash).toBe(80000); // 400 + 400 shortfall, not just the net
+  });
+
+  it("dollar and cents-native cash-out agree exactly", () => {
+    const sessions = [{ id: "gs-1", status: "closed", settlementMethod: "cash" as const, settledExternallyAt: new Date(2026, 6, 26, 2, 0).toISOString(), minimumSpendCents: 0 }];
+    const orders = [order({ id: "o1", sessionId: "gs-1", total: 123.45 })];
+    const adjustments = [{ kind: "discount", amountCents: 1000, sessionId: "gs-1" }];
+
+    const viaDollars = computeCashoutExpected(sessions, orders, adjustments as never[], businessDate, nightEndHour);
+    const viaCents = computeCashoutExpectedFromOrders(
+      sessions,
+      orders.map((o) => ({ id: o.id, sessionId: o.sessionId, status: "delivered", totalCents: 12345, serviceFeeCents: 0, tipCents: 0, items: [] })),
+      adjustments as never[],
+      businessDate,
+      nightEndHour,
+    );
+    expect(viaCents).toEqual(viaDollars);
   });
 
   it("computes a negative variance when the counted till is short", () => {
