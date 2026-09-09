@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { isDemoMode } from "@/features/shared/app-mode";
 import { Card, CardContent } from "@/components/ui/card";
 import { Reveal } from "@/components/fx/reveal";
 import { ClubLights } from "@/components/fx/club-lights";
@@ -23,6 +24,7 @@ const HOW_IT_WORKS = DEMO_GROUPS.find((g) => g.id === "how-it-works");
 
 export default function DemoTourPage() {
   const t = useTranslations("demo");
+  if (!isDemoMode()) return null;
   return (
     <DemoTabProvider>
     <div className="relative flex min-h-screen flex-col lg:flex-row">
