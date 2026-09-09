@@ -14,6 +14,7 @@
     "lint": "eslint",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "db:migrate": "dotenv -e .env -- npx prisma migrate deploy",
     "db:seed": "dotenv -e .env -- npx tsx prisma/seed.ts",
