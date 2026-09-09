@@ -13,6 +13,7 @@
  * Dead subscriptions (410 Gone) self-clean.
  */
 import type { PrismaClient } from "@prisma/client";
+import { normalizeVenueLocale } from "@/features/shared/locale";
 import { type DispatchPayload, type PushDispatchPayload } from "./types";
 import { sendEmail } from "./email";
 import { sendSms } from "./sms";
@@ -30,7 +31,7 @@ export async function resolveVenueLocale(prisma: PrismaClient, venueId: string):
     where: { id: venueId },
     select: { guestLocale: true },
   });
-  return venue?.guestLocale === "fr" ? "fr" : "en";
+  return normalizeVenueLocale(venue?.guestLocale);
 }
 
 export function registerTemplate(name: string, subject: string, render: RenderFn) {

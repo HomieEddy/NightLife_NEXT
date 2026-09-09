@@ -77,17 +77,13 @@ async function dispatchPushForEvent(event: DomainEvent): Promise<void> {
   ];
   if (!pushEventTypes.includes(event.type)) return;
 
-  const { dispatchPush } = await import("@/features/notifications/dispatch");
+  const { dispatchPush, resolveVenueLocale } = await import("@/features/notifications/dispatch");
   const prisma = getRawPrisma();
   const db = prisma;
 
   // Push payloads are user-facing strings — resolve the venue's language so
   // staff at a francophone venue get French pushes (plan 34 workstream 8).
-  const venue = await prisma.venue.findUnique({
-    where: { id: event.venueId },
-    select: { guestLocale: true },
-  });
-  const locale: "en" | "fr" = venue?.guestLocale === "fr" ? "fr" : "en";
+  const locale = await resolveVenueLocale(prisma, event.venueId);
 
   const { title, body, url } = pushPayloadFor(event, locale);
   await dispatchPush(db, {
