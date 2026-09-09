@@ -577,7 +577,7 @@ describe("orders & fees integration (plan 05)", () => {
       fromZoneId: "z1",
       fromZoneName: "VIP",
       guestName: "Henry",
-      menuItemId: itemId,
+      items: [{ menuItemId: itemId, quantity: 1 }],
       toTableId: "t2",
       toTableCode: "VIP-02",
       note: "Enjoy!",

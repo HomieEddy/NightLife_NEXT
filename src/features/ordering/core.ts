@@ -525,12 +525,10 @@ export async function sendGift(
   venueId: string,
   input: z.infer<typeof zSendGift>,
 ): Promise<{ ok: true; order: Order } | { ok: false; error: string }> {
-  const menuItem = await db.menuItem.findUnique({ where: { id: input.menuItemId } });
-  if (!menuItem) return { ok: false, error: "Menu item not found" };
-  if (!menuItem.isAvailable) return { ok: false, error: `${menuItem.name} is not available` };
-
   // Gift fields are stamped inside submitOrder's transaction — the order can
-  // never exist without its gift metadata.
+  // never exist without its gift metadata. submitOrder resolves each line's
+  // item and availability inside its transaction, so a missing/unavailable
+  // item fails the whole gift atomically.
   return submitOrder(db, venueId, {
     tableId: input.fromTableId,
     tableCode: input.fromTableCode,
@@ -538,11 +536,11 @@ export async function sendGift(
     zoneName: input.fromZoneName,
     guestName: input.guestName,
     sessionId: input.sessionId,
-    lines: [{
-      menuItemId: input.menuItemId,
-      quantity: 1,
+    lines: input.items.map((item) => ({
+      menuItemId: item.menuItemId,
+      quantity: item.quantity,
       modifiers: [],
-    }],
+    })),
     tipCents: 0,
     giftToTableId: input.toTableId,
     giftToTableCode: input.toTableCode,
