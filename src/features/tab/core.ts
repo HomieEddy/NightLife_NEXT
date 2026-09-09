@@ -1043,7 +1043,12 @@ export async function splitBill(
     for (const order of orders) {
       for (const item of order.items) {
         if (s.orderItemIds.includes(item.id)) {
-          subTotal += item.unitCents * item.quantity;
+          // Cents-native line math; add-on modifiers fold into the total.
+          const modifiers = (item.modifiers as never[]).map((m) => ({
+            deltaCents: (m as { deltaCents: number }).deltaCents,
+            quantity: (m as { quantity?: number }).quantity,
+          }));
+          subTotal += orderItemAmountCentsFromLine(item.unitCents, item.quantity, modifiers);
         }
       }
     }

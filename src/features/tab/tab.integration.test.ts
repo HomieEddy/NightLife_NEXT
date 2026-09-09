@@ -497,6 +497,22 @@ describe("tab ledger integration (plan 16)", () => {
   describe("split bill", () => {
     beforeAll(async () => {
       await seedOrder(raw, venueA, "order-split", "sess-1", 1500);
+      // Add-on order so the modifier-inclusive sub-total is exercised (1600 + 300).
+      await raw.order.create({
+        data: {
+          id: "order-split-addon", venueId: venueA, code: "SPLADD", sessionId: "sess-1",
+          tableId: "table-1", tableCode: "T1", zoneId: "zone-main", zoneName: "Main",
+          guestName: "Split Add-on", status: "delivered",
+          totalCents: 1900, subtotalCents: 1900, totalFeeCents: 0, tipCents: 0,
+        },
+      });
+      await raw.orderItem.create({
+        data: {
+          id: "oi-split-addon", orderId: "order-split-addon", menuItemId: "mi-vodka",
+          name: "Vodka + sparkler", unitCents: 1600, quantity: 1,
+          modifiers: [{ groupName: "Presentation", optionName: "Sparkler parade", deltaCents: 300, quantity: 1 }],
+        },
+      });
     });
 
     it("computes per-group sub-totals", async () => {
@@ -508,6 +524,14 @@ describe("tab ledger integration (plan 16)", () => {
       expect(result!.splits[0].label).toBe("Alice");
       expect(result!.splits[0].subTotalCents).toBe(1500);
       expect(result!.splits[1].subTotalCents).toBe(0);
+    });
+
+    it("includes item add-on modifiers in the sub-total (INV regression)", async () => {
+      const result = await splitBill(getDb(sessionA), "sess-1", [
+        { label: "Add-on", orderItemIds: ["oi-split-addon"] },
+      ]);
+      expect(result).not.toBeNull();
+      expect(result!.splits[0].subTotalCents).toBe(1900);
     });
 
     it("returns null for inactive session", async () => {
