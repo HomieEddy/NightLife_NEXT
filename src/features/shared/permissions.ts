@@ -31,6 +31,7 @@ export type StaffAction =
   | "door:id-check"               // record an ID check at the door
   | "waitlist:manage"             // add/notify/remove walk-in waitlist entries
   | "lastcall:start"             // start last-call sequence (stop new orders, broadcast)
+  | "show:control"               // start/finish the floor's bottle-service presentation walkout
   | "broadcast:send"             // send a broadcast message to all staff channels
   | "incident:create"             // file an incident report
   | "incident:read-all"           // view the venue-wide incident log
@@ -229,6 +230,12 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     category: "orders",
     sensitive: true,
   },
+  "show:control": {
+    label: "Control floor shows",
+    description: "Start and finish the floor's single bottle-service presentation walkout.",
+    category: "orders",
+    sensitive: true,
+  },
   "broadcast:send": {
     label: "Send broadcast",
     description: "Send a message to floor, bar and security channels.",
@@ -422,7 +429,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   manager: [
     "order:accept", "order:claim", "order:release", "order:transition", "order:gift", "order:cancel",
     "session:approve", "session:deny", "help:respond",
-    "lastcall:start", "broadcast:send",
+    "lastcall:start", "show:control", "broadcast:send",
     "tab:void", "tab:comp", "tab:discount", "tab:transfer", "tab:merge", "tab:close-bar", "tab:override-minimum",
     "cashout:close", "audit:read",
     "door:count", "door:admit", "door:admit-banned-override", "door:id-check", "waitlist:manage",
@@ -443,6 +450,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   host: [
     "order:accept", "order:claim", "order:release", "order:transition", "order:gift", "order:cancel",
     "session:approve", "session:deny",
+    "lastcall:start", "show:control", "broadcast:send",
     "tab:void", "tab:comp", "tab:transfer", "tab:merge",
     "incident:create", "guest:read-profile", "service:refuse",
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
@@ -450,6 +458,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   ],
   bartender: [
     "order:accept", "order:claim", "order:release", "order:transition", "order:cancel",
+    "show:control",
     "tab:void", "cashout:close", "tab:close-bar",
     "incident:create", "service:refuse",
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
