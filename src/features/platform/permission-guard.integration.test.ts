@@ -162,4 +162,22 @@ describe("requirePermission — role gate (WS-6)", () => {
       expect("error" in result).toBe(false);
     }
   });
+
+  it("denies a runner the floor-show control action (show:control 403)", async () => {
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor(runnerId, venueA) });
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    const result = await requirePermission("staff", "show:control");
+    expect("error" in result && result.status).toBe(403);
+  });
+
+  it("allows a manager and bartender the show:control action", async () => {
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor(managerId, venueA) });
+    expect("error" in (await requirePermission("staff", "show:control"))).toBe(false);
+
+    // Bartender also holds show:control (they run bottle-service presentations).
+    await makeStaff(raw, venueA, "user-bartender", "bartender");
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor("user-bartender", venueA) });
+    expect("error" in (await requirePermission("staff", "show:control"))).toBe(false);
+  });
 });
