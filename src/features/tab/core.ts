@@ -232,10 +232,12 @@ export async function createAdjustment(
   const sessionId = order.sessionId;
   if (!sessionId) return { ok: false, error: "Order is not attached to a session" };
 
+  // INV-T3: aggregate across scopes — item-level and order-level adjustments
+  // all draw down the same order total, so a whole-order comp must see the
+  // item comps already taken.
   const existingRows = await db.tabAdjustment.findMany({
     where: {
       orderId: input.orderId,
-      orderItemId: input.orderItemId ?? null,
       reversedByAdjustmentId: null,
     },
   });
@@ -276,8 +278,13 @@ export async function createAdjustment(
     description = `Order ${order.code}`;
   }
 
-  if (!isAdjustmentAmountValid(targetCents, targetCents, existing)) {
-    const remaining = targetCents - existing.reduce((s, a) => s + a.amountCents, 0);
+  // INV-T3 (aggregate): the ceiling is the whole order total, and `existing`
+  // already includes every scope. amountCents (targetCents) + prior adjustments
+  // must never exceed the order total — an item comp and an order comp both
+  // draw down the same value.
+  const targetFullCents = order.totalCents;
+  if (!isAdjustmentAmountValid(targetCents, targetFullCents, existing)) {
+    const remaining = targetFullCents - existing.reduce((s, a) => s + a.amountCents, 0);
     return { ok: false, error: `Cannot adjust: only ${(remaining / 100).toFixed(2)} remains un-adjusted on this target` };
   }
 
@@ -297,13 +304,12 @@ export async function createAdjustment(
       const currentRows = await tx.tabAdjustment.findMany({
         where: {
           orderId: input.orderId,
-          orderItemId: input.orderItemId ?? null,
           reversedByAdjustmentId: null,
         },
       });
       const current: TabAdjustment[] = currentRows.map(toTabAdjustment);
-      if (!isAdjustmentAmountValid(targetCents, targetCents, current)) {
-        const remaining = targetCents - current.reduce((s, a) => s + a.amountCents, 0);
+      if (!isAdjustmentAmountValid(targetCents, order.totalCents, current)) {
+        const remaining = order.totalCents - current.reduce((s, a) => s + a.amountCents, 0);
         throw new Error(`Cannot adjust: only ${(remaining / 100).toFixed(2)} remains un-adjusted on this target`);
       }
 
@@ -420,7 +426,10 @@ export async function reverseAdjustment(
           orderId: original.orderId,
           orderItemId: original.orderItemId,
           kind: original.kind,
-          amountCents: original.amountCents,
+          // The reversal does not re-apply the adjustment: sumAdjustmentsByKind
+          // skips the (now reversed) original and would count this row, so it
+          // must carry zero value or a reverse nets to a double-count (INV-T1).
+          amountCents: 0,
           quantity: original.quantity,
           reasonCode: original.reasonCode,
           note: `Reversal by ${staffName}`,

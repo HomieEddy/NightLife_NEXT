@@ -317,6 +317,60 @@ describe("tab ledger integration (plan 16)", () => {
       // Exactly one live comp for the target.
       expect(race.filter((a) => a.kind === "comp" && !a.reversedByAdjustmentId)).toHaveLength(1);
     });
+
+    it("reversing a comp nets it out — reversal row carries zero value (INV regression)", async () => {
+      await seedOrder(raw, venueA, "order-adj-netzero", "sess-1", 800);
+      const db = getDb(sessionA);
+      const adj = await createAdjustment(db, venueA, {
+        orderId: "order-adj-netzero", kind: "comp", reasonCode: "vip-comp",
+        authorStaffId: "st-tab", authorStaffName: "Tab Tester",
+      });
+      expect(adj.ok).toBe(true);
+      if (!adj.ok) throw new Error("adjustment must succeed");
+
+      const rev = await reverseAdjustment(db, venueA, adj.adjustment.id, "st-tab", "Tab Tester");
+      expect(rev.ok).toBe(true);
+
+      const adjustments = await listAdjustments(db, "sess-1");
+      const forOrder = adjustments.filter((a) => a.orderId === "order-adj-netzero");
+      const liveComp = forOrder.filter((a) => a.kind === "comp" && !a.reversedByAdjustmentId);
+      // After reversal the only live comp row is the reversal, which must be zero.
+      expect(liveComp).toHaveLength(1);
+      expect(liveComp[0].amountCents).toBe(0);
+    });
+
+    it("INV-T3: whole-order comp is rejected once items already carry comps (cross-scope)", async () => {
+      // Order total 1000 with two items: 600 + 400.
+      await raw.order.create({
+        data: {
+          id: "order-adj-xscope", venueId: venueA, code: "XSCOPE", sessionId: "sess-1",
+          tableId: "table-1", tableCode: "T1", zoneId: "zone-main", zoneName: "Main",
+          guestName: "X-Scope", status: "delivered",
+          totalCents: 1000, subtotalCents: 1000, totalFeeCents: 0, tipCents: 0,
+        },
+      });
+      await raw.orderItem.createMany({
+        data: [
+          { id: "oi-xscope-a", orderId: "order-adj-xscope", menuItemId: "mi-vodka", name: "A", unitCents: 600, quantity: 1, modifiers: [] },
+          { id: "oi-xscope-b", orderId: "order-adj-xscope", menuItemId: "mi-beer", name: "B", unitCents: 400, quantity: 1, modifiers: [] },
+        ],
+      });
+      const db = getDb(sessionA);
+
+      const itemComp = await createAdjustment(db, venueA, {
+        orderId: "order-adj-xscope", orderItemId: "oi-xscope-a", kind: "comp", reasonCode: "vip-comp",
+        authorStaffId: "st-tab", authorStaffName: "Tab Tester",
+      });
+      expect(itemComp.ok).toBe(true);
+
+      // Whole-order comp would push total comped (600 + 1000) past the 1000 order.
+      const orderComp = await createAdjustment(db, venueA, {
+        orderId: "order-adj-xscope", kind: "comp", reasonCode: "vip-comp",
+        authorStaffId: "st-tab", authorStaffName: "Tab Tester",
+      });
+      expect(orderComp.ok).toBe(false);
+      if (!orderComp.ok) expect(orderComp.error).toContain("remains un-adjusted");
+    });
   });
 
   // ── Session transfer / merge ────────────────────────────────────────────
