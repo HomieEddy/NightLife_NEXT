@@ -4,18 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isDemoMode } from "@/features/shared/app-mode";
 
 export const deniedSessionPath = "/g/demo-table";
 
 export function DemoOpenTableAction() {
+  if (!isDemoMode()) return null;
   return <Button asChild><Link href="/g/demo-table">Open demo table</Link></Button>;
 }
 
 export function DemoQrScanAction() {
+  if (!isDemoMode()) return null;
   return <Button asChild><Link href="/g/demo-table">Simulate scanning a QR</Link></Button>;
 }
 
 export function DemoNewSessionAction() {
+  if (!isDemoMode()) return null;
   return (
     <Button variant="outline" className="w-full animate-fade-up" asChild>
       <Link href="/g/demo-table">Start a new session</Link>
@@ -24,6 +28,7 @@ export function DemoNewSessionAction() {
 }
 
 export function DemoManagerGuestFlowAction() {
+  if (!isDemoMode()) return null;
   return (
     <Button variant="outline" size="sm" asChild>
       <Link href="/g/demo-table"><ExternalLink className="size-3.5" /> Test guest flow</Link>
@@ -33,6 +38,7 @@ export function DemoManagerGuestFlowAction() {
 
 export function DemoPublicNav() {
   const pathname = usePathname();
+  if (!isDemoMode()) return null;
   return (
     <>
       {pathname !== "/demo" && (
@@ -48,5 +54,6 @@ export function DemoPublicNav() {
 }
 
 export function DemoPublicFooter() {
+  if (!isDemoMode()) return null;
   return null;
 }
