@@ -6,15 +6,13 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { resolveClaim } = await import("@/features/door/core");
   const { zResolveClaim } = await import("@/features/door/schemas");
 
-  const auth = await requireApiArea("staff");
+  const auth = await requirePermission("staff", "door:coat-check");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
 
   const { id } = await params;
   const parsed = zResolveClaim.safeParse(await request.json());

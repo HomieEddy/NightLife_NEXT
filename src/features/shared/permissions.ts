@@ -29,6 +29,7 @@ export type StaffAction =
   | "door:admit"                  // admit a walk-in, reservation or guestlist arrival
   | "door:admit-banned-override"  // admit a banned profile anyway (always audited)
   | "door:id-check"               // record an ID check at the door
+  | "door:coat-check"             // check in/out coats and settle lost-item claims at the door
   | "waitlist:manage"             // add/notify/remove walk-in waitlist entries
   | "lastcall:start"             // start last-call sequence (stop new orders, broadcast)
   | "show:control"               // start/finish the floor's bottle-service presentation walkout
@@ -217,6 +218,11 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   "door:id-check": {
     label: "Record ID checks",
     description: "Record that a guest's ID was checked and age verified at the door.",
+    category: "door",
+  },
+  "door:coat-check": {
+    label: "Run coat check",
+    description: "Check coats in and out and settle lost-item claims at the door.",
     category: "door",
   },
   "waitlist:manage": {
@@ -432,7 +438,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     "lastcall:start", "show:control", "broadcast:send",
     "tab:void", "tab:comp", "tab:discount", "tab:transfer", "tab:merge", "tab:close-bar", "tab:override-minimum",
     "cashout:close", "audit:read",
-    "door:count", "door:admit", "door:admit-banned-override", "door:id-check", "waitlist:manage",
+    "door:count", "door:admit", "door:admit-banned-override", "door:id-check", "door:coat-check", "waitlist:manage",
     "door:admit-capacity-override",
     "incident:create", "incident:read-all", "incident:mark-reportable",
     "guest:read-profile", "guest:edit-profile", "guest:ban", "service:refuse",
@@ -473,7 +479,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   // Security — the door, incidents and flags-only guest lookups; no order/session/tab authority.
   security: [
     "help:respond",
-    "door:count", "door:admit", "door:id-check", "waitlist:manage",
+    "door:count", "door:admit", "door:id-check", "door:coat-check", "waitlist:manage",
     "incident:create", "incident:read-all", "incident:mark-reportable",
     "guest:read-profile", // flags only — the UI hides visit/lifetime detail for this role
     "service:refuse",

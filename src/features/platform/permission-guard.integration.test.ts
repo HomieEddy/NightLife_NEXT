@@ -162,22 +162,16 @@ describe("requirePermission — role gate (WS-6)", () => {
       expect("error" in result).toBe(false);
     }
   });
-
-  it("denies a runner the floor-show control action (show:control 403)", async () => {
+  it("denies a runner the door coat-check action (door:coat-check 403)", async () => {
     mockRequireApiArea.mockResolvedValue({ session: sessionFor(runnerId, venueA) });
     const { requirePermission } = await import("@/features/platform/permission-guard");
-    const result = await requirePermission("staff", "show:control");
+    const result = await requirePermission("staff", "door:coat-check");
     expect("error" in result && result.status).toBe(403);
   });
 
-  it("allows a manager and bartender the show:control action", async () => {
-    const { requirePermission } = await import("@/features/platform/permission-guard");
+  it("allows a manager the door coat-check action", async () => {
     mockRequireApiArea.mockResolvedValue({ session: sessionFor(managerId, venueA) });
-    expect("error" in (await requirePermission("staff", "show:control"))).toBe(false);
-
-    // Bartender also holds show:control (they run bottle-service presentations).
-    await makeStaff(raw, venueA, "user-bartender", "bartender");
-    mockRequireApiArea.mockResolvedValue({ session: sessionFor("user-bartender", venueA) });
-    expect("error" in (await requirePermission("staff", "show:control"))).toBe(false);
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    expect("error" in (await requirePermission("staff", "door:coat-check"))).toBe(false);
   });
 });
