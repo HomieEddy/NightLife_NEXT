@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, Pencil, Plus, Search, ShieldOff, SlidersHorizontal, UserPlus, Users } from "lucide-react";
+import { ArrowUpDown, Pencil, Plus, Search, ShieldOff, SlidersHorizontal, UserPlus, Users, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +25,7 @@ import { useInfiniteSlice } from "@/hooks/use-infinite-slice";
 import { InfiniteScrollSentinel } from "@/components/shared/infinite-scroll-sentinel";
 import { guestService } from "@/features/sessions/services";
 import { profilesKeys } from "@/features/sessions/query-keys";
+import { usePermissions } from "@/features/platform/use-permissions";
 import { formatMoney, formatDate } from "@/features/shared/format";
 import { useAuth } from "@/context/auth-context";
 import { zGuestInput } from "@/lib/form-schemas";
@@ -43,12 +44,16 @@ export default function ManagerGuestsPage() {
   ];
   const venueId = user?.venueId ?? "";
   const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const canManageReferral = can("guest:manage-referral");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<GuestProfile | null>(null);
   const [banReason, setBanReason] = useState("");
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [referralTargetId, setReferralTargetId] = useState("");
+  const [referralSource, setReferralSource] = useState("guest");
 
   // Filters
   const [vipFilter, setVipFilter] = useState<string>("all");
@@ -133,6 +138,31 @@ export default function ManagerGuestsPage() {
     },
     onError: () => toast.error(t("couldNotMerge")),
   });
+
+  const { data: referrals } = useQuery({
+    queryKey: ["referrals", venueId, selected?.id],
+    queryFn: () => guestService.listReferrals(selected?.id),
+    enabled: !!venueId && !!selected?.id && canManageReferral,
+  });
+
+  const createReferralMutation = useMutation({
+    mutationFn: () => {
+      if (!selected || !referralTargetId) throw new Error("Select a referred guest");
+      return guestService.createReferral({
+        referrerProfileId: selected.id,
+        referredProfileId: referralTargetId,
+        source: referralSource,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Referral recorded");
+      setReferralTargetId("");
+      queryClient.invalidateQueries({ queryKey: ["referrals", venueId, selected?.id] });
+    },
+    onError: () => toast.error("Could not record referral"),
+  });
+
+  const referralCandidates = (profiles ?? []).filter((p) => p.id !== selected?.id);
 
   const onSave = handleSubmit((data) => saveMutation.mutate(data));
 
@@ -308,6 +338,38 @@ export default function ManagerGuestsPage() {
                 </Select>
                 <ConfirmDialog trigger={<Button variant="outline" className="w-full" disabled={!mergeTargetId}>{t("mergeDuplicate")}</Button>} title={t("mergeTitle")} description={t("mergeDesc", { name: selected.displayName })} confirmLabel={t("mergeConfirm")} onConfirm={() => mergeMutation.mutate()} />
               </div>
+              {canManageReferral && (
+                <div className="space-y-2 border-t pt-3">
+                  <Label className="flex items-center gap-1.5"><Link2 className="size-3.5" /> Referrals</Label>
+                  {referrals && referrals.length > 0 && (
+                    <ul className="space-y-1 text-sm">
+                      {referrals.map((r) => (
+                        <li key={r.id} className="flex items-center justify-between rounded-lg bg-muted/50 px-2.5 py-1.5">
+                          <span className="truncate">{profiles?.find((p) => p.id === r.referredProfileId)?.displayName ?? r.referredProfileId}</span>
+                          <Badge variant="outline" className="text-[10px] capitalize">{r.source}</Badge>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="flex gap-2">
+                    <Select value={referralTargetId} onValueChange={setReferralTargetId}>
+                      <SelectTrigger className="flex-1"><SelectValue placeholder="Referred guest" /></SelectTrigger>
+                      <SelectContent>{referralCandidates.map((p) => <SelectItem key={p.id} value={p.id}>{p.displayName}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Select value={referralSource} onValueChange={setReferralSource}>
+                      <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="guest">Guest</SelectItem>
+                        <SelectItem value="promoter">Promoter</SelectItem>
+                        <SelectItem value="staff">Staff</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button variant="outline" className="w-full" disabled={!referralTargetId || createReferralMutation.isPending} onClick={() => createReferralMutation.mutate()}>
+                    Record referral
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

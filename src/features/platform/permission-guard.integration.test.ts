@@ -180,4 +180,21 @@ describe("requirePermission — role gate (WS-6)", () => {
     mockRequireApiArea.mockResolvedValue({ session: sessionFor("user-bartender", venueA) });
     expect("error" in (await requirePermission("staff", "show:control"))).toBe(false);
   });
+
+  it("denies a runner the guest-referral action (guest:manage-referral 403)", async () => {
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor(runnerId, venueA) });
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    const result = await requirePermission("staff", "guest:manage-referral");
+    expect("error" in result && result.status).toBe(403);
+  });
+
+  it("allows a manager and host the guest-referral action", async () => {
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor(managerId, venueA) });
+    expect("error" in (await requirePermission("staff", "guest:manage-referral"))).toBe(false);
+
+    await makeStaff(raw, venueA, "user-host", "host");
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor("user-host", venueA) });
+    expect("error" in (await requirePermission("staff", "guest:manage-referral"))).toBe(false);
+  });
 });

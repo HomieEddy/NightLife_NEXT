@@ -21,19 +21,19 @@ async function liveGET(request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { createReferral } = await import("@/features/guests/core");
   const { zCreateReferral } = await import("@/features/guests/schemas");
 
-  const auth = await requireApiArea("staff");
+  // guest:manage-referral is manager/host CRM work — a runner or security
+  // token must not mutate a guest's referral relationship.
+  const auth = await requirePermission("staff", "guest:manage-referral");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zCreateReferral.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const referral = await createReferral(db, venueId, parsed.data);
   return NextResponse.json(referral, { status: 201 });
 }

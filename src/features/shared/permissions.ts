@@ -37,6 +37,7 @@ export type StaffAction =
   | "incident:read-all"           // view the venue-wide incident log
   | "guest:read-profile"          // view a guest profile (security sees flags only)
   | "guest:edit-profile"          // edit a guest profile's details/tags
+  | "guest:manage-referral"       // record and manage guest referral relationships
   | "guest:ban"                   // set/lift a guest's banned status
   | "service:refuse"             // refuse further service to a session
   | "emergency:evacuate"         // trigger emergency evacuation (zero occupancy, broadcast) — manager + security-lead
@@ -263,6 +264,11 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     category: "guests",
     sensitive: true,
   },
+  "guest:manage-referral": {
+    label: "Manage guest referrals",
+    description: "Record that a guest referred another, and track the referral's conversion.",
+    category: "guests",
+  },
   "guest:ban": {
     label: "Ban / unban guests",
     description: "Set or lift a guest profile's banned status.",
@@ -435,7 +441,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     "door:count", "door:admit", "door:admit-banned-override", "door:id-check", "waitlist:manage",
     "door:admit-capacity-override",
     "incident:create", "incident:read-all", "incident:mark-reportable",
-    "guest:read-profile", "guest:edit-profile", "guest:ban", "service:refuse",
+    "guest:read-profile", "guest:edit-profile", "guest:manage-referral", "guest:ban", "service:refuse",
     "emergency:evacuate", "emergency:resume",
     "certification:manage",
     "time:clock-self", "time:edit-others", "schedule:publish",
@@ -452,7 +458,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     "session:approve", "session:deny",
     "lastcall:start", "show:control", "broadcast:send",
     "tab:void", "tab:comp", "tab:transfer", "tab:merge",
-    "incident:create", "guest:read-profile", "service:refuse",
+    "incident:create", "guest:read-profile", "guest:manage-referral", "service:refuse",
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
     "stocktake:count", "inventory:waste", "inventory:86", "menu:record-sale",
   ],
