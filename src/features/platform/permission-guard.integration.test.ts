@@ -130,4 +130,36 @@ describe("requirePermission — role gate (WS-6)", () => {
     expect("error" in result && result.status).toBe(403);
     expect("error" in result && result.error).toContain("Staff profile not found");
   });
+
+  it("denies a runner the new money/reversal actions (order:cancel 403)", async () => {
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor(runnerId, venueA) });
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    const result = await requirePermission("staff", "order:cancel");
+    expect("error" in result && result.status).toBe(403);
+  });
+
+  it("denies a runner the bar-tab close and manual sale actions", async () => {
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor(runnerId, venueA) });
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    for (const action of ["tab:close-bar", "menu:record-sale", "waitlist:manage", "service:refuse"] as const) {
+      const result = await requirePermission("staff", action);
+      expect("error" in result && result.status).toBe(403);
+    }
+  });
+
+  it("allows a manager the new money/reversal actions (order:cancel)", async () => {
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor(managerId, venueA) });
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    const result = await requirePermission("staff", "order:cancel");
+    expect("error" in result).toBe(false);
+  });
+
+  it("allows a manager bar-tab close and manual sale", async () => {
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor(managerId, venueA) });
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    for (const action of ["tab:close-bar", "menu:record-sale", "waitlist:manage", "service:refuse"] as const) {
+      const result = await requirePermission("staff", action);
+      expect("error" in result).toBe(false);
+    }
+  });
 });

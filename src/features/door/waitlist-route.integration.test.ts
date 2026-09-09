@@ -57,6 +57,19 @@ describe("waitlist route handlers (plan 17, WS-2)", () => {
     prisma = testDb.rawClient;
     await makeVenue(prisma, venueA);
     await makeVenue(prisma, venueB);
+    // The routes now call requirePermission → getCurrentStaff, which needs a
+    // real member + staffProfile. Seed a manager in both venues (manager holds
+    // waitlist:manage by default).
+    await prisma.user.create({ data: { id: "st-mgr", name: "Manager", email: "mgr@test.local" } });
+    await prisma.member.createMany({
+      data: [
+        { id: "m-a", userId: "st-mgr", organizationId: venueA, role: "admin" },
+        { id: "m-b", userId: "st-mgr", organizationId: venueB, role: "admin" },
+      ],
+    });
+    await prisma.staffProfile.create({
+      data: { userId: "st-mgr", role: "manager", phone: "555", avatarInitials: "MG" },
+    });
   }, 60_000);
 
   afterAll(async () => {
