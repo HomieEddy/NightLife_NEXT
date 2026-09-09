@@ -6,8 +6,8 @@ import path from "node:path";
  *
  * Scoped to live-core, excluding the demo track — mock sources
  * (mock-service.ts / *-mock-data.ts), src/app, src/components, src/i18n,
- * src/messages — the fixture layer by design (AGENTS.md §7). src/features and
- * src/lib live-core files are what the gate measures.
+ * src/messages — the fixture layer by design (AGENTS.md §7). src/features
+ * live-core and src/lib are what the gate measures.
  *
  * Aggregate thresholds are set below today's measured live-core coverage so
  * the gate is real (it can fail) but green on day one; they ratchet upward as
@@ -15,6 +15,10 @@ import path from "node:path";
  * live at the top-level `test` (shared across both projects) so vitest applies
  * the same scoping and thresholds to whichever project runs; the
  * `npm run test:coverage` script runs both.
+ *
+ * Per-file floors on the money cores are enforced by a dedicated
+ * `vitest.cores.config.ts` (plan 37) so vitest's per-project coverage config
+ * isn't used — in multi-project mode vitest ignores per-project coverage.
  */
 export default defineConfig({
   test: {
