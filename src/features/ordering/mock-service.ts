@@ -48,15 +48,6 @@ let adjustments: TabAdjustment[] = [];
 let adjustmentReasons: AdjustmentReason[] = clone(mockAdjustmentReasons);
 let remakes: OrderRemake[] = [];
 
-function targetKey(orderId: string, orderItemId?: string) {
-  return orderItemId ? `${orderId}:${orderItemId}` : orderId;
-}
-
-/** Existing (non-reversed-away) adjustments against the same order or order-item target. */
-function adjustmentsForTarget(orderId: string, orderItemId?: string): TabAdjustment[] {
-  return adjustments.filter((a) => targetKey(a.orderId ?? "", a.orderItemId) === targetKey(orderId, orderItemId));
-}
-
 /** Once a tab closure is requested the session takes no new orders — UI gates are advisory, this is the wall. */
 async function assertSessionOrderable(sessionId: string | undefined): Promise<void> {
   if (!sessionId) return;
@@ -429,9 +420,11 @@ export const mockOrdersService = {
         ? orderItemPartialAmountCents(item, input.quantity)
         : targetFullCents;
 
-    const prior = adjustmentsForTarget(input.orderId, input.orderItemId);
-    if (!isAdjustmentAmountValid(amountCents, targetFullCents, prior)) {
-      throw new Error("This would adjust more than remains on that line — check for a prior adjustment.");
+    // INV-T3 (aggregate): item-level and order-level adjustments draw down the
+    // same order total — a whole-order comp must see the item comps already taken.
+    const prior = adjustments.filter((a) => a.orderId === input.orderId && !a.reversedByAdjustmentId);
+    if (!isAdjustmentAmountValid(amountCents, orderTotalCents(order), prior)) {
+      throw new Error("This would adjust more than remains on that order — check for a prior adjustment.");
     }
 
     const adjustment: TabAdjustment = {
