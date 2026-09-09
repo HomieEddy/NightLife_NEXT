@@ -237,15 +237,21 @@ export const AUDIENCE_FILTER: Record<"manager" | "staff" | "guest", DomainEventT
   ],
 };
 
+/** Guest-allowed events that carry no session — delivered to every guest stream. */
+export const VENUE_WIDE_GUEST_EVENTS: DomainEventType[] = ["LastCallStarted", "LastCallEnded"];
+
 /**
- * For guest streams: filter events to only those relevant to a specific
- * session, preventing cross-table data leaks.
+ * The single audience filter. Guest streams only see their own session's
+ * events (plus venue-wide ones) — the same rule the SSE stream runs, so a
+ * venue-wide event type added here is picked up everywhere.
  */
-export function isGuestVisible(
-  event: { type: string; sessionId?: string; tableId?: string },
-  guestSessionId: string,
+export function passesAudienceFilter(
+  event: { type: string; sessionId?: string },
+  scope: "manager" | "staff" | "guest",
+  sessionId?: string,
 ): boolean {
-  if (!AUDIENCE_FILTER.guest.includes(event.type as DomainEventType)) return false;
-  if (event.type === "LastCallStarted" || event.type === "LastCallEnded") return true;
-  return event.sessionId === guestSessionId;
+  if (!AUDIENCE_FILTER[scope].includes(event.type as DomainEventType)) return false;
+  if (scope !== "guest" || !sessionId) return true;
+  if (VENUE_WIDE_GUEST_EVENTS.includes(event.type as DomainEventType)) return true;
+  return event.sessionId === sessionId;
 }

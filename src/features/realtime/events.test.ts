@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AUDIENCE_FILTER, isGuestVisible } from "@/features/realtime/events";
+import { AUDIENCE_FILTER, passesAudienceFilter } from "@/features/realtime/events";
 
 describe("AUDIENCE_FILTER", () => {
   it("manager sees all event types", () => {
@@ -32,62 +32,88 @@ describe("AUDIENCE_FILTER", () => {
   });
 });
 
-describe("isGuestVisible", () => {
+describe("passesAudienceFilter", () => {
   const ownSession = "session-abc";
 
   it("allows own-session OrderStatusChanged", () => {
-    expect(isGuestVisible(
+    expect(passesAudienceFilter(
       { type: "OrderStatusChanged", sessionId: ownSession },
+      "guest",
       ownSession,
     )).toBe(true);
   });
 
   it("blocks cross-table OrderStatusChanged", () => {
-    expect(isGuestVisible(
+    expect(passesAudienceFilter(
       { type: "OrderStatusChanged", sessionId: "session-other" },
+      "guest",
       ownSession,
     )).toBe(false);
   });
 
   it("allows venue-wide LastCallStarted regardless of sessionId", () => {
-    expect(isGuestVisible(
+    expect(passesAudienceFilter(
       { type: "LastCallStarted" },
+      "guest",
       ownSession,
     )).toBe(true);
   });
 
   it("allows venue-wide LastCallEnded regardless of sessionId", () => {
-    expect(isGuestVisible(
+    expect(passesAudienceFilter(
       { type: "LastCallEnded" },
+      "guest",
       ownSession,
     )).toBe(true);
   });
 
   it("allows own-session SessionApproved", () => {
-    expect(isGuestVisible(
+    expect(passesAudienceFilter(
       { type: "SessionApproved", sessionId: ownSession },
+      "guest",
       ownSession,
     )).toBe(true);
   });
 
   it("blocks cross-table SessionApproved", () => {
-    expect(isGuestVisible(
+    expect(passesAudienceFilter(
       { type: "SessionApproved", sessionId: "session-other" },
+      "guest",
       ownSession,
     )).toBe(false);
   });
 
   it("blocks non-guest event types entirely", () => {
-    expect(isGuestVisible(
+    expect(passesAudienceFilter(
       { type: "OrderPlaced", sessionId: ownSession },
+      "guest",
       ownSession,
     )).toBe(false);
   });
 
   it("blocks BroadcastSent even with matching sessionId", () => {
-    expect(isGuestVisible(
+    expect(passesAudienceFilter(
       { type: "BroadcastSent", sessionId: ownSession },
+      "guest",
       ownSession,
     )).toBe(false);
+  });
+
+  it("manager scope passes any manager-allowed event", () => {
+    expect(passesAudienceFilter(
+      { type: "OrderPlaced" },
+      "manager",
+    )).toBe(true);
+    expect(passesAudienceFilter(
+      { type: "SomeUnknownType" },
+      "manager",
+    )).toBe(false);
+  });
+
+  it("guest scope with no session bound passes any guest-allowed event", () => {
+    expect(passesAudienceFilter(
+      { type: "OrderStatusChanged", sessionId: "someone-else" },
+      "guest",
+    )).toBe(true);
   });
 });

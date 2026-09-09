@@ -2,7 +2,7 @@
  * SSE stream helper: subscribes to Postgres NOTIFY on a venue channel,
  * filters by audience, and streams matching events to the client.
  */
-import { channelFor, AUDIENCE_FILTER, type DomainEventType } from "@/features/realtime/events";
+import { channelFor, passesAudienceFilter } from "@/features/realtime/events";
 import { getLiveEnv } from "@/features/shared/env";
 import pg from "pg";
 
@@ -22,7 +22,6 @@ interface StreamOptions {
  */
 export function createEventStream(opts: StreamOptions): ReadableStream<Uint8Array> {
   const { venueId, scope, sessionId, signal } = opts;
-  const allowedTypes = new Set<string>(AUDIENCE_FILTER[scope]);
   const channel = channelFor(venueId);
   const encoder = new TextEncoder();
 
@@ -68,15 +67,7 @@ export function createEventStream(opts: StreamOptions): ReadableStream<Uint8Arra
           try {
             const parsed = JSON.parse(msg.payload) as { type: string; sessionId?: string; [k: string]: unknown };
 
-            if (!allowedTypes.has(parsed.type)) return;
-
-            // Guest streams: filter to own session (except venue-wide events)
-            if (scope === "guest" && sessionId) {
-              const venueWide: DomainEventType[] = ["LastCallStarted", "LastCallEnded"];
-              if (!venueWide.includes(parsed.type as DomainEventType) && parsed.sessionId !== sessionId) {
-                return;
-              }
-            }
+            if (!passesAudienceFilter(parsed, scope, sessionId)) return;
 
             const data = `data: ${JSON.stringify(parsed)}\n\n`;
             controller.enqueue(encoder.encode(data));
