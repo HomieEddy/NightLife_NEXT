@@ -8,8 +8,10 @@ import {
   getReservation,
   updateReservation,
   setReservationStatus,
+  getActiveReservationForTable,
 } from "@/features/hospitality/reservation-core";
 import { createZone, createTable, setTableStatus } from "@/features/venue/core";
+import { nightForDate } from "@/features/shared/night";
 import { expectTenantIsolation } from "@/features/shared/test-helpers";
 
 async function makeVenue(rawClient: PrismaClient, name: string, slug: string) {
@@ -90,7 +92,7 @@ describe("reservation integration (plan 08)", () => {
     const fetched = await getReservation(db, res.id);
     expect(fetched?.id).toBe(res.id);
 
-    const list = await listReservations(db);
+    const list = await listReservations(db, venueA);
     expect(list.some((r) => r.id === res.id)).toBe(true);
   });
 
@@ -183,5 +185,64 @@ describe("reservation integration (plan 08)", () => {
     await expectTenantIsolation(venueA, venueB, (scopedDb) =>
       scopedDb.reservation.findUnique({ where: { id: res.id } }),
     );
+  });
+
+  it("INV: one confirmed per table per venue-night, even across the UTC day boundary", async () => {
+    // America/Montreal, nightStart 18, nightEnd 10 (schema defaults). A night on
+    // 2026-08-01 runs 18:00 local → 10:00 next local day. nightForDate returns
+    // its true UTC window. An instance 3h in (21:00 local 08-01) is UTC
+    // 2026-08-02T01:00Z — a *different UTC date* than the night label.
+    const config = { timezone: "America/Montreal", nightStartHour: 18, nightEndHour: 10 };
+    const night = nightForDate("2026-08-01", config);
+    const lateInstant = new Date(night.start.getTime() + 3 * 3600_000);
+
+    const db = getDb(sessionA);
+    // A fresh table so this test doesn't collide with prior reservations
+    // confirmed on the shared tableId in the same venue night.
+    const table = await createTable(db, venueA, {
+      zoneId, code: "NIGHT2", label: "Night two", seats: 4,
+      minimumSpend: null, status: "open",
+    });
+    const res1 = await createReservation(db, venueA, {
+      guestName: "Night One", partySize: 2,
+      startsAt: night.start.toISOString(),
+      tableId: table.id, zoneId, source: "manager",
+    });
+    const confirmed = await setReservationStatus(db, venueA, res1.id, "confirmed");
+    expect(confirmed.ok).toBe(true);
+
+    const res2 = await createReservation(db, venueA, {
+      guestName: "Night Two", partySize: 2,
+      startsAt: lateInstant.toISOString(),
+      tableId: table.id, zoneId, source: "manager",
+    });
+    // Same venue-night table, but the old UTC-day bucket would split these two
+    // into different "dates" and wrongly allow a second confirm.
+    const overConfirmed = await setReservationStatus(db, venueA, res2.id, "confirmed");
+    expect(overConfirmed.ok).toBe(false);
+    if (!overConfirmed.ok) expect(overConfirmed.error).toContain("already confirmed");
+  });
+
+  it("gate returns a reservation whose venue-night contains now, not the UTC day", async () => {
+    const db = getDb(sessionA);
+    const table = await createTable(db, venueA, {
+      zoneId, code: "NIGHT", label: "Night gate", seats: 4,
+      minimumSpend: null, status: "open",
+    });
+    const config = { timezone: "America/Montreal", nightStartHour: 18, nightEndHour: 10 };
+    const night = nightForDate("2026-08-01", config);
+    // A reservation confirmed for the venue night 2026-08-01, at an instant 3h in
+    // (21:00 local 08-01), which is UTC 2026-08-02T01:00Z — a different UTC "day".
+    const res = await createReservation(db, venueA, {
+      guestName: "Gate Guest", partySize: 2,
+      startsAt: new Date(night.start.getTime() + 3 * 3600_000).toISOString(),
+      tableId: table.id, zoneId, source: "manager",
+    });
+    await setReservationStatus(db, venueA, res.id, "confirmed");
+
+    // The guest scans during that same venue night — a UTC moment the next calendar day.
+    const gate = await getActiveReservationForTable(db, table.id, new Date(night.start.getTime() + 3 * 3600_000));
+    expect(gate).not.toBeNull();
+    expect(gate!.id).toBe(res.id);
   });
 });

@@ -23,7 +23,7 @@ async function liveGET(request: NextRequest) {
   const promoterId = url.searchParams.get("promoterId") ?? undefined;
 
   return NextResponse.json(
-    await listReservations(db, {
+    await listReservations(db, venueId, {
       status: status.length ? status as never[] : undefined,
       zoneIds: zoneIds.length ? zoneIds : undefined,
       date,

@@ -5,6 +5,9 @@ import { getDb, type SessionContext } from "@/features/shared/db";
 import { createTestDb, type TestDb } from "@/features/shared/test-pglite";
 import { createZone, createTable } from "@/features/venue/core";
 import { createReservation, setReservationStatus } from "@/features/hospitality/reservation-core";
+import { nightContaining, type NightConfig } from "@/features/shared/night";
+
+const NIGHT_CONFIG: NightConfig = { timezone: "America/Montreal", nightStartHour: 18, nightEndHour: 10 };
 
 /**
  * The guest QR landing calls these two routes with NO session — it runs before
@@ -85,9 +88,11 @@ describe("public reservation gate routes are reachable without a session (plan 1
     gatedTableId = gated.id;
     openTableId = open.id;
 
-    // A confirmed reservation for today is what arms the PIN gate.
-    const startsAt = new Date();
-    startsAt.setUTCHours(22, 0, 0, 0);
+    // A confirmed reservation for the venue-night containing the real wall clock
+    // is what arms the gate (nightContaining rolls before mid-afternoon back to
+    // the previous night, so a booking is always seeded into tonight's night).
+    const night = nightContaining(new Date(), NIGHT_CONFIG);
+    const startsAt = new Date(night.start.getTime() + 3 * 3600_000);
     const res = await createReservation(db, venueA, {
       guestName: "Gated Party",
       guestEmail: "gated@example.com",
