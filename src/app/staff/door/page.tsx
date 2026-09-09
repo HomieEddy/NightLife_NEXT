@@ -186,6 +186,7 @@ export default function StaffDoorPage() {
   const canEvacuate = can("emergency:evacuate");
   const canResume = can("emergency:resume");
   const canOverrideCapacity = can("door:admit-capacity-override");
+  const canCoatCheck = can("door:coat-check");
 
   // --- Search (on-demand, not cached) ---
 
@@ -886,7 +887,7 @@ export default function StaffDoorPage() {
         )}
       </section>
 
-      {venue?.coatCheckEnabled && (
+      {venue?.coatCheckEnabled && canCoatCheck && (
         <section className="space-y-3">
           <h2 className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
             <Shirt className="size-4" /> {t("coatCheckHeading")}

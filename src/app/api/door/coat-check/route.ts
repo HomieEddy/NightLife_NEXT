@@ -20,19 +20,20 @@ async function liveGET(_request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { checkInCoat } = await import("@/features/door/core");
   const { zCheckInCoat } = await import("@/features/door/schemas");
 
-  const auth = await requireApiArea("staff");
+  // door:coat-check is a door-operator function (manager/security) — a runner
+  // or promoter token must not check coats in or out.
+  const auth = await requirePermission("staff", "door:coat-check");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const parsed = zCheckInCoat.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.message }, { status: 400 });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const ticket = await checkInCoat(getDb({ venueId }), venueId, parsed.data);
+  const { venueId, db } = auth;
+  const ticket = await checkInCoat(db, venueId, parsed.data);
   return NextResponse.json(ticket, { status: 201 });
 }
 

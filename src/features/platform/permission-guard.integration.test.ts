@@ -162,4 +162,16 @@ describe("requirePermission — role gate (WS-6)", () => {
       expect("error" in result).toBe(false);
     }
   });
+  it("denies a runner the door coat-check action (door:coat-check 403)", async () => {
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor(runnerId, venueA) });
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    const result = await requirePermission("staff", "door:coat-check");
+    expect("error" in result && result.status).toBe(403);
+  });
+
+  it("allows a manager the door coat-check action", async () => {
+    mockRequireApiArea.mockResolvedValue({ session: sessionFor(managerId, venueA) });
+    const { requirePermission } = await import("@/features/platform/permission-guard");
+    expect("error" in (await requirePermission("staff", "door:coat-check"))).toBe(false);
+  });
 });
