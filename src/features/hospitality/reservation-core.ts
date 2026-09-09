@@ -6,11 +6,37 @@
 import type { getDb } from "@/features/shared/db";
 import { getRawPrisma } from "@/features/shared/db";
 import { normalizeVenueLocale } from "@/features/shared/locale";
+import { nightForDate, nightContaining, type NightConfig } from "@/features/shared/night";
 import type { BlackoutDate, Reservation, ReservationChannel, ReservationStatus } from "@/lib/types";
 import type { z } from "zod";
 import type { zReservationInput, zReservationPatch, zListReservations } from "@/features/hospitality/reservation-schemas";
 
 type ScopedDb = ReturnType<typeof getDb>;
+
+/** The venue's night boundary config — every reservation-night query buckets by this, never by UTC day. */
+interface VenueNightShape {
+  timezone: string;
+  nightStartHour: number;
+  nightEndHour: number;
+}
+
+function nightConfig(venue: VenueNightShape): NightConfig {
+  return {
+    timezone: venue.timezone,
+    nightStartHour: venue.nightStartHour,
+    nightEndHour: venue.nightEndHour,
+  };
+}
+
+/** Resolve the venue row (timezone + night boundaries) for a reservation-night query. */
+async function getVenueNight(db: ScopedDb, venueId: string): Promise<NightConfig> {
+  const venue = await db.venue.findFirst({
+    where: { id: venueId },
+    select: { timezone: true, nightStartHour: true, nightEndHour: true },
+  });
+  if (!venue) throw new Error("Venue not found");
+  return nightConfig(venue);
+}
 
 /** Prisma stores the enum value as "no_show"; the app contracts use "no-show". */
 export function normalizeStatus(raw: string): ReservationStatus {
@@ -151,6 +177,7 @@ function buildReservationData(input: any, isCreate: boolean) {
 
 export async function listReservations(
   db: ScopedDb,
+  venueId: string,
   filter?: z.infer<typeof zListReservations>,
 ): Promise<Reservation[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -158,9 +185,11 @@ export async function listReservations(
   if (filter?.status?.length) where.status = { in: filter.status.map(prismaStatus) };
   if (filter?.zoneIds?.length) where.zoneId = { in: filter.zoneIds };
   if (filter?.date) {
-    const start = new Date(filter.date + "T00:00:00Z");
-    const end = new Date(filter.date + "T23:59:59.999Z");
-    where.startsAt = { gte: start, lte: end };
+    // Bucket by the venue's business night for that label, not the UTC day —
+    // a night on 08-01 runs into the 08-02 UTC morning.
+    const cfg = await getVenueNight(db, venueId);
+    const night = nightForDate(filter.date, cfg);
+    where.startsAt = { gte: night.start, lt: night.end };
   }
   if (filter?.promoterId) where.promoterId = filter.promoterId;
 
@@ -248,6 +277,9 @@ export async function setReservationStatus(
   const prisma = getRawPrisma();
 
   try {
+    // Resolve the night boundary before the transaction — the tx has a
+    // bounded interactive timeout (PGlite 5s) and must not do extra I/O.
+    const cfg = await getVenueNight(db, venueId);
     const row = await prisma.$transaction(async (tx) => {
       const current = await tx.reservation.findFirst({
         where: { id, venueId },
@@ -272,15 +304,16 @@ export async function setReservationStatus(
 
       // If confirming, enforce INV: at most one confirmed/seated per table per night
       if (status === "confirmed" && current.tableId) {
-        const night = current.startsAt.toISOString().slice(0, 10);
-        const start = new Date(night + "T00:00:00Z");
-        const end = new Date(night + "T23:59:59.999Z");
+        // Bucket by the venue's business night, not the UTC calendar day — a
+        // night that runs past midnight keeps its evening label, and a Quebec
+        // venue's evening can be an entirely different UTC date than its label.
+        const night = nightContaining(current.startsAt, cfg);
         const conflict = await tx.reservation.findFirst({
           where: {
             venueId,
             tableId: current.tableId,
             status: { in: ["confirmed", "seated"] },
-            startsAt: { gte: start, lte: end },
+            startsAt: { gte: night.start, lt: night.end },
             id: { not: id },
           },
         });
@@ -484,14 +517,17 @@ export async function getPublicAvailability(
     where: { venueId: venue.id, status: { not: "closed" } },
   });
 
+  // Bucket the booked window by the venue night for the requested date, not UTC day.
+  const cfg = nightConfig(venue);
+  const night = nightForDate(opts.date, cfg);
   const bookedTableIds = new Set(
     (await db.reservation.findMany({
       where: {
         venueId: venue.id,
         status: { in: ["confirmed", "seated"] },
         startsAt: {
-          gte: new Date(opts.date + "T00:00:00Z"),
-          lte: new Date(opts.date + "T23:59:59.999Z"),
+          gte: night.start,
+          lt: night.end,
         },
         tableId: { not: null },
       },
@@ -499,10 +535,8 @@ export async function getPublicAvailability(
     })).map((r) => r.tableId!).filter(Boolean),
   );
 
-  // Night-open check in venue timezone
-  const [y, m, d] = opts.date.split("-").map(Number);
-  const dtStr = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T${String(venue.nightStartHour).padStart(2, "0")}:00:00`;
-  const nightOpen = new Date() >= new Date(dtStr + "Z");
+  // Night-open check in venue timezone — the venue-local night-start instant.
+  const nightOpen = new Date() >= night.start;
 
   // Venue name lives on Organization (1:1 via venue.id)
   const prisma = getRawPrisma();
@@ -555,9 +589,12 @@ export async function createPublicReservation(
   const venue = await db.venue.findFirst({ where: { publicSlug: input.venueSlug } });
   if (!venue) throw new Error("Venue not found");
 
-  // Night-open cutoff
-  const dtStr = `${input.date}T${String(venue.nightStartHour).padStart(2, "0")}:00:00`;
-  if (new Date() >= new Date(dtStr + "Z")) {
+  // Night-open cutoff: the booking window is open until the venue-local night
+  // start. nightForDate converts venue-local 18:00 → the true UTC instant, so a
+  // Quebec venue is never gated against a UTC clock.
+  const cfg = nightConfig(venue);
+  const night = nightForDate(input.date, cfg);
+  if (new Date() >= night.start) {
     throw new Error("Reservations for tonight are closed");
   }
 
@@ -565,7 +602,9 @@ export async function createPublicReservation(
     throw new Error("Email or phone is required");
   }
 
-  const startsAt = `${input.date}T${String(venue.nightStartHour).padStart(2, "0")}:00:00`;
+  // startsAt is the venue-local night-start instant as a real UTC timestamp —
+  // not a naive "2026-07-30T18:00:00" string that JS re-parses as server-local.
+  const startsAt = night.start.toISOString();
 
   return createReservation(db, venue.id, {
     tableId: input.tableId,
@@ -590,16 +629,20 @@ export async function createPublicReservation(
 export async function getActiveReservationForTable(
   db: ScopedDb,
   tableId: string,
+  now = new Date(),
 ): Promise<Reservation | null> {
-  const today = new Date().toISOString().slice(0, 10);
+  // Resolve the venue's night boundary from the table. The guest QR landing
+  // scans during the venue night, which may be a different UTC day than the
+  // night's label — bucket by nightContaining(now), never toISOString().
+  const table = await db.venueTable.findFirst({ where: { id: tableId }, select: { venueId: true } });
+  if (!table) return null;
+  const cfg = await getVenueNight(db, table.venueId);
+  const night = nightContaining(now, cfg);
   const row = await db.reservation.findFirst({
     where: {
       tableId,
       status: "confirmed",
-      startsAt: {
-        gte: new Date(today + "T00:00:00Z"),
-        lte: new Date(today + "T23:59:59.999Z"),
-      },
+      startsAt: { gte: night.start, lt: night.end },
     },
     select: reservationSelect,
     orderBy: { startsAt: "asc" },
@@ -613,18 +656,24 @@ export async function validatePinAndSeat(
   db: ScopedDb,
   tableId: string,
   pin: string,
+  now = new Date(),
 ): Promise<{ ok: boolean; error?: string }> {
   const prisma = getRawPrisma();
   try {
+    // Resolve the venue night from the table, so the PIN gate covers the whole
+    // business night rather than a single UTC calendar day.
+    const table = await db.venueTable.findFirst({ where: { id: tableId }, select: { venueId: true } });
+    if (!table) throw new Error("Table not found");
+    const cfg = await getVenueNight(db, table.venueId);
+    const night = nightContaining(now, cfg);
     await prisma.$transaction(async (tx) => {
-      const today = new Date().toISOString().slice(0, 10);
       const active = await tx.reservation.findFirst({
         where: {
           tableId,
           status: "confirmed",
           startsAt: {
-            gte: new Date(today + "T00:00:00Z"),
-            lte: new Date(today + "T23:59:59.999Z"),
+            gte: night.start,
+            lt: night.end,
           },
         },
       });
