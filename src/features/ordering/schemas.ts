@@ -32,7 +32,10 @@ export const zSendGift = z.object({
   fromZoneName: z.string().min(1),
   guestName: z.string().min(1),
   sessionId: z.string().optional(),
-  menuItemId: z.string().min(1),
+  items: z.array(z.object({
+    menuItemId: z.string().min(1),
+    quantity: z.number().int().positive(),
+  })).min(1),
   toTableId: z.string().min(1),
   toTableCode: z.string().min(1),
   note: z.string().optional(),

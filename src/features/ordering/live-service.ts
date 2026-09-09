@@ -1,21 +1,11 @@
 "use client";
 
-import type { AdjustmentReason, GuestSession, MenuItem, Order, OrderRemake, OrderStatus, TabAdjustment, TabAdjustmentKind, WalkoutRecord } from "@/lib/types";
-import type { CartLine } from "@/lib/types";
+import type { CartLine, MenuItem, Order, OrderRemake, OrderStatus } from "@/lib/types";
 import { toCents } from "@/features/shared/money";
+import { api } from "@/features/ordering/live-api";
+import { liveFetch } from "@/features/shared/live-fetch";
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await liveFetch(path, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(body.error ?? `Request to ${path} failed (${res.status})`);
-  }
-  return res.json() as Promise<T>;
-}
-
+/** Live adapter for the ORDER domain — every call is an `/api/orders/*` fetch. */
 export const liveOrdersService = {
   async listOrders(filter?: { status?: OrderStatus[]; zoneIds?: string[] }): Promise<Order[]> {
     const params = new URLSearchParams();
@@ -128,88 +118,10 @@ export const liveOrdersService = {
     return api<Order>(`/api/orders/${encodeURIComponent(orderId)}/cancel`, { method: "PATCH" });
   },
 
-  async listAdjustmentReasons(kind?: TabAdjustmentKind): Promise<AdjustmentReason[]> {
-    const qs = kind ? `?kind=${encodeURIComponent(kind)}` : "";
-    return api<AdjustmentReason[]>(`/api/tab/reasons${qs}`);
-  },
-
-  async listAllAdjustmentReasons(): Promise<AdjustmentReason[]> {
-    return api<AdjustmentReason[]>("/api/tab/reasons?all=1");
-  },
-
-  async createAdjustmentReason(input: Omit<AdjustmentReason, "id" | "venueId">): Promise<AdjustmentReason> {
-    return api<AdjustmentReason>("/api/tab/reasons", { method: "POST", body: JSON.stringify(input) });
-  },
-
-  async setAdjustmentReasonActive(reasonId: string, isActive: boolean): Promise<AdjustmentReason | null> {
-    return api<AdjustmentReason>(`/api/tab/reasons/${encodeURIComponent(reasonId)}`, {
-      method: "PATCH",
-      body: JSON.stringify({ isActive }),
-    });
-  },
-
-  async listAdjustments(sessionId: string): Promise<TabAdjustment[]> {
-    return api<TabAdjustment[]>(`/api/tab/adjustments?sessionId=${encodeURIComponent(sessionId)}`);
-  },
-
-  async listAllAdjustments(): Promise<TabAdjustment[]> {
-    return api<TabAdjustment[]>("/api/tab/adjustments");
-  },
-
-  async adjustOrder(input: {
-    orderId: string;
-    orderItemId?: string;
-    quantity?: number;
-    kind: TabAdjustmentKind;
-    reasonCode: string;
-    note?: string;
-    authorStaffId: string;
-    authorStaffName: string;
-  }): Promise<TabAdjustment> {
-    return api<TabAdjustment>("/api/tab/adjustments", { method: "POST", body: JSON.stringify(input) });
-  },
-
-  async reverseAdjustment(adjustmentId: string, staffId: string, staffName: string): Promise<TabAdjustment | null> {
-    return api<TabAdjustment>(`/api/tab/adjustments/${encodeURIComponent(adjustmentId)}/reverse`, {
-      method: "PATCH",
-      body: JSON.stringify({ staffId, staffName }),
-    });
-  },
-
-  async reassignOrdersToSession(fromSessionId: string, toSessionId: string): Promise<void> {
-    await api(`/api/tab/sessions/${encodeURIComponent(fromSessionId)}/reassign`, {
-      method: "PATCH",
-      body: JSON.stringify({ toSessionId }),
-    });
-  },
-
-  async reopenSession(sessionId: string): Promise<GuestSession | null> {
-    return api(`/api/sessions/${encodeURIComponent(sessionId)}/reopen`, { method: "POST" });
-  },
-
-  async getSessionRoundCount(_sessionId: string): Promise<number> {
-    return api("/api/sessions/round-count");
-  },
-
-  async detectDualSession(_tableId: string): Promise<GuestSession[]> {
-    return api("/api/sessions/dual");
-  },
-
-  async checkInventoryAvailability(_cartLines: { menuItemId: string; quantity: number }[]): Promise<{ menuItemId: string; name: string; available: number; requested: number }[]> {
-    return api("/api/inventory/availability", { method: "POST" });
-  },
-
   async rushOrder(orderId: string, staffName: string): Promise<Order | null> {
     return api<Order>(`/api/orders/${encodeURIComponent(orderId)}/rush`, {
       method: "PATCH",
       body: JSON.stringify({ staffName }),
-    });
-  },
-
-  async compEntireOrder(orderId: string, reasonCode: string, staffId: string, staffName: string): Promise<TabAdjustment> {
-    return api<TabAdjustment>(`/api/orders/${encodeURIComponent(orderId)}/comp`, {
-      method: "PATCH",
-      body: JSON.stringify({ reasonCode, staffId, staffName }),
     });
   },
 
@@ -219,12 +131,4 @@ export const liveOrdersService = {
       body: JSON.stringify({ newOrderId, reason, staffId, staffName }),
     });
   },
-
-  async reportWalkout(sessionId: string, description: string, staffId: string, staffName: string): Promise<WalkoutRecord> {
-    return api<WalkoutRecord>(`/api/tab/sessions/${encodeURIComponent(sessionId)}/walkout`, {
-      method: "POST",
-      body: JSON.stringify({ description, staffId, staffName }),
-    });
-  },
 };
-import { liveFetch } from "@/features/shared/live-fetch";
