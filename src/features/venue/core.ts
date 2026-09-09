@@ -3,6 +3,7 @@
  * server actions — keeps the two entry points from drifting.
  */
 import type { getDb } from "@/features/shared/db";
+import { normalizeVenueLocale } from "@/features/shared/locale";
 import type { Venue, VenueTable, Zone, TableStatus as VenueTableStatus } from "@/lib/types";
 import type { TableStatus as PrismaTableStatus } from "@prisma/client";
 import type { zTableInput, zTablePatch, zVenuePatch, zZoneInput, zZonePatch } from "@/features/venue/schemas";
@@ -72,7 +73,7 @@ function toVenue(
     coatCheckEnabled: row.coatCheckEnabled,
     doorRequiresIdCheck: row.doorRequiresIdCheck,
     legalDrinkingAge: 18,
-    guestLocale: (row.guestLocale as Venue["guestLocale"]) ?? "en",
+    guestLocale: normalizeVenueLocale(row.guestLocale as string | null | undefined),
   };
 }
 

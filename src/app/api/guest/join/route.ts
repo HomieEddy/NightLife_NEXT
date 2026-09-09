@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDemoMode } from "@/features/shared/app-mode";
+import { normalizeVenueLocale } from "@/features/shared/locale";
 import { cookieName } from "@/i18n/config";
 
 function demoHandler() {
@@ -72,7 +73,7 @@ async function livePOST(request: NextRequest) {
   // preference yet — a francophone venue's guests get French without
   // touching the toggle.
   if (!request.cookies.get(cookieName)) {
-    response.cookies.set(cookieName, venue.guestLocale === "fr" ? "fr" : "en", {
+    response.cookies.set(cookieName, normalizeVenueLocale(venue.guestLocale), {
       path: "/",
       sameSite: "lax",
       maxAge: 365 * 24 * 60 * 60,

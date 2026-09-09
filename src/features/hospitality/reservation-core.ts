@@ -5,6 +5,7 @@
  */
 import type { getDb } from "@/features/shared/db";
 import { getRawPrisma } from "@/features/shared/db";
+import { normalizeVenueLocale } from "@/features/shared/locale";
 import type { BlackoutDate, Reservation, ReservationChannel, ReservationStatus } from "@/lib/types";
 import type { z } from "zod";
 import type { zReservationInput, zReservationPatch, zListReservations } from "@/features/hospitality/reservation-schemas";
@@ -579,7 +580,7 @@ export async function createPublicReservation(
     guestPhone: input.guestPhone,
     // A guest booking through the venue's embed gets the venue's default
     // language for confirmation/PIN/reminder messages.
-    bookingLocale: venue.guestLocale === "fr" ? "fr" : "en",
+    bookingLocale: normalizeVenueLocale(venue.guestLocale),
     eventId: input.eventId,
   });
 }
