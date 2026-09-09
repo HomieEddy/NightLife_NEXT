@@ -523,22 +523,6 @@ export const mockOrdersService = {
     return clone(session);
   },
 
-  /** OE-06: Count delivered alcoholic orders for this session's round tracking. */
-  async getSessionRoundCount(sessionId: string): Promise<number> {
-    await delay(100);
-    return orders.filter((o) => o.sessionId === sessionId && o.status === "delivered")
-      .reduce((sum, o) => {
-        const isAlcoholic = o.items.some((item) => mockMenuItems.find((i) => i.id === item.menuItemId)?.isAlcoholic);
-        return sum + (isAlcoholic ? 1 : 0);
-      }, 0);
-  },
-
-  /** OE-07: Detect if two sessions are active on the same table (dual phone). */
-  async detectDualSession(tableId: string): Promise<GuestSession[]> {
-    await delay(100);
-    return clone(mockGuestSessions.filter((s) => s.tableId === tableId && s.status === "approved"));
-  },
-
   /** OT-09: Report a walkout — force-closes session and creates a walkout record. */
   async reportWalkout(sessionId: string, description: string, staffId: string, staffName: string): Promise<WalkoutRecord> {
     await delay(400);
@@ -555,19 +539,6 @@ export const mockOrdersService = {
     };
     walkoutRecords = [...walkoutRecords, record];
     return clone(record);
-  },
-
-  /** RV-06: Pre-order inventory availability check — returns items that would go out of stock. */
-  async checkInventoryAvailability(cartLines: { menuItemId: string; quantity: number }[]): Promise<{ menuItemId: string; name: string; available: number; requested: number }[]> {
-    await delay(100);
-    const warnings: { menuItemId: string; name: string; available: number; requested: number }[] = [];
-    for (const line of cartLines) {
-      const item = mockMenuItems.find((i) => i.id === line.menuItemId);
-      if (item && item.inventory < line.quantity) {
-        warnings.push({ menuItemId: item.id, name: item.name, available: item.inventory, requested: line.quantity });
-      }
-    }
-    return warnings;
   },
 
   /** OE-08: Rush/bump an order — manager overrides queue position. */
