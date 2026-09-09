@@ -373,7 +373,7 @@ function StaffOrdersContent() {
                               confirmLabel={label ?? t("confirm")}
                               onConfirm={() => advanceMutation.mutate(order)}
                             />
-                            {isPending && (
+                            {isPending && can("order:cancel") && (
                               <ConfirmDialog
                                 trigger={
                                   <Button variant="outline" size="icon" className="h-11 w-11 text-red-600 dark:text-red-400" aria-label={t("cancelAria")}>

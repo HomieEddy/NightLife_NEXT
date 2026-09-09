@@ -7,15 +7,14 @@ function demoHandler() {
 }
 
 async function livePOST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
 
-  const auth = await requireApiArea("staff");
+  // tab:close-bar settles a bar tab (money) — manager or bartender only.
+  const auth = await requirePermission("staff", "tab:close-bar");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const { venueId, db } = auth;
 
   const { id } = await params;
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
 
   const tab = await db.barTab.findFirst({ where: { id, venueId } });
   if (!tab) return NextResponse.json({ error: "Bar tab not found" }, { status: 404 });

@@ -19,13 +19,13 @@ async function liveGET(_request: NextRequest) {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
 
-  const auth = await requireApiArea("staff");
+  // waitlist:manage is manager/security — a runner or bartender cannot admit
+  // a walk-in to the list.
+  const auth = await requirePermission("staff", "waitlist:manage");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
 
   const body = await request.json();
   const entry = await db.waitlistEntry.create({

@@ -9,15 +9,15 @@ async function livePATCH(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { cancelOrder } = await import("@/features/ordering/core");
 
-  const auth = await requireApiArea("staff");
+  // order:cancel reverses inventory + revenue, so runner/security/promoter
+  // tokens must not be able to cancel someone's order.
+  const auth = await requirePermission("staff", "order:cancel");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
   const { id } = await params;
   const order = await cancelOrder(db, id);
 
