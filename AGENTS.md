@@ -307,6 +307,32 @@ feature's plan names its required tests; don't invent a different set silently.
    before the preview drive; E2E runs before `next build` on migration PRs.
    A red suite blocks the commit — no "will fix in the next one".
 
+### 7c. Coverage gate (plan 37)
+
+The suite is measured, and that measurement is enforced in the pipeline (plan
+36's check job). Two layers:
+
+- **Aggregate, live-core only.** `npm run test:coverage` runs both projects
+  with a v8 coverage gate scoped to live core — the demo track is excluded,
+  because it is the fixture layer by design (mock services, mock data,
+  `src/app`, `src/components`, `src/i18n`). The gate measures
+  `src/features/**` live-core + `src/lib/**` only. Thresholds are set below
+  today's measured value and ratchet upward; never raise a threshold until
+  the gate is green at the current one.
+- **Money/state-machine cores.** `npm run test:coverage:cores` scopes the
+  report to just the money/state cores (fees, pricing, costs, order-status,
+  tab, happy-hour, order-line, workforce) with its own aggregate floor. A
+  regression in one of those can't hide behind the live-core aggregate.
+
+A file that **mixes pure math and DB-backed CRUD** (e.g. tips-core,
+time-core, purchasing-core) is deliberately **not** floored as a whole file:
+its pure math is unit-owned (`*.test.ts`) and its CRUD is integration-owned
+(`*.integration.test.ts`), so no single project can reach the floor on the
+combined file. Flipping it would require either splitting the file or gamed
+duplicate tests — the plan exempts these with a written reason rather than
+either. The pure math in each *is* unit-tested to its branches; the CRUD
+*functions* are integration-tested.
+
 ## 8. Communication
 
 1. **Lead with the outcome**, then the supporting detail. First sentence =
