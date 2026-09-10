@@ -147,7 +147,7 @@ export function CertificationsTab() {
   });
 
   const staffName = (id: string) => staffList.find((s) => s.id === id)?.name ?? id;
-  const tCertType = (type: CertificationType) => t(`certifications.types.${type}` as any);
+  const tCertType = (type: CertificationType) => t(`certifications.types.${type}` as Parameters<typeof t>[0]);
   const tStatus = (status: string) => {
     if (status === "active") return t("certifications.statusActive");
     if (status === "expired") return t("certifications.statusExpired");

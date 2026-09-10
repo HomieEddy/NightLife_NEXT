@@ -232,7 +232,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <item.icon className="size-4" />
-        <span className="flex-1">{nt(item.labelKey as any ?? item.label)}</span>
+        <span className="flex-1">{nt((item.labelKey ?? item.label) as Parameters<typeof nt>[0])}</span>
         {badge !== undefined && badge > 0 && (
           <span className="flex size-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground">
             {badge > 9 ? "9+" : badge}
@@ -255,7 +255,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                 onClick={() => toggleCollapsed(group.label)}
               >
                 <ChevronDown className={cn("size-3 transition-transform", collapsed_ && "-rotate-90")} />
-                {nt(group.labelKey as any ?? group.label)}
+                {nt((group.labelKey ?? group.label) as Parameters<typeof nt>[0])}
               </button>
               {!collapsed_ && (
                 <div className="space-y-0.5">
@@ -286,7 +286,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             <item.icon className="size-3.5" />
-            {nt(item.labelKey as any ?? item.label)}
+            {nt((item.labelKey ?? item.label) as Parameters<typeof nt>[0])}
           </Link>
         ))}
         <div className="mt-2 text-[11px] text-muted-foreground">
@@ -419,7 +419,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                       {item.badge > 9 ? "9+" : item.badge}
                     </span>
                   )}
-                  <span className="truncate max-w-[64px]">{nt(item.labelKey as any ?? item.label)}</span>
+                  <span className="truncate max-w-[64px]">{nt((item.labelKey ?? item.label) as Parameters<typeof nt>[0])}</span>
                 </Link>
               );
             })}
