@@ -3,7 +3,7 @@ name: CI
 # The verification ladder (AGENTS.md §5) made mechanical. Runs on every PR to
 # the two permanent branches and every push to them. Deployment is NOT done
 # here — Coolify/Vercel pull on push (docs/HOSTING.md); CI never holds deploy
-# credentials. See docs/runbook §deploy and docs/plan-36-branch-protection.md.
+# credentials. See docs/RUNBOOK.md §deploy and docs/plan-36-branch-protection.md.
 
 on:
   push:
@@ -24,9 +24,9 @@ env:
 
 jobs:
   check:
-    name: check (types, lint, tests, coverage)
+    name: check (types, lint, tests, audit)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       # next typegen (below) and next.config parse the mode; the test suite
       # overrides this to its own value via vitest.config.
@@ -60,14 +60,29 @@ jobs:
       - name: Integration tests (PGlite, no service containers)
         run: npm run test:integration
 
-      - name: Coverage gate (live-core, plan 37)
-        run: npm run test:coverage
-
-      - name: Money/state cores coverage gate (plan 37)
-        run: npm run test:coverage:cores
-
       - name: Dependency audit (high and above)
         run: npm audit --audit-level=high
+
+  # The two coverage gates re-run the unit suite under a coverage provider and
+  # are the slowest steps, so they run as their own job (parallel with check)
+  # instead of serializing behind the rest and hitting a single-job timeout.
+  coverage:
+    name: coverage gates (plan 37)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_APP_MODE: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Coverage gate (live-core, plan 37)
+        run: npm run test:coverage
+      - name: Money/state cores coverage gate (plan 37)
+        run: npm run test:coverage:cores
 
   build-demo:
     name: build (demo mode)

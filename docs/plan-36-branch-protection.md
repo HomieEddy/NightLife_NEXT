@@ -17,7 +17,8 @@ Branch name pattern: `dev`
 - [x] **Require status checks to pass before merging**
   - [x] Require branches to be up to date before merging
   - Required checks:
-    - `check (types, lint, tests, coverage)`
+    - `check (types, lint, tests, audit)`
+    - `coverage gates (plan 37)`
     - `build (demo mode)`
     - `build (live mode)`
     - `secret scan`
