@@ -39,6 +39,13 @@ The head-guard check mechanically enforces §10.8's "`master` accepts merges
 from `dev` only" (with the `hotfix/*` exception). A PR from any other branch
 fails the check and cannot merge.
 
+> **Note — why `head branch is dev or hotfix/*` may be missing from the picker:**
+> GitHub only lists status checks it has already observed. The guard runs on
+> PRs to `dev` as well as `master` (passing on `dev`, enforcing on `master`),
+> so the first `dev` PR registers the check name. If it still doesn't appear,
+> open any PR targeting `master` once to register it. A check that has never
+> run cannot be selected as required.
+
 ## After protection is on
 
 1. Open a throwaway PR to `dev` from a scratch branch; confirm the four checks

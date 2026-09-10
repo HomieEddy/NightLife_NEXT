@@ -3,10 +3,14 @@ name: Release PR guard
 # AGENTS.md §10.8: `master` accepts merges from `dev` only (release PRs).
 # Hotfixes branch from `master` and merge back to `master` — allowed by the
 # `hotfix/` prefix exception. Anything else targeting `master` is rejected.
+#
+# Runs on PRs to `dev` too (where it always passes) so the check is registered
+# with GitHub from a normal `dev` PR — a check that has never run cannot be
+# selected as a required status check in branch protection.
 
 on:
   pull_request:
-    branches: [master]
+    branches: [dev, master]
 
 permissions:
   contents: read
@@ -18,9 +22,15 @@ jobs:
     steps:
       - name: Verify PR source branch
         env:
+          BASE_REF: ${{ github.base_ref }}
           HEAD_REF: ${{ github.head_ref }}
         run: |
-          echo "PR head branch: $HEAD_REF"
+          echo "PR base: $BASE_REF  head: $HEAD_REF"
+          # Only `master` PRs are restricted; dev PRs pass unconditionally.
+          if [ "$BASE_REF" != "master" ]; then
+            echo "Not a master-targeting PR — no head-branch restriction."
+            exit 0
+          fi
           case "$HEAD_REF" in
             dev|hotfix/*)
               echo "OK: $HEAD_REF may merge into master."
