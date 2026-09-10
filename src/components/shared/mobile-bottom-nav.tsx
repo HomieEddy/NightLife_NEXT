@@ -9,6 +9,7 @@ import { isNavActive } from "@/features/shared/navigation";
 export interface BottomNavItem {
   href: string;
   label: string;
+  labelKey?: string;
   icon: LucideIcon;
   badgeCount?: number;
 }

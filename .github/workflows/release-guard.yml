@@ -1,0 +1,32 @@
+name: Release PR guard
+
+# AGENTS.md §10.8: `master` accepts merges from `dev` only (release PRs).
+# Hotfixes branch from `master` and merge back to `master` — allowed by the
+# `hotfix/` prefix exception. Anything else targeting `master` is rejected.
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  head-branch:
+    name: head branch is dev or hotfix/*
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify PR source branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          echo "PR head branch: $HEAD_REF"
+          case "$HEAD_REF" in
+            dev|hotfix/*)
+              echo "OK: $HEAD_REF may merge into master."
+              ;;
+            *)
+              echo "::error::PRs to master must come from 'dev' (release) or 'hotfix/*' (urgent fix). Got '$HEAD_REF'. See AGENTS.md §10.8."
+              exit 1
+              ;;
+          esac

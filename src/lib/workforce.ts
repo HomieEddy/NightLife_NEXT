@@ -12,20 +12,6 @@ import type {
   Zone,
 } from "./types";
 
-/** Map a clock time "HH:MM" to the business date YYYY-MM-DD for a given night config.
- *  A shift starting at 22:00 Friday when nightEndHour is 4:00 belongs to Friday. */
-export function businessDateForShift(startDateTime: Date, nightEndHour: number): string {
-  const d = new Date(startDateTime);
-  if (d.getHours() < nightEndHour) {
-    d.setDate(d.getDate() - 1);
-  }
-  // Use local date components — d.getHours() is local, toISOString() is UTC.
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 /** Compute minutes worked from clock-in to clock-out, subtracting unpaid break time. */
 export function computeMinutesWorked(entry: TimeEntry): number {
   if (!entry.clockOutAt) return 0;
