@@ -528,6 +528,12 @@ readable; they codify how this repo has actually been built.
    **Rules:**
    - No direct pushes to `dev` or `master` — always via PR.
    - Every PR to `dev` must pass `tsc`, eslint, and the test suite.
+   - **CI enforces these rules mechanically** (plan 36): `.github/workflows/ci.yml`
+     gates every PR to `dev`/`master` on types, lint, unit + integration tests,
+     the plan-37 coverage gates, both-mode builds, audit and a secret scan;
+     `release-guard.yml` rejects any `master` PR not from `dev`/`hotfix/*`.
+     Branch-protection setup (a one-time GitHub setting) is documented in
+     `docs/plan-36-branch-protection.md`.
    - Every PR to `master` (release) must have been validated on staging.
    - Feature branches are short-lived: days, not weeks. Long-lived branches
      accumulate merge pain.
