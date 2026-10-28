@@ -172,7 +172,7 @@ export function ItemDetailModal({
                             <TooltipIconButton
                               tooltip={`Decrease ${option.name}`}
                               variant="ghost"
-                              className="size-7"
+                              className="size-11"
                               onClick={() => changeOptionQuantity(group.id, option.id, Math.max(1, selectedQuantity - 1))}
                             >
                               <Minus className="size-3.5" />
@@ -181,7 +181,7 @@ export function ItemDetailModal({
                             <TooltipIconButton
                               tooltip={`Increase ${option.name}`}
                               variant="ghost"
-                              className="size-7"
+                              className="size-11"
                               onClick={() => changeOptionQuantity(group.id, option.id, Math.min(option.maxQuantity, selectedQuantity + 1))}
                             >
                               <Plus className="size-3.5" />

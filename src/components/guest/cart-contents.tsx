@@ -179,7 +179,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
                     <TooltipIconButton
                       tooltip="Decrease"
                       variant="ghost"
-                      className="size-9"
+                      className="size-11"
                       onClick={() => updateQuantity(line.lineId, line.quantity - 1)}
                     >
                       <Minus className="size-3.5" />
@@ -190,7 +190,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
                     <TooltipIconButton
                       tooltip="Increase"
                       variant="ghost"
-                      className="size-9"
+                      className="size-11"
                       onClick={() => updateQuantity(line.lineId, line.quantity + 1)}
                     >
                       <Plus className="size-3.5" />
@@ -201,7 +201,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-8 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+                        className="size-11 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
                         aria-label="Remove item"
                       >
                         <Trash2 className="size-4" />
@@ -292,7 +292,7 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
             <TooltipIconButton
               tooltip="Remove promo code"
               variant="ghost"
-              className="size-6"
+              className="-my-2.5 -mr-2 size-11"
               onClick={() => setAppliedPromo(null)}
             >
               <X className="size-3.5" />
