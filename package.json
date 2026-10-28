@@ -109,7 +109,6 @@
     "undici": "^8.12.3",
     "vite": "^8.3.5",
     "source-map-js": "^1.2.2",
-    "brace-expansion": "^5.0.12",
     "follow-redirects": "^1.16.2",
     "engine.io": "^6.6.11",
     "body-parser": "^2.4.0",
