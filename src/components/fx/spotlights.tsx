@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { cn } from "@/features/shared/utils";
+import { prefersReducedMotion } from "@/lib/motion";
 
 type Tint = "gold" | "violet" | "cyan";
 
@@ -61,7 +62,7 @@ export function Spotlights({ className }: { className?: string }) {
     const el = containerRef.current;
     if (!el) return;
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduced = prefersReducedMotion();
 
     const applyAngle = (i: number, angle: number) => {
       const beam = beamRefs.current[i];
