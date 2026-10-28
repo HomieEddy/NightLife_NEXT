@@ -101,7 +101,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
       </div>
-      <main className="flex-1 pb-20">{children}</main>
+      <main key={pathname} className="flex-1 pb-20 animate-fade-up">{children}</main>
       <nav
         className={cn(
           "fixed inset-x-0 bottom-0 z-40 border-t bg-background/90 backdrop-blur-lg",
@@ -132,7 +132,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                 </span>
                 {nt((item.labelKey ?? item.label) as Parameters<typeof nt>[0])}
                 {active && (
-                  <span className="absolute inset-x-1/4 top-0 h-0.5 rounded-full bg-primary" />
+                  <span className="absolute inset-x-1/4 top-0 h-0.5 rounded-full bg-primary animate-indicator-in" />
                 )}
               </Link>
             );
@@ -149,7 +149,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                   {moreItems.some((item) =>
                     item.href === pathname || pathname.startsWith(item.href + "/"),
                   ) && (
-                    <span className="absolute inset-x-1/4 top-0 h-0.5 rounded-full bg-primary" />
+                    <span className="absolute inset-x-1/4 top-0 h-0.5 rounded-full bg-primary animate-indicator-in" />
                   )}
                 </button>
               </SheetTrigger>
