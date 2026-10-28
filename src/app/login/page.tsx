@@ -103,7 +103,7 @@ function DemoLogin() {
 
   return (
     <LoginShell homeHref="/demo">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm animate-fade-up">
         <CardContent className="space-y-5 p-6">
           <div className="space-y-1 text-center">
             <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/15 text-primary">
@@ -119,6 +119,7 @@ function DemoLogin() {
             <p className="pb-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t("venueTeam")}
             </p>
+            <div className="space-y-2 stagger-children">
             {personas.map((p) => {
               const floorRole = p.staffRole ?? (p.role === "manager" ? "manager" : null);
               const Icon = floorRole ? (STAFF_ROLE_ICON[floorRole] ?? UserCog) : UserCog;
@@ -147,6 +148,7 @@ function DemoLogin() {
                 </button>
               );
             })}
+            </div>
           </div>
 
           <details className="border-t pt-4">
@@ -209,7 +211,7 @@ function LiveLogin() {
 
   return (
     <LoginShell homeHref="/">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm animate-fade-up">
         <CardContent className="space-y-5 p-6">
           <div className="space-y-1 text-center">
             <div className="mx-auto mb-2 flex size-10 items-center justify-center rounded-full bg-primary/15 text-primary">

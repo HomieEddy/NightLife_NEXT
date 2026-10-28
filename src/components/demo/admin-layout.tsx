@@ -145,7 +145,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ))}
         </nav>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">{children}</main>
+      <main key={pathname} className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6 animate-fade-up">{children}</main>
     </div>
     </RequireAuth>
   );
