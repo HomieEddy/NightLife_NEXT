@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { cn } from "@/features/shared/utils";
+import { prefersReducedMotion } from "@/lib/motion";
 
 /**
  * Three.js ambient "club lights" — a drifting field of glowing particles in
@@ -25,7 +26,7 @@ export function ClubLights({
     const el = containerRef.current;
     if (!el) return;
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduced = prefersReducedMotion();
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(

@@ -235,6 +235,7 @@ html {
   .animate-marquee,
   .stagger-children > *,
   .animate-glow-pulse,
+  .animate-ping,
   .foil-shimmer:hover::after {
     animation: none;
   }
