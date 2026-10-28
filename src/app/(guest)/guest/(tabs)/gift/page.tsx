@@ -199,7 +199,7 @@ export default function GuestGiftPage() {
                   type="button"
                   onClick={() => addItem(item)}
                   className={cn(
-                    "flex items-center gap-2 rounded-xl border p-2.5 text-left transition-colors",
+                    "press-feedback flex items-center gap-2 rounded-xl border p-2.5 text-left",
                     inCart
                       ? "border-primary bg-primary/10"
                       : "hover:border-primary/40",
