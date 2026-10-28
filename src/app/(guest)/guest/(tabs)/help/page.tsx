@@ -64,7 +64,7 @@ export default function GuestHelpPage() {
             type="button"
             disabled={sending !== null}
             className={cn(
-              "flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-colors",
+              "press-feedback flex w-full items-center gap-4 rounded-xl border p-4 text-left",
               "hover:border-primary/50 active:bg-accent/50 disabled:opacity-60",
               option.type === "security" && "border-red-500/30",
             )}

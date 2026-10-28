@@ -253,6 +253,11 @@ html {
   .foil-shimmer:hover::after {
     animation: none;
   }
+  .press-feedback,
+  .press-feedback:active {
+    transform: none;
+    transition: none;
+  }
   .hover-lift,
   .hover-lift:hover {
     transition: none;
@@ -360,6 +365,13 @@ html {
 }
 
 /* Gold-halo lift on hover/press — premium timing, no overshoot. */
+/* Tactile press feedback for tappable guest cards and tiles. */
+.press-feedback {
+  transition: transform 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
+}
+.press-feedback:active {
+  transform: scale(0.98);
+}
 .hover-lift {
   transition:
     transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
