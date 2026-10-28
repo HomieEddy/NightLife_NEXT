@@ -97,7 +97,7 @@ Three local loops, fastest to most prod-shaped:
 
 The compose stack (`compose.yaml`) runs four services by default:
 
-- `db` — Postgres 17 on host port **5433** (mapped from 5432)
+- `db` — Postgres 17 on host port **5434** (mapped from 5432)
 - `migrate` — one-shot: applies migrations + idempotent seed
 - `app-live` — Next.js dev server on port 3000 (`NEXT_PUBLIC_APP_MODE=live`)
 - `app-demo` — Next.js dev server on port 3001 (`NEXT_PUBLIC_APP_MODE=demo`, no DB)
