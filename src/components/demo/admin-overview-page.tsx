@@ -72,7 +72,7 @@ export default function AdminOverviewPage() {
       )}
 
       {leads === undefined || tenants === undefined ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 stagger-children">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-32 rounded-xl" />
           ))}
@@ -94,7 +94,7 @@ export default function AdminOverviewPage() {
         </>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 stagger-children">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">{t("latestLeadsTitle")}</CardTitle>
@@ -104,7 +104,7 @@ export default function AdminOverviewPage() {
               </Link>
             </Button>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2 stagger-children">
             {(leads ?? []).slice(0, 4).map((lead: Lead) => (
               <div key={lead.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
@@ -128,7 +128,7 @@ export default function AdminOverviewPage() {
               </Link>
             </Button>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2 stagger-children">
             {(tenants ?? []).slice(0, 4).map((tenant: Tenant) => (
               <div key={tenant.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div>

@@ -355,7 +355,7 @@ export default function AdminLeadsPage() {
         </div>
       ) : (
         /* ---------- List view ---------- */
-        <div className="space-y-2">
+        <div className="space-y-2 stagger-children">
           {visible.map((lead) => (
             <LeadCard key={lead.id} lead={lead} showStage />
           ))}
