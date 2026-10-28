@@ -19,6 +19,7 @@ import { formatMoney } from "@/features/shared/format";
 import { cn } from "@/features/shared/utils";
 import { useGuest } from "@/context/guest-context";
 import { orderLineSubtotal } from "@/lib/order-line";
+import { prefersReducedMotion } from "@/lib/motion";
 import type { MenuItem, ModifierGroup, OrderItemModifier } from "@/lib/types";
 
 export function ItemDetailModal({
@@ -86,7 +87,7 @@ export function ItemDetailModal({
     if (!item) return;
     addToCart(item, quantity, modifiers, note.trim() || undefined);
     toast.success(`${quantity}× ${item.name} added to cart`);
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches && addBtnRef.current) {
+    if (!prefersReducedMotion() && addBtnRef.current) {
       const btnRect = addBtnRef.current.getBoundingClientRect();
       const pill = document.getElementById("cart-pill");
       if (pill) {

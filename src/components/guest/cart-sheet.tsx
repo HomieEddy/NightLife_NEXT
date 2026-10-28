@@ -13,6 +13,7 @@ import { CartContents } from "@/components/guest/cart-contents";
 import { AnimatedMoney } from "@/components/fx/animated-money";
 import { useGuest } from "@/context/guest-context";
 import { gsap } from "@/lib/gsap";
+import { prefersReducedMotion } from "@/lib/motion";
 
 /**
  * Floating "view cart" pill + bottom sheet. Rendered on the menu screen so
@@ -26,7 +27,7 @@ export function CartSheet() {
 
   // Bounce the pill whenever another item lands in the cart.
   useEffect(() => {
-    if (cartCount > prevCount.current && pillRef.current) {
+    if (cartCount > prevCount.current && pillRef.current && !prefersReducedMotion()) {
       gsap.fromTo(
         pillRef.current,
         { scale: 0.92, y: 4 },

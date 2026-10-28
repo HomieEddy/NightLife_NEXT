@@ -2,6 +2,7 @@
 
 import { useRef, type ReactNode } from "react";
 import { gsap, useGSAP } from "@/lib/gsap";
+import { prefersReducedMotion } from "@/lib/motion";
 
 /**
  * Scroll-triggered entrance. Wrap any block; when it enters the viewport it
@@ -27,7 +28,7 @@ export function Reveal({
 
   useGSAP(
     () => {
-      if (!ref.current) return;
+      if (!ref.current || prefersReducedMotion()) return;
       const targets: gsap.TweenTarget = stagger > 0 ? Array.from(ref.current.children) : ref.current;
       gsap.from(targets, {
         opacity: 0,

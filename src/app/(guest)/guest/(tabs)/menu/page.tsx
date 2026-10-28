@@ -157,8 +157,9 @@ export default function GuestMenuPage() {
               key={cat.id}
               type="button"
               onClick={() => handleCategoryChange(cat.id)}
+              aria-pressed={activeCategory === cat.id}
               className={cn(
-                "shrink-0 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
+                "flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
                 activeCategory === cat.id
                   ? "border-gold/60 bg-gold/12 text-gold-deep dark:text-gold"
                   : "text-muted-foreground hover:text-foreground",

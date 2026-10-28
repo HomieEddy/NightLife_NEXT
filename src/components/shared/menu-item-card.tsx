@@ -30,18 +30,31 @@ export function MenuItemCard({
   const soldOut = item.inventory === 0;
   const lowStock = !soldOut && item.inventory <= 5;
   const unavailable = !item.isAvailable || soldOut;
+  const interactive = Boolean(onClick) && !unavailable;
   return (
     <Card
       className={cn(
         "py-3 gap-0 transition-colors",
-        onClick &&
-          !unavailable &&
-          "cursor-pointer transition-transform hover:border-primary/50 active:scale-[0.98] active:bg-accent/50",
+        interactive &&
+          "cursor-pointer transition-transform hover:border-primary/50 active:scale-[0.98] active:bg-accent/50 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
         unavailable && "opacity-50",
         className,
       )}
-      onClick={unavailable ? undefined : onClick}
+      onClick={interactive ? onClick : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick?.();
+              }
+            }
+          : undefined
+      }
       role={onClick ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-disabled={onClick && unavailable ? true : undefined}
     >
       <CardContent className="flex items-center gap-3 px-4">
         <BottleIcon icon={item.icon} />

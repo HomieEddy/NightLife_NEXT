@@ -243,6 +243,11 @@ html {
     transition: none;
     transform: none;
   }
+  .order-connector,
+  .animate-pulse {
+    transition: none;
+    animation: none;
+  }
 }
 
 /* Club-poster outline type: hollow letterforms, stroke in the current theme ink. */
