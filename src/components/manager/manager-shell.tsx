@@ -204,7 +204,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
               <LocaleToggle />
             </div>
           </header>
-          <main className="mx-auto w-full max-w-5xl p-4 sm:p-6">{children}</main>
+          <main key={pathname} className="mx-auto w-full max-w-5xl p-4 sm:p-6 animate-fade-up">{children}</main>
         </div>
       </RequireAuth>
     );
@@ -396,7 +396,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 p-4 pb-20 sm:p-6 md:pb-6">{children}</main>
+        <main key={pathname} className="mx-auto w-full max-w-5xl flex-1 p-4 pb-20 sm:p-6 md:pb-6 animate-fade-up">{children}</main>
 
         {/* Mobile bottom nav */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/90 backdrop-blur-lg md:hidden print:hidden pb-[env(safe-area-inset-bottom)]">
