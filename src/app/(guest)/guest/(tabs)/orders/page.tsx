@@ -223,7 +223,7 @@ export default function GuestOrdersPage() {
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <div key={`${order.id}-${order.status}`}><StatusBadge status={order.status} pulse={order.status === "pending"} /></div>
+                  <div key={`${order.id}-${order.status}`} className="animate-pop-in"><StatusBadge status={order.status} pulse={order.status === "pending"} /></div>
                   <span className="text-sm font-semibold tabular-nums">
                     {formatMoney(order.total)}
                   </span>
