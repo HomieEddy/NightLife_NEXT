@@ -58,7 +58,7 @@ export function MobileBottomNav({
               </span>
               {item.label}
               {active && (
-                <span className="absolute inset-x-1/4 top-0 h-0.5 rounded-full bg-primary" />
+                <span className="absolute inset-x-1/4 top-0 h-0.5 rounded-full bg-primary animate-indicator-in" />
               )}
             </Link>
           );
