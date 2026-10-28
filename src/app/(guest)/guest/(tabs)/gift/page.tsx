@@ -134,7 +134,7 @@ export default function GuestGiftPage() {
       {lines.length > 0 && (
         <div className="space-y-2">
           <p className="text-sm font-medium">{t("yourGift")}</p>
-          <ul className="space-y-1.5">
+          <ul className="space-y-1.5 stagger-children">
             {lines.map((line) => (
               <li key={line.menuItem.id} className="flex items-center gap-2 rounded-lg border p-2">
                 <BottleIcon icon={line.menuItem.icon} className="size-8 shrink-0" />
@@ -190,7 +190,7 @@ export default function GuestGiftPage() {
         {visible.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("nothingGiftable")}</p>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 stagger-children">
             {visible.map((item) => {
               const inCart = lines.find((l) => l.menuItem.id === item.id);
               return (
