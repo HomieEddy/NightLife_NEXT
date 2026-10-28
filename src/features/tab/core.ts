@@ -5,14 +5,16 @@
  */
 import type { getDb } from "@/features/shared/db";
 import { getRawPrisma } from "@/features/shared/db";
+import { applyMovement } from "@/features/inventory/ledger";
 import { publish } from "@/features/realtime/events";
 import {
   isAdjustmentAmountValid,
-  orderItemAmountCents,
-  orderItemPartialAmountCents,
-  computeCashoutExpected,
+  orderItemAmountCentsFromLine,
+  orderItemPartialAmountCentsFromLine,
+  computeCashoutExpectedFromOrders,
   computeCashoutVariance,
   mergedMinimumSpendCents,
+  type CentsOrder,
 } from "@/lib/tab";
 import type {
   AdjustmentReason,
@@ -230,10 +232,12 @@ export async function createAdjustment(
   const sessionId = order.sessionId;
   if (!sessionId) return { ok: false, error: "Order is not attached to a session" };
 
+  // INV-T3: aggregate across scopes — item-level and order-level adjustments
+  // all draw down the same order total, so a whole-order comp must see the
+  // item comps already taken.
   const existingRows = await db.tabAdjustment.findMany({
     where: {
       orderId: input.orderId,
-      orderItemId: input.orderItemId ?? null,
       reversedByAdjustmentId: null,
     },
   });
@@ -253,29 +257,34 @@ export async function createAdjustment(
   if (input.orderItemId) {
     const item = order.items.find((i) => i.id === input.orderItemId);
     if (!item) return { ok: false, error: "Order item not found" };
-    const asOrderItem = {
-      id: item.id,
-      menuItemId: item.menuItemId,
-      name: item.name,
-      unitPrice: item.unitCents / 100,
-      quantity: item.quantity,
-      modifiers: item.modifiers as never[],
-    };
+    // Live rows are cents-native: unitCents + a JSONB modifier snapshot of
+    // { deltaCents }. Feed them straight to the cents line math — rebuilding a
+    // dollar OrderItem used to read .priceDelta on a deltaCents shape (NaN)
+    // and round-trip unitCents → dollars → cents.
+    const modifiers = (item.modifiers as never[]).map((m) => ({
+      deltaCents: (m as { deltaCents: number }).deltaCents,
+      quantity: (m as { quantity?: number }).quantity,
+    }));
     if (input.quantity) {
-      targetCents = orderItemPartialAmountCents(asOrderItem, input.quantity);
+      targetCents = orderItemPartialAmountCentsFromLine(item.unitCents, item.quantity, modifiers, input.quantity);
     } else {
-      targetCents = orderItemAmountCents(asOrderItem);
+      targetCents = orderItemAmountCentsFromLine(item.unitCents, item.quantity, modifiers);
     }
     description = input.quantity
       ? `${input.quantity}x ${item.name}`
       : item.name;
   } else {
-    targetCents = Math.round(order.totalCents);
+    targetCents = order.totalCents;
     description = `Order ${order.code}`;
   }
 
-  if (!isAdjustmentAmountValid(targetCents, targetCents, existing)) {
-    const remaining = targetCents - existing.reduce((s, a) => s + a.amountCents, 0);
+  // INV-T3 (aggregate): the ceiling is the whole order total, and `existing`
+  // already includes every scope. amountCents (targetCents) + prior adjustments
+  // must never exceed the order total — an item comp and an order comp both
+  // draw down the same value.
+  const targetFullCents = order.totalCents;
+  if (!isAdjustmentAmountValid(targetCents, targetFullCents, existing)) {
+    const remaining = targetFullCents - existing.reduce((s, a) => s + a.amountCents, 0);
     return { ok: false, error: `Cannot adjust: only ${(remaining / 100).toFixed(2)} remains un-adjusted on this target` };
   }
 
@@ -295,75 +304,37 @@ export async function createAdjustment(
       const currentRows = await tx.tabAdjustment.findMany({
         where: {
           orderId: input.orderId,
-          orderItemId: input.orderItemId ?? null,
           reversedByAdjustmentId: null,
         },
       });
       const current: TabAdjustment[] = currentRows.map(toTabAdjustment);
-      if (!isAdjustmentAmountValid(targetCents, targetCents, current)) {
-        const remaining = targetCents - current.reduce((s, a) => s + a.amountCents, 0);
+      if (!isAdjustmentAmountValid(targetCents, order.totalCents, current)) {
+        const remaining = order.totalCents - current.reduce((s, a) => s + a.amountCents, 0);
         throw new Error(`Cannot adjust: only ${(remaining / 100).toFixed(2)} remains un-adjusted on this target`);
       }
 
-      // INV-O4: for voids, lock the menu item rows for the items we're returning.
+      // INV-O4: voids return stock through the ledger (locked move per item).
       if (input.kind === "void") {
-        const itemIds = new Set<string>();
-        for (const item of order.items) {
-          itemIds.add(item.menuItemId);
-          // If an add-on carries an inventoryItemId, lock it too.
-          const mods = item.modifiers as unknown as { groupId?: string; kind?: string; inventoryItemId?: string; quantity?: number }[];
-          for (const mod of mods) {
-            if (mod.inventoryItemId) itemIds.add(mod.inventoryItemId);
-          }
-        }
-
-        // For item-level void: only return stock for that specific item.
         if (input.orderItemId) {
           const targetItem = order.items.find((i) => i.id === input.orderItemId);
           if (targetItem) {
             const qty = input.quantity ?? targetItem.quantity;
-            const locked = await tx.$queryRawUnsafe<
-              { id: string; name: string; inventory: number; is_available: boolean }[]
-            >(
-              `SELECT id, name, inventory, is_available FROM menu_items WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
-              targetItem.menuItemId,
+            await applyMovement(tx, {
               venueId,
-            );
-            if (locked.length === 0) throw new Error(`Menu item ${targetItem.menuItemId} not found`);
-
-            await tx.$executeRawUnsafe(
-              `UPDATE menu_items SET inventory = inventory + $1, updated_at = NOW() WHERE id = $2`,
-              qty,
-              targetItem.menuItemId,
-            );
-            await tx.stockMovement.create({
-              data: {
-                venueId,
-                menuItemId: targetItem.menuItemId,
-                itemName: targetItem.name,
-                type: "adjustment",
-                delta: qty,
-                note: `Void adjustment — ${summary}`,
-              },
+              menuItemId: targetItem.menuItemId,
+              delta: qty,
+              type: "adjustment",
+              note: `Void adjustment — ${summary}`,
             });
           }
         } else {
-          // Full-order void: return stock for every item.
           for (const item of order.items) {
-            await tx.$executeRawUnsafe(
-              `UPDATE menu_items SET inventory = inventory + $1, updated_at = NOW() WHERE id = $2`,
-              item.quantity,
-              item.menuItemId,
-            );
-            await tx.stockMovement.create({
-              data: {
-                venueId,
-                menuItemId: item.menuItemId,
-                itemName: item.name,
-                type: "adjustment",
-                delta: item.quantity,
-                note: `Void adjustment — ${summary}`,
-              },
+            await applyMovement(tx, {
+              venueId,
+              menuItemId: item.menuItemId,
+              delta: item.quantity,
+              type: "adjustment",
+              note: `Void adjustment — ${summary}`,
             });
           }
         }
@@ -455,7 +426,10 @@ export async function reverseAdjustment(
           orderId: original.orderId,
           orderItemId: original.orderItemId,
           kind: original.kind,
-          amountCents: original.amountCents,
+          // The reversal does not re-apply the adjustment: sumAdjustmentsByKind
+          // skips the (now reversed) original and would count this row, so it
+          // must carry zero value or a reverse nets to a double-count (INV-T1).
+          amountCents: 0,
           quantity: original.quantity,
           reasonCode: original.reasonCode,
           note: `Reversal by ${staffName}`,
@@ -480,38 +454,22 @@ export async function reverseAdjustment(
             const item = order.items.find((i) => i.id === original.orderItemId);
             if (item) {
               const qty = original.quantity ?? item.quantity;
-              await tx.$executeRawUnsafe(
-                `UPDATE menu_items SET inventory = inventory - $1, updated_at = NOW() WHERE id = $2`,
-                qty,
-                item.menuItemId,
-              );
-              await tx.stockMovement.create({
-                data: {
-                  venueId,
-                  menuItemId: item.menuItemId,
-                  itemName: item.name,
-                  type: "adjustment",
-                  delta: -qty,
-                  note: `Void reversal — ${staffName}`,
-                },
+              await applyMovement(tx, {
+                venueId,
+                menuItemId: item.menuItemId,
+                delta: -qty,
+                type: "adjustment",
+                note: `Void reversal — ${staffName}`,
               });
             }
           } else {
             for (const item of order.items) {
-              await tx.$executeRawUnsafe(
-                `UPDATE menu_items SET inventory = inventory - $1, updated_at = NOW() WHERE id = $2`,
-                item.quantity,
-                item.menuItemId,
-              );
-              await tx.stockMovement.create({
-                data: {
-                  venueId,
-                  menuItemId: item.menuItemId,
-                  itemName: item.name,
-                  type: "adjustment",
-                  delta: -item.quantity,
-                  note: `Void reversal — ${staffName}`,
-                },
+              await applyMovement(tx, {
+                venueId,
+                menuItemId: item.menuItemId,
+                delta: -item.quantity,
+                type: "adjustment",
+                note: `Void reversal — ${staffName}`,
               });
             }
           }
@@ -629,7 +587,7 @@ export async function closeCashout(
       })
     : [];
 
-  const expected = computeCashoutExpected(
+  const expected = computeCashoutExpectedFromOrders(
     sessions.map((s) => ({
       id: s.id,
       status: s.status,
@@ -637,16 +595,24 @@ export async function closeCashout(
       settledExternallyAt: s.settledExternallyAt?.toISOString(),
       minimumSpendCents: s.minimumSpendCents ?? undefined,
     })),
-    orders.map((o) => ({
-      ...o,
-      items: o.items as never[],
-      tip: o.tipCents / 100,
-      serviceFee: o.totalFeeCents / 100,
-      total: o.totalCents / 100,
+    orders.map((o): CentsOrder => ({
+      id: o.id,
       sessionId: o.sessionId ?? undefined,
       status: o.status,
-    })) as unknown as Parameters<typeof computeCashoutExpected>[1],
-    adjustments.map((a) => ({ ...a, sessionId: a.sessionId, reversedByAdjustmentId: a.reversedByAdjustmentId ?? undefined })) as unknown as Parameters<typeof computeCashoutExpected>[2],
+      totalCents: o.totalCents,
+      serviceFeeCents: o.totalFeeCents,
+      tipCents: o.tipCents,
+      items: (o.items as never[]).map((item) => ({
+        id: (item as { id: string }).id,
+        unitCents: (item as { unitCents: number }).unitCents,
+        quantity: (item as { quantity: number }).quantity,
+        modifiers: (item as { modifiers: never[] }).modifiers.map((m) => ({
+          deltaCents: (m as { deltaCents: number }).deltaCents,
+          quantity: (m as { quantity?: number }).quantity,
+        })),
+      })),
+    })),
+    adjustments,
     input.businessDate,
     nightEndHour,
   );
@@ -1077,7 +1043,12 @@ export async function splitBill(
     for (const order of orders) {
       for (const item of order.items) {
         if (s.orderItemIds.includes(item.id)) {
-          subTotal += item.unitCents * item.quantity;
+          // Cents-native line math; add-on modifiers fold into the total.
+          const modifiers = (item.modifiers as never[]).map((m) => ({
+            deltaCents: (m as { deltaCents: number }).deltaCents,
+            quantity: (m as { quantity?: number }).quantity,
+          }));
+          subTotal += orderItemAmountCentsFromLine(item.unitCents, item.quantity, modifiers);
         }
       }
     }

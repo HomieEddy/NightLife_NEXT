@@ -8,6 +8,7 @@ export type StaffAction =
   | "order:release"      // return to unclaimed pool
   | "order:transition"   // accepted → preparing → ready → delivered
   | "order:gift"         // waive the full order total
+  | "order:cancel"       // cancel an order before delivery — reverses its inventory + revenue
   | "session:approve"    // allow a guest party to open a tab
   | "session:deny"       // turn away a join request
   | "help:respond"       // acknowledge and resolve help requests
@@ -20,6 +21,7 @@ export type StaffAction =
   | "tab:transfer"          // move an open session to another table
   | "tab:merge"             // fold one session's tab into another's
   | "tab:discount"          // reduce a line's revenue by a delta
+  | "tab:close-bar"          // settle and close a bartender's bar tab (money)
   | "tab:override-minimum"  // change a snapshotted minimum-spend commitment
   | "cashout:close"         // close a shift/venue cash-out reconciliation
   | "audit:read"            // view the venue-wide audit trail
@@ -27,13 +29,16 @@ export type StaffAction =
   | "door:admit"                  // admit a walk-in, reservation or guestlist arrival
   | "door:admit-banned-override"  // admit a banned profile anyway (always audited)
   | "door:id-check"               // record an ID check at the door
+  | "door:coat-check"             // check in/out coats and settle lost-item claims at the door
   | "waitlist:manage"             // add/notify/remove walk-in waitlist entries
   | "lastcall:start"             // start last-call sequence (stop new orders, broadcast)
+  | "show:control"               // start/finish the floor's bottle-service presentation walkout
   | "broadcast:send"             // send a broadcast message to all staff channels
   | "incident:create"             // file an incident report
   | "incident:read-all"           // view the venue-wide incident log
   | "guest:read-profile"          // view a guest profile (security sees flags only)
   | "guest:edit-profile"          // edit a guest profile's details/tags
+  | "guest:manage-referral"       // record and manage guest referral relationships
   | "guest:ban"                   // set/lift a guest's banned status
   | "service:refuse"             // refuse further service to a session
   | "emergency:evacuate"         // trigger emergency evacuation (zero occupancy, broadcast) — manager + security-lead
@@ -58,6 +63,7 @@ export type StaffAction =
   | "stocktake:commit"           // commit a stocktake (writes adjustment movements)
   | "inventory:waste"            // record waste/spillage
   | "inventory:86"              // manually 86 an item
+  | "menu:record-sale"           // record a manual inventory sale (not via a guest order)
   | "cost:read";                // view supplier pricing and margin data
 
 export type ActionCategory = "orders" | "guests" | "help" | "reservations" | "tab" | "operations" | "door" | "incidents";
@@ -95,6 +101,12 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   "order:gift": {
     label: "Comp / gift orders",
     description: "Waive the full order total as a house gift.",
+    category: "orders",
+    sensitive: true,
+  },
+  "order:cancel": {
+    label: "Cancel orders",
+    description: "Cancel an order before delivery — reverses its inventory draw-down and removes it from revenue.",
     category: "orders",
     sensitive: true,
   },
@@ -165,6 +177,12 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     category: "tab",
     sensitive: true,
   },
+  "tab:close-bar": {
+    label: "Close bar tabs",
+    description: "Settle and close a bartender's bar tab — writes the settlement and frees the tab.",
+    category: "tab",
+    sensitive: true,
+  },
   "tab:override-minimum": {
     label: "Override minimum spend",
     description: "Change a session's snapshotted minimum-spend commitment.",
@@ -203,6 +221,11 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     description: "Record that a guest's ID was checked and age verified at the door.",
     category: "door",
   },
+  "door:coat-check": {
+    label: "Run coat check",
+    description: "Check coats in and out and settle lost-item claims at the door.",
+    category: "door",
+  },
   "waitlist:manage": {
     label: "Manage waitlist",
     description: "Add, notify and remove walk-in waitlist entries.",
@@ -211,6 +234,12 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   "lastcall:start": {
     label: "Start last call",
     description: "Stop new orders and broadcast last call to all channels.",
+    category: "orders",
+    sensitive: true,
+  },
+  "show:control": {
+    label: "Control floor shows",
+    description: "Start and finish the floor's single bottle-service presentation walkout.",
     category: "orders",
     sensitive: true,
   },
@@ -240,6 +269,11 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     description: "Update a guest profile's details, tags and notes.",
     category: "guests",
     sensitive: true,
+  },
+  "guest:manage-referral": {
+    label: "Manage guest referrals",
+    description: "Record that a guest referred another, and track the referral's conversion.",
+    category: "guests",
   },
   "guest:ban": {
     label: "Ban / unban guests",
@@ -377,6 +411,12 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
     description: "Manually mark an item as unavailable with a reason, distinct from a natural sell-out.",
     category: "operations",
   },
+  "menu:record-sale": {
+    label: "Record manual sales",
+    description: "Record a cash/over-the-counter sale against inventory — writes a stock movement without a guest order.",
+    category: "orders",
+    sensitive: true,
+  },
   "cost:read": {
     label: "View cost data",
     description: "See supplier pricing, margin reports and profitability analytics.",
@@ -399,15 +439,15 @@ export type RolePermissions = Record<StaffRole, StaffAction[]>;
 /** Baseline capabilities shipped with the app. Tenants may override per-venue. */
 export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   manager: [
-    "order:accept", "order:claim", "order:release", "order:transition", "order:gift",
+    "order:accept", "order:claim", "order:release", "order:transition", "order:gift", "order:cancel",
     "session:approve", "session:deny", "help:respond",
-    "lastcall:start", "broadcast:send",
-    "tab:void", "tab:comp", "tab:discount", "tab:transfer", "tab:merge", "tab:override-minimum",
+    "lastcall:start", "show:control", "broadcast:send",
+    "tab:void", "tab:comp", "tab:discount", "tab:transfer", "tab:merge", "tab:close-bar", "tab:override-minimum",
     "cashout:close", "audit:read",
-    "door:count", "door:admit", "door:admit-banned-override", "door:id-check", "waitlist:manage",
+    "door:count", "door:admit", "door:admit-banned-override", "door:id-check", "door:coat-check", "waitlist:manage",
     "door:admit-capacity-override",
     "incident:create", "incident:read-all", "incident:mark-reportable",
-    "guest:read-profile", "guest:edit-profile", "guest:ban", "service:refuse",
+    "guest:read-profile", "guest:edit-profile", "guest:manage-referral", "guest:ban", "service:refuse",
     "emergency:evacuate", "emergency:resume",
     "certification:manage",
     "time:clock-self", "time:edit-others", "schedule:publish",
@@ -417,22 +457,24 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
     "commission:approve",
     "purchasing:draft", "purchasing:submit", "purchasing:receive",
     "stocktake:count", "stocktake:commit",
-    "inventory:waste", "inventory:86", "cost:read",
+    "inventory:waste", "inventory:86", "menu:record-sale", "cost:read",
   ],
   host: [
-    "order:accept", "order:claim", "order:release", "order:transition", "order:gift",
+    "order:accept", "order:claim", "order:release", "order:transition", "order:gift", "order:cancel",
     "session:approve", "session:deny",
+    "lastcall:start", "show:control", "broadcast:send",
     "tab:void", "tab:comp", "tab:transfer", "tab:merge",
-    "incident:create", "guest:read-profile", "service:refuse",
+    "incident:create", "guest:read-profile", "guest:manage-referral", "service:refuse",
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
-    "stocktake:count", "inventory:waste", "inventory:86",
+    "stocktake:count", "inventory:waste", "inventory:86", "menu:record-sale",
   ],
   bartender: [
-    "order:accept", "order:claim", "order:release", "order:transition",
-    "tab:void", "cashout:close",
+    "order:accept", "order:claim", "order:release", "order:transition", "order:cancel",
+    "show:control",
+    "tab:void", "cashout:close", "tab:close-bar",
     "incident:create", "service:refuse",
     "time:clock-self", "schedule:request-swap", "schedule:request-time-off", "tips:read-own",
-    "purchasing:draft", "stocktake:count", "inventory:waste", "inventory:86",
+    "purchasing:draft", "stocktake:count", "inventory:waste", "inventory:86", "menu:record-sale",
   ],
   // Fulfillment only — can move orders forward but cannot accept new ones.
   runner: [
@@ -443,7 +485,7 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
   // Security — the door, incidents and flags-only guest lookups; no order/session/tab authority.
   security: [
     "help:respond",
-    "door:count", "door:admit", "door:id-check", "waitlist:manage",
+    "door:count", "door:admit", "door:id-check", "door:coat-check", "waitlist:manage",
     "incident:create", "incident:read-all", "incident:mark-reportable",
     "guest:read-profile", // flags only — the UI hides visit/lifetime detail for this role
     "service:refuse",

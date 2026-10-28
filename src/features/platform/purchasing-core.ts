@@ -1,4 +1,5 @@
 import type { getDb } from "@/features/shared/db";
+import { applyMovement, transition } from "@/features/inventory/ledger";
 import type {
   PurchaseOrderStatus,
   StocktakeStatus,
@@ -449,14 +450,17 @@ export async function savePurchaseOrder(db: ScopedDb, po: PurchaseOrder): Promis
 }
 
 export async function submitPurchaseOrder(db: ScopedDb, poId: string, staffId: string): Promise<PurchaseOrder> {
-  const po = await db.purchaseOrder.findUnique({ where: { id: poId } });
-  assertRow(po);
-  if (po.status !== "draft") throw new Error("Only draft POs can be submitted.");
-  await db.purchaseOrder.update({
-    where: { id: poId },
-    data: { status: "submitted", submittedAt: new Date(), submittedByStaffId: staffId },
+  // CAS inside the transaction: two concurrent submits can't both pass the
+  // draft check (previously the check sat outside any transaction).
+  const updated = await db.$transaction(async (tx) => {
+    const claimed = await transition(tx, "purchaseOrder", poId, {
+      from: "draft",
+      to: "submitted",
+      data: { submittedAt: new Date(), submittedByStaffId: staffId },
+    });
+    if (!claimed) throw new Error("Only draft POs can be submitted.");
+    return tx.purchaseOrder.findUnique({ where: { id: poId } });
   });
-  const updated = await db.purchaseOrder.findUnique({ where: { id: poId } });
   assertRow(updated);
   return poRowToDTO(updated);
 }
@@ -464,46 +468,60 @@ export async function submitPurchaseOrder(db: ScopedDb, poId: string, staffId: s
 export async function receivePurchaseOrder(
   db: ScopedDb, poId: string, lines: { lineId: string; qtyReceived: number }[],
 ): Promise<PurchaseOrder> {
-  const po = await db.purchaseOrder.findUnique({ where: { id: poId } });
-  assertRow(po);
-  if (po.status !== "submitted" && po.status !== "partially-received") {
-    throw new Error("PO must be submitted or partially-received before receiving.");
-  }
-  const poLines = (po.lines as Row[]) as {
-    id: string; menuItemId: string; qtyOrdered: number; qtyReceived: number;
-    unitCostCents: number; lineTotalCents: number;
-  }[];
-  const receiptMap = new Map(lines.map((l) => [l.lineId, l.qtyReceived]));
-  for (const line of poLines) {
-    const received = receiptMap.get(line.id);
-    if (!received || received <= 0) continue;
-    const newQtyReceived = line.qtyReceived + received;
-    if (newQtyReceived > line.qtyOrdered) {
-      throw new Error(`Over-receipt on line ${line.id}: ordered ${line.qtyOrdered}, would receive ${newQtyReceived}.`);
+  // One transaction, with a lock on the PO row first: the JSON lines blob is
+  // the source of truth for qtyReceived, so concurrent receives must
+  // serialize on it — previously none of this was transactional and
+  // double-increments corrupted both stock and WAC.
+  return db.$transaction(async (tx) => {
+    await tx.$queryRawUnsafe(`SELECT id FROM purchase_orders WHERE id = $1 FOR UPDATE`, poId);
+    const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
+    assertRow(po);
+    if (po.status !== "submitted" && po.status !== "partially-received") {
+      throw new Error("PO must be submitted or partially-received before receiving.");
     }
-    line.qtyReceived = newQtyReceived;
-    const item = await db.menuItem.findUnique({ where: { id: line.menuItemId } });
-    if (item && received > 0) {
-      const newAvg = weightedAverageCost(item.avgCostCents ?? line.unitCostCents, item.inventory, received, line.unitCostCents);
-      await db.menuItem.update({ where: { id: line.menuItemId }, data: { inventory: { increment: received }, avgCostCents: newAvg } });
-      await db.stockMovement.create({
-        data: { menuItemId: line.menuItemId, itemName: item.name, type: "restock", delta: received, unitCostCents: line.unitCostCents, purchaseOrderId: poId, note: `Received PO ${po.code}` },
-      } as Row);
-      // Track price changes on the supplier item
-      const si = await db.supplierItem.findFirst({ where: { supplierId: po.supplierId, menuItemId: line.menuItemId } });
-      if (si && (si as Row).unitCostCents !== line.unitCostCents) {
-        await db.supplierItem.update({
-          where: { id: si.id },
-          data: { unitCostCents: line.unitCostCents, lastPriceChangeAt: new Date() },
-        } as Row);
+    const poLines = (po.lines as Row[]) as {
+      id: string; menuItemId: string; qtyOrdered: number; qtyReceived: number;
+      unitCostCents: number; lineTotalCents: number;
+    }[];
+    const receiptMap = new Map(lines.map((l) => [l.lineId, l.qtyReceived]));
+    for (const line of poLines) {
+      const received = receiptMap.get(line.id);
+      if (!received || received <= 0) continue;
+      const newQtyReceived = line.qtyReceived + received;
+      if (newQtyReceived > line.qtyOrdered) {
+        throw new Error(`Over-receipt on line ${line.id}: ordered ${line.qtyOrdered}, would receive ${newQtyReceived}.`);
+      }
+      line.qtyReceived = newQtyReceived;
+      const item = await tx.menuItem.findUnique({ where: { id: line.menuItemId } });
+      if (item && received > 0) {
+        const newAvg = weightedAverageCost(item.avgCostCents ?? line.unitCostCents, item.inventory, received, line.unitCostCents);
+        // Stock movement + inventory write through the ledger; WAC is purchasing math.
+        await applyMovement(tx, {
+          venueId: (po as Row).venue_id ?? (po as Row).venueId,
+          menuItemId: line.menuItemId,
+          delta: received,
+          type: "restock",
+          unitCostCents: line.unitCostCents,
+          purchaseOrderId: poId,
+          note: `Received PO ${po.code}`,
+        });
+        await tx.menuItem.update({ where: { id: line.menuItemId }, data: { avgCostCents: newAvg } });
+        // Track price changes on the supplier item
+        const si = await tx.supplierItem.findFirst({ where: { supplierId: po.supplierId, menuItemId: line.menuItemId } });
+        if (si && (si as Row).unitCostCents !== line.unitCostCents) {
+          await tx.supplierItem.update({
+            where: { id: si.id },
+            data: { unitCostCents: line.unitCostCents, lastPriceChangeAt: new Date() },
+          } as Row);
+        }
       }
     }
-  }
-  const newStatus = poStatusAfterReceive(poLines);
-  await db.purchaseOrder.update({ where: { id: poId }, data: { status: newStatus, lines: poLines as Row } });
-  const updated = await db.purchaseOrder.findUnique({ where: { id: poId } });
-  assertRow(updated);
-  return poRowToDTO(updated);
+    const newStatus = poStatusAfterReceive(poLines);
+    await tx.purchaseOrder.update({ where: { id: poId }, data: { status: newStatus, lines: poLines as Row } });
+    const updated = await tx.purchaseOrder.findUnique({ where: { id: poId } });
+    assertRow(updated);
+    return poRowToDTO(updated);
+  });
 }
 
 /**
@@ -592,21 +610,22 @@ export async function commitStocktake(db: ScopedDb, stId: string): Promise<Stock
     }[];
     for (const line of stLines) {
       if (line.varianceQty === 0) continue;
-      const item = await tx.menuItem.findUnique({ where: { id: line.menuItemId } });
-      const itemName = item?.name ?? line.menuItemId;
-      await tx.stockMovement.create({
-        data: { menuItemId: line.menuItemId, itemName, type: "adjustment", delta: line.varianceQty, note: `Stocktake ${st.businessDate} — count variance`, stocktakeId: stId },
-      } as Row);
-      if (item) {
-        await tx.menuItem.update({ where: { id: line.menuItemId }, data: { inventory: { increment: line.varianceQty } } });
-      }
+      await applyMovement(tx, {
+        venueId: (st as Row).venue_id ?? (st as Row).venueId,
+        menuItemId: line.menuItemId,
+        delta: line.varianceQty,
+        type: "adjustment",
+        note: `Stocktake ${st.businessDate} — count variance`,
+        stocktakeId: stId,
+      });
     }
     const totalVarianceCents = stLines.reduce((sum, l) => sum + (l.varianceCents ?? 0), 0);
-    const claimed = await tx.stocktake.updateMany({
-      where: { id: stId, status: "counting" },
-      data: { status: "committed", committedAt: new Date(), totalVarianceCents },
+    const claimed = await transition(tx, "stocktake", stId, {
+      from: "counting",
+      to: "committed",
+      data: { committedAt: new Date(), totalVarianceCents },
     });
-    if (claimed.count === 0) {
+    if (!claimed) {
       throw new Error("Stocktake was already committed by another process.");
     }
     const updated = await tx.stocktake.findUnique({ where: { id: stId } });
@@ -646,19 +665,16 @@ export async function recordWaste(
   // old version read inventory outside the tx and clamped at 0, letting the
   // ledger diverge (movement -5, inventory only -3).
   return db.$transaction(async (tx) => {
-    const locked = await tx.$queryRawUnsafe<{ id: string; name: string; inventory: number }[]>(
-      `SELECT id, name, inventory FROM menu_items WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
-      itemId,
+    const result = await applyMovement(tx, {
       venueId,
-    );
-    const item = locked[0];
-    const itemName = item?.name ?? itemId;
-    const mvt = await tx.stockMovement.create({
-      data: { venueId, menuItemId: itemId, itemName, type: "waste", delta: -absQty, wasteReason: reason, note: reason },
-    } as Row) as Row;
-    if (item) {
-      await tx.menuItem.update({ where: { id: itemId }, data: { inventory: item.inventory - absQty } });
-    }
+      menuItemId: itemId,
+      delta: -absQty,
+      type: "waste",
+      note: reason,
+      wasteReason: reason,
+    });
+    if (!result.movementId) throw new Error(`Item ${itemId} not found`);
+    const mvt = (await tx.stockMovement.findUnique({ where: { id: result.movementId } })) as Row;
     return mvt;
   }).then((mvt) => ({
     id: mvt.id,

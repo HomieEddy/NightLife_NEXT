@@ -47,7 +47,7 @@ export default function AdminShellClient({ children }: { children: React.ReactNo
                 )}
               >
                 <item.icon className="size-3.5" />
-                {t(item.labelKey as any ?? item.label)}
+                {t((item.labelKey ?? item.label) as Parameters<typeof t>[0])}
               </Link>
             );
           })}

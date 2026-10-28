@@ -24,8 +24,9 @@ const ClubLights = dynamic(() => import("@/components/fx/club-lights").then((m) 
   ssr: false,
 });
 import { defaultLocale, getLocaleCookie, setLocaleCookie } from "@/i18n/config";
-import { isDemoMode } from "@/features/shared/app-mode";
-import { guestsService } from "@/features/guests/services";
+  import { isDemoMode } from "@/features/shared/app-mode";
+  import { normalizeVenueLocale } from "@/features/shared/locale";
+  import { guestsService } from "@/features/guests/services";
 import { reservationService } from "@/features/hospitality/reservation-service";
 import { venueService } from "@/features/venue/services";
 import type { Reservation, Venue, VenueTable, Zone } from "@/lib/types";
@@ -143,7 +144,7 @@ export default function QrEntryPage({
       // Seed the locale from the venue's guestLocale when the visitor has no
       // preference yet — a francophone venue's guests get French by default.
       if (getLocaleCookie() === defaultLocale && result.venue.guestLocale) {
-        setLocaleCookie(result.venue.guestLocale === "fr" ? "fr" : "en");
+        setLocaleCookie(normalizeVenueLocale(result.venue.guestLocale));
       }
       router.push("/guest/waiting");
     } catch (joinError) {

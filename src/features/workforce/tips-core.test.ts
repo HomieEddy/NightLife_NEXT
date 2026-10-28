@@ -188,5 +188,12 @@ describe("distributeTips", () => {
       const under: TipPoolRule = { ...rule, houseRetentionPct: -5 };
       expect(distributeTips(10000, under, staffBasis).reduce((s, l) => s + l.shareCents, 0)).toBe(10000);
     });
+
+    it("matches the workforce retention formula at non-round pools (INV regression)", () => {
+      // pool 199, retention 50% → retained = round(199*50/100) = 100 → distributable = 99.
+      const r: TipPoolRule = { ...rule, houseRetentionPct: 50 };
+      const lines = distributeTips(199, r, staffBasis);
+      expect(lines.reduce((s, l) => s + l.shareCents, 0)).toBe(99);
+    });
   });
 });

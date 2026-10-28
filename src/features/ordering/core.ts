@@ -6,7 +6,8 @@
 import type { getDb } from "@/features/shared/db";
 import { getRawPrisma } from "@/features/shared/db";
 import { fromCents, toCents } from "@/features/shared/money";
-import { computeOrderPricing, type FeeInput, type PricingLineInput, type PromotionInput } from "./pricing";
+import { computeOrderPricing, venueFeeInput, type PricingLineInput, type PromotionInput } from "./pricing";
+import { applyMovement, transition } from "@/features/inventory/ledger";
 import { publish } from "@/features/realtime/events";
 import { nextStatus, ORDER_FLOW } from "@/features/shared/order-status";
 import type { ModifierGroup, Order, OrderStatus, ServiceFee } from "@/lib/types";
@@ -143,15 +144,6 @@ function toOrder(row: OrderRow): Order {
 }
 
 const ORDER_INCLUDE = { items: true, feeLines: true } as const;
-
-// ── Venue fee config → pricing input adapter ─────────────────────────
-
-function venueFeeToInput(sf: ServiceFee): FeeInput {
-  if (sf.type === "flat") {
-    return { id: sf.id, name: sf.name, type: "flat", valueCents: toCents(sf.value) };
-  }
-  return { id: sf.id, name: sf.name, type: "percentage", value: Math.round(sf.value * 100) };
-}
 
 // ── Order counter (venue-scoped) ─────────────────────────────────────
 
@@ -378,7 +370,7 @@ export async function submitOrder(
     }));
 
   const serviceFees = venueRow.serviceFees as unknown as ServiceFee[];
-  const fees = serviceFees.map(venueFeeToInput);
+  const fees = serviceFees.map(venueFeeInput);
 
   const happyHourRules = happyHourRows.map((r) => ({
     id: r.id,
@@ -488,41 +480,19 @@ export async function submitOrder(
       }
 
       for (const [menuItemId, quantity] of draws) {
-        const locked = await tx.$queryRawUnsafe<{ id: string; name: string; inventory: number; is_available: boolean }[]>(
-          `SELECT id, name, inventory, is_available FROM menu_items WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
-          menuItemId,
+        // Ledger owns the lock → check → move; the order id is the structural
+        // join used by cancelOrder's reversal (INV-05).
+        await applyMovement(tx, {
           venueId,
-        );
-
-        if (locked.length === 0) throw new Error(`Item ${menuItemId} not found`);
-        const item = locked[0];
-        if (!item.is_available) throw new Error(`${item.name} is not available`);
-        if (item.inventory < quantity) {
-          throw new Error(`Not enough stock for ${item.name} (have ${item.inventory}, need ${quantity})`);
-        }
-
-        const newInventory = item.inventory - quantity;
-        await tx.$executeRawUnsafe(
-          `UPDATE menu_items SET inventory = $1, updated_at = NOW() WHERE id = $2`,
-          newInventory,
-          item.id,
-        );
-        await tx.stockMovement.create({
-          data: {
-            venueId,
-            menuItemId: item.id,
-            itemName: item.name,
-            type: "sale",
-            delta: -quantity,
-            note: `Order ${code}`,
-          },
+          menuItemId,
+          delta: -quantity,
+          type: "sale",
+          note: `Order ${code}`,
+          requireAvailable: true,
+          requireStock: quantity,
+          emitSoldOut: true,
+          orderId: order.id,
         });
-
-        if (item.inventory > 0 && newInventory === 0) {
-          await tx.soldOutEvent.create({
-            data: { venueId, itemId: item.id, itemName: item.name },
-          });
-        }
       }
 
       // Increment promotion redemption count — exactly once per order, inside the transaction
@@ -555,12 +525,10 @@ export async function sendGift(
   venueId: string,
   input: z.infer<typeof zSendGift>,
 ): Promise<{ ok: true; order: Order } | { ok: false; error: string }> {
-  const menuItem = await db.menuItem.findUnique({ where: { id: input.menuItemId } });
-  if (!menuItem) return { ok: false, error: "Menu item not found" };
-  if (!menuItem.isAvailable) return { ok: false, error: `${menuItem.name} is not available` };
-
   // Gift fields are stamped inside submitOrder's transaction — the order can
-  // never exist without its gift metadata.
+  // never exist without its gift metadata. submitOrder resolves each line's
+  // item and availability inside its transaction, so a missing/unavailable
+  // item fails the whole gift atomically.
   return submitOrder(db, venueId, {
     tableId: input.fromTableId,
     tableCode: input.fromTableCode,
@@ -568,11 +536,11 @@ export async function sendGift(
     zoneName: input.fromZoneName,
     guestName: input.guestName,
     sessionId: input.sessionId,
-    lines: [{
-      menuItemId: input.menuItemId,
-      quantity: 1,
+    lines: input.items.map((item) => ({
+      menuItemId: item.menuItemId,
+      quantity: item.quantity,
       modifiers: [],
-    }],
+    })),
     tipCents: 0,
     giftToTableId: input.toTableId,
     giftToTableCode: input.toTableCode,
@@ -610,11 +578,8 @@ export async function advanceOrder(
   // the state machine (both read "pending" → both write "accepted"). The
   // loser re-reads and returns the actual current state.
   const updated = await db.$transaction(async (tx) => {
-    const transitioned = await tx.order.updateMany({
-      where: { id: orderId, status: row.status },
-      data,
-    });
-    if (transitioned.count === 0) return null;
+    const transitioned = await transition(tx, "order", orderId, { from: row.status, to: next, data });
+    if (!transitioned) return null;
     return tx.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
   });
   if (!updated) {
@@ -645,32 +610,24 @@ export async function cancelOrder(
 
   const updated = await db.$transaction(async (tx) => {
     // Status guard inside the transaction so a concurrent cancel can't reverse stock twice.
-    const transitioned = await tx.order.updateMany({
-      where: { id: orderId, status: { notIn: TERMINAL_STATUSES } },
-      data: { status: "cancelled" },
+    const transitioned = await transition(tx, "order", orderId, {
+      from: { notIn: TERMINAL_STATUSES },
+      to: "cancelled",
     });
-    if (transitioned.count === 0) return null;
+    if (!transitioned) return null;
 
     // Reverse the exact sale movements recorded at placement — keeps inventory === Σ movements.
     const sales = await tx.stockMovement.findMany({
-      where: { venueId: row.venueId, type: "sale", note: `Order ${row.code}` },
+      where: { venueId: row.venueId, type: "sale", orderId: orderId },
     });
     for (const movement of sales) {
       if (!movement.menuItemId) continue;
-      await tx.$executeRawUnsafe(
-        `UPDATE menu_items SET inventory = inventory + $1, updated_at = NOW() WHERE id = $2`,
-        -movement.delta,
-        movement.menuItemId,
-      );
-      await tx.stockMovement.create({
-        data: {
-          venueId: row.venueId,
-          menuItemId: movement.menuItemId,
-          itemName: movement.itemName,
-          type: "adjustment",
-          delta: -movement.delta,
-          note: `Order ${row.code} cancelled`,
-        },
+      await applyMovement(tx, {
+        venueId: row.venueId,
+        menuItemId: movement.menuItemId,
+        delta: -movement.delta,
+        type: "adjustment",
+        note: `Order ${row.code} cancelled`,
       });
     }
 

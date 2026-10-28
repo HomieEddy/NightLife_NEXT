@@ -6,6 +6,7 @@
  * join route; lookup verifies the same token before returning table details.
  */
 import { getPlatformDb } from "@/features/shared/db";
+import { normalizeVenueLocale } from "@/features/shared/locale";
 import { verifyTableToken } from "@/features/shared/table-token";
 import type { Venue, VenueTable, Zone } from "@/lib/types";
 
@@ -78,7 +79,7 @@ export async function findTableByQrSlug(
       coatCheckEnabled: venueRow.coatCheckEnabled,
       doorRequiresIdCheck: venueRow.doorRequiresIdCheck,
       legalDrinkingAge: 18,
-      guestLocale: (venueRow.guestLocale as Venue["guestLocale"]) ?? "en",
+      guestLocale: normalizeVenueLocale(venueRow.guestLocale as string | null | undefined),
     },
   };
 }

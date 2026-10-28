@@ -496,3 +496,66 @@ Never run `prisma db push` in production.
 last known-good release. If the rollback involves a DB migration, follow the
 migration's own down-path (or restore from backup per §restore) — never
 roll back code past a data migration without a restore drill.
+
+**CI gate (plan 36):** every PR to `dev` or `master` must pass
+`.github/workflows/ci.yml` — `tsc`, `eslint src`, unit + integration tests,
+the two coverage gates (plan 37), `npm audit --audit-level=high`, both-mode
+`next build`, and a gitleaks secret scan. `master` additionally requires the
+head branch to be `dev` (or `hotfix/*`), enforced by
+`.github/workflows/release-guard.yml`. The binding required-check list and the
+one-time setup steps live in `docs/plan-36-branch-protection.md`. CI holds **no
+real secrets** — the live build uses dummy-but-valid env inline; real secrets
+live only in Coolify/Vercel env config, because CI never deploys (the
+platforms pull on push).
+
+**Environment variable map** (which env carries what; see `.env.example` for
+the full annotated list):
+
+| Variable | dev | staging | production | demo (Vercel) |
+|---|---|---|---|---|
+| `NEXT_PUBLIC_APP_MODE` | `demo`/`live` | `live` | `live` | `demo` |
+| `DATABASE_URL` | PGlite/compose | staging DB (`nightlife_app`) | prod DB (`nightlife_app`) | — (none) |
+| `DIRECT_DATABASE_URL` | — | `nightlife_migrate` | `nightlife_migrate` | — |
+| `AUTH_SECRET` | dev placeholder | Coolify secret | Coolify secret | — |
+| `QR_TOKEN_SECRET` | dev placeholder | Coolify secret | Coolify secret | — |
+| `DATABASE_POOL_MAX` | — | `10` | `10` | — |
+| `SENTRY_DSN`/`SENTRY_ENV` | optional | staging | production | — |
+| `REDIS_URL` | optional | Coolify Redis | Coolify Redis | — |
+| Notifications (`RESEND_*`, `TWILIO_*`, `VAPID_*`) | `*_DRIVER=log` | test/live keys | live keys | — |
+
+**Migration backward-compatibility rule (expand-contract):** code rolls back
+freely only across **non-breaking** migrations. Every migration that reaches
+`master` must stay backward-compatible with the previous release: add columns
+nullable, backfill in a later release, tighten later; never drop or rename a
+column in the same release that stops using it. A breaking migration forfeits
+the one-click rollback and forces a restore. This is a review-checklist rule
+for every migration PR.
+
+**On-call contacts** (fill with real names before first production traffic —
+placeholders until then):
+
+| Role | Name | Contact | Notes |
+|------|------|---------|-------|
+| Primary on-call | _(pending)_ | | |
+| Secondary | _(pending)_ | | |
+| VPS/infra owner (OVHcloud) | _(pending)_ | | |
+| Database owner | _(pending)_ | | |
+
+## Pending infrastructure (plan 36 follow-ups)
+
+These are **not yet done** because the VPS/Coolify provision does not exist
+yet. Land them in the first PR after provisioning:
+
+- **Provision OVHcloud BHS VPS + Coolify** (staging + production apps,
+  Postgres, `DATABASE_POOL_MAX=10`, migrate pre-deploy command, Let's Encrypt
+  SSL) — see `docs/HOSTING.md` and `docs/RUNBOOK-VPS-SETUP.md`.
+- **Deploy notifications:** Coolify webhook → email/Discord on deploy
+  start/success/failure with the git SHA; Sentry release tagging per deploy.
+- **Rollback rehearsal:** deploy staging, roll back one release, verify the
+  prior build serves; paste the transcript here and date it.
+- **Verify the wiring end-to-end:** a trivial change pushed to `dev`
+  auto-deploys to staging; the release PR to `master` auto-deploys prod + the
+  Vercel demo.
+- **Fill the on-call contacts table** above.
+- **Promote the E2E suite** (`.github/workflows/e2e.yml`) into the required
+  checks once it has a clean run streak; it is manual-dispatch only for now.

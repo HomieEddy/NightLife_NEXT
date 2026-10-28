@@ -19,17 +19,15 @@ async function liveGET() {
 }
 
 async function livePOST(request: NextRequest) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
   const { startShow, finishShow } = await import("@/features/realtime/floor-core");
-  const { getRawPrisma } = await import("@/features/shared/db");
-  const { getCurrentStaff } = await import("@/features/workforce/staff-core");
 
-  const auth = await requireApiArea("staff");
+  // show:control claims the floor's single presentation slot — manager/host/bartender.
+  // A runner or security token must not be able to lock or release the show.
+  const auth = await requirePermission("staff", "show:control");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const { venueId } = sessionToDbContext(auth.session);
-  const staff = await getCurrentStaff(getRawPrisma(), venueId, auth.session.user.id);
-  if (!staff) return NextResponse.json({ error: "Staff profile not found" }, { status: 403 });
+  const { venueId, staff } = auth;
   const body = await request.json();
   const action = body.action as "start" | "finish";
 

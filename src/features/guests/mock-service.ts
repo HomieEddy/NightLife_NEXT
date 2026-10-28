@@ -7,7 +7,7 @@ import type { BarTab, GuestSession, GuestVipTier, HelpRequest, HelpRequestType, 
 import { mockGuestSessions, mockHelpRequests } from "@/features/ordering/mock-data";
 import { MOCK_VIP_TIER_BENEFITS } from "@/features/guests/mock-data";
 import { mockOrders } from "@/features/ordering/mock-data";
-import { mergedMinimumSpendCents } from "@/lib/tab";
+import { mergedMinimumSpendCents, orderItemAmountCents } from "@/lib/tab";
 import { clone, delay, uid } from "@/features/shared/delay";
 import { mockReservationService } from "@/features/hospitality/reservation-mock-service";
 import { mockVenueService } from "@/features/venue/mock-service";
@@ -221,7 +221,7 @@ export const mockGuestsService = {
         .reduce((sum, o) =>
           sum + o.items
             .filter((oi) => s.orderItemIds.includes(oi.id))
-            .reduce((s2, oi) => s2 + oi.unitPrice * oi.quantity, 0), 0);
+            .reduce((s2, oi) => s2 + orderItemAmountCents(oi), 0), 0);
       result.splits.push({ label: s.label, orderItemIds: s.orderItemIds, subTotalCents: subTotal, settled: false });
     }
     return result;

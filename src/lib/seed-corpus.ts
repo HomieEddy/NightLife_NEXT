@@ -16,7 +16,7 @@
  * match what the live app computes — no drift between seed data and runtime.
  */
 
-import { computeFeeLines, computeServiceFee } from "@/features/ordering/fees";
+import { computeFeeLinesForSubtotal, computeServiceFeeForSubtotal } from "@/features/ordering/pricing";
 import type { Venue } from "@/lib/types";
 
 // ── Seeded PRNG (same LCG as seed-staging.ts) ──────────────────────────
@@ -1113,11 +1113,11 @@ export function generateNightActivity(nightDate: Date): NightActivity {
       const placedAt = hourInNight(Math.min(placedHour, closeTime > openTime ? closeTime - 1 : openTime + 3));
       const { items, subtotal: subtotalCents } = generateOrderItems(sessionId, sessionOrderIdx);
 
-      // Fee math routes through the real ordering/fees.ts so seeded orders
+      // Fee math routes through the real pricing module so seeded orders
       // match what the live app computes — no drift between seed data and runtime.
       const subtotalDollars = subtotalCents / 100;
-      const feeTotal = Math.round(computeServiceFee(subtotalDollars, CORPUS_VENUE as unknown as Venue) * 100);
-      const feeLines = computeFeeLines(subtotalDollars, CORPUS_VENUE as unknown as Venue);
+      const feeTotal = Math.round(computeServiceFeeForSubtotal(subtotalDollars, CORPUS_VENUE as unknown as Venue) * 100);
+      const feeLines = computeFeeLinesForSubtotal(subtotalDollars, CORPUS_VENUE as unknown as Venue);
       const feeBreakdown = feeLines.map((l) => ({
         fee: { id: l.fee.id, name: l.fee.name, type: l.fee.type, value: l.fee.value },
         amount: Math.round(l.amount * 100),

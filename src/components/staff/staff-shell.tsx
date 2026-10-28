@@ -130,7 +130,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                     </span>
                   )}
                 </span>
-                {nt((item as any).labelKey ?? item.label)}
+                {nt((item.labelKey ?? item.label) as Parameters<typeof nt>[0])}
                 {active && (
                   <span className="absolute inset-x-1/4 top-0 h-0.5 rounded-full bg-primary" />
                 )}
@@ -174,7 +174,7 @@ export function StaffShell({ children }: { children: React.ReactNode }) {
                         )}
                       >
                         <item.icon className="size-5" />
-                        <span>{nt((item as any).labelKey ?? item.label)}</span>
+                        <span>{nt((item.labelKey ?? item.label) as Parameters<typeof nt>[0])}</span>
                       </Link>
                     );
                   })}

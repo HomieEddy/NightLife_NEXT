@@ -296,16 +296,27 @@ production-safe. All five plans are fully implemented.
 
 ---
 
-## PHASE 9 — TEST COVERAGE REINFORCEMENT & CI/CD, DEPLOYMENT & RELEASE AUTOMATION · NOT STARTED
+## PHASE 9 — TEST COVERAGE REINFORCEMENT & CI/CD, DEPLOYMENT & RELEASE AUTOMATION · IN PROGRESS
 
 Plan 37 runs first, plan 36 after: the coverage gate plan 37 installs is part
 of what plan 36's pipeline enforces. Plan 36 stays last (AD-23) — automating
 deploys of an incomplete product is premature optimization.
 
+**Plan 37 status — substantially done (coverage gate installed):** the v8
+coverage gate is live (`npm run test:coverage`, live-core scoped, demo track
+excluded) with a low starting aggregate that ratchets upward, plus a money/
+state-machine cores gate (`npm run test:coverage:cores`). Missing tests added
+for `order-status` (state machine) and `api-error` (error seam). Per-file
+floors are deferred: vitest 4 doesn't reliably enforce `perFile`, and the
+pure-math+DB-CRUD mixed cores (tips-core, time-core, purchasing-core) are
+own-project-split, so whole-file floors there are documented as exemptions
+(AGENTS.md §7c). The admin-provision E2E spec is deferred to after CI (plan
+36).
+
 | Plan | Feature | Risk |
 |------|---------|------|
-| 37 | Test coverage reinforcement: scoped 70/60/65 thresholds, per-file money floors, named-gap tests, admin-provision E2E, coverage wired for CI | Low |
-| 36 | CI/CD pipeline: GitHub Actions, branch protection, lint/typecheck/test/build gates, staging auto-deploy on `dev`, production deploy on `master` with approval gate, database migration automation, rollback rehearsal, deployment audit log, infrastructure-as-code (Coolify config in repo), disaster recovery runbook, production monitoring and alerting, on-call escalation | Low |
+| 37 | Test coverage reinforcement: coverage gate + money-core gate installed; per-file floors deferred (vitest limitation + mixed-file split); admin-provision E2E deferred to after CI | Low |
+| 36 | CI/CD pipeline: GitHub Actions, branch protection, lint/typecheck/test/build gates, staging auto-deploy on `dev`, production deploy on `master` with approval gate, database migration automation, rollback rehearsal, deployment audit log, infrastructure-as-code (Coolify config in repo), disaster recovery runbook, production monitoring and alerting, on-call escalation | Low — **CI workflows shipped; deploy wiring pending VPS provision** |
 
 **Permitted before Phase 9:** one minimal CI gate on every PR to `dev` —
 `npx tsc --noEmit && npx eslint src && npm run test`. That is all. No staging
@@ -345,8 +356,8 @@ realignment so that all *remaining* work is numbered in ROADMAP order.
 | 33 | Database operations | 8 | Complete |
 | 34 | i18n: French/English | 8 | Complete |
 | 35 | Compliance & privacy | 8 | Complete |
-| 36 | CI/CD & deployment | 9 | Not started |
-| 37 | Test coverage reinforcement | 9 | Not started |
+| 36 | CI/CD & deployment | 9 | **In progress** — CI workflows shipped; deploy wiring pending VPS provision |
+| 37 | Test coverage reinforcement | 9 | **In progress** — coverage gate live; per-file floors + E2E deferred |
 
 ### Renumbering map (2026-07-30)
 
@@ -357,7 +368,7 @@ realignment so that all *remaining* work is numbered in ROADMAP order.
 | 24 | **33** | Database operations | Complete |
 | 27 | **34** | i18n French/English | Complete |
 | 29 | **35** | Compliance & privacy | Complete |
-| 21 | **36** | CI/CD & deployment | Not started |
+| 21 | **36** | CI/CD & deployment | In progress — CI shipped; deploy pending VPS |
 
 **Numbers 21, 22, 23, 24, 27 and 29 are retired and must never be reused.** Old
 commits and docs reference them with their old meaning; reusing them would make

@@ -307,6 +307,32 @@ feature's plan names its required tests; don't invent a different set silently.
    before the preview drive; E2E runs before `next build` on migration PRs.
    A red suite blocks the commit — no "will fix in the next one".
 
+### 7c. Coverage gate (plan 37)
+
+The suite is measured, and that measurement is enforced in the pipeline (plan
+36's check job). Two layers:
+
+- **Aggregate, live-core only.** `npm run test:coverage` runs both projects
+  with a v8 coverage gate scoped to live core — the demo track is excluded,
+  because it is the fixture layer by design (mock services, mock data,
+  `src/app`, `src/components`, `src/i18n`). The gate measures
+  `src/features/**` live-core + `src/lib/**` only. Thresholds are set below
+  today's measured value and ratchet upward; never raise a threshold until
+  the gate is green at the current one.
+- **Money/state-machine cores.** `npm run test:coverage:cores` scopes the
+  report to just the money/state cores (fees, pricing, costs, order-status,
+  tab, happy-hour, order-line, workforce) with its own aggregate floor. A
+  regression in one of those can't hide behind the live-core aggregate.
+
+A file that **mixes pure math and DB-backed CRUD** (e.g. tips-core,
+time-core, purchasing-core) is deliberately **not** floored as a whole file:
+its pure math is unit-owned (`*.test.ts`) and its CRUD is integration-owned
+(`*.integration.test.ts`), so no single project can reach the floor on the
+combined file. Flipping it would require either splitting the file or gamed
+duplicate tests — the plan exempts these with a written reason rather than
+either. The pure math in each *is* unit-tested to its branches; the CRUD
+*functions* are integration-tested.
+
 ## 8. Communication
 
 1. **Lead with the outcome**, then the supporting detail. First sentence =
@@ -502,6 +528,12 @@ readable; they codify how this repo has actually been built.
    **Rules:**
    - No direct pushes to `dev` or `master` — always via PR.
    - Every PR to `dev` must pass `tsc`, eslint, and the test suite.
+   - **CI enforces these rules mechanically** (plan 36): `.github/workflows/ci.yml`
+     gates every PR to `dev`/`master` on types, lint, unit + integration tests,
+     the plan-37 coverage gates, both-mode builds, audit and a secret scan;
+     `release-guard.yml` rejects any `master` PR not from `dev`/`hotfix/*`.
+     Branch-protection setup (a one-time GitHub setting) is documented in
+     `docs/plan-36-branch-protection.md`.
    - Every PR to `master` (release) must have been validated on staging.
    - Feature branches are short-lived: days, not weeks. Long-lived branches
      accumulate merge pain.
@@ -620,3 +652,17 @@ makes it obsolete.
   `setInterval(refresh` patterns remain. Floor coordination (broadcasts, last
   call, show lock, chat) lives in `src/features/realtime/floor-core.ts` with
   domain events published via `src/features/realtime/events.ts`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as GitHub issues in HomieEddy/NightLife_NEXT, managed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical labels used verbatim: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` + `docs/adr/` at the repo root (neither exists yet; created lazily by `/domain-modeling`). See `docs/agents/domain.md`.

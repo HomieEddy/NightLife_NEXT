@@ -1,0 +1,42 @@
+name: E2E
+
+# Playwright end-to-end flows (AGENTS.md §7b.8). NOT part of the PR gate —
+# the suite isn't promoted into required checks until it's stable enough not to
+# flake the release flow. Manual dispatch only for now; add a nightly `schedule`
+# on `dev` once it has a clean run streak.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    name: Playwright (live, two-context)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_APP_MODE: live
+      E2E_PORT: "3000"
+      # Boot the app against the in-process PGlite + seeded stack so E2E needs
+      # no provisioned database (the app's own dev script starts the DB).
+      E2E_SERVER_COMMAND: "npx tsx scripts/pglite-dev.ts --seed"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright
+        run: npm run test:e2e
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

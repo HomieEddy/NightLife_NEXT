@@ -17,8 +17,8 @@ import { useGuest } from "@/context/guest-context";
 import { menuService } from "@/features/menu/services";
 import { ordersService } from "@/features/ordering/services";
 import { promotionsService } from "@/features/hospitality/promotions-service";
-import { computeFeeLines, feeLabel } from "@/features/ordering/fees";
-import { cartHappyHourDiscount } from "@/lib/happy-hour";
+import { computeCartPricing } from "@/features/ordering/pricing";
+import { feeLabel } from "@/features/ordering/fees";
 import { formatMoney } from "@/features/shared/format";
 import { useLastCall } from "@/lib/use-last-call";
 import { cn } from "@/features/shared/utils";
@@ -56,48 +56,27 @@ export function CartContents({ onSubmitted }: { onSubmitted?: () => void }) {
     menuService.listHappyHourRules().then(setHappyHourRules);
   }, []);
 
-  // Preview of the discount the order service will apply — same computation.
-  const happyHourDiscount = useMemo(
-    () =>
-      cartHappyHourDiscount(
-        happyHourRules,
-        cart.map((line) => ({
-          unitPrice: line.menuItem.price,
-          quantity: line.quantity,
-          categoryId: line.menuItem.categoryId,
-          addOns: line.modifiers,
-        })),
-        new Date(),
-      ).discount,
-    [cart, happyHourRules],
-  );
-
-  const promoDiscount = useMemo(() => {
-    if (!appliedPromo) return 0;
-    if (appliedPromo.type === "percentage") {
-      return Math.round(cartSubtotal * appliedPromo.value) / 100;
-    }
-    return Math.min(appliedPromo.value, cartSubtotal);
-  }, [appliedPromo, cartSubtotal]);
-
-  const afterDiscounts = cartSubtotal - happyHourDiscount - promoDiscount;
-
-  // Snapshot taken at QR landing (see findTableByQrSlug) — fee edits made mid-session
-  // won't retroactively apply to an already-open guest cart.
-  const feeLines = useMemo(
-    () => (venue ? computeFeeLines(afterDiscounts, venue) : []),
-    [afterDiscounts, venue],
-  );
-  const serviceFee = useMemo(
-    () => Math.round(feeLines.reduce((sum, l) => sum + l.amount, 0) * 100) / 100,
-    [feeLines],
-  );
+  // Preview of the money the order service will compute — both tracks run this same engine.
   const effectiveTipPct = customTip ? customTipPct : tipPct;
   const tip = useMemo(
     () => Math.round(cartSubtotal * effectiveTipPct) / 100,
     [cartSubtotal, effectiveTipPct],
   );
-  const total = afterDiscounts + serviceFee + tip;
+  const cartPricing = useMemo(() => {
+    if (!venue || cart.length === 0) return null;
+    return computeCartPricing({
+      lines: cart,
+      venue,
+      happyHourRules,
+      promotion: appliedPromo ?? undefined,
+      tip,
+      now: new Date(),
+    });
+  }, [cart, venue, happyHourRules, appliedPromo, tip]);
+  const happyHourDiscount = cartPricing?.happyHourDiscount ?? 0;
+  const promoDiscount = cartPricing?.promoDiscount ?? 0;
+  const feeLines = cartPricing?.feeLines ?? [];
+  const total = cartPricing?.total ?? 0;
 
   async function handleApplyPromo() {
     if (!promoInput.trim()) return;

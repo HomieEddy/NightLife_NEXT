@@ -1,6 +1,6 @@
 # 37 — Test Coverage Reinforcement · PLAN
 
-**Status: not started — Phase 9, executes before plan 36.**
+**Status: in progress — coverage gate installed (Phase 9, executes before plan 36).**
 **Numbered 37** per the ROADMAP plan index ("numbering restarts at 37 for the
 next new plan"); plan 36 keeps its number — `docs/plans/36-cicd-deployment-PLAN.md`
 exists and is referenced across RUNBOOK/SECURITY/ARD.

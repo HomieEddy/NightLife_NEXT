@@ -151,8 +151,8 @@ export function ForecastTab() {
 /** AI-03: Per-hour breakdown. */
 export function PerHourTab() {
   const t = useTranslations("shared");
-  const data = useAnalytics("getPerHourAnalytics", () => analyticsService.getPerHourAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
+  const data = useAnalytics("getPerHourAnalytics", () => analyticsService.getPerHourAnalytics(from, to));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -207,8 +207,8 @@ export function PerHourTab() {
 /** AI-04: Door-to-table conversion funnel. */
 export function FunnelTab() {
   const t = useTranslations("shared");
-  const data = useAnalytics("getDoorToTableFunnel", () => analyticsService.getDoorToTableFunnel(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
+  const data = useAnalytics("getDoorToTableFunnel", () => analyticsService.getDoorToTableFunnel(from, to));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   const { rates } = data;
   return (
@@ -249,8 +249,8 @@ export function FunnelTab() {
 /** AI-05: Table-turn analytics. */
 export function TableTurnTab() {
   const t = useTranslations("shared");
-  const data = useAnalytics("getTableTurnAnalytics", () => analyticsService.getTableTurnAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
+  const data = useAnalytics("getTableTurnAnalytics", () => analyticsService.getTableTurnAnalytics(from, to));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -298,8 +298,8 @@ export function TableTurnTab() {
 /** AI-06: Order SLA / time-to-serve analytics. */
 export function SlaTab() {
   const t = useTranslations("shared");
-  const data = useAnalytics("getOrderSlaAnalytics", () => analyticsService.getOrderSlaAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
+  const data = useAnalytics("getOrderSlaAnalytics", () => analyticsService.getOrderSlaAnalytics(from, to));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   const maxDist = Math.max(...data.distribution.map((d) => d.count));
   return (
@@ -349,8 +349,8 @@ export function SlaTab() {
 /** AI-07: Comp/void ratio monitoring. */
 export function CompVoidTab() {
   const t = useTranslations("shared");
-  const data = useAnalytics("getCompVoidRatioAnalytics", () => analyticsService.getCompVoidRatioAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
+  const data = useAnalytics("getCompVoidRatioAnalytics", () => analyticsService.getCompVoidRatioAnalytics(from, to));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -405,8 +405,8 @@ export function CompVoidTab() {
 /** AI-09: Promoter performance report. */
 export function PromoterPerformanceTab() {
   const t = useTranslations("shared");
-  const data = useAnalytics("getPromoterPerformanceReport", () => analyticsService.getPromoterPerformanceReport(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
+  const data = useAnalytics("getPromoterPerformanceReport", () => analyticsService.getPromoterPerformanceReport(from, to));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   const totalRev = data.reduce((s, p) => s + p.attributedRevenue, 0);
   return (
@@ -461,8 +461,8 @@ export function PromoterPerformanceTab() {
 /** AI-10: Security incident pattern report. */
 export function IncidentPatternTab() {
   const t = useTranslations("shared");
-  const data = useAnalytics("getIncidentPatternReport", () => analyticsService.getIncidentPatternReport(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
+  const data = useAnalytics("getIncidentPatternReport", () => analyticsService.getIncidentPatternReport(from, to));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -527,8 +527,8 @@ export function IncidentPatternTab() {
 /** AI-11: Guest retention metrics. */
 export function GuestRetentionTab() {
   const t = useTranslations("shared");
-  const data = useAnalytics("getGuestRetentionMetrics", () => analyticsService.getGuestRetentionMetrics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
+  const data = useAnalytics("getGuestRetentionMetrics", () => analyticsService.getGuestRetentionMetrics(from, to));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -558,8 +558,8 @@ export function GuestRetentionTab() {
 /** AI-12: Bottle service utilization. */
 export function BottleServiceTab() {
   const t = useTranslations("shared");
-  const data = useAnalytics("getBottleServiceAnalytics", () => analyticsService.getBottleServiceAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
+  const data = useAnalytics("getBottleServiceAnalytics", () => analyticsService.getBottleServiceAnalytics(from, to));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">
@@ -604,8 +604,8 @@ export function BottleServiceTab() {
 /** AI-13: Capacity utilization. */
 export function CapacityUtilizationTab() {
   const t = useTranslations("shared");
-  const data = useAnalytics("getCapacityUtilizationAnalytics", () => analyticsService.getCapacityUtilizationAnalytics(from, to));
   const [from, to] = [isoDaysAgo(6), isoDaysAgo(0)];
+  const data = useAnalytics("getCapacityUtilizationAnalytics", () => analyticsService.getCapacityUtilizationAnalytics(from, to));
   if (!data) return <Skeleton className="h-64 rounded-xl" />;
   return (
     <div className="space-y-6 pt-4">

@@ -14,31 +14,123 @@ import type {
   SettlementMethod,
   TabAdjustment,
 } from "@/lib/types";
-import { orderLineSubtotal } from "@/lib/order-line";
+
+// ---------- Cents-native core ----------
+// The live track's DB rows are already cents: OrderItem.unitCents + a JSONB
+// modifier snapshot of { deltaCents }. The functions below operate on those
+// directly. The dollar-denominated Order/OrderItem functions further down are
+// thin wrappers that toCents() once at the presentation edge.
+
+export interface CentsModifier {
+  deltaCents: number;
+  quantity?: number;
+}
+
+export interface CentsOrderLine {
+  id: string;
+  unitCents: number;
+  quantity: number;
+  modifiers: CentsModifier[];
+}
+
+export interface CentsOrder {
+  id: string;
+  sessionId?: string;
+  status: string;
+  totalCents: number;
+  serviceFeeCents: number;
+  tipCents: number;
+  items: CentsOrderLine[];
+}
+
+/**
+ * The adjustment fields the cents math reads — loose enough to accept both the
+ * domain TabAdjustment (kind is an enum, reversedByAdjustmentId optional) and
+ * a live DB row (kind is a string, reversedByAdjustmentId may be null).
+ */
+export interface CentsAdjustment {
+  kind: string;
+  amountCents: number;
+  sessionId: string;
+  reversedByAdjustmentId?: string | null;
+}
 
 // ---------- Order/line amounts, in cents ----------
+
+/** One order line's full amount (base × qty + add-ons), in cents. */
+export function orderItemAmountCentsFromLine(
+  unitCents: number,
+  quantity: number,
+  modifiers: CentsModifier[],
+): number {
+  return unitCents * quantity + modifiers.reduce((sum, m) => sum + m.deltaCents * (m.quantity ?? 1), 0);
+}
+
+/**
+ * Proportional amount for adjusting `quantity` units out of a line — add-ons
+ * fold into the line total first, then split evenly per unit (INV-O5).
+ */
+export function orderItemPartialAmountCentsFromLine(
+  unitCents: number,
+  quantity: number,
+  modifiers: CentsModifier[],
+  adjustQuantity: number,
+): number {
+  if (quantity <= 0) return 0;
+  const clamped = Math.max(0, Math.min(adjustQuantity, quantity));
+  const fullCents = orderItemAmountCentsFromLine(unitCents, quantity, modifiers);
+  return Math.round((fullCents * clamped) / quantity);
+}
+
+// ---------- Dollar-domain wrappers (presentation edge) ----------
 
 /** An order's total, rounded to cents once at this boundary. */
 export function orderTotalCents(order: Order): number {
   return Math.round(order.total * 100);
 }
 
-/** One order line's full amount (base × qty + add-ons) in cents. */
-export function orderItemAmountCents(item: OrderItem): number {
-  return Math.round(orderLineSubtotal(item.unitPrice, item.quantity, item.modifiers) * 100);
+function dollarModifiersToCents(modifiers: OrderItem["modifiers"]): CentsModifier[] {
+  return modifiers.map((m) => ({ deltaCents: Math.round(m.priceDelta * 100), quantity: m.quantity }));
 }
 
-/**
- * Proportional amount for adjusting `quantity` units out of an order item's
- * total — add-ons are folded into the line total first, then split evenly
- * per unit, so a partial void of a line with add-ons still prices correctly
- * (INV-O5 interaction: add-on quantity is independent of line quantity).
- */
+function dollarItemToCents(item: OrderItem): CentsOrderLine {
+  return {
+    id: item.id,
+    unitCents: Math.round(item.unitPrice * 100),
+    quantity: item.quantity,
+    modifiers: dollarModifiersToCents(item.modifiers),
+  };
+}
+
+function dollarOrderToCents(order: Order): CentsOrder {
+  return {
+    id: order.id,
+    sessionId: order.sessionId,
+    status: order.status,
+    totalCents: Math.round(order.total * 100),
+    serviceFeeCents: Math.round(order.serviceFee * 100),
+    tipCents: Math.round(order.tip * 100),
+    items: order.items.map(dollarItemToCents),
+  };
+}
+
+/** One order line's full amount (base × qty + add-ons) in cents. */
+export function orderItemAmountCents(item: OrderItem): number {
+  return orderItemAmountCentsFromLine(
+    Math.round(item.unitPrice * 100),
+    item.quantity,
+    dollarModifiersToCents(item.modifiers),
+  );
+}
+
+/** Proportional amount for adjusting `quantity` units out of an order item's total. */
 export function orderItemPartialAmountCents(item: OrderItem, quantity: number): number {
-  if (item.quantity <= 0) return 0;
-  const clamped = Math.max(0, Math.min(quantity, item.quantity));
-  const fullCents = orderItemAmountCents(item);
-  return Math.round((fullCents * clamped) / item.quantity);
+  return orderItemPartialAmountCentsFromLine(
+    Math.round(item.unitPrice * 100),
+    item.quantity,
+    dollarModifiersToCents(item.modifiers),
+    quantity,
+  );
 }
 
 // ---------- Adjustment totals & INV-T3 (no over-comping) ----------
@@ -75,7 +167,7 @@ export interface AdjustmentTotals {
 }
 
 /** Adjustment rows for one session, grouped by kind — reversed rows excluded (they're superseded, not deleted). */
-export function sumAdjustmentsByKind(adjustments: TabAdjustment[]): AdjustmentTotals {
+export function sumAdjustmentsByKind(adjustments: CentsAdjustment[]): AdjustmentTotals {
   const totals: AdjustmentTotals = { voidCents: 0, compCents: 0, discountCents: 0 };
   for (const adj of adjustments) {
     if (adj.reversedByAdjustmentId) continue;
@@ -97,9 +189,19 @@ export function computeSessionBalance(
   adjustments: TabAdjustment[],
   minimumSpendCents: number,
 ): SessionBalance {
+  return computeSessionBalanceFromOrders(sessionId, orders.map(dollarOrderToCents), adjustments, minimumSpendCents);
+}
+
+/** Cents-native INV-T1 balance — the live track feeds DB rows here directly. */
+export function computeSessionBalanceFromOrders(
+  sessionId: string,
+  orders: CentsOrder[],
+  adjustments: CentsAdjustment[],
+  minimumSpendCents: number,
+): SessionBalance {
   const grossCents = orders
     .filter((o) => o.sessionId === sessionId && o.status !== "cancelled")
-    .reduce((sum, o) => sum + orderTotalCents(o), 0);
+    .reduce((sum, o) => sum + o.totalCents, 0);
   const relevant = adjustments.filter((a) => a.sessionId === sessionId);
   const { voidCents, compCents, discountCents } = sumAdjustmentsByKind(relevant);
   const adjustmentsCents = voidCents + compCents + discountCents;
@@ -170,11 +272,22 @@ export function computeCashoutExpected(
   businessDate: string,
   nightEndHour: number,
 ): Record<SettlementMethod, number> {
+  return computeCashoutExpectedFromOrders(sessions, orders.map(dollarOrderToCents), adjustments, businessDate, nightEndHour);
+}
+
+/** Cents-native cash-out expectation — the live track feeds DB rows here directly. */
+export function computeCashoutExpectedFromOrders(
+  sessions: { id: string; status: string; settlementMethod?: SettlementMethod; settledExternallyAt?: string; minimumSpendCents?: number }[],
+  orders: CentsOrder[],
+  adjustments: CentsAdjustment[],
+  businessDate: string,
+  nightEndHour: number,
+): Record<SettlementMethod, number> {
   const expected = emptyMethodTotals();
   for (const session of sessions) {
     if (session.status !== "closed" || !session.settlementMethod || !session.settledExternallyAt) continue;
     if (businessDateFor(session.settledExternallyAt, nightEndHour) !== businessDate) continue;
-    const balance = computeSessionBalance(session.id, orders, adjustments, session.minimumSpendCents ?? 0);
+    const balance = computeSessionBalanceFromOrders(session.id, orders, adjustments, session.minimumSpendCents ?? 0);
     expected[session.settlementMethod] += balance.settledCents;
   }
   return expected;
@@ -209,6 +322,15 @@ export function splitSessionByItems(
   assignments: SplitAssignment[],
   guestCount: number,
 ): number[] {
+  return splitSessionByItemsFromOrders(orders.map(dollarOrderToCents), assignments, guestCount);
+}
+
+/** Cents-native per-guest split — the live track feeds DB rows here directly. */
+export function splitSessionByItemsFromOrders(
+  orders: CentsOrder[],
+  assignments: SplitAssignment[],
+  guestCount: number,
+): number[] {
   if (guestCount <= 0) return [];
   const perGuest = new Array(guestCount).fill(0) as number[];
   let unassignedCents = 0;
@@ -216,7 +338,7 @@ export function splitSessionByItems(
   for (const order of orders) {
     for (const item of order.items) {
       const assignment = assignments.find((a) => a.orderItemId === item.id && a.orderId === order.id);
-      const amountCents = orderItemAmountCents(item);
+      const amountCents = orderItemAmountCentsFromLine(item.unitCents, item.quantity, item.modifiers);
       if (assignment && assignment.guestIndex >= 0 && assignment.guestIndex < guestCount) {
         perGuest[assignment.guestIndex] += amountCents;
       } else {
@@ -224,8 +346,7 @@ export function splitSessionByItems(
       }
     }
     // Fees/tip ride on top of the item subtotal — spread with the unassigned pool too.
-    const feesAndTipCents = Math.round((order.serviceFee + order.tip) * 100);
-    unassignedCents += feesAndTipCents;
+    unassignedCents += order.serviceFeeCents + order.tipCents;
   }
 
   const base = Math.floor(unassignedCents / guestCount);

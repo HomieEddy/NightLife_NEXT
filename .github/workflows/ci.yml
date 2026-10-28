@@ -1,0 +1,144 @@
+name: CI
+
+# The verification ladder (AGENTS.md §5) made mechanical. Runs on every PR to
+# the two permanent branches and every push to them. Deployment is NOT done
+# here — Coolify/Vercel pull on push (docs/HOSTING.md); CI never holds deploy
+# credentials. See docs/RUNBOOK.md §deploy and docs/plan-36-branch-protection.md.
+
+on:
+  push:
+    branches: [dev, master]
+  pull_request:
+    branches: [dev, master]
+
+# Cancel an in-progress run when the same ref is pushed again.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  check:
+    name: check (types, lint, tests, audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # next typegen (below) and next.config parse the mode; the test suite
+      # overrides this to its own value via vitest.config.
+      NEXT_PUBLIC_APP_MODE: demo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # next-env.d.ts (which declares *.png/*.svg asset modules for tsc) is
+      # generated, not committed. Generate it without a full build so the
+      # typecheck can resolve asset imports.
+      - name: Generate Next.js types
+        run: npx next typegen
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint src
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Integration tests (PGlite, no service containers)
+        run: npm run test:integration
+
+      - name: Dependency audit (high and above)
+        run: npm audit --audit-level=high
+
+  # The two coverage gates re-run the unit suite under a coverage provider and
+  # are the slowest steps, so they run as their own job (parallel with check)
+  # instead of serializing behind the rest and hitting a single-job timeout.
+  coverage:
+    name: coverage gates (plan 37)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_APP_MODE: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Coverage gate (live-core, plan 37)
+        run: npm run test:coverage
+      - name: Money/state cores coverage gate (plan 37)
+        run: npm run test:coverage:cores
+
+  build-demo:
+    name: build (demo mode)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Build demo bundle
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APP_MODE: demo
+
+  build-live:
+    name: build (live mode)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      # Dummy-but-valid env only — CI never holds real secrets. The live build
+      # validates env shape at boot (src/features/shared/env.ts) but only opens
+      # a real DB connection at request time, so a well-formed fake URL builds.
+      - name: Build live bundle
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APP_MODE: live
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci_build_only"
+          AUTH_SECRET: "ci-dummy-auth-secret-not-a-real-secret"
+          QR_TOKEN_SECRET: "ci-dummy-qr-secret-not-a-real-secret"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+          BETTER_AUTH_URL: "http://localhost:3000"
+
+  gitleaks:
+    name: secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # gitleaks-action lists the PR's commits via the API — needs this scope.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Scan-only: don't post a PR comment (which would need write scope).
+          GITLEAKS_ENABLE_COMMENTS: "false"

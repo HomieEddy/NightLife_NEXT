@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import {
-  businessDateForShift,
   computeMinutesWorked,
   isStaffOnShift,
   generateWeekFromTemplates,
@@ -20,25 +19,6 @@ import type {
   TipPoolRule,
   Zone,
 } from "./types";
-
-describe("businessDateForShift", () => {
-  const nh = 4; // nightEndHour
-
-  test("22:00 start belongs to the same calendar day when night end is 4", () => {
-    const d = new Date("2026-07-24T22:00:00-04:00"); // Friday 22:00
-    expect(businessDateForShift(d, nh)).toBe("2026-07-24");
-  });
-
-  test("02:00 start belongs to the previous calendar day", () => {
-    const d = new Date("2026-07-25T02:00:00-04:00"); // Saturday 02:00
-    expect(businessDateForShift(d, nh)).toBe("2026-07-24");
-  });
-
-  test("04:00 start belongs to the same day (on the boundary)", () => {
-    const d = new Date("2026-07-25T04:00:00-04:00");
-    expect(businessDateForShift(d, nh)).toBe("2026-07-25");
-  });
-});
 
 describe("computeMinutesWorked", () => {
   test("simple shift with no breaks", () => {

@@ -334,13 +334,15 @@ function StaffOrdersContent() {
                                   <span className="flex items-center gap-1.5 font-medium text-primary">
                                     <PartyPopper className="size-3.5" /> {t("walkingNow", { label: (activeShow as ActiveShow).label })}
                                   </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => finishShowMutation.mutate()}
-                                    className="font-medium text-primary hover:underline"
-                                  >
-                                    {t("finishShow")}
-                                  </button>
+                                  {can("show:control") && (
+                                    <button
+                                      type="button"
+                                      onClick={() => finishShowMutation.mutate()}
+                                      className="font-medium text-primary hover:underline"
+                                    >
+                                      {t("finishShow")}
+                                    </button>
+                                  )}
                                 </div>
                               ) : activeShow ? (
                                 <span className="text-muted-foreground">
@@ -349,13 +351,15 @@ function StaffOrdersContent() {
                               ) : (
                                 <div className="flex items-center justify-between">
                                   <span className="text-muted-foreground">{t("needsPresentationWalkout")}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => startShowMutation.mutate(order)}
-                                    className="font-medium text-primary hover:underline"
-                                  >
-                                    {t("startShow")}
-                                  </button>
+                                  {can("show:control") && (
+                                    <button
+                                      type="button"
+                                      onClick={() => startShowMutation.mutate(order)}
+                                      className="font-medium text-primary hover:underline"
+                                    >
+                                      {t("startShow")}
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -373,7 +377,7 @@ function StaffOrdersContent() {
                               confirmLabel={label ?? t("confirm")}
                               onConfirm={() => advanceMutation.mutate(order)}
                             />
-                            {isPending && (
+                            {isPending && can("order:cancel") && (
                               <ConfirmDialog
                                 trigger={
                                   <Button variant="outline" size="icon" className="h-11 w-11 text-red-600 dark:text-red-400" aria-label={t("cancelAria")}>

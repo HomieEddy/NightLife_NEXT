@@ -254,6 +254,8 @@ export interface StockMovement {
   type: StockMovementType;
   delta: number; // positive = stock in, negative = stock out
   note?: string;
+  /** Order whose sale drew this stock down — the reversal join (INV-05). */
+  orderId?: string;
   createdAt: string;
   /** Set when this movement is the stock-return side of a void TabAdjustment (INV-T2). */
   voidAdjustmentId?: string;

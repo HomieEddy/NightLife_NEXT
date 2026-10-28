@@ -6,6 +6,7 @@
  */
 import type { getDb } from "@/features/shared/db";
 import { getRawPrisma } from "@/features/shared/db";
+import { applyMovement } from "@/features/inventory/ledger";
 import { fromCents } from "@/features/shared/money";
 import { MAX_PAGE_SIZE } from "@/lib/types";
 import type {
@@ -432,42 +433,19 @@ export async function adjustInventory(
   const existing = await db.menuItem.findUnique({ where: { id: itemId } });
   if (!existing) return null;
 
-  // Read the inventory INSIDE the transaction with a row lock — a concurrent
-  // sale between the read and the write used to compute a stale delta and
-  // clobber the new count (ledger divergence).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const row = await (db as any).$transaction(async (tx: any) => {
-    const locked: { id: string; name: string; inventory: number }[] = await tx.$queryRawUnsafe(
-      `SELECT id, name, inventory FROM menu_items WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
-      itemId,
+  // The ledger locks the row and derives the delta from the locked read — a
+  // concurrent sale between read and write can't clobber the count.
+  const row = await db.$transaction(async (tx) => {
+    await applyMovement(tx, {
       venueId,
-    );
-    if (locked.length === 0) return null;
-    const item = locked[0];
-
-    const delta = input.newCount - item.inventory;
-    if (delta === 0) return tx.menuItem.findUnique({ where: { id: itemId } });
-
-    const updated = await tx.menuItem.update({
-      where: { id: itemId },
-      data: { inventory: input.newCount },
+      menuItemId: itemId,
+      delta: 0,
+      toInventory: input.newCount,
+      type: "adjustment",
+      note: input.note,
+      emitSoldOut: true,
     });
-    await tx.stockMovement.create({
-      data: {
-        venueId,
-        menuItemId: itemId,
-        itemName: item.name,
-        type: "adjustment",
-        delta,
-        note: input.note,
-      },
-    });
-    if (item.inventory > 0 && input.newCount === 0) {
-      await tx.soldOutEvent.create({
-        data: { venueId, itemId, itemName: item.name },
-      });
-    }
-    return updated;
+    return tx.menuItem.findUnique({ where: { id: itemId } });
   });
   if (!row) return null;
   return toItem(row);
@@ -486,46 +464,16 @@ export async function recordSale(
   try {
     await prisma.$transaction(async (tx) => {
       for (const line of input.lines) {
-        const locked = await tx.$queryRawUnsafe<{ id: string; name: string; inventory: number; is_available: boolean }[]>(
-          `SELECT id, name, inventory, is_available FROM menu_items WHERE id = $1 AND venue_id = $2 FOR UPDATE`,
-          line.menuItemId,
+        await applyMovement(tx, {
           venueId,
-        );
-
-        if (locked.length === 0) {
-          throw new Error(`Item ${line.menuItemId} not found`);
-        }
-
-        const item = locked[0];
-        if (!item.is_available) {
-          throw new Error(`${item.name} is not available`);
-        }
-        if (item.inventory < line.quantity) {
-          throw new Error(`Not enough stock for ${item.name} (have ${item.inventory}, need ${line.quantity})`);
-        }
-
-        const newInventory = item.inventory - line.quantity;
-        await tx.$executeRawUnsafe(
-          `UPDATE menu_items SET inventory = $1, updated_at = NOW() WHERE id = $2`,
-          newInventory,
-          item.id,
-        );
-        await tx.stockMovement.create({
-          data: {
-            venueId,
-            menuItemId: item.id,
-            itemName: item.name,
-            type: "sale",
-            delta: -line.quantity,
-            note: "Guest order",
-          },
+          menuItemId: line.menuItemId,
+          delta: -line.quantity,
+          type: "sale",
+          note: "Guest order",
+          requireAvailable: true,
+          requireStock: line.quantity,
+          emitSoldOut: true,
         });
-
-        if (item.inventory > 0 && newInventory === 0) {
-          await tx.soldOutEvent.create({
-            data: { venueId, itemId: item.id, itemName: item.name },
-          });
-        }
       }
     });
     return { ok: true };

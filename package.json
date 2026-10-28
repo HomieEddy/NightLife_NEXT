@@ -14,12 +14,14 @@
     "lint": "eslint",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
+    "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "db:migrate": "dotenv -e .env -- npx prisma migrate deploy",
     "db:seed": "dotenv -e .env -- npx tsx prisma/seed.ts",
     "db:seed:staging": "dotenv -e .env -- npx tsx prisma/seed-staging.ts",
     "db:seed:live-history": "dotenv -e .env -- npx tsx scripts/seed-live-history.ts",
-    "db:privacy-erase": "dotenv -e .env -- npx tsx scripts/privacy-erase.ts"
+    "db:privacy-erase": "dotenv -e .env -- npx tsx scripts/privacy-erase.ts",
+    "test:coverage:cores": "vitest run --config vitest.cores.config.ts --coverage"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
@@ -42,7 +44,7 @@
     "date-fns": "^4.4.0",
     "gsap": "^3.15.0",
     "lucide-react": "^1.23.0",
-    "next": "16.3.0",
+    "next": "^16.3.4",
     "next-intl": "^4.13.4",
     "next-themes": "^0.4.6",
     "pino": "^10.3.1",
@@ -86,12 +88,22 @@
     "@vitest/coverage-v8": "^4.1.10",
     "babel-plugin-react-compiler": "1.0.0",
     "dotenv-cli": "^11.0.0",
-    "eslint": "^10.8.0",
-    "eslint-config-next": "16.2.12",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.0",
     "tailwindcss": "^4",
     "testcontainers": "^12.0.4",
     "tsx": "^4.23.0",
     "typescript": "^5",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "browserslist": "^4.28.9",
+    "fast-uri": "^3.1.7",
+    "nanoid": "^3.3.18",
+    "baseline-browser-mapping": "^2.11.21",
+    "hono": "^4.13.7",
+    "qs": "^6.16.0",
+    "mysql2": "^3.24.4",
+    "deepmerge-ts": "^8.0.2"
   }
 }

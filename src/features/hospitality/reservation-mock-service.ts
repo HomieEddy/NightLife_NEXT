@@ -3,6 +3,7 @@
  * The permanent demo counterpart to PostgreSQL-backed reservations.
  */
 import type { BlackoutDate, Reservation, ReservationChannel, ReservationStatus, Venue } from "@/lib/types";
+import { normalizeVenueLocale } from "@/features/shared/locale";
 import { mockBlackoutDates } from "@/features/hospitality/blackout-dates-mock-data";
 import { mockReservations } from "@/features/hospitality/reservation-mock-data";
 import { mockVenue } from "@/features/venue/mock-data";
@@ -171,7 +172,7 @@ export const mockReservationService = {
       depositTermsNote: input.depositTermsNote?.trim() || undefined,
       cancellationPolicyNote: input.cancellationPolicyNote?.trim() || undefined,
       seatingNumber: input.seatingNumber,
-      bookingLocale: venue.guestLocale === "fr" ? "fr" : "en",
+      bookingLocale: normalizeVenueLocale(venue.guestLocale),
       createdAt: new Date().toISOString(),
     };
     // RV-07: compute holdUntil from venue's grace period

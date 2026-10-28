@@ -6,13 +6,13 @@ function demoHandler() {
 }
 
 async function livePOST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { requireApiArea, sessionToDbContext } = await import("@/features/platform/auth-helpers");
-  const { getDb } = await import("@/features/shared/db");
+  const { requirePermission } = await import("@/features/platform/permission-guard");
 
-  const auth = await requireApiArea("staff");
+  // service:refuse is manager/host/bartender/security. A runner or promoter
+  // token must not be able to block a table's service.
+  const auth = await requirePermission("staff", "service:refuse");
   if ("error" in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const { venueId } = sessionToDbContext(auth.session);
-  const db = getDb({ venueId });
+  const { venueId, db } = auth;
 
   const { id } = await params;
   const body = await request.json();
