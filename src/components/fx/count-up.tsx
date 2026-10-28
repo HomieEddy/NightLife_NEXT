@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { gsap, useGSAP } from "@/lib/gsap";
+import { prefersReducedMotion } from "@/lib/motion";
 
 /** Animates a number from 0 to `value` when it scrolls into view. */
 export function CountUp({
@@ -22,6 +23,10 @@ export function CountUp({
   useGSAP(
     () => {
       if (!ref.current) return;
+      if (prefersReducedMotion()) {
+        ref.current.textContent = format(value);
+        return;
+      }
       const state = { v: 0 };
       const tween = {
         v: value,

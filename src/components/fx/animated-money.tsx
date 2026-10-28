@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { gsap } from "@/lib/gsap";
 import { formatMoney } from "@/features/shared/format";
+import { prefersReducedMotion } from "@/lib/motion";
 
 /**
  * A money amount that tweens between values when it changes (e.g. cart total
@@ -15,7 +16,8 @@ export function AnimatedMoney({ value, className }: { value: number; className?:
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (previous.current === value) {
+    if (previous.current === value || prefersReducedMotion()) {
+      previous.current = value;
       el.textContent = formatMoney(value);
       return;
     }
