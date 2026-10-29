@@ -81,7 +81,6 @@ services:
     volumes:
       - .:/app
       - app_node_modules:/app/node_modules
-      - app_next_demo:/app/.next-demo
     environment:
       NEXT_PUBLIC_APP_MODE: demo
       NEXT_PUBLIC_LIVE_URL: http://localhost:3000
@@ -114,4 +113,3 @@ volumes:
   redisdata:
   app_node_modules:
   app_next_live:
-  app_next_demo:
