@@ -24,6 +24,7 @@ const ClubLights = dynamic(() => import("@/components/fx/club-lights").then((m) 
   ssr: false,
 });
 import { hasLocaleCookie, setLocaleCookie } from "@/i18n/config";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
   import { isDemoMode } from "@/features/shared/app-mode";
   import { normalizeVenueLocale } from "@/features/shared/locale";
   import { guestsService } from "@/features/guests/services";
@@ -183,6 +184,9 @@ export default function QrEntryPage({
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden p-6">
+      <div className="absolute end-3 top-3 z-10">
+        <LocaleToggle className="size-8" />
+      </div>
       <ClubLights density={180} speed={0.8} className="opacity-60" />
       <div
         className="pointer-events-none absolute inset-0"
