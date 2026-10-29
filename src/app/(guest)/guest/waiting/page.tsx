@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { DemoQrScanAction, deniedSessionPath } from "@/components/shared/demo-links";
 import dynamic from "next/dynamic";
 import { useGuest } from "@/context/guest-context";
+import { LocaleToggle } from "@/components/shared/locale-toggle";
 
 // THREE.js is ~170KB gzip — code-split it out of the guest screens.
 const ClubLights = dynamic(() => import("@/components/fx/club-lights").then((m) => m.ClubLights), {
@@ -81,6 +82,9 @@ export default function WaitingPage() {
 
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center gap-6 overflow-hidden p-6 text-center animate-fade-in">
+      <div className="absolute end-3 top-3 z-10">
+        <LocaleToggle className="size-8" />
+      </div>
       {approved ? (
         <Dialog open>
           <DialogContent showCloseButton={false} className="sm:max-w-sm">

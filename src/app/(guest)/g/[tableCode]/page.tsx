@@ -146,7 +146,10 @@ export default function QrEntryPage({
       if (!hasLocaleCookie() && result.venue.guestLocale) {
         setLocaleCookie(normalizeVenueLocale(result.venue.guestLocale));
       }
+      // A cookie change only reaches the root layout (html lang, messages) on a
+      // refresh; a plain push keeps the layout rendered in the old locale.
       router.push("/guest/waiting");
+      router.refresh();
     } catch (joinError) {
       setError(joinError instanceof Error ? joinError.message : t("joinError"));
       setJoining(false);
