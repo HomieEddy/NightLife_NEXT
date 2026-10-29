@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { useEffect, useRef, useState } from "react";
 import { ShoppingBag } from "lucide-react";
 import {
@@ -20,6 +22,7 @@ import { prefersReducedMotion } from "@/lib/motion";
  * guests can review their order without leaving the browsing flow.
  */
 export function CartSheet() {
+  const t = useTranslations("guest.ui");
   const { cartCount, cartSubtotal } = useGuest();
   const [open, setOpen] = useState(false);
   const pillRef = useRef<HTMLButtonElement>(null);
@@ -51,14 +54,14 @@ export function CartSheet() {
         >
           <span className="flex items-center gap-2">
             <ShoppingBag className="size-4" />
-            View cart · {cartCount} {cartCount === 1 ? "item" : "items"}
+            {t("viewCart", { count: cartCount })}
           </span>
           <AnimatedMoney value={cartSubtotal} className="font-semibold" />
         </button>
       </SheetTrigger>
       <SheetContent side="bottom" className="mx-auto max-h-[88dvh] max-w-lg overflow-y-auto rounded-t-2xl">
         <SheetHeader>
-          <SheetTitle>Your cart</SheetTitle>
+          <SheetTitle>{t("yourCart")}</SheetTitle>
         </SheetHeader>
         <div className="px-4 pb-6">
           <CartContents onSubmitted={() => setOpen(false)} />

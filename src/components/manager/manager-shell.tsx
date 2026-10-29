@@ -91,6 +91,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
   const groups: NavGroup[] = MANAGER_NAV_GROUPS
     .map((g) => ({
       label: g.label,
+      labelKey: g.labelKey,
       items: g.items.filter((item) => !item.feature || hasFeature(item.feature)),
     }))
     .filter((g) => g.items.length > 0);
@@ -309,7 +310,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-dvh">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r bg-sidebar md:flex print:md:hidden">
-        <div className="flex h-14 items-center gap-1 border-b px-3">
+        <div className="flex min-h-14 flex-wrap items-center gap-1 border-b px-3 py-2">
           <BrandLogo href="/manager" />
           <div className="flex-1" />
           <TooltipIconButton
@@ -419,7 +420,7 @@ export function ManagerShell({ children }: { children: React.ReactNode }) {
                       {item.badge > 9 ? "9+" : item.badge}
                     </span>
                   )}
-                  <span className="truncate max-w-[64px]">{nt((item.labelKey ?? item.label) as Parameters<typeof nt>[0])}</span>
+                  <span className="line-clamp-2 max-w-[72px] text-center leading-tight">{nt((item.labelKey ?? item.label) as Parameters<typeof nt>[0])}</span>
                 </Link>
               );
             })}

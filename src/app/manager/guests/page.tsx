@@ -155,11 +155,11 @@ export default function ManagerGuestsPage() {
       });
     },
     onSuccess: () => {
-      toast.success("Referral recorded");
+      toast.success(t("referralRecorded"));
       setReferralTargetId("");
       queryClient.invalidateQueries({ queryKey: ["referrals", venueId, selected?.id] });
     },
-    onError: () => toast.error("Could not record referral"),
+    onError: () => toast.error(t("referralError")),
   });
 
   const referralCandidates = (profiles ?? []).filter((p) => p.id !== selected?.id);
@@ -353,7 +353,7 @@ export default function ManagerGuestsPage() {
                   )}
                   <div className="flex gap-2">
                     <Select value={referralTargetId} onValueChange={setReferralTargetId}>
-                      <SelectTrigger className="flex-1"><SelectValue placeholder="Referred guest" /></SelectTrigger>
+                      <SelectTrigger className="flex-1"><SelectValue placeholder={t("referredGuest")} /></SelectTrigger>
                       <SelectContent>{referralCandidates.map((p) => <SelectItem key={p.id} value={p.id}>{p.displayName}</SelectItem>)}</SelectContent>
                     </Select>
                     <Select value={referralSource} onValueChange={setReferralSource}>

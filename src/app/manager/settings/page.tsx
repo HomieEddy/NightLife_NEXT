@@ -49,7 +49,7 @@ export default function ManagerSettingsPage() {
     onSuccess: (updated) => {
       setDraft(updated);
       queryClient.invalidateQueries({ queryKey: venueKeys.single(venueId) });
-      toast.success("Venue settings saved");
+      toast.success(t("saved"));
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not save venue settings");
@@ -66,7 +66,7 @@ export default function ManagerSettingsPage() {
   if (draft === null) {
     return (
       <div className="space-y-4">
-        <PageHeader title="Venue settings" description="Identity, service rules and guest-flow behavior." />
+        <PageHeader title={t("pageTitle")} description={t("pageDescription")} />
         <Skeleton className="h-80 rounded-xl" />
       </div>
     );
@@ -75,8 +75,8 @@ export default function ManagerSettingsPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <PageHeader
-        title="Venue settings"
-        description="Identity, service rules and guest-flow behavior."
+        title={t("pageTitle")}
+        description={t("pageDescription")}
         actions={
           <Button onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
@@ -346,11 +346,11 @@ export default function ManagerSettingsPage() {
                     return (
                       <div key={fee.id} className="flex flex-wrap items-center gap-2 rounded-lg border p-2.5">
                         <Input
-                          placeholder="Name (e.g. TVQ)"
+                          placeholder={t("feeNamePlaceholder")}
                           value={fee.name}
                           onChange={(e) => patchFee({ name: e.target.value })}
                           className="min-w-0 flex-1 basis-28"
-                          aria-label="Fee name"
+                          aria-label={t("feeNameLabel")}
                         />
                         <div className="flex gap-1">
                           {(["percentage", "flat"] as const).map((type) => (
@@ -379,7 +379,7 @@ export default function ManagerSettingsPage() {
                               patchFee({ value: Math.max(0, Number(e.target.value)) })
                             }
                             className="w-24 pr-7 tabular-nums"
-                            aria-label="Fee value"
+                            aria-label={t("feeValueLabel")}
                           />
                           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                             {fee.type === "percentage" ? "%" : "$"}
@@ -642,6 +642,7 @@ function TabLedgerCard({
   setDraft: (venue: Venue) => void;
   venueId: string;
 }) {
+  const t = useTranslations("manager.settings");
   const queryClient = useQueryClient();
   const [newCode, setNewCode] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -683,7 +684,7 @@ function TabLedgerCard({
 
   function addReason() {
     if (!newCode.trim() || !newLabel.trim()) {
-      toast.error("Give the reason a code and a label");
+      toast.error(t("reasonMissing"));
       return;
     }
     addReasonMutation.mutate();
@@ -767,7 +768,7 @@ function TabLedgerCard({
             </div>
             <div className="space-y-1">
               <Label htmlFor="new-reason-label" className="text-xs">Label</Label>
-              <Input id="new-reason-label" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Staff error" />
+              <Input id="new-reason-label" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder={t("reasonLabelPlaceholder")} />
             </div>
             <Button type="button" size="sm" onClick={addReason} disabled={addReasonMutation.isPending}>
               <Plus className="size-3.5" /> Add
@@ -788,6 +789,7 @@ function DoorSafetyCard({
   draft: Venue;
   setDraft: (venue: Venue) => void;
 }) {
+  const t = useTranslations("manager.settings");
   return (
     <Card>
       <CardHeader>

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import en from "../messages/en.json";
 import fr from "../messages/fr.json";
@@ -22,6 +24,16 @@ describe("i18n message parity", () => {
   it("fr.json has no orphan keys", () => {
     const orphans = [...frKeys].filter((k) => !enKeys.has(k));
     expect(orphans).toEqual([]);
+  });
+
+  // JSON.parse keeps the last of two identical keys, so a duplicated namespace
+  // silently hides the first block. Guard the top-level namespaces explicitly.
+  it("has no duplicate top-level namespaces", () => {
+    for (const file of ["en", "fr"]) {
+      const raw = readFileSync(path.join(__dirname, "../messages", `${file}.json`), "utf8");
+      const names = [...raw.matchAll(/^ {2}"([^"]+)": \{$/gm)].map((m) => m[1]);
+      expect(names.filter((n, i) => names.indexOf(n) !== i), file).toEqual([]);
+    }
   });
 
   it("keeps empty-string values mirrored (intentional blank intros)", () => {

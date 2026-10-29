@@ -12,6 +12,12 @@ export function setLocaleCookie(locale: Locale) {
   document.cookie = `${cookieName}=${locale};expires=${expires};path=/;SameSite=Lax`;
 }
 
+/** True once the visitor has made a locale choice (cookie present, even if it is the default). */
+export function hasLocaleCookie(): boolean {
+  if (typeof document === "undefined") return false;
+  return new RegExp(`(?:^|;\\s*)${cookieName}=`).test(document.cookie);
+}
+
 /** Read the locale cookie (client-side). */
 export function getLocaleCookie(): Locale {
   if (typeof document === "undefined") return defaultLocale;
