@@ -297,7 +297,7 @@ function ReservationsContent() {
         description={t("description")}
         breadcrumbs={[{ label: t("breadcrumbBookings"), href: "/manager/events" }, { label: t("breadcrumbReservations") }]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {venue && (
               <>
                 <Button
@@ -365,7 +365,7 @@ function ReservationsContent() {
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {s === "all" ? t("all") : t(s)}
+                {s === "all" ? t("all") : t(s === "no-show" ? "noShow" : s)}
               </button>
             ))}
           </div>

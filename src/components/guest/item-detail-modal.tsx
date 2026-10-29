@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { useMemo, useRef, useState } from "react";
 import { Minus, Plus, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
@@ -33,6 +35,7 @@ export function ItemDetailModal({
 }) {
   const { addToCart } = useGuest();
   const [quantity, setQuantity] = useState(1);
+  const t = useTranslations("guest.ui");
   const [selected, setSelected] = useState<Record<string, Record<string, number>>>({});
   const [note, setNote] = useState("");
   const addBtnRef = useRef<HTMLButtonElement>(null);
@@ -139,8 +142,8 @@ export function ItemDetailModal({
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{group.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {group.required ? "Required" : "Optional"}
-                    {group.maxSelections > 1 && ` · up to ${group.maxSelections}`}
+                    {group.required ? t("required") : t("optional")}
+                    {group.maxSelections > 1 && t("upTo", { max: group.maxSelections })}
                   </p>
                 </div>
                 <div className="space-y-1.5">
@@ -164,13 +167,13 @@ export function ItemDetailModal({
                         >
                           <span>{option.name}</span>
                           <span className="tabular-nums text-muted-foreground">
-                            {option.priceDelta > 0 ? `+${formatMoney(option.priceDelta)}` : "Free"}
+                            {option.priceDelta > 0 ? `+${formatMoney(option.priceDelta)}` : t("free")}
                           </span>
                         </button>
                         {active && group.kind === "washer" && option.maxQuantity > 1 && (
                           <div className="ml-3 flex items-center gap-1 border-l pl-3">
                             <TooltipIconButton
-                              tooltip={`Decrease ${option.name}`}
+                              tooltip={t("decreaseOption", { name: option.name })}
                               variant="ghost"
                               className="size-11"
                               onClick={() => changeOptionQuantity(group.id, option.id, Math.max(1, selectedQuantity - 1))}
@@ -179,7 +182,7 @@ export function ItemDetailModal({
                             </TooltipIconButton>
                             <span className="w-5 text-center tabular-nums">{selectedQuantity}</span>
                             <TooltipIconButton
-                              tooltip={`Increase ${option.name}`}
+                              tooltip={t("increaseOption", { name: option.name })}
                               variant="ghost"
                               className="size-11"
                               onClick={() => changeOptionQuantity(group.id, option.id, Math.min(option.maxQuantity, selectedQuantity + 1))}
@@ -196,9 +199,9 @@ export function ItemDetailModal({
             ))}
 
             <div className="space-y-1.5">
-              <p className="text-sm font-medium">Note for staff</p>
+              <p className="text-sm font-medium">{t("noteForStaff")}</p>
               <Textarea
-                placeholder="e.g. extra limes, no straw…"
+                placeholder={t("notePlaceholder")}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
@@ -208,7 +211,7 @@ export function ItemDetailModal({
             <div className="flex items-center gap-3 border-t pt-4">
               <div className="flex items-center gap-1 rounded-lg border p-1">
                 <TooltipIconButton
-                  tooltip="Decrease quantity"
+                  tooltip={t("decreaseQuantity")}
                   variant="ghost"
                   className="size-9"
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
@@ -217,7 +220,7 @@ export function ItemDetailModal({
                 </TooltipIconButton>
                 <span key={quantity} className="w-8 text-center font-semibold tabular-nums animate-pop-in">{quantity}</span>
                 <TooltipIconButton
-                  tooltip="Increase quantity"
+                  tooltip={t("increaseQuantity")}
                   variant="ghost"
                   className="size-9"
                   onClick={() => setQuantity((q) => Math.min(item.inventory, q + 1))}
@@ -232,12 +235,12 @@ export function ItemDetailModal({
                 disabled={missingRequired}
               >
                 <ShoppingBag className="size-4" />
-                Add · {formatMoney(lineTotal)}
+                {t("addAmount", { amount: formatMoney(lineTotal) })}
               </Button>
             </div>
             {missingRequired && (
               <p className="text-center text-xs text-amber-600 dark:text-amber-400">
-                Choose the required options above first.
+                {t("chooseRequired")}
               </p>
             )}
           </>

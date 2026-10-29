@@ -237,7 +237,7 @@ function EventsContent() {
         description={t("description")}
         breadcrumbs={[{ label: t("bookings"), href: "/manager/reservations" }, { label: t("title") }]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {venue && (
               <>
                 <Button

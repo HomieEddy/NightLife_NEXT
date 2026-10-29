@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 /**
  * Blocks the ordering surfaces (menu / cart / gift) once the guest has asked to
  * close the tab. Re-checks the session server-side on mount so typing the URL
@@ -18,6 +20,7 @@ import { cn } from "@/features/shared/utils";
 import type { ReactNode } from "react";
 
 export function ClosureGate({ children }: { children: ReactNode }) {
+  const t = useTranslations("guest.ui");
   const router = useRouter();
   const { sessionId, closureStatus, setClosureStatus } = useGuest();
   const [phase, setPhase] = useState<"active" | "fading" | "blocked">("active");
@@ -54,11 +57,11 @@ export function ClosureGate({ children }: { children: ReactNode }) {
       <div className="p-6 animate-fade-up">
         <EmptyState
           icon={ReceiptText}
-          title="Tab closure requested"
-          description="Ordering is paused while your host settles the tab. You can still track your orders."
+          title={t("closureTitle")}
+          description={t("closureDesc")}
           action={
             <Button asChild>
-              <Link href="/guest/orders">View your orders</Link>
+              <Link href="/guest/orders">{t("viewOrders")}</Link>
             </Button>
           }
         />

@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +21,7 @@ export type PackageWithQuote = BottlePackage & { quote: PackageQuote };
  */
 /** featured — the house pour: gold halo + foil CTA. One per list. */
 export function PackageCard({ pkg, featured = false }: { pkg: PackageWithQuote; featured?: boolean }) {
+  const t = useTranslations("guest.ui");
   const [open, setOpen] = useState(false);
   const soldOut = pkg.quote.maxQuantity === 0;
   const syntheticItem: MenuItem = {
@@ -47,7 +50,7 @@ export function PackageCard({ pkg, featured = false }: { pkg: PackageWithQuote; 
               <p className="truncate font-semibold">{pkg.name}</p>
               {soldOut && (
                 <Badge variant="outline" className="shrink-0 text-xs text-red-600 dark:text-red-400">
-                  Sold out
+                  {t("soldOut")}
                 </Badge>
               )}
             </div>
@@ -74,7 +77,7 @@ export function PackageCard({ pkg, featured = false }: { pkg: PackageWithQuote; 
             {pkg.quote.savings > 0 && (
               <p className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
                 <Sparkles className="size-3" />
-                Save {formatMoney(pkg.quote.savings)} vs à la carte
+                {t("saveVs", { amount: formatMoney(pkg.quote.savings) })}
               </p>
             )}
           </div>
@@ -84,7 +87,7 @@ export function PackageCard({ pkg, featured = false }: { pkg: PackageWithQuote; 
             variant={featured ? "foil" : "default"}
             className="h-11"
           >
-            Add to cart
+            {t("addToCart")}
           </Button>
         </div>
       </CardContent>

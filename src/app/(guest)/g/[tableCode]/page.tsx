@@ -23,7 +23,7 @@ import { useGuest } from "@/context/guest-context";
 const ClubLights = dynamic(() => import("@/components/fx/club-lights").then((m) => m.ClubLights), {
   ssr: false,
 });
-import { defaultLocale, getLocaleCookie, setLocaleCookie } from "@/i18n/config";
+import { hasLocaleCookie, setLocaleCookie } from "@/i18n/config";
   import { isDemoMode } from "@/features/shared/app-mode";
   import { normalizeVenueLocale } from "@/features/shared/locale";
   import { guestsService } from "@/features/guests/services";
@@ -143,7 +143,7 @@ export default function QrEntryPage({
       );
       // Seed the locale from the venue's guestLocale when the visitor has no
       // preference yet — a francophone venue's guests get French by default.
-      if (getLocaleCookie() === defaultLocale && result.venue.guestLocale) {
+      if (!hasLocaleCookie() && result.venue.guestLocale) {
         setLocaleCookie(normalizeVenueLocale(result.venue.guestLocale));
       }
       router.push("/guest/waiting");

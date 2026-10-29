@@ -79,14 +79,14 @@ export function ChatPanel({
   return (
     <div className="flex h-[calc(100dvh-8.5rem)] flex-col">
       {!pinnedChannel && (
-        <div className="flex gap-1.5 border-b p-3">
+        <div className="flex gap-1.5 overflow-x-auto border-b p-3">
           {CHANNELS.map((c) => (
             <button
               key={c.id}
               type="button"
               onClick={() => setChannel(c.id)}
               className={cn(
-                "rounded-full border px-3.5 py-1.5 font-mono text-sm transition-colors",
+                "shrink-0 rounded-full border px-3.5 py-1.5 font-mono text-sm transition-colors",
                 channel === c.id
                   ? "border-primary bg-primary/15 text-primary"
                   : "text-muted-foreground hover:text-foreground",
