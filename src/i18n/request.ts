@@ -7,12 +7,14 @@ export default getRequestConfig(async ({ requestLocale }) => {
   // requestLocale is undefined when no routing integration is configured.
 
   let locale: string = defaultLocale;
+  let hasCookie = false;
 
   try {
     const cookieStore = await cookies();
     const cookieVal = cookieStore.get(cookieName)?.value;
     if (cookieVal && locales.includes(cookieVal as typeof defaultLocale)) {
       locale = cookieVal;
+      hasCookie = true;
     }
   } catch {
     // cookies() throws during static generation — fall back to default
@@ -25,7 +27,8 @@ export default getRequestConfig(async ({ requestLocale }) => {
   }
 
   // First-visit default: the browser's language preference (no cookie yet).
-  if (locale === defaultLocale) {
+  // An explicit "en" cookie must win, so only consult Accept-Language when unset.
+  if (!hasCookie && locale === defaultLocale) {
     try {
       const accept = (await headers()).get("accept-language") ?? "";
       const first = accept.split(",")[0]?.trim().toLowerCase();
