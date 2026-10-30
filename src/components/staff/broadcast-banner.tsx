@@ -70,7 +70,7 @@ export function BroadcastBanner() {
       )}
       {lastCallActive && (
         <div className="foil px-4 py-2 text-center text-sm font-semibold">
-          {t("pulse.lastCall")} — {t("pulse.lastCallActiveDesc")}
+          {t("pulse.lastCall")}: {t("pulse.lastCallActiveDesc")}
         </div>
       )}
     </div>

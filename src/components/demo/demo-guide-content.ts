@@ -196,7 +196,7 @@ export const DEMO_GROUPS: DemoGroup[] = [
       },
       {
         icon: Radio,
-        title: "Pulse — live attention feed",        href: "/manager/pulse",
+        title: "Pulse: live attention feed",        href: "/manager/pulse",
         surface: "manager",
       },
       {
@@ -341,7 +341,7 @@ export const DEMO_GROUPS: DemoGroup[] = [
     id: "staff",    icon: Smartphone,    features: [
       {
         icon: Bell,
-        title: "Home — queues, clock & 86-board",        href: "/staff",
+        title: "Home: queues, clock & 86-board",        href: "/staff",
         surface: "staff",
       },
       {
@@ -351,7 +351,7 @@ export const DEMO_GROUPS: DemoGroup[] = [
       },
       {
         icon: DoorOpen,
-        title: "Door — occupancy & admissions",        href: "/staff/door",
+        title: "Door: occupancy & admissions",        href: "/staff/door",
         surface: "staff",
       },
       {

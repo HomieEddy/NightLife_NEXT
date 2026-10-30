@@ -39,7 +39,7 @@ export function QueryErrorState({
       <AlertTriangle className="size-5 text-destructive" />
       <p className="text-sm font-medium">{message ?? "Could not load this data."}</p>
       <p className="text-xs text-muted-foreground">
-        Your connection or the server hiccuped — nothing was lost.
+        Your connection or the server hiccuped. Nothing was lost.
       </p>
       <Button size="sm" variant="outline" onClick={retry}>
         <RefreshCw className="size-3.5" /> Retry

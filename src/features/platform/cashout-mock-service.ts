@@ -67,7 +67,7 @@ export const mockCashoutService = {
       action: "cashout:close",
       targetType: "cashout",
       targetId: cashout.id,
-      summary: `Closed ${input.staffId ? "drawer" : "venue"} cash-out for ${input.businessDate} — variance ${variance >= 0 ? "+" : ""}${(variance / 100).toFixed(2)}`,
+      summary: `Closed ${input.staffId ? "drawer" : "venue"} cash-out for ${input.businessDate}, variance ${variance >= 0 ? "+" : ""}${(variance / 100).toFixed(2)}`,
       metadata: { businessDate: input.businessDate, varianceCents: variance },
     });
     return clone(cashout);

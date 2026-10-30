@@ -37,7 +37,7 @@ export const AUTOMATION_RULE_DEFS: AutomationRuleDef[] = [
   {
     code: "auto-escalate-orders",
     label: "Auto-escalate overdue orders",
-    description: "Escalate orders that breach their SLA deadline — warn, alert manager, then auto-unclaim.",
+    description: "Escalate orders that breach their SLA deadline: warn, alert manager, then auto-unclaim.",
     category: "orders",
     config: { warnMinutes: 6, criticalMinutes: 12, autoUnclaim: true },
     enabled: true,
@@ -109,7 +109,7 @@ export const AUTOMATION_RULE_DEFS: AutomationRuleDef[] = [
   {
     code: "auto-flag-dormant-vip",
     label: "Auto-flag dormant VIPs",
-    description: "Flag VIP guests who haven't visited in 90 days — prompting an outreach.",
+    description: "Flag VIP guests who haven't visited in 90 days, prompting an outreach.",
     category: "vip",
     config: { dormantDays: 90, outreachPrompt: true },
     enabled: false,

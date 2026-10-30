@@ -798,7 +798,7 @@ export default function StaffDoorPage() {
                         <CardContent className="flex items-center justify-between gap-3 px-4 py-3">
                           <div className="min-w-0">
                             <p className="font-medium">
-                              #{entry.position ?? "—"} {entry.name}
+                              #{entry.position ?? "-"} {entry.name}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {t("wlPartyElapsed", { size: entry.partySize, elapsed, quoted: entry.quotedMinutes })}

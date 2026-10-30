@@ -249,7 +249,7 @@ function ReservationContent({ venueSlug }: { venueSlug: string }) {
       {data.nightOpen && (
         <Card className="border-amber-500/40 bg-amber-500/10">
           <CardContent className="px-4 py-3 text-center text-sm text-amber-700 dark:text-amber-300">
-            Reservations for tonight are closed — the venue is already open.
+            Reservations for tonight are closed. The venue is already open.
             {!dateParam && " Showing availability for tomorrow."}
           </CardContent>
         </Card>

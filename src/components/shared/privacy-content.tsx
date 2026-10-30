@@ -8,9 +8,9 @@ function PrivacyFR() {
   return (
     <div className="prose prose-sm dark:prose-invert mx-auto max-w-3xl space-y-6 py-8">
       <p className="text-sm text-muted-foreground">
-        <strong>NightLifeNext — En vigueur : [DATE]</strong><br />
+        <strong>NightLifeNext, en vigueur : [DATE]</strong><br />
         Dernière mise à jour : 2026-08-03<br />
-        <em>[ÉBAUCHE — révision juridique requise avant publication]</em>
+        <em>[ÉBAUCHE : révision juridique requise avant publication]</em>
       </p>
 
       <p>
@@ -26,8 +26,8 @@ function PrivacyFR() {
       <Section title="1. Qui nous sommes">
         <p>
           NightLifeNext est une plateforme logicielle-service (SaaS) pour
-          l&apos;exploitation de discothèques — gestion des tables, commandes,
-          réservations, coordination d&apos;étage et CRM clientèle — fournie aux
+          l&apos;exploitation de discothèques : gestion des tables, commandes,
+          réservations, coordination d&apos;étage et CRM clientèle, fournie aux
           exploitants de salles (nos clients). La présente politique couvre la
           plateforme elle-même. Chaque établissement qui utilise la plateforme
           est un responsable de traitement distinct pour les données des clients
@@ -36,7 +36,7 @@ function PrivacyFR() {
         </p>
         <p>
           <strong>Responsable de la protection des renseignements personnels :</strong>{" "}
-          [NOM] — [COURRIEL]<br />
+          [NOM], [COURRIEL]<br />
           Contactez cette personne pour toute question relative à la vie privée,
           demande d&apos;accès ou plainte.
         </p>
@@ -74,7 +74,7 @@ function PrivacyFR() {
         </table>
         <h3 className="text-base font-semibold mt-4">2.3 Renseignements que nous ne collectons PAS</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Données de carte de paiement (traitées par Stripe — jamais sur nos serveurs)</li>
+          <li>Données de carte de paiement (traitées par Stripe, jamais sur nos serveurs)</li>
           <li>Géolocalisation précise</li>
           <li>Historique de navigation entre sites</li>
           <li>Identifiants publicitaires</li>
@@ -85,7 +85,7 @@ function PrivacyFR() {
       <Section title="3. Comment nous les utilisons">
         <p>Toute collecte a un fondement légal en vertu de la Loi 25 et de la LPRPDE :</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Nécessité contractuelle :</strong> fourniture des services de la plateforme — authentification, traitement des commandes, gestion des réservations, attribution des tables, planification du personnel.</li>
+          <li><strong>Nécessité contractuelle :</strong> fourniture des services de la plateforme : authentification, traitement des commandes, gestion des réservations, attribution des tables, planification du personnel.</li>
           <li><strong>Obligation légale :</strong> vérification de l&apos;âge (permis d&apos;alcool), documentation des incidents (sécurité au travail), registres fiscaux et d&apos;emploi (droit du travail québécois).</li>
           <li><strong>Intérêt légitime :</strong> surveillance de la sécurité, prévention de la fraude, analyses agrégées pour les exploitants, amélioration du service.</li>
           <li><strong>Consentement :</strong> communications marketing, photos des clients, fonctionnalités promotionnelles. Vous pouvez retirer votre consentement en tout temps en contactant le responsable de la protection des renseignements personnels.</li>
@@ -102,7 +102,7 @@ function PrivacyFR() {
             <tr className="border-b"><td className="py-1.5 pr-4 font-medium">L&apos;établissement</td><td className="py-1.5 pr-4">Vos commandes, réservations, profil</td><td className="py-1.5">L&apos;établissement est le responsable de traitement</td></tr>
             <tr className="border-b"><td className="py-1.5 pr-4 font-medium">Stripe</td><td className="py-1.5 pr-4">Traitement des paiements</td><td className="py-1.5">Vos données de carte vont directement à Stripe</td></tr>
             <tr className="border-b"><td className="py-1.5 pr-4 font-medium">Resend</td><td className="py-1.5 pr-4">Envoi de courriels</td><td className="py-1.5">Courriels transactionnels et de notification</td></tr>
-            <tr className="border-b"><td className="py-1.5 pr-4 font-medium">Sentry (É.-U.)</td><td className="py-1.5 pr-4">Contexte d&apos;erreur dépersonnalisé</td><td className="py-1.5">Diagnostic d&apos;erreurs — RP supprimés avant l&apos;envoi</td></tr>
+            <tr className="border-b"><td className="py-1.5 pr-4 font-medium">Sentry (É.-U.)</td><td className="py-1.5 pr-4">Contexte d&apos;erreur dépersonnalisé</td><td className="py-1.5">Diagnostic d&apos;erreurs : RP supprimés avant l&apos;envoi</td></tr>
             <tr className="border-b"><td className="py-1.5 pr-4 font-medium">OVHcloud</td><td className="py-1.5 pr-4">Toutes les données</td><td className="py-1.5">Hébergement à Beauharnois, Québec, Canada</td></tr>
           </tbody>
         </table>
@@ -117,7 +117,7 @@ function PrivacyFR() {
           <li><strong>Dossiers du personnel :</strong> durée de l&apos;emploi plus 3 ans (droit du travail québécois).</li>
           <li><strong>Registres d&apos;incidents :</strong> 3 ans standard, 7 ans si déclarables.</li>
           <li><strong>Profils clients inactifs :</strong> supprimés 24 mois après la dernière visite.</li>
-          <li><strong>Sauvegardes :</strong> quotidiennes 7 j, hebdomadaires 4 sem, mensuelles 12 mois. Les renseignements individuels ne peuvent pas être retirés des sauvegardes — la suppression affecte la base active ; les copies expirent selon le calendrier.</li>
+          <li><strong>Sauvegardes :</strong> quotidiennes 7 j, hebdomadaires 4 sem, mensuelles 12 mois. Les renseignements individuels ne peuvent pas être retirés des sauvegardes. La suppression affecte la base active ; les copies expirent selon le calendrier.</li>
         </ul>
       </Section>
 
@@ -156,7 +156,7 @@ function PrivacyFR() {
             <tr className="border-b"><td className="py-1.5 pr-4 font-mono text-xs">nln-guest-session</td><td className="py-1.5 pr-4">Session de commande client (QR)</td><td className="py-1.5">Session</td></tr>
           </tbody>
         </table>
-        <p>Aucun bandeau de consentement — aucun témoin non essentiel.</p>
+        <p>Aucun bandeau de consentement. Aucun témoin non essentiel.</p>
       </Section>
 
       <Section title="9. Âge des utilisateurs">
@@ -180,7 +180,7 @@ function PrivacyFR() {
         <p className="text-sm text-muted-foreground">
           Commission d&apos;accès à l&apos;information du Québec :{" "}
           <a href="https://www.cai.gouv.qc.ca" className="underline" target="_blank" rel="noopener noreferrer">cai.gouv.qc.ca</a>
-          {" — "}
+          {". "}
           Commissariat à la protection de la vie privée du Canada :{" "}
           <a href="https://www.priv.gc.ca" className="underline" target="_blank" rel="noopener noreferrer">priv.gc.ca</a>
         </p>
@@ -193,9 +193,9 @@ function PrivacyEN() {
   return (
     <div className="prose prose-sm dark:prose-invert mx-auto max-w-3xl space-y-6 py-8">
       <p className="text-sm text-muted-foreground">
-        <strong>NightLifeNext — Effective: [DATE]</strong><br />
+        <strong>NightLifeNext, Effective: [DATE]</strong><br />
         Last updated: 2026-08-03<br />
-        <em>[DRAFT — legal review required before publishing]</em>
+        <em>[DRAFT: legal review required before publishing]</em>
       </p>
 
       <p>
@@ -209,15 +209,15 @@ function PrivacyEN() {
 
       <Section title="1. Who we are">
         <p>
-          NightLifeNext is a SaaS platform for nightclub operations — table
+          NightLifeNext is a SaaS platform for nightclub operations: table
           management, ordering, reservations, floor coordination, and guest
-          CRM — provided to venue operators (our customers). This policy covers
+          CRM, provided to venue operators (our customers). This policy covers
           the platform itself. Each venue is a separate data controller for the
           guest and staff data it collects through the platform; we act as a
           data processor for that information.
         </p>
         <p>
-          <strong>Privacy officer:</strong> [NAME] — [EMAIL]<br />
+          <strong>Privacy officer:</strong> [NAME], [EMAIL]<br />
           Reach this contact for any privacy question, access request, or complaint.
         </p>
       </Section>
@@ -249,7 +249,7 @@ function PrivacyEN() {
         </table>
         <h3 className="text-base font-semibold mt-4">2.3 We do NOT collect</h3>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Payment card data (Stripe — never touches our servers)</li>
+          <li>Payment card data (Stripe, never touches our servers)</li>
           <li>Precise geolocation</li>
           <li>Browsing history across sites</li>
           <li>Advertising identifiers</li>
@@ -260,7 +260,7 @@ function PrivacyEN() {
       <Section title="3. How we use it">
         <p>All collection has a lawful basis under Law 25 and PIPEDA:</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li><strong>Contract necessity:</strong> delivering the platform — authentication, order processing, reservations, scheduling.</li>
+          <li><strong>Contract necessity:</strong> delivering the platform: authentication, order processing, reservations, scheduling.</li>
           <li><strong>Legal obligation:</strong> age verification, incident documentation, tax and employment records.</li>
           <li><strong>Legitimate interest:</strong> security monitoring, fraud prevention, aggregate analytics, service improvement.</li>
           <li><strong>Consent:</strong> marketing communications, guest photos. Withdrawable at any time.</li>
@@ -276,7 +276,7 @@ function PrivacyEN() {
             <tr className="border-b"><td className="py-1.5 pr-4 font-medium">The venue</td><td className="py-1.5 pr-4">Your orders, reservations, profile</td><td className="py-1.5">Venue is the data controller</td></tr>
             <tr className="border-b"><td className="py-1.5 pr-4 font-medium">Stripe</td><td className="py-1.5 pr-4">Payment processing</td><td className="py-1.5">Card data goes directly to Stripe</td></tr>
             <tr className="border-b"><td className="py-1.5 pr-4 font-medium">Resend</td><td className="py-1.5 pr-4">Email delivery</td><td className="py-1.5">Transactional and notification emails</td></tr>
-            <tr className="border-b"><td className="py-1.5 pr-4 font-medium">Sentry (US)</td><td className="py-1.5 pr-4">De-identified error context</td><td className="py-1.5">Error diagnosis — PII scrubbed before sending</td></tr>
+            <tr className="border-b"><td className="py-1.5 pr-4 font-medium">Sentry (US)</td><td className="py-1.5 pr-4">De-identified error context</td><td className="py-1.5">Error diagnosis: PII scrubbed before sending</td></tr>
             <tr className="border-b"><td className="py-1.5 pr-4 font-medium">OVHcloud</td><td className="py-1.5 pr-4">All platform data</td><td className="py-1.5">Hosting in Beauharnois, Quebec, Canada</td></tr>
           </tbody>
         </table>
@@ -290,7 +290,7 @@ function PrivacyEN() {
           <li><strong>Staff records:</strong> employment duration + 3 years (Quebec labour law).</li>
           <li><strong>Incidents:</strong> 3 years standard, 7 years if reportable.</li>
           <li><strong>Inactive guest profiles:</strong> deleted 24 months after last visit.</li>
-          <li><strong>Backups:</strong> daily 7d, weekly 4w, monthly 12m. Individual records cannot be removed from backup files — deletion affects the live database; backup copies age out on schedule.</li>
+          <li><strong>Backups:</strong> daily 7d, weekly 4w, monthly 12m. Individual records cannot be removed from backup files. Deletion affects the live database; backup copies age out on schedule.</li>
         </ul>
       </Section>
 
@@ -328,7 +328,7 @@ function PrivacyEN() {
             <tr className="border-b"><td className="py-1.5 pr-4 font-mono text-xs">nln-guest-session</td><td className="py-1.5 pr-4">Guest QR ordering session</td><td className="py-1.5">Session</td></tr>
           </tbody>
         </table>
-        <p>No consent banner — no non-essential cookies used.</p>
+        <p>No consent banner. No non-essential cookies used.</p>
       </Section>
 
       <Section title="9. Age of users">
@@ -352,7 +352,7 @@ function PrivacyEN() {
         <p className="text-sm text-muted-foreground">
           Commission d&apos;accès à l&apos;information du Québec:{" "}
           <a href="https://www.cai.gouv.qc.ca" className="underline" target="_blank" rel="noopener noreferrer">cai.gouv.qc.ca</a>
-          {" — "}
+          {". "}
           Office of the Privacy Commissioner of Canada:{" "}
           <a href="https://www.priv.gc.ca" className="underline" target="_blank" rel="noopener noreferrer">priv.gc.ca</a>
         </p>

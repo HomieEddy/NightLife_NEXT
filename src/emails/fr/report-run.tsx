@@ -13,7 +13,7 @@ export function ReportRunEmailFr({ venueName, reportName, periodLabel, summary }
   return (
     <Html>
       <Head />
-      <Preview>{reportName} — {periodLabel}</Preview>
+      <Preview>{reportName}: {periodLabel}</Preview>
       <Body style={{ backgroundColor: "#0a0a0a", fontFamily: "system-ui, sans-serif", padding: "40px 0" }}>
         <Container style={{ maxWidth: 480, margin: "0 auto", padding: "32px", backgroundColor: "#141414", borderRadius: 12, border: "1px solid #272726" }}>
           <Heading style={{ color: "#c8a44e", fontSize: 20, margin: "0 0 8px" }}>{venueName}</Heading>

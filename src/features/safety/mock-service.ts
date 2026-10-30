@@ -158,7 +158,7 @@ export const mockIncidentService = {
       action: "incident:mark-reportable",
       targetType: "incident",
       targetId: id,
-      summary: `Marked incident as reportable — deadline ${input.regulatoryDeadline}, authority: ${input.regulatoryAuthority}`,
+      summary: `Marked incident as reportable: deadline ${input.regulatoryDeadline}, authority: ${input.regulatoryAuthority}`,
     });
     return clone(incident);
   },

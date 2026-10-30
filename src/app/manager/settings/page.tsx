@@ -282,7 +282,7 @@ export default function ManagerSettingsPage() {
               <div>
                 <p className="text-sm font-medium">Guided onboarding</p>
                 <p className="text-xs text-muted-foreground">
-                  Re-run the first-time setup wizard — your current settings are prefilled.
+                  Re-run the first-time setup wizard. Your current settings are prefilled.
                 </p>
               </div>
               <Button
@@ -325,13 +325,13 @@ export default function ManagerSettingsPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Every fee is applied to each guest order — mix taxes, service charges and flat fees.
+                  Every fee is applied to each guest order. Mix taxes, service charges and flat fees.
                 </p>
               </div>
 
               {draft.serviceFees.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                  No fees configured — guests pay the subtotal plus tip only.
+                  No fees configured. Guests pay the subtotal plus tip only.
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -486,7 +486,7 @@ export default function ManagerSettingsPage() {
                 <div>
                   <p className="text-sm font-medium">Auto-approve guests</p>
                   <p className="text-xs text-muted-foreground">
-                    Skip host approval — guests can order the moment they scan.
+                    Skip host approval. Guests can order the moment they scan.
                   </p>
                 </div>
                 <Switch
@@ -806,7 +806,7 @@ function DoorSafetyCard({
               value={draft.legalCapacity}
               onChange={(e) => setDraft({ ...draft, legalCapacity: Math.max(1, Number(e.target.value) || 400) })}
             />
-            <p className="text-xs text-muted-foreground">Fire-code maximum — the door counts against this.</p>
+            <p className="text-xs text-muted-foreground">Fire-code maximum. The door counts against this.</p>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="occupancy-warn">Occupancy warning ratio</Label>
@@ -834,7 +834,7 @@ function DoorSafetyCard({
               value={draft.legalDrinkingAge}
               onChange={(e) => setDraft({ ...draft, legalDrinkingAge: Number(e.target.value || 18) })}
             />
-            <p className="text-xs text-muted-foreground">Jurisdiction minimum — underage admission is blocked at the door.</p>
+            <p className="text-xs text-muted-foreground">Jurisdiction minimum. Underage admission is blocked at the door.</p>
           </div>
         </div>
 
@@ -842,7 +842,7 @@ function DoorSafetyCard({
           <div>
             <p className="text-sm font-medium">Require ID check at door</p>
             <p className="text-xs text-muted-foreground">
-              Forces the ID-check toggle on at admission time. Records the check only — never a document scan.
+              Forces the ID-check toggle on at admission time. Records the check only. Never a document scan.
             </p>
           </div>
           <Switch

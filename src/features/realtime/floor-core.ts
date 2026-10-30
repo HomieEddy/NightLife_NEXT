@@ -105,7 +105,7 @@ export async function startLastCall(
         authorId: "manager-broadcast",
         authorName: sentBy,
         authorRole: "manager",
-        body: `${sentBy} started last call — no new orders are being accepted.`,
+        body: `${sentBy} started last call. No new orders are being accepted.`,
       },
     });
   }

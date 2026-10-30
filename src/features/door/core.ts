@@ -305,7 +305,7 @@ export async function createAdmission(
     if (denial === "underage") {
       throw new HttpError(
         403,
-        `Guest is under the legal drinking age of ${venue.legalDrinkingAge}. Admission blocked — this cannot be overridden.`,
+        `Guest is under the legal drinking age of ${venue.legalDrinkingAge}. Admission blocked. This cannot be overridden.`,
       );
     }
   }
@@ -480,7 +480,7 @@ export async function createBannedOverride(
       action: "door:admit-banned-override",
       targetType: "guest-profile",
       targetId: input.guestProfileId,
-      summary: `Overrode a ban to admit a guest — ${input.reason}`,
+      summary: `Overrode a ban to admit a guest: ${input.reason}`,
       metadata: JSON.stringify({ admissionId: admission.id }),
     },
   });
@@ -511,7 +511,7 @@ export async function createCapacityOverride(
       action: "door:admit-capacity-override",
       targetType: "admission",
       targetId: admission.id,
-      summary: `Capacity override — admitted party of ${input.partySize} past legal capacity: ${input.reason}`,
+      summary: `Capacity override, admitted party of ${input.partySize} past legal capacity: ${input.reason}`,
       metadata: JSON.stringify({ admissionId: admission.id }),
     },
   });
@@ -638,7 +638,7 @@ export async function evacuate(
       action: "emergency:evacuate",
       targetType: "occupancy",
       targetId: `evacuation-${date}`,
-      summary: `Emergency evacuation — occupancy zeroed from ${current} to 0`,
+      summary: `Emergency evacuation, occupancy zeroed from ${current} to 0`,
       metadata: JSON.stringify({ headcountAtEvacuation: current }),
     },
   });
@@ -673,7 +673,7 @@ export async function resumeEvacuation(
       action: "emergency:resume",
       targetType: "occupancy",
       targetId: `evacuation-${date}`,
-      summary: "Emergency evacuation ended — operations resumed",
+      summary: "Emergency evacuation ended. Operations resumed",
     },
   });
 }

@@ -85,10 +85,10 @@ function ApprovalVignette() {
 }
 
 const FEED = [
-  { t: "00:41", zone: "VIP", color: "#a855f7", text: "Booth 7 — 2× Dom Pérignon → Alex" },
+  { t: "00:41", zone: "VIP", color: "#a855f7", text: "Booth 7: 2× Dom Pérignon → Alex" },
   { t: "00:42", zone: "BAR", color: "#22d3ee", text: "Ticket #214 ready for pickup" },
   { t: "00:44", zone: "FLOOR", color: "#d946ef", text: "Table 3 asked for ice → Sam" },
-  { t: "00:45", zone: "DOOR", color: "var(--gold)", text: "Security ping, section B — resolved" },
+  { t: "00:45", zone: "DOOR", color: "var(--gold)", text: "Security ping, section B, resolved" },
 ];
 
 function LiveFeedVignette() {
@@ -146,7 +146,7 @@ function ReportVignette() {
         <span>03:00</span>
       </div>
       <p className="mt-4 border-t pt-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-        Top seller — Dom Pérignon ×11
+        Top seller: Dom Pérignon ×11
       </p>
     </div>
   );
@@ -169,7 +169,7 @@ const PHASES: Phase[] = [
     tag: "Doors",
     accent: "#22d3ee",
     title: "Doors open. Phones out.",
-    body: "Guests scan the code on their table and order from the booth — no app to download, no line at the bar. Your menu goes live the second you open.",
+    body: "Guests scan the code on their table and order from the booth, with no app to download and no line at the bar. Your menu goes live the second you open.",
     vignette: <GuestPhoneVignette />,
   },
   {
@@ -193,7 +193,7 @@ const PHASES: Phase[] = [
     tag: "Last call",
     accent: "var(--gold)",
     title: "Last call tells the truth.",
-    body: "Revenue by hour, zone and bottle — see what tonight actually did before the lights come up, not Monday afternoon.",
+    body: "Revenue by hour, zone and bottle. See what tonight actually did before the lights come up, not Monday afternoon.",
     vignette: <ReportVignette />,
   },
 ];
@@ -270,7 +270,7 @@ export function NightTimeline() {
                 <p className="phase-reveal flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.25em]">
                   <span className="size-2 rounded-full" style={{ background: phase.accent }} />
                   <span className="font-semibold">{phase.time}</span>
-                  <span className="text-muted-foreground">— {phase.tag}</span>
+                  <span className="text-muted-foreground">: {phase.tag}</span>
                 </p>
                 <h3 className="phase-reveal mt-4 font-display text-4xl uppercase leading-[0.95] tracking-[0.01em] sm:text-5xl">
                   {phase.title}

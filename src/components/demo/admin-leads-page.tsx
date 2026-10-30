@@ -461,7 +461,7 @@ export default function AdminLeadsPage() {
                   <p className="text-muted-foreground">{t("detailEmail")}</p>
                   <p className="truncate">{detail.email}</p>
                   <p className="text-muted-foreground">{t("detailPhone")}</p>
-                  <p>{detail.phone || "—"}</p>
+                  <p>{detail.phone || "-"}</p>
                   <p className="text-muted-foreground">{t("detailCity")}</p>
                   <p>{detail.city}</p>
                   <p className="text-muted-foreground">{t("detailSource")}</p>

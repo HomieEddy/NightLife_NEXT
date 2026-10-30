@@ -35,7 +35,7 @@ export default function ErrorBoundary({
       <div className="space-y-2">
         <h1 className="text-display text-2xl">Something went wrong</h1>
         <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-          This screen hit an unexpected error. Your data is safe — try again, or head back to
+          This screen hit an unexpected error. Your data is safe. Try again, or head back to
           the start.
         </p>
       </div>

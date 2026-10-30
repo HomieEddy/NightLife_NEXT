@@ -150,7 +150,7 @@ export const mockGuestService = {
       targetType: "guest-profile",
       targetId: profile.id,
       summary: input.banned
-        ? `Banned ${profile.displayName} — ${profile.banReason}`
+        ? `Banned ${profile.displayName}: ${profile.banReason}`
         : `Lifted ban on ${profile.displayName}`,
     });
     // NT-02: notify door staff when a ban is issued

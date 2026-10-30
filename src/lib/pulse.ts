@@ -100,7 +100,7 @@ export function computeAttentionItems(
         tableId: table.id,
         tableCode: table.code,
         zoneName: zones.find((z) => z.id === table.zoneId)?.name ?? "",
-        message: "Last call — nudge this table to close out",
+        message: "Last call: nudge this table to close out",
         ageMinutes: 0,
       });
     }
@@ -123,7 +123,7 @@ export function computeAttentionItems(
         tableId: table.id,
         tableCode: table.code,
         zoneName: zones.find((z) => z.id === table.zoneId)?.name ?? "",
-        message: `${session.displayName} — $${(balance.shortfallCents / 100).toFixed(0)} short of minimum`,
+        message: `${session.displayName}: $${(balance.shortfallCents / 100).toFixed(0)} short of minimum`,
         ageMinutes: 0,
       });
     }
@@ -148,7 +148,7 @@ export function computeAttentionItems(
           tableId: table.id,
           tableCode: table.code,
           zoneName: zones.find((z) => z.id === table.zoneId)?.name ?? "",
-          message: `${session.displayName} — ${Math.round(progress * 100)}% of $${(session.minimumSpendCents / 100).toFixed(0)} minimum`,
+          message: `${session.displayName}: ${Math.round(progress * 100)}% of $${(session.minimumSpendCents / 100).toFixed(0)} minimum`,
           ageMinutes: 0,
         });
         break; // only report lowest unmet checkpoint
@@ -166,7 +166,7 @@ export function computeAttentionItems(
         tableId: "venue",
         tableCode: "DOOR",
         zoneName: "",
-        message: `At capacity — ${door.occupancy}/${door.legalCapacity}`,
+        message: `At capacity: ${door.occupancy}/${door.legalCapacity}`,
         ageMinutes: 0,
       });
     } else if (ratio >= door.occupancyWarnRatio) {
@@ -177,7 +177,7 @@ export function computeAttentionItems(
         tableId: "venue",
         tableCode: "DOOR",
         zoneName: "",
-        message: `Approaching capacity — ${door.occupancy}/${door.legalCapacity}`,
+        message: `Approaching capacity: ${door.occupancy}/${door.legalCapacity}`,
         ageMinutes: 0,
       });
     }
@@ -193,7 +193,7 @@ export function computeAttentionItems(
         tableId: "waitlist",
         tableCode: entry.name,
         zoneName: "",
-        message: `${entry.name}, party of ${entry.partySize} — ${Math.round(age)} min, quoted ${entry.quotedMinutes}`,
+        message: `${entry.name}, party of ${entry.partySize}, ${Math.round(age)} min, quoted ${entry.quotedMinutes}`,
         ageMinutes: age,
       });
     }
@@ -207,7 +207,7 @@ export function computeAttentionItems(
         tableId: incident.tableId ?? "incident",
         tableCode: incident.type.replace(/-/g, " "),
         zoneName: zones.find((z) => z.id === incident.zoneId)?.name ?? "",
-        message: `Open ${incident.type.replace(/-/g, " ")} incident — ${Math.round(age)} min`,
+        message: `Open ${incident.type.replace(/-/g, " ")} incident, ${Math.round(age)} min`,
         ageMinutes: age,
       });
     }
@@ -241,7 +241,7 @@ export function computeAttentionItems(
         tableId: "workforce",
         tableCode: staff?.name ?? entry.staffId,
         zoneName: "",
-        message: `${staff?.name ?? entry.staffId} still clocked in after ${Math.round(age / 60)}h — forgotten clock-out?`,
+        message: `${staff?.name ?? entry.staffId} still clocked in after ${Math.round(age / 60)}h. Forgotten clock-out?`,
         ageMinutes: age,
       });
     }
@@ -279,7 +279,7 @@ function helpItem(
     tableId: table.id,
     tableCode: request.tableCode,
     zoneName: request.zoneName,
-    message: `${HELP_LABELS[request.type]} — open ${Math.round(age)} min`,
+    message: `${HELP_LABELS[request.type]}, open ${Math.round(age)} min`,
     ageMinutes: age,
   };
 }

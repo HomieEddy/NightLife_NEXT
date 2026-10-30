@@ -204,7 +204,7 @@ function SessionCard({
           <ConfirmDialog
             trigger={<Button variant="outline" size="sm" className="text-red-600"><ShieldOff className="size-3.5 mr-1" /> Eject</Button>}
             title={`Eject ${session.displayName}?`}
-            description="Refuses service, bans the guest, closes the tab, and files an ejection incident — all in one audited action."
+            description="Refuses service, bans the guest, closes the tab, and files an ejection incident, all in one audited action."
             confirmLabel="Eject guest"
             destructive
             onConfirm={async () => {

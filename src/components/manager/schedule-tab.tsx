@@ -138,7 +138,7 @@ export function ScheduleTab({ staff, zones, dateRange }: { staff: StaffMember[];
     },
   });
 
-  const staffName = (id: string) => staff.find((s) => s.id === id)?.name ?? "—";
+  const staffName = (id: string) => staff.find((s) => s.id === id)?.name ?? "-";
   const staffRole = (id: string) => staff.find((s) => s.id === id)?.role;
   const zoneName = (id: string | null) =>
     id === null ? null : zones.find((z) => z.id === id)?.name ?? null;

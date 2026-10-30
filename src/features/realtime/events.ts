@@ -106,8 +106,8 @@ function pushPayloadFor(event: DomainEvent, locale: "en" | "fr"): PushPayload {
   switch (event.type) {
     case "OrderPlaced":
       return fr
-        ? { title: "Nouvelle commande", body: `Nouvelle commande pour la table ${p.tableCode ?? "?"} — ${p.itemCount ?? "articles"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` }
-        : { title: "New order", body: `New order for table ${p.tableCode ?? "?"} — ${p.itemCount ?? "items"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` };
+        ? { title: "Nouvelle commande", body: `Nouvelle commande pour la table ${p.tableCode ?? "?"} : ${p.itemCount ?? "articles"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` }
+        : { title: "New order", body: `New order for table ${p.tableCode ?? "?"}: ${p.itemCount ?? "items"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` };
     case "OrderStatusChanged":
       return fr
         ? { title: "Commande mise à jour", body: `Commande ${(p.orderId as string)?.slice(-6) ?? ""} → ${p.status ?? "mise à jour"}`, url: `/manager/orders?highlight=${p.orderId ?? ""}` }
@@ -122,8 +122,8 @@ function pushPayloadFor(event: DomainEvent, locale: "en" | "fr"): PushPayload {
         : { title: "Order released", body: `Order ${(p.orderId as string)?.slice(-6) ?? ""} released back to pool`, url: `/staff/orders` };
     case "HelpRequested":
       return fr
-        ? { title: "Aide demandée", body: `Table ${p.tableCode ?? "?"} a besoin d'aide — ${p.note ?? ""}`, url: `/staff/help?highlight=${p.requestId ?? ""}` }
-        : { title: "Help requested", body: `Table ${p.tableCode ?? "?"} needs help — ${p.note ?? ""}`, url: `/staff/help?highlight=${p.requestId ?? ""}` };
+        ? { title: "Aide demandée", body: `Table ${p.tableCode ?? "?"} a besoin d'aide : ${p.note ?? ""}`, url: `/staff/help?highlight=${p.requestId ?? ""}` }
+        : { title: "Help requested", body: `Table ${p.tableCode ?? "?"} needs help: ${p.note ?? ""}`, url: `/staff/help?highlight=${p.requestId ?? ""}` };
     case "SessionRequested":
       return fr
         ? { title: "Session demandée", body: `Table ${p.tableCode ?? "?"} veut ouvrir une session`, url: `/staff/approvals` }
@@ -140,8 +140,8 @@ function pushPayloadFor(event: DomainEvent, locale: "en" | "fr"): PushPayload {
       return { title: (p.title as string) ?? (fr ? "Annonce au personnel" : "Staff announcement"), body: (p.body as string) ?? "", url: `/staff` };
     case "LastCallStarted":
       return fr
-        ? { title: "Dernier appel", body: "Le dernier appel a commencé — plus aucune nouvelle commande acceptée.", url: `/staff` }
-        : { title: "Last call", body: "Last call has started — no new orders accepted.", url: `/staff` };
+        ? { title: "Dernier appel", body: "Le dernier appel a commencé. Plus aucune nouvelle commande acceptée.", url: `/staff` }
+        : { title: "Last call", body: "Last call has started. No new orders accepted.", url: `/staff` };
     case "LastCallEnded":
       return fr
         ? { title: "Dernier appel terminé", body: "Le dernier appel est terminé.", url: `/staff` }
