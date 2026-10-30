@@ -321,7 +321,7 @@ export async function setBanStatus(
       targetType: "guest-profile",
       targetId: id,
       summary: input.banned
-        ? `Banned ${profile.displayName} — ${input.reason ?? "No reason recorded"}`
+        ? `Banned ${profile.displayName}: ${input.reason ?? "No reason recorded"}`
         : `Lifted ban on ${profile.displayName}`,
     },
   });

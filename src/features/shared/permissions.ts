@@ -8,7 +8,7 @@ export type StaffAction =
   | "order:release"      // return to unclaimed pool
   | "order:transition"   // accepted → preparing → ready → delivered
   | "order:gift"         // waive the full order total
-  | "order:cancel"       // cancel an order before delivery — reverses its inventory + revenue
+  | "order:cancel"       // Cancel an order before delivery. Reverses its inventory + revenue
   | "session:approve"    // allow a guest party to open a tab
   | "session:deny"       // turn away a join request
   | "help:respond"       // acknowledge and resolve help requests
@@ -106,7 +106,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   },
   "order:cancel": {
     label: "Cancel orders",
-    description: "Cancel an order before delivery — reverses its inventory draw-down and removes it from revenue.",
+    description: "Cancel an order before delivery. Reverses its inventory draw-down and removes it from revenue.",
     category: "orders",
     sensitive: true,
   },
@@ -179,7 +179,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   },
   "tab:close-bar": {
     label: "Close bar tabs",
-    description: "Settle and close a bartender's bar tab — writes the settlement and frees the tab.",
+    description: "Settle and close a bartender's bar tab. Writes the settlement and frees the tab.",
     category: "tab",
     sensitive: true,
   },
@@ -251,7 +251,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   },
   "incident:create": {
     label: "Report incidents",
-    description: "File an incident report — anyone who sees trouble must be able to log it.",
+    description: "File an incident report. Anyone who sees trouble must be able to log it.",
     category: "incidents",
   },
   "incident:read-all": {
@@ -289,7 +289,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   },
   "emergency:evacuate": {
     label: "Emergency evacuation",
-    description: "Trigger emergency evacuation — zeros occupancy, broadcasts to all channels, and disables admissions.",
+    description: "Trigger emergency evacuation. Zeros occupancy, broadcasts to all channels, and disables admissions.",
     category: "door",
     sensitive: true,
   },
@@ -301,7 +301,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   },
   "door:admit-capacity-override": {
     label: "Override capacity",
-    description: "Bypass the legal-capacity check — always writes an audit entry.",
+    description: "Bypass the legal-capacity check. Always writes an audit entry.",
     category: "door",
     sensitive: true,
   },
@@ -358,7 +358,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   },
   "tips:close-distribution": {
     label: "Close tip distribution",
-    description: "Freeze a night's tip pool split — writes an audit entry and the shares become visible to staff.",
+    description: "Freeze a night's tip pool split. Writes an audit entry and the shares become visible to staff.",
     category: "operations",
     sensitive: true,
   },
@@ -369,7 +369,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   },
   "commission:approve": {
     label: "Approve commission",
-    description: "Approve a promoter's commission statement — writes an audit entry.",
+    description: "Approve a promoter's commission statement. Writes an audit entry.",
     category: "operations",
     sensitive: true,
   },
@@ -386,7 +386,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   },
   "purchasing:receive": {
     label: "Receive purchase orders",
-    description: "Record goods received against a PO — writes restock movements and recomputes average cost.",
+    description: "Record goods received against a PO. Writes restock movements and recomputes average cost.",
     category: "operations",
     sensitive: true,
   },
@@ -397,7 +397,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   },
   "stocktake:commit": {
     label: "Commit stocktake",
-    description: "Finalise a stocktake — writes one adjustment movement per variance line.",
+    description: "Finalise a stocktake. Writes one adjustment movement per variance line.",
     category: "operations",
     sensitive: true,
   },
@@ -413,7 +413,7 @@ export const ACTION_META: Record<StaffAction, ActionMeta> = {
   },
   "menu:record-sale": {
     label: "Record manual sales",
-    description: "Record a cash/over-the-counter sale against inventory — writes a stock movement without a guest order.",
+    description: "Record a cash/over-the-counter sale against inventory. Writes a stock movement without a guest order.",
     category: "orders",
     sensitive: true,
   },

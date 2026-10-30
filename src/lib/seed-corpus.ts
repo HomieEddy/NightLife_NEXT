@@ -334,7 +334,7 @@ export const DEMO_PASSWORD = "demo1234";
 
 export const CORPUS_MENU_CATEGORIES = [
   { id: "cat-champagne", name: "Champagne", description: "Cuvées prestige servies dans un seau scintillant", sortOrder: 1 },
-  { id: "cat-tequila", name: "Tequila", description: "Blanco, reposado et añejo — citrons et sel inclus", sortOrder: 2 },
+  { id: "cat-tequila", name: "Tequila", description: "Blanco, reposado et añejo, citrons et sel inclus", sortOrder: 2 },
   { id: "cat-vodka", name: "Vodka", description: "Servie glacée à votre table avec vos washers préférés", sortOrder: 3 },
   { id: "cat-cognac", name: "Cognac", description: "V.S.O.P et X.O pour la banquette du fond", sortOrder: 4 },
   { id: "cat-rhum", name: "Rhum", description: "Rhums caribéens vieillis, sec ou long drink", sortOrder: 5 },
@@ -361,8 +361,8 @@ export const CORPUS_MENU_ITEMS: CorpusMenuItem[] = [
   // Champagne
   { id: "mi-moet", categoryId: "cat-champagne", name: "Moët & Chandon Impérial", description: "Le champagne classique de la maison, bien frais.", price: 160, icon: "champagne", tags: [], isAvailable: true, inventory: 24, isAlcoholic: true, abv: 12 },
   { id: "mi-dom", categoryId: "cat-champagne", name: "Dom Pérignon Vintage", description: "Cuvée de prestige iconique.", price: 320, icon: "champagne", tags: ["popular"], isAvailable: true, inventory: 12, isAlcoholic: true, abv: 12.5 },
-  { id: "mi-ace", categoryId: "cat-champagne", name: "Ace of Spades Brut Gold", description: "Armand de Brignac — la pièce maîtresse.", price: 500, icon: "champagne", tags: ["premium", "popular"], isAvailable: true, inventory: 8, isAlcoholic: true, abv: 12.5 },
-  { id: "mi-cristal", categoryId: "cat-champagne", name: "Louis Roederer Cristal", description: "Allocation rare — tant qu'il en reste.", price: 650, icon: "champagne", tags: ["limited"], isAvailable: true, inventory: 4, isAlcoholic: true, abv: 12 },
+  { id: "mi-ace", categoryId: "cat-champagne", name: "Ace of Spades Brut Gold", description: "Armand de Brignac, la pièce maîtresse.", price: 500, icon: "champagne", tags: ["premium", "popular"], isAvailable: true, inventory: 8, isAlcoholic: true, abv: 12.5 },
+  { id: "mi-cristal", categoryId: "cat-champagne", name: "Louis Roederer Cristal", description: "Allocation rare, tant qu'il en reste.", price: 650, icon: "champagne", tags: ["limited"], isAvailable: true, inventory: 4, isAlcoholic: true, abv: 12 },
   // Tequila
   { id: "mi-patron", categoryId: "cat-tequila", name: "Patrón Silver", description: "Blanco smooth, citrons et sal de gusano inclus.", price: 220, icon: "tequila", tags: [], isAvailable: true, inventory: 15, isAlcoholic: true, abv: 40 },
   { id: "mi-don-julio", categoryId: "cat-tequila", name: "Don Julio 1942", description: "L'añejo qui n'a plus besoin de présentation.", price: 340, icon: "tequila", tags: ["popular"], isAvailable: true, inventory: 10, isAlcoholic: true, abv: 40 },
@@ -448,7 +448,7 @@ export interface OutlierNight {
 }
 
 export const CORPUS_OUTLIERS: OutlierNight[] = [
-  { daysAgo: 78, label: "Headliner DJ — DJ Snake", volumeMultiplier: 2.0, description: "Sold-out VIP, 300+ admissions, Dom Pérignon depleted" },
+  { daysAgo: 78, label: "Headliner DJ: DJ Snake", volumeMultiplier: 2.0, description: "Sold-out VIP, 300+ admissions, Dom Pérignon depleted" },
   { daysAgo: 55, label: "Fête nationale weekend", volumeMultiplier: 1.5, description: "Terrace slammed, 3 incidents, 2 walkouts" },
   { daysAgo: 30, label: "Dead Saturday (rainstorm)", volumeMultiplier: 0.3, description: "4 sessions only, 2 cancelled orders, staff sent home early" },
   { daysAgo: 7, label: "Velvet Anniversary Party", volumeMultiplier: 1.8, description: "Event-driven, 250 event guests, promoter referrals, comp spike" },
@@ -512,7 +512,7 @@ export function generateGuestProfiles(count: number): GeneratedGuestProfile[] {
       phone: visits > 1 ? `+1 514 555 ${String(i).padStart(4, "0")}` : null,
       email: i < Math.floor(count * 0.6) ? `${fn.toLowerCase()}.${ln.toLowerCase()}@example.com` : null,
       status,
-      banReason: status === "banned" ? "Multiple altercations — banned indefinitely" : null,
+      banReason: status === "banned" ? "Multiple altercations, banned indefinitely" : null,
     });
   }
   return profiles;
@@ -539,9 +539,9 @@ export interface IncidentTemplate {
 
 export const CORPUS_INCIDENT_TEMPLATES: IncidentTemplate[] = [
   { type: "altercation", severity: "medium", narrativeTemplate: "Physical altercation reported in {zone}. Security responded within {minutes} minutes.", actionsTakenOptions: ["Parties separated, no further action", "Guest removed from venue", "Police notified", "Manager reviewed footage"] },
-  { type: "medical", severity: "low", narrativeTemplate: "Guest reported {symptom} in {zone}. Staff provided assistance.", actionsTakenOptions: ["First aid administered on site", "EMS called — guest transported", "Guest recovered and returned to table", "Incident logged, no further action"] },
-  { type: "refused-entry", severity: "low", narrativeTemplate: "Party of {size} refused entry at door. Reason: {reason}.", actionsTakenOptions: ["ID check failed — underage", "Intoxication — advised to return another night", "Dress code violation", "Aggressive behavior at door"] },
-  { type: "theft", severity: "medium", narrativeTemplate: "Guest reported missing {item} at {zone}. Last seen approximately {time}.", actionsTakenOptions: ["CCTV footage reviewed", "Security sweep conducted", "Police report filed", "Item recovered — returned to guest"] },
+  { type: "medical", severity: "low", narrativeTemplate: "Guest reported {symptom} in {zone}. Staff provided assistance.", actionsTakenOptions: ["First aid administered on site", "EMS called: guest transported", "Guest recovered and returned to table", "Incident logged, no further action"] },
+  { type: "refused-entry", severity: "low", narrativeTemplate: "Party of {size} refused entry at door. Reason: {reason}.", actionsTakenOptions: ["ID check failed: underage", "Intoxication: advised to return another night", "Dress code violation", "Aggressive behavior at door"] },
+  { type: "theft", severity: "medium", narrativeTemplate: "Guest reported missing {item} at {zone}. Last seen approximately {time}.", actionsTakenOptions: ["CCTV footage reviewed", "Security sweep conducted", "Police report filed", "Item recovered, returned to guest"] },
   { type: "property-damage", severity: "medium", narrativeTemplate: "Property damage reported in {zone}: {item} broken. Estimated cost: ${cost}.", actionsTakenOptions: ["Cleaned and cordoned off", "Guest charged for damages", "Insurance claim filed", "Repaired same night"] },
   { type: "other", severity: "low", narrativeTemplate: "Unusual incident in {zone}. Details: {details}.", actionsTakenOptions: ["Situation monitored", "Manager debriefed team", "Written warning issued", "No further action"] },
 ];
@@ -682,7 +682,7 @@ export const CORPUS_PACKAGES: CorpusPackage[] = [
   },
   {
     id: "pkg-agave-royale", name: "Agave Royale",
-    description: "Clase Azul meets 1942 — the tequila celebration set.",
+    description: "Clase Azul meets 1942: the tequila celebration set.",
     price: 700, components: [{ menuItemId: "mi-clase-azul", quantity: 1 }, { menuItemId: "mi-don-julio", quantity: 1 }],
     modifierGroupKeys: ["washersPackage", "presentation"], isActive: true,
   },
@@ -694,7 +694,7 @@ export const CORPUS_PACKAGES: CorpusPackage[] = [
   },
   {
     id: "pkg-bubble-bar", name: "Bubble Bar",
-    description: "Moët tower — three bottles, sparkler parade included.",
+    description: "Moët tower: three bottles, sparkler parade included.",
     price: 450, components: [{ menuItemId: "mi-moet", quantity: 3 }],
     modifierGroupKeys: ["washersChampagne", "presentation"], isActive: true,
   },
@@ -1313,10 +1313,10 @@ export function generateNightActivity(nightDate: Date): NightActivity {
 // ── Historical events generator ──────────────────────────────────────────
 
 const EVENT_DEFINITIONS = [
-  { name: "Guest DJ Set — {artist}", desc: "Special guest DJ set on the main floor. Extended hours.", capacity: 350, guestlist: true, talentRole: "dj" as const },
+  { name: "Guest DJ Set: {artist}", desc: "Special guest DJ set on the main floor. Extended hours.", capacity: 350, guestlist: true, talentRole: "dj" as const },
   { name: "Industry Night", desc: "Half-price bottles for service industry. 50+ industry regulars expected.", capacity: 250, guestlist: true, talentRole: null },
   { name: "{artist} Live Performance", desc: "Live set on the main floor. Full production.", capacity: 380, guestlist: true, talentRole: "performer" as const },
-  { name: "VIP Tasting — {spirit}", desc: "Curated tasting flight for VIP members only. Limited to 40 seats.", capacity: 40, guestlist: false, talentRole: "host" as const },
+  { name: "VIP Tasting: {spirit}", desc: "Curated tasting flight for VIP members only. Limited to 40 seats.", capacity: 40, guestlist: false, talentRole: "host" as const },
   { name: "Summer Rooftop Series", desc: "Terrace open all night with guest MC.", capacity: 280, guestlist: true, talentRole: "mc" as const },
 ];
 
@@ -1510,7 +1510,7 @@ export function generateHistoricalPromotions(): GeneratedPromotion[] {
   const promos: GeneratedPromotion[] = [
     {
       id: "promo-welcome10", venueId: CORPUS_VENUE.id,
-      code: "WELCOME10", name: "First Visit — 10% Off",
+      code: "WELCOME10", name: "First Visit: 10% Off",
       type: "percentage", value: 10,
       appliesToCategoryIds: ["cat-champagne", "cat-vodka"],
       startsAt: daysAgo(90).toISOString(), endsAt: daysAgo(-30).toISOString(),
@@ -1518,7 +1518,7 @@ export function generateHistoricalPromotions(): GeneratedPromotion[] {
     },
     {
       id: "promo-vip-20", venueId: CORPUS_VENUE.id,
-      code: "VIP20", name: "VIP Member — 20% Off Premium",
+      code: "VIP20", name: "VIP Member: 20% Off Premium",
       type: "percentage", value: 20,
       appliesToCategoryIds: ["cat-cognac", "cat-whisky", "cat-champagne"],
       startsAt: daysAgo(60).toISOString(), endsAt: daysAgo(-60).toISOString(),
@@ -1526,7 +1526,7 @@ export function generateHistoricalPromotions(): GeneratedPromotion[] {
     },
     {
       id: "promo-fete-nationale", venueId: CORPUS_VENUE.id,
-      code: "FETENAT", name: "Fête Nationale — $50 Off",
+      code: "FETENAT", name: "Fête Nationale: $50 Off",
       type: "flat", value: 50,
       appliesToCategoryIds: [],
       startsAt: daysAgo(58).toISOString(), endsAt: daysAgo(54).toISOString(),
@@ -1534,7 +1534,7 @@ export function generateHistoricalPromotions(): GeneratedPromotion[] {
     },
     {
       id: "promo-anniversary", venueId: CORPUS_VENUE.id,
-      code: "VELVET5", name: "Anniversary — 25% Off",
+      code: "VELVET5", name: "Anniversary: 25% Off",
       type: "percentage", value: 25,
       appliesToCategoryIds: [],
       startsAt: daysAgo(10).toISOString(), endsAt: daysAgo(-20).toISOString(),
@@ -1542,7 +1542,7 @@ export function generateHistoricalPromotions(): GeneratedPromotion[] {
     },
     {
       id: "promo-summer-series", venueId: CORPUS_VENUE.id,
-      code: "SUMMER25", name: "Summer Series — 15% Off Terrace",
+      code: "SUMMER25", name: "Summer Series: 15% Off Terrace",
       type: "percentage", value: 15,
       appliesToCategoryIds: ["cat-tequila", "cat-gin", "cat-rhum"],
       startsAt: daysAgo(3).toISOString(), endsAt: daysAgo(-60).toISOString(),
@@ -1643,7 +1643,7 @@ export function generatePresentTense(): PresentTenseState {
     attentionItems.push({
       id: `att-order-${o.id}`, type: "sla-breach", severity: "high",
       title: `Order ${o.code} overdue`,
-      detail: `Table ${o.tableCode}: ${o.guestName} — placed ${Math.round((Date.now() - new Date(o.placedAt).getTime()) / 60_000)} min ago`,
+      detail: `Table ${o.tableCode}: ${o.guestName}, placed ${Math.round((Date.now() - new Date(o.placedAt).getTime()) / 60_000)} min ago`,
       createdAt: minsAgo(randInt(15, 45)),
       sessionId: o.sessionId,
     });
@@ -1658,7 +1658,7 @@ export function generatePresentTense(): PresentTenseState {
     attentionItems.push({
       id: `att-help-${h.id}`, type: "unacked-help", severity: "medium",
       title: `Unanswered ${h.type} at ${h.tableCode}`,
-      detail: `Guest ${h.guestName} requesting ${h.type} — ${Math.round((Date.now() - new Date(h.createdAt).getTime()) / 60_000)} min ago`,
+      detail: `Guest ${h.guestName} requesting ${h.type}, ${Math.round((Date.now() - new Date(h.createdAt).getTime()) / 60_000)} min ago`,
       createdAt: minsAgo(randInt(5, 15)),
       sessionId: h.sessionId,
     });
@@ -1670,7 +1670,7 @@ export function generatePresentTense(): PresentTenseState {
     attentionItems.push({
       id: "att-occupancy", type: "occupancy-warning", severity: "medium",
       title: `Occupancy at ${Math.round(totalOcc / CORPUS_VENUE.legalCapacity * 100)}%`,
-      detail: `${totalOcc}/${CORPUS_VENUE.legalCapacity} — approaching legal capacity`,
+      detail: `${totalOcc}/${CORPUS_VENUE.legalCapacity}: approaching legal capacity`,
       createdAt: minsAgo(randInt(2, 10)),
     });
   }

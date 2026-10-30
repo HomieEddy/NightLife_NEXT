@@ -48,7 +48,7 @@ export const mockIncidents: Incident[] = [
     occurredAt: minsAgo(15),
     zoneId: "zone-dance",
     involvedStaffIds: ["st-nina"],
-    narrative: "Guest at MF-03 reported dizziness and nausea — likely dehydration.",
+    narrative: "Guest at MF-03 reported dizziness and nausea, likely dehydration.",
     actionsTaken: "Provided water, escorted to quieter area on terrace for fresh air. Guest recovered after 10 minutes.",
     policeInvolved: false,
     reportedByStaffId: "st-nina",
@@ -124,7 +124,7 @@ export const mockIncidentNotes: IncidentNote[] = [
   {
     id: "in-1",
     incidentId: "inc-1",
-    note: "Followed up with both parties' hosts — no further issues tonight.",
+    note: "Followed up with both parties' hosts. No further issues tonight.",
     authorStaffId: "st-amara",
     authorStaffName: "Amara Bélanger",
     createdAt: minsAgo(40),

@@ -42,7 +42,7 @@ async function livePOST(request: NextRequest) {
     action: "certification:manage",
     targetType: "certification",
     targetId: cert.id,
-    summary: `Created ${cert.type} certification for staff — expires ${cert.expiresAt}`,
+    summary: `Created ${cert.type} certification for staff, expires ${cert.expiresAt}`,
     metadata: { staffId: cert.staffId },
   });
 

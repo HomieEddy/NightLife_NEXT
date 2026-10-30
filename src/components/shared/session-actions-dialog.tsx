@@ -116,7 +116,7 @@ export function SessionActionsDialog({
     setBusy(true);
     try {
       await guestsService.refuseService(session.id, refuseReason.trim(), authorStaffId, authorStaffName);
-      toast.success(`Service refused for ${session.displayName} — incident logged`);
+      toast.success(`Service refused for ${session.displayName}. Incident logged`);
       setRefuseReason("");
       setOpen(false);
       onDone();
@@ -181,7 +181,7 @@ export function SessionActionsDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {otherOpenSessions.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.displayName} — {s.tableCode}</SelectItem>
+                    <SelectItem key={s.id} value={s.id}>{s.displayName}, {s.tableCode}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -193,7 +193,7 @@ export function SessionActionsDialog({
               <ConfirmDialog
                 trigger={<Button disabled={!mergeTargetId || busy} className="w-full">Merge</Button>}
                 title={`Merge ${session.displayName}'s tab into ${otherOpenSessions.find((s) => s.id === mergeTargetId)?.displayName ?? "…"}'s?`}
-                description="This tab closes as merged and its orders re-point to the parent — no new orders are created."
+                description="This tab closes as merged and its orders re-point to the parent. No new orders are created."
                 confirmLabel="Merge"
                 onConfirm={merge}
               />
@@ -219,7 +219,7 @@ export function SessionActionsDialog({
               ))}
             </ul>
             <p className="text-xs text-muted-foreground">
-              A view only — splitting never creates new orders or changes the tab&apos;s balance.
+              A view only. Splitting never creates new orders or changes the tab&apos;s balance.
             </p>
           </TabsContent>
 
@@ -232,7 +232,7 @@ export function SessionActionsDialog({
             </div>
             {session.serviceRefusedAt ? (
               <p className="text-xs text-muted-foreground">
-                Service already refused — {session.serviceRefusedReason}
+                Service already refused: {session.serviceRefusedReason}
               </p>
             ) : canRefuseService ? (
               <div className="space-y-2">

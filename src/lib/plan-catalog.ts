@@ -19,7 +19,7 @@ export const FEATURE_CATALOG: FeatureDef[] = [
   { key: "chat", label: "Team chat", description: "Floor coordination: chat, broadcasts, last call, shows" },
   { key: "multi-venue", label: "Multi-venue", description: "Manage several venues from one account" },
   { key: "door", label: "Door", description: "Live occupancy, admissions and the walk-in waitlist" },
-  { key: "incidents", label: "Incidents", description: "Incident reports — security's record of the night" },
+  { key: "incidents", label: "Incidents", description: "Incident reports: security's record of the night of the night" },
   { key: "guest-crm", label: "Guest CRM", description: "Persistent guest profiles, VIP recognition and merge tools" },
 ];
 

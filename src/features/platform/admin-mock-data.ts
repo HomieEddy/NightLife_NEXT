@@ -16,7 +16,7 @@ export const mockLeads: Lead[] = [
     notes: "Referred by Velvet Room. Interested in runner zone routing.",
     activity: [
       { id: "act-2a", at: daysAgo(3), text: "Referral intro from Velvet Room owner" },
-      { id: "act-2b", at: daysAgo(2), text: "Intro call done — sending pricing deck" },
+      { id: "act-2b", at: daysAgo(2), text: "Intro call done, sending pricing deck" },
     ],
     createdAt: daysAgo(3),
   },
@@ -26,7 +26,7 @@ export const mockLeads: Lead[] = [
     notes: "Rooftop venue, terrace-heavy layout.",
     activity: [
       { id: "act-3a", at: daysAgo(6), text: "Landing page signup" },
-      { id: "act-3b", at: daysAgo(4), text: "Qualification call — 21 tables, 3 zones" },
+      { id: "act-3b", at: daysAgo(4), text: "Qualification call: 21 tables, 3 zones" },
       { id: "act-3c", at: daysAgo(1), text: "Demo booked for Friday 15:00" },
     ],
     createdAt: daysAgo(6),
@@ -47,9 +47,9 @@ export const mockLeads: Lead[] = [
     status: "won", source: "outbound", dealValue: 1788,
     notes: "Signed! Provisioning scheduled.",
     activity: [
-      { id: "act-5a", at: daysAgo(18), text: "Cold outreach — replied same day" },
+      { id: "act-5a", at: daysAgo(18), text: "Cold outreach, replied same day" },
       { id: "act-5b", at: daysAgo(10), text: "Demo + trial started" },
-      { id: "act-5c", at: daysAgo(4), text: "Contract signed — starter annual" },
+      { id: "act-5c", at: daysAgo(4), text: "Contract signed: starter annual" },
     ],
     createdAt: daysAgo(18),
   },
@@ -59,7 +59,7 @@ export const mockLeads: Lead[] = [
     notes: "Went with competitor on pricing. Revisit next season.",
     activity: [
       { id: "act-6a", at: daysAgo(25), text: "Landing page signup" },
-      { id: "act-6b", at: daysAgo(20), text: "Demo done — price sensitivity flagged" },
+      { id: "act-6b", at: daysAgo(20), text: "Demo done, price sensitivity flagged" },
       { id: "act-6c", at: daysAgo(15), text: "Lost to competitor. Re-engage in April." },
     ],
     createdAt: daysAgo(25),
@@ -138,8 +138,8 @@ export const mockTenants: Tenant[] = [
 ];
 
 export const mockTelemetryLinks: TelemetryLink[] = [
-  { id: "tel-1", name: "Sentry — errors", url: "https://sentry.io/organizations/nightlifenext", category: "monitoring" },
-  { id: "tel-2", name: "Grafana — API dashboards", url: "https://grafana.nightlifenext.app", category: "monitoring" },
-  { id: "tel-3", name: "Better Stack — logs", url: "https://logs.betterstack.com", category: "logs" },
-  { id: "tel-4", name: "Vercel — deployments", url: "https://vercel.com/nightlifenext", category: "infra" },
+  { id: "tel-1", name: "Sentry: errors", url: "https://sentry.io/organizations/nightlifenext", category: "monitoring" },
+  { id: "tel-2", name: "Grafana: API dashboards", url: "https://grafana.nightlifenext.app", category: "monitoring" },
+  { id: "tel-3", name: "Better Stack: logs", url: "https://logs.betterstack.com", category: "logs" },
+  { id: "tel-4", name: "Vercel: deployments", url: "https://vercel.com/nightlifenext", category: "infra" },
 ];

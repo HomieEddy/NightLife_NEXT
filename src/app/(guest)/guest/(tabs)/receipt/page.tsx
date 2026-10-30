@@ -376,7 +376,7 @@ function NightReceipt() {
           <div className="flex justify-between">
             <span>{t("table")}</span>
             <span>
-              {table?.tableCode ?? "—"}
+              {table?.tableCode ?? "-"}
               {table?.zoneName ? ` · ${table.zoneName}` : ""}
             </span>
           </div>

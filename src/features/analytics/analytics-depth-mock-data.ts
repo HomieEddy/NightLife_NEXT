@@ -220,12 +220,12 @@ export const mockNightSummary: NightSummary = {
   staff: { onDuty: 8, topPerformer: "Sofia Lévesque", topPerformerRevenue: 2900 },
   incidents: { total: 2, highSeverity: 0 },
   inventory: { topSoldItem: "Washers (mixers)", soldOutItems: ["Belvedere Pure 1.75L"] },
-  executiveSummary: "Saturday night at \u00c9toile delivered $12,420 in revenue across 143 orders — 6.4% below last Saturday but 8.2% above the four-week average. Latin Night drove a 22% uplift in Main Floor capacity, peaking at 55 guests at 01:00. Sofia Lévesque led the bar with $2,900 served across 34 orders. Two low-severity incidents were recorded and resolved. Belvedere Pure 1.75L sold out at 02:30; restock was confirmed. No high-severity incidents, no evacuation events. Action items: restock Belvedere for Thursday, confirm VIP-02's bottle parade setup for Friday.",
+  executiveSummary: "Saturday night at \u00c9toile delivered $12,420 in revenue across 143 orders, 6.4% below last Saturday but 8.2% above the four-week average. Latin Night drove a 22% uplift in Main Floor capacity, peaking at 55 guests at 01:00. Sofia Lévesque led the bar with $2,900 served across 34 orders. Two low-severity incidents were recorded and resolved. Belvedere Pure 1.75L sold out at 02:30; restock was confirmed. No high-severity incidents, no evacuation events. Action items: restock Belvedere for Thursday, confirm VIP-02's bottle parade setup for Friday.",
   actionItems: [
     "Restock Belvedere Pure 1.75L before Thursday opening",
     "Confirm VIP-02 bottle parade setup for Friday's DJ Sora event",
     "Follow up with no-show reservation contacts (2 groups)",
-    "Review Théo Tremblay's comp rate (4.8% — above 3% threshold)",
+    "Review Théo Tremblay's comp rate (4.8%, above 3% threshold)",
   ],
   emailed: false,
 };

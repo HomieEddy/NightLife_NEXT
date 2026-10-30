@@ -216,7 +216,7 @@ export default function ManagerTipsPage() {
                   return (
                     <div key={d.id} className="rounded-md border px-3 py-2">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">{d.businessDate} — {formatMoney(d.poolCents, "CAD")}</p>
+                        <p className="text-sm font-medium">{d.businessDate}, {formatMoney(d.poolCents, "CAD")}</p>
                         <div className="flex items-center gap-2">
                           {closed ? <Badge variant="outline"><Lock className="size-3 mr-1" /> {t("closed")}</Badge> : (
                             <ConfirmDialog trigger={<Button size="sm" disabled={!canClose || closeMutation.isPending}>{t("close")}</Button>} title={t("closeDistribution")} description={t("closeDistributionDesc")} confirmLabel={t("close")} onConfirm={() => closeMutation.mutate(d)} />

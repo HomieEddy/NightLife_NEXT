@@ -90,7 +90,7 @@ function DraggableTable({
         selectedId === table.id && !editMode && "ring-2 ring-primary shadow-lg",
         extra,
       )}
-      aria-label={`${table.code} — ${table.status}`}
+      aria-label={`${table.code}, ${table.status}`}
     >
       <span className="font-mono">{table.code}</span>
       <span className="flex items-center gap-1 font-normal opacity-80">

@@ -198,7 +198,7 @@ export async function getPerHourAnalytics(
         hour: h.label, revenue: h.revenue, orders: h.orders,
         admissions: 0, exits: 0, occupancy: 0, peakFlag: false,
       })),
-      peakHour: fallback.revenueByHour[0]?.label ?? "—",
+      peakHour: fallback.revenueByHour[0]?.label ?? "-",
       peakRevenue: fallback.revenueByHour[0]?.revenue ?? 0,
       peakOccupancy: 0,
       legalCapacity,
@@ -335,7 +335,7 @@ export async function getTableTurnAnalytics(
   }));
 
   if (turns.length === 0) {
-    return { turns: [], avgTurnsPerTable: 0, avgOccupancyMinutes: 0, totalSeatings: 0, fastestTurn: { tableCode: "—", minutes: 0 }, slowestTurn: { tableCode: "—", minutes: 0 } };
+    return { turns: [], avgTurnsPerTable: 0, avgOccupancyMinutes: 0, totalSeatings: 0, fastestTurn: { tableCode: "-", minutes: 0 }, slowestTurn: { tableCode: "-", minutes: 0 } };
   }
 
   const fastest = turns.reduce((a, b) => (b.avgOccupancyMinutes < a.avgOccupancyMinutes ? b : a), turns[0]);
@@ -979,7 +979,7 @@ export async function getBottleServiceAnalytics(
     totalPresentations: presCount,
     totalBottlesSold: entries.reduce((s, e) => s + e.bottlesSold, 0),
     avgBottleRevenue: entries.length > 0 ? totalBottleRevenue / entries.length : 0,
-    peakHour: peakHourResult[0] ? String(peakHourResult[0].hour).padStart(2, "0") + ":00" : "—",
+    peakHour: peakHourResult[0] ? String(peakHourResult[0].hour).padStart(2, "0") + ":00" : "-",
   };
 }
 
@@ -1072,7 +1072,7 @@ export async function getCapacityUtilizationAnalytics(
 
   if (buckets.length === 0) {
     return {
-      buckets: [], legalCapacity, peakOccupancy: 0, peakHour: "—",
+      buckets: [], legalCapacity, peakOccupancy: 0, peakHour: "-",
       peakUtilizationPct: 0, avgOccupancy: 0, avgStayMinutes: 0,
       totalEntries: 0, totalExits: 0, exceededLegalCapacity: false,
     };
@@ -1166,7 +1166,7 @@ export async function getNightSummary(
     },
     orders: { total: tonight.ordersTonight, avgValue: tonight.avgOrderValue, topItem },
     covers: { total: tonight.reservations?.totalCovers ?? 0, seated: tonight.reservations?.seated ?? 0, noShowCount: noShows },
-    staff: { onDuty: staffOnDuty, topPerformer: topPerformer?.name ?? "—", topPerformerRevenue: topPerformer?.revenueServed ?? 0 },
+    staff: { onDuty: staffOnDuty, topPerformer: topPerformer?.name ?? "-", topPerformerRevenue: topPerformer?.revenueServed ?? 0 },
     incidents: { total: (await rawPrisma.incident.count({ where: { venueId, businessDate: label } })), highSeverity: highIncidents },
     inventory: { topSoldItem: topItem, soldOutItems: soldOut.map((s) => s.itemName) },
     executiveSummary: execSummaryParts.join(" "),

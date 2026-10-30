@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { DEMO_APP_URL } from "@/features/shared/app-origins";
 
-export const alt = "NightLifeNext — nightclub operations, reimagined — interactive demo tour";
+export const alt = "NightLifeNext: nightclub operations, reimagined, interactive demo tour";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -90,7 +90,7 @@ export default function OgImage() {
             </span>
           </div>
           <div style={{ fontSize: 30, color: MUTED, lineHeight: 1.35, maxWidth: 760 }}>
-            QR ordering · table service · live floor ops — explore the
+            QR ordering · table service · live floor ops. Explore the
             interactive demo, doors to close.
           </div>
         </div>
