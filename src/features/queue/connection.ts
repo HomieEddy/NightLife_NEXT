@@ -8,7 +8,7 @@ const redis = REDIS_URL ? { connection: { url: REDIS_URL } } : null;
 
 export function createQueue(name: string): Queue | null {
   if (!redis) {
-    logger.warn(`Queue "${name}" skipped — REDIS_URL not configured`);
+    logger.warn(`Queue "${name}" skipped because REDIS_URL is not configured`);
     return null;
   }
   return new Queue(name, redis);

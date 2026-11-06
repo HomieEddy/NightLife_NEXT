@@ -14,7 +14,7 @@ export const mockChecklistTemplates: ChecklistTemplate[] = [
       { id: "op-4", label: "Verify POS terminals and payment processing", required: true },
       { id: "op-5", label: "Set up coat check station", required: false },
       { id: "op-6", label: "Confirm DJ/sound system operational", required: true },
-      { id: "op-7", label: "Inspect restrooms — stocked and clean", required: true },
+      { id: "op-7", label: "Inspect restrooms: stocked and clean", required: true },
       { id: "op-8", label: "Verify liquor inventory matches opening counts", required: true },
       { id: "op-9", label: "Brief security team on tonight's events and VIP list", required: true },
       { id: "op-10", label: "Unlock and test all entry/exit doors", required: true },

@@ -218,8 +218,8 @@ function ReservationsContent() {
     window.history.replaceState(null, "", "/manager/reservations");
   }, [searchParams, events, zones]);
 
-  const zoneName = (id?: string) => zones.find((z: Zone) => z.id === id)?.name ?? "—";
-  const tableName = (id?: string) => tables.find((t: VenueTable) => t.id === id)?.code ?? "—";
+  const zoneName = (id?: string) => zones.find((z: Zone) => z.id === id)?.name ?? "-";
+  const tableName = (id?: string) => tables.find((t: VenueTable) => t.id === id)?.code ?? "-";
   const eventName = (id?: string) => events.find((e: VenueEvent) => e.id === id)?.name;
 
   const tablesForZone = useMemo(
@@ -228,7 +228,7 @@ function ReservationsContent() {
   );
 
   function advance(res: Reservation) {
-    if (STATUS_ACTIONS[res.status] === "—") return;
+    if (STATUS_ACTIONS[res.status] === "-") return;
     advanceMutation.mutate(res);
   }
 
@@ -432,7 +432,7 @@ function ReservationsContent() {
                   </div>
                 )}
                 <div className="flex flex-wrap items-center gap-1.5 border-t pt-2">
-                  {STATUS_ACTIONS[res.status] !== "—" && (
+                  {STATUS_ACTIONS[res.status] !== "-" && (
                     <Button size="sm" variant="default" onClick={() => advance(res)}>
                       <Check className="size-3.5" /> {STATUS_ACTIONS[res.status]}
                     </Button>

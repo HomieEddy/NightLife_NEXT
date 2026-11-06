@@ -113,7 +113,7 @@ const withPresentation = (wg: ModifierGroup) => [wg, presentationGroup];
 
 export const mockCategories: MenuCategory[] = [
   { id: "cat-champagne", venueId: "venue-1", name: "Champagne", description: "Cuvées prestige servies dans un seau scintillant", sortOrder: 1, isActive: true, modifierGroups: champagneMods },
-  { id: "cat-tequila", venueId: "venue-1", name: "Tequila", description: "Blanco, reposado et anejo — citrons et sel inclus", sortOrder: 2, isActive: true, modifierGroups: withPresentation(washersTequila) },
+  { id: "cat-tequila", venueId: "venue-1", name: "Tequila", description: "Blanco, reposado et anejo, citrons et sel inclus", sortOrder: 2, isActive: true, modifierGroups: withPresentation(washersTequila) },
   { id: "cat-vodka", venueId: "venue-1", name: "Vodka", description: "Servie glacee a votre table avec vos washers preferes", sortOrder: 3, isActive: true, modifierGroups: withPresentation(washersVodka) },
   { id: "cat-cognac", venueId: "venue-1", name: "Cognac", description: "V.S.O.P et X.O pour la banquette du fond", sortOrder: 4, isActive: true, modifierGroups: withPresentation(washersCognac) },
   { id: "cat-rhum", venueId: "venue-1", name: "Rhum", description: "Rhums caribeens vieillis, sec ou long drink", sortOrder: 5, isActive: true, modifierGroups: withPresentation(washersRhum) },
@@ -129,8 +129,8 @@ const rawMenuItems: Omit<MenuItem, "isAlcoholic" | "allergens">[] = [
   // Champagne
   { id: "mi-moet", categoryId: "cat-champagne", name: "Moët & Chandon Impérial", description: "Le champagne classique de la maison, bien frais.", price: 160, icon: "champagne", tags: [], isAvailable: true, inventory: 24 },
   { id: "mi-dom", categoryId: "cat-champagne", name: "Dom Pérignon Vintage", description: "Cuvée de prestige iconique.", price: 320, icon: "champagne", tags: ["popular"], isAvailable: true, inventory: 12 },
-  { id: "mi-ace", categoryId: "cat-champagne", name: "Ace of Spades Brut Gold", description: "Armand de Brignac — la pièce maîtresse.", price: 500, icon: "champagne", tags: ["premium", "popular"], isAvailable: true, inventory: 8 },
-  { id: "mi-cristal", categoryId: "cat-champagne", name: "Louis Roederer Cristal", description: "Allocation rare — tant qu'il en reste.", price: 650, icon: "champagne", tags: ["limited"], isAvailable: true, inventory: 4 },
+  { id: "mi-ace", categoryId: "cat-champagne", name: "Ace of Spades Brut Gold", description: "Armand de Brignac, la pièce maîtresse.", price: 500, icon: "champagne", tags: ["premium", "popular"], isAvailable: true, inventory: 8 },
+  { id: "mi-cristal", categoryId: "cat-champagne", name: "Louis Roederer Cristal", description: "Allocation rare, tant qu'il en reste.", price: 650, icon: "champagne", tags: ["limited"], isAvailable: true, inventory: 4 },
 
   // Tequila
   { id: "mi-patron", categoryId: "cat-tequila", name: "Patrón Silver", description: "Blanco smooth, citrons et sal de gusano inclus.", price: 220, icon: "tequila", tags: [], isAvailable: true, inventory: 15 },
@@ -234,7 +234,7 @@ export const mockPackages: BottlePackage[] = [
     id: "pkg-agave-royale",
     venueId: "venue-1",
     name: "Agave Royale",
-    description: "Clase Azul meets 1942 — the tequila celebration set.",
+    description: "Clase Azul meets 1942: the tequila celebration set.",
     price: 700,
     components: [
       { menuItemId: "mi-clase-azul", quantity: 1 },
@@ -247,7 +247,7 @@ export const mockPackages: BottlePackage[] = [
     id: "pkg-table-starter",
     venueId: "venue-1",
     name: "Table Starter",
-    description: "One bubbly, one vodka — the easy opener.",
+    description: "One bubbly, one vodka. The easy opener.",
     price: 380,
     components: [
       { menuItemId: "mi-moet", quantity: 1 },
@@ -260,7 +260,7 @@ export const mockPackages: BottlePackage[] = [
     id: "pkg-the-vault",
     venueId: "venue-1",
     name: "Sovereign",
-    description: "Five Cristal, three Blue, three Dom — the booth build-out for a table that means business.",
+    description: "Five Cristal, three Blue, three Dom. The booth build-out for a table that means business.",
     price: 4800,
     components: [
       { menuItemId: "mi-cristal", quantity: 5 },
@@ -274,7 +274,7 @@ export const mockPackages: BottlePackage[] = [
     id: "pkg-empire",
     venueId: "venue-1",
     name: "Dynasty",
-    description: "Ten Ace of Spades, eight Cristal — a parade of gold and platinum. The room turns.",
+    description: "Ten Ace of Spades, eight Cristal. A parade of gold and platinum. The room turns.",
     price: 9800,
     components: [
       { menuItemId: "mi-ace", quantity: 10 },
@@ -287,7 +287,7 @@ export const mockPackages: BottlePackage[] = [
     id: "pkg-nightfall",
     venueId: "venue-1",
     name: "Legacy",
-    description: "Twenty-five Ace, twenty Cristal — shut it down. This is the one they'll talk about.",
+    description: "Twenty-five Ace, twenty Cristal. Shut it down. This is the one they'll talk about.",
     price: 24000,
     components: [
       { menuItemId: "mi-ace", quantity: 25 },
@@ -301,8 +301,8 @@ export const mockPackages: BottlePackage[] = [
 const minsAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 
 export const mockStockMovements: StockMovement[] = [
-  { id: "mv-1", menuItemId: "mi-ace", itemName: "Ace of Spades Brut Gold", type: "restock", delta: 6, note: "Livraison hebdo — Maison Prestige", createdAt: minsAgo(360) },
-  { id: "mv-2", menuItemId: "mi-dom", itemName: "Dom Pérignon Vintage", type: "restock", delta: 12, note: "Livraison hebdo — Maison Prestige", createdAt: minsAgo(360) },
+  { id: "mv-1", menuItemId: "mi-ace", itemName: "Ace of Spades Brut Gold", type: "restock", delta: 6, note: "Livraison hebdo, Maison Prestige", createdAt: minsAgo(360) },
+  { id: "mv-2", menuItemId: "mi-dom", itemName: "Dom Pérignon Vintage", type: "restock", delta: 12, note: "Livraison hebdo, Maison Prestige", createdAt: minsAgo(360) },
   { id: "mv-3", menuItemId: "mi-redbull", itemName: "Red Bull", type: "restock", delta: 80, note: "Course au depanneur", createdAt: minsAgo(300) },
   { id: "mv-4", menuItemId: "mi-cristal", itemName: "Louis Roederer Cristal", type: "adjustment", delta: -1, note: "Bouteille cassée pendant le set-up", createdAt: minsAgo(120) },
   { id: "mv-5", menuItemId: "mi-dom", itemName: "Dom Pérignon Vintage", type: "sale", delta: -1, note: "Commande A-038", createdAt: minsAgo(3) },

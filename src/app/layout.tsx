@@ -45,7 +45,7 @@ export const metadata: Metadata = {
   // the build's own origin — demo deploys to Vercel, live to OVHcloud.
   metadataBase: new URL(isDemoMode() ? DEMO_APP_URL : LIVE_APP_URL),
   title: {
-    default: "NightLifeNext — Nightclub Operations, Reimagined",
+    default: "NightLifeNext: Nightclub Operations, Reimagined",
     template: "%s · NightLifeNext",
   },
   description:

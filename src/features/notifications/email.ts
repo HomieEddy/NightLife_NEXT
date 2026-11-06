@@ -11,7 +11,7 @@ const EMAIL_DRIVER = process.env.EMAIL_DRIVER === "resend" ? "resend" : "log";
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "NightLife <noreply@nightlife.app>";
 
 function getResend(): Resend {
-  if (EMAIL_DRIVER !== "resend") throw new Error("Resend is not configured — set EMAIL_DRIVER=resend and RESEND_API_KEY");
+  if (EMAIL_DRIVER !== "resend") throw new Error("Resend is not configured. Set EMAIL_DRIVER=resend and RESEND_API_KEY");
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("RESEND_API_KEY is required when EMAIL_DRIVER=resend");
   return new Resend(apiKey);

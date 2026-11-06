@@ -34,9 +34,9 @@ const KIND_LABEL: Record<TabAdjustmentKind, string> = {
 };
 
 const KIND_HELP: Record<TabAdjustmentKind, string> = {
-  void: "It never happened — removes the line from revenue and returns the stock.",
-  comp: "It happened, the guest doesn't pay — stock stays depleted, lands as a house cost.",
-  discount: "It happened, the guest pays less — reduces revenue by the delta only.",
+  void: "It never happened. Removes the line from revenue and returns the stock.",
+  comp: "It happened, the guest doesn't pay. Stock stays depleted and lands as a house cost.",
+  discount: "It happened, the guest pays less. Reduces revenue by the delta only.",
 };
 
 /**
@@ -123,7 +123,7 @@ export function AdjustmentDialog({
         authorStaffId,
         authorStaffName,
       });
-      toast.success(`${KIND_LABEL[data.kind]}ed ${label} — ${formatMoney(amountCents / 100)}`);
+      toast.success(`${KIND_LABEL[data.kind]}ed ${label}: ${formatMoney(amountCents / 100)}`);
       setOpen(false);
       onDone();
     } catch (error) {
@@ -235,7 +235,7 @@ export function AdjustmentDialog({
 
           {overThreshold && (
             <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-              This comp ({formatMoney(amountCents / 100)}) is over the venue&apos;s {formatMoney(compThresholdCents / 100)} threshold —
+              This comp ({formatMoney(amountCents / 100)}) is over the venue&apos;s {formatMoney(compThresholdCents / 100)} threshold, so
               ask a manager to approve it.
             </p>
           )}
@@ -248,12 +248,12 @@ export function AdjustmentDialog({
                 {isSubmitting ? "Recording…" : `${KIND_LABEL[kind]} ${label}`}
               </Button>
             }
-            title={`${KIND_LABEL[kind]} ${label} — ${formatMoney(amountCents / 100)}${reasonLabel ? ` — ${reasonLabel}` : ""}?`}
+            title={`${KIND_LABEL[kind]} ${label}: ${formatMoney(amountCents / 100)}${reasonLabel ? `, ${reasonLabel}` : ""}?`}
             description={
               kind === "void"
                 ? `Removes this from revenue and returns ${item ? quantity : "every unit on this order"} to inventory.`
                 : kind === "comp"
-                  ? "Removes this from revenue as a house gift. Inventory is not returned — the product left the building."
+                  ? "Removes this from revenue as a house gift. Inventory is not returned. The product left the building."
                   : "Reduces revenue by this amount. Inventory is not affected."
             }
             confirmLabel={`${KIND_LABEL[kind]} it`}

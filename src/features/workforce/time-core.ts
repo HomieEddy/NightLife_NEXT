@@ -147,7 +147,7 @@ export async function clockIn(
   const open = await db.timeEntry.findFirst({
     where: { staffId, clockOutAt: null },
   });
-  if (open) throw new HttpError(409, "Already clocked in — clock out first.");
+  if (open) throw new HttpError(409, "Already clocked in. Clock out first.");
 
   const row = await db.timeEntry.create({
     data: {
@@ -170,7 +170,7 @@ export async function clockOut(
   const open = await db.timeEntry.findFirst({
     where: { staffId, clockOutAt: null },
   });
-  if (!open) throw new HttpError(409, "No open clock-in found — clock in first.");
+  if (!open) throw new HttpError(409, "No open clock-in found. Clock in first.");
 
   const now = new Date();
   const breaks = (Array.isArray(open.breaks) ? open.breaks : []) as unknown as unknown as BreakEntry[];

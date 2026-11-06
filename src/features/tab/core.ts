@@ -226,7 +226,7 @@ export async function createAdjustment(
   // Only delivered-or-later orders can be adjusted.  A cancellation is not an
   // adjustment — it reverses the sale movement directly in cancelOrder.
   if (order.status === "cancelled" || order.status === "pending") {
-    return { ok: false, error: `Cannot adjust a ${order.status} order — it must be delivered first.` };
+    return { ok: false, error: `Cannot adjust a ${order.status} order. It must be delivered first.` };
   }
 
   const sessionId = order.sessionId;
@@ -289,7 +289,7 @@ export async function createAdjustment(
   }
 
   const kindLabel = input.kind === "void" ? "voided" : input.kind === "comp" ? "comped" : "discounted";
-  const summary = `${input.authorStaffName} ${kindLabel} ${description} — ${reason.label}`;
+  const summary = `${input.authorStaffName} ${kindLabel} ${description}: ${reason.label}`;
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -324,7 +324,7 @@ export async function createAdjustment(
               menuItemId: targetItem.menuItemId,
               delta: qty,
               type: "adjustment",
-              note: `Void adjustment — ${summary}`,
+              note: `Void adjustment: ${summary}`,
             });
           }
         } else {
@@ -334,7 +334,7 @@ export async function createAdjustment(
               menuItemId: item.menuItemId,
               delta: item.quantity,
               type: "adjustment",
-              note: `Void adjustment — ${summary}`,
+              note: `Void adjustment: ${summary}`,
             });
           }
         }
@@ -459,7 +459,7 @@ export async function reverseAdjustment(
                 menuItemId: item.menuItemId,
                 delta: -qty,
                 type: "adjustment",
-                note: `Void reversal — ${staffName}`,
+                note: `Void reversal: ${staffName}`,
               });
             }
           } else {
@@ -469,7 +469,7 @@ export async function reverseAdjustment(
                 menuItemId: item.menuItemId,
                 delta: -item.quantity,
                 type: "adjustment",
-                note: `Void reversal — ${staffName}`,
+                note: `Void reversal: ${staffName}`,
               });
             }
           }
@@ -647,7 +647,7 @@ export async function closeCashout(
           action: "cashout:close",
           targetType: "cashout",
           targetId: cashout.id,
-          summary: `Closed ${input.staffId ? "drawer" : "venue"} cash-out for ${input.businessDate} — variance ${variance >= 0 ? "+" : ""}${(variance / 100).toFixed(2)}`,
+          summary: `Closed ${input.staffId ? "drawer" : "venue"} cash-out for ${input.businessDate}, variance ${variance >= 0 ? "+" : ""}${(variance / 100).toFixed(2)}`,
           metadata: { businessDate: input.businessDate, varianceCents: variance },
         },
       });
@@ -991,7 +991,7 @@ export async function reportWalkout(
           action: "order:walkout",
           targetType: "session",
           targetId: sessionId,
-          summary: `Walkout reported — ${session.tableCode}: ${description}`,
+          summary: `Walkout reported at ${session.tableCode}: ${description}`,
           metadata: { walkoutId: walkout.id },
         },
       });

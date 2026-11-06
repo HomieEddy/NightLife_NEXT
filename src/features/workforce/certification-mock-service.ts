@@ -58,7 +58,7 @@ export const mockCertificationService = {
       action: "certification:manage",
       targetType: "certification",
       targetId: cert.id,
-      summary: `Created ${input.type} certification for staff — expires ${input.expiresAt}`,
+      summary: `Created ${input.type} certification for staff, expires ${input.expiresAt}`,
       metadata: { staffId: input.staffId },
     });
     return clone(cert);

@@ -72,7 +72,7 @@ export default function LandingPage() {
 
         <div className="relative mx-auto w-full max-w-6xl px-4 py-20">
           <p className="hero-eyebrow font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-            Nightlife operations platform — private beta
+            Nightlife operations platform, private beta
           </p>
 
           <h1 className="mt-6 font-display uppercase leading-[0.92] tracking-[0.01em] text-[clamp(3.5rem,11vw,9rem)]">
@@ -88,7 +88,7 @@ export default function LandingPage() {
 
           <p className="hero-item text-voice mt-7 max-w-xl text-lg text-muted-foreground sm:text-xl">
             QR ordering at the booth, bottle-service approvals, runner routing and live night
-            analytics — one system built for nightclubs, not restaurants.
+            analytics, one system built for nightclubs, not restaurants.
           </p>
 
           <div className="hero-item mt-9 flex flex-col gap-3 sm:flex-row">
@@ -122,7 +122,7 @@ export default function LandingPage() {
 
         <div className="hero-item pointer-events-none absolute inset-x-0 bottom-5 hidden justify-center sm:flex">
           <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-            Scroll — the night starts at 22:00
+            Scroll: the night starts at 22:00
           </p>
         </div>
       </section>
@@ -213,8 +213,8 @@ export default function LandingPage() {
               <span className="text-outline">is coming.</span>
             </h2>
             <p className="mx-auto mt-5 max-w-md text-muted-foreground">
-              Tell us about your venue and we&apos;ll walk you through a full night — doors to
-              close — before the weekend.
+              Tell us about your venue and we&apos;ll walk you through a full night, from doors to
+              close, before the weekend.
             </p>
             <div className="mt-8">
               <Button size="lg" variant="foil" className="h-13 px-8 text-base glow-gold" asChild>

@@ -284,7 +284,7 @@ export const mockGuestsService = {
       severity: "low",
       tableId: session.tableId,
       involvedStaffIds: [staffId],
-      narrative: `Service refused for ${session.displayName} at ${session.tableCode} — ${reason.trim()}`,
+      narrative: `Service refused for ${session.displayName} at ${session.tableCode}: ${reason.trim()}`,
       actionsTaken: "Blocked new orders for the session; host informed the guest.",
       policeInvolved: false,
       reportedByStaffId: staffId,
@@ -436,7 +436,7 @@ export const mockGuestsService = {
       action: "session:force-close",
       targetType: "session",
       targetId: session.id,
-      summary: `Force-closed ${session.displayName}'s session at ${session.tableCode} — ${reason}`,
+      summary: `Force-closed ${session.displayName}'s session at ${session.tableCode}: ${reason}`,
       metadata: { cancelledOrders: sessionOrders.length },
     });
     return clone(session);

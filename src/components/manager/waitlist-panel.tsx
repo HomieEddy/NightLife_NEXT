@@ -108,7 +108,7 @@ export function WaitlistPanel() {
                   <CardContent className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
                       <p className="font-medium">
-                        #{entry.position ?? "—"} {entry.name} <span className="font-normal text-muted-foreground">— {t("waitlist.partyOf", { count: entry.partySize })}</span>
+                        #{entry.position ?? "-"} {entry.name} <span className="font-normal text-muted-foreground">, {t("waitlist.partyOf", { count: entry.partySize })}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {t("waitlist.elapsed", { elapsed, quoted: entry.quotedMinutes })} · {STATUS_LABEL[entry.status]}

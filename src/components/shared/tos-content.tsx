@@ -17,9 +17,9 @@ function TosFR() {
   return (
     <div className="prose prose-sm dark:prose-invert mx-auto max-w-3xl space-y-6 py-8">
       <p className="text-sm text-muted-foreground">
-        <strong>NightLifeNext — En vigueur : [DATE]</strong><br />
+        <strong>NightLifeNext, en vigueur : [DATE]</strong><br />
         Dernière mise à jour : 2026-08-03<br />
-        <em>[ÉBAUCHE — révision juridique requise avant publication]</em>
+        <em>[ÉBAUCHE : révision juridique requise avant publication]</em>
       </p>
 
       <p>
@@ -50,7 +50,7 @@ function TosFR() {
         <h3 className="text-base font-semibold mt-2">2.3 Accès des clients</h3>
         <p>Les clients commandent via code QR sans créer de compte. Leurs sessions
         sont liées à une table. Vous êtes responsable des données clients collectées
-        — voir notre{" "}
+        . Voir notre{" "}
         <Link href="/privacy" className="underline">Politique de confidentialité</Link>.</p>
       </Section>
 
@@ -169,9 +169,9 @@ function TosEN() {
   return (
     <div className="prose prose-sm dark:prose-invert mx-auto max-w-3xl space-y-6 py-8">
       <p className="text-sm text-muted-foreground">
-        <strong>NightLifeNext — Effective: [DATE]</strong><br />
+        <strong>NightLifeNext, Effective: [DATE]</strong><br />
         Last updated: 2026-08-03<br />
-        <em>[DRAFT — legal review required before publishing]</em>
+        <em>[DRAFT: legal review required before publishing]</em>
       </p>
 
       <p>
@@ -201,7 +201,7 @@ function TosEN() {
         compliance with these Terms.</p>
         <h3 className="text-base font-semibold mt-2">2.3 Guest access</h3>
         <p>Guests order via QR code without creating accounts. Sessions are tied
-        to a table. You are responsible for guest data you collect — see our{" "}
+        to a table. You are responsible for guest data you collect. See our{" "}
         <Link href="/privacy" className="underline">Privacy Policy</Link>.</p>
       </Section>
 

@@ -267,7 +267,7 @@ export default function ManagerIncidentsPage() {
                                 </Button>
                               }
                               title={t("reportTitle")}
-                              description={`${t("reportConfirm")} — ${incident.regulatoryAuthority ?? "the regulatory authority"}`}
+                              description={`${t("reportConfirm")}: ${incident.regulatoryAuthority ?? "the regulatory authority"}`}
                               confirmLabel={t("reportConfirm")}
                               onConfirm={() => recordReportedMutation.mutate(incident.id)}
                             />

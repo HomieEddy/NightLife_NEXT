@@ -23,7 +23,7 @@ import { useAuth } from "@/context/auth-context";
 import type { Shift } from "@/lib/types";
 
 function shiftTime(s: Shift): string {
-  if (!s.scheduledStart) return "—";
+  if (!s.scheduledStart) return "-";
   const start = new Date(s.scheduledStart);
   const end = new Date(s.scheduledEnd);
   return `${start.getHours().toString().padStart(2, "0")}:${start.getMinutes().toString().padStart(2, "0")} – ${end.getHours().toString().padStart(2, "0")}:${end.getMinutes().toString().padStart(2, "0")}`;
@@ -111,7 +111,7 @@ export default function StaffSchedulePage() {
     timeOffMutation.mutate();
   }
 
-  const zoneName = (id: string | null) => id ? zones.find((z) => z.id === id)?.name ?? "—" : "—";
+  const zoneName = (id: string | null) => id ? zones.find((z) => z.id === id)?.name ?? "-" : "-";
   const STATUS_STYLES: Record<string, string> = {
     published: "bg-cyan-500/10 text-cyan-600", confirmed: "bg-emerald-500/10 text-emerald-600",
     "in-progress": "bg-amber-500/10 text-amber-600", completed: "bg-muted text-muted-foreground",

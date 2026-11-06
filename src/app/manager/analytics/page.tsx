@@ -504,14 +504,14 @@ function AnalyticsPageContent() {
               />
               <MetricCard
                 label={t("staffCards.fastestServer.label")}
-                value={fastestServer?.name.split(" ")[0] ?? "—"}
+                value={fastestServer?.name.split(" ")[0] ?? "-"}
                 icon={Users}
                 info={t("staffCards.fastestServer.info")}
                 hint={t("common.minAvg", { mins: fastestServer?.avgDeliveryMinutes ?? 0 })}
               />
               <MetricCard
                 label={t("staffCards.topEarner.label")}
-                value={topEarner?.name.split(" ")[0] ?? "—"}
+                value={topEarner?.name.split(" ")[0] ?? "-"}
                 icon={Trophy}
                 info={t("staffCards.topEarner.info")}
                 hint={t("staff.byRevenueServed")}
@@ -572,10 +572,10 @@ function AnalyticsPageContent() {
                         <tr key={p.staffId} className="border-b last:border-0">
                           <td className="py-2 pr-4">{p.name}</td>
                           <td className="py-2 pr-4"><RoleBadge role={p.role} className="px-1.5 py-0 text-[10px]" /></td>
-                          <td className="py-2 pr-4 text-right tabular-nums">{p.avgAcceptMinutes ?? "—"} {t("common.min")}</td>
+                          <td className="py-2 pr-4 text-right tabular-nums">{p.avgAcceptMinutes ?? "-"} {t("common.min")}</td>
                           <td className="py-2 pr-4 text-right tabular-nums">{p.avgDeliveryMinutes} {t("common.min")}</td>
                           <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(p.revenueServed)}</td>
-                          <td className="py-2 text-right tabular-nums">{p.ordersPerShiftHour ?? "—"}</td>
+                          <td className="py-2 text-right tabular-nums">{p.ordersPerShiftHour ?? "-"}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -609,7 +609,7 @@ function AnalyticsPageContent() {
                             <td className="py-2 pr-4">{p.name}</td>
                             <td className="py-2 pr-4"><RoleBadge role={p.role} className="px-1.5 py-0 text-[10px]" /></td>
                             <td className="py-2 pr-4 text-right tabular-nums">{p.helpResolved ?? 0}</td>
-                            <td className="py-2 text-right tabular-nums">{p.avgHelpMinutes ?? "—"} {t("common.min")}</td>
+                            <td className="py-2 text-right tabular-nums">{p.avgHelpMinutes ?? "-"} {t("common.min")}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -642,7 +642,7 @@ function AnalyticsPageContent() {
                 label={t("inventoryCards.topCategory.label")}
                 value={
                   [...data.categoryDepletion].sort((a, b) => b.unitsSold - a.unitsSold)[0]
-                    ?.categoryName ?? "—"
+                    ?.categoryName ?? "-"
                 }
                 icon={Trophy}
                 info={t("inventoryCards.topCategory.info")}
@@ -1078,7 +1078,7 @@ function AnalyticsPageContent() {
                     label={t("promotersCards.topPromoter.label")}
                     value={
                       [...data.promoters.promoters].sort((a, b) => b.attributedRevenue - a.attributedRevenue)[0]
-                        ?.promoterName.split(" ")[0] ?? "—"
+                        ?.promoterName.split(" ")[0] ?? "-"
                     }
                     icon={Trophy}
                     info={t("promotersCards.topPromoter.info")}

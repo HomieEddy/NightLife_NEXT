@@ -615,7 +615,7 @@ export async function commitStocktake(db: ScopedDb, stId: string): Promise<Stock
         menuItemId: line.menuItemId,
         delta: line.varianceQty,
         type: "adjustment",
-        note: `Stocktake ${st.businessDate} — count variance`,
+        note: `Stocktake ${st.businessDate}, count variance`,
         stocktakeId: stId,
       });
     }

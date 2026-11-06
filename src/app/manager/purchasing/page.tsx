@@ -509,7 +509,7 @@ export default function ManagerPurchasingPage() {
         <Card>
           <CardHeader><CardTitle className="text-base"><Package className="size-4 inline mr-1" />{t("suggestedOrder")}</CardTitle></CardHeader>
           <CardContent>
-            <div className="space-y-1">{suggestions.map((s) => <div key={s.menuItemId} className="flex justify-between rounded px-2 py-1 text-sm"><span>{s.itemName}</span><span className="tabular-nums">{s.suggestedQty} × {s.unitCostCents != null ? formatMoney(s.unitCostCents, "CAD") : "—"}</span></div>)}</div>
+            <div className="space-y-1">{suggestions.map((s) => <div key={s.menuItemId} className="flex justify-between rounded px-2 py-1 text-sm"><span>{s.itemName}</span><span className="tabular-nums">{s.suggestedQty} × {s.unitCostCents != null ? formatMoney(s.unitCostCents, "CAD") : "-"}</span></div>)}</div>
           </CardContent>
         </Card>
       )}

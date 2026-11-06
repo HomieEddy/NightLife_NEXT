@@ -77,7 +77,7 @@ export interface Venue {
     /** Roles that can override the auto-gratuity at the table. */
     allowOverride?: boolean;
   }[];
-  /** RV-07: Per-role comp threshold — below this, the role can comp themselves; above requires manager. */
+  /** RV-07: Per-role comp threshold, so below this, the role can comp themselves; above requires manager. */
   roleCompThresholds?: Record<string, number>;
   /** OE-14: Re-entry cutoff time (e.g. "02:00") — after this, exits are final. */
   reEntryCutoffTime?: string;

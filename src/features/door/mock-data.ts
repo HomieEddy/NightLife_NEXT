@@ -9,7 +9,7 @@ export const CURRENT_BUSINESS_DATE = businessDateFor(new Date().toISOString(), m
 // Nets to 264 tonight (180 + 64 + 32 − 12), out of legalCapacity 400 — 0.66 of
 // capacity, partway there but well under the 0.9 occupancyWarnRatio.
 export const mockOccupancyEvents: OccupancyEvent[] = [
-  { id: "oe-1", venueId: "venue-1", businessDate: CURRENT_BUSINESS_DATE, delta: 180, reason: "door open — early arrivals", staffId: "st-viktor", at: minsAgo(180) },
+  { id: "oe-1", venueId: "venue-1", businessDate: CURRENT_BUSINESS_DATE, delta: 180, reason: "door open, early arrivals", staffId: "st-viktor", at: minsAgo(180) },
   { id: "oe-2", venueId: "venue-1", businessDate: CURRENT_BUSINESS_DATE, delta: 64, reason: "walk-ins", staffId: "st-viktor", at: minsAgo(90) },
   { id: "oe-3", venueId: "venue-1", businessDate: CURRENT_BUSINESS_DATE, delta: 32, reason: "reservations seated", staffId: "st-marcus", at: minsAgo(45) },
   { id: "oe-4", venueId: "venue-1", businessDate: CURRENT_BUSINESS_DATE, delta: -12, reason: "exits", staffId: "st-marcus", at: minsAgo(20) },

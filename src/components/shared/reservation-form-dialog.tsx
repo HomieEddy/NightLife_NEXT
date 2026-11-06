@@ -192,7 +192,7 @@ export function ReservationFormDialog({
                       className="flex w-full items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors hover:border-primary/50"
                     >
                       <UserSquare2 className="size-3.5 shrink-0 text-muted-foreground" />
-                      {c.displayName} — {t("reservationForm.nVisits", { count: c.visitCount })}
+                      {c.displayName}, {t("reservationForm.nVisits", { count: c.visitCount })}
                     </button>
                   ))}
                 </div>
@@ -265,7 +265,7 @@ export function ReservationFormDialog({
               <option value="">{t("reservationForm.noSpecificTable")}</option>
               {tablesForZone.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.code} — {t.label}
+                  {t.code}: {t.label}
                 </option>
               ))}
             </select>
@@ -357,7 +357,7 @@ export function ReservationFormDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="res-duration">{t("reservationForm.duration")}</Label>
-              <Input id="res-duration" type="number" min={30} step={30} max={480} placeholder="—"
+              <Input id="res-duration" type="number" min={30} step={30} max={480} placeholder="-"
                 value={draft.expectedDurationMinutes ?? ""}
                 onChange={(e) => setDraft({ ...draft, expectedDurationMinutes: Number(e.target.value) || undefined })} />
             </div>

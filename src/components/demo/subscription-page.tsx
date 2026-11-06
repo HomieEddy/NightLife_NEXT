@@ -201,7 +201,7 @@ export default function ManagerSubscriptionPage() {
                     }
                     title={`Upgrade to ${plan.name}?`}
                     description={`Your card is charged ${formatMoney(plan.monthlyPrice)}/month starting at the next renewal, prorated for this cycle.`}
-                    confirmLabel={`Upgrade — ${formatMoney(plan.monthlyPrice)}/mo`}
+                    confirmLabel={`Upgrade: ${formatMoney(plan.monthlyPrice)}/mo`}
                     onConfirm={() => changePlan(plan.id)}
                   />
                 ) : (

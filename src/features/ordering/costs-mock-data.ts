@@ -81,7 +81,7 @@ export const mockStocktakes: Stocktake[] = [
 ];
 
 export const mockEightySixEntries: EightySixEntry[] = [
-  { id: "86-1", menuItemId: "mi-ace", reason: "Sold out — last bottle sold at 01:30", byStaffId: "st-sofia", at: "2026-07-25T01:30:00-04:00" },
+  { id: "86-1", menuItemId: "mi-ace", reason: "Sold out: last bottle sold at 01:30", byStaffId: "st-sofia", at: "2026-07-25T01:30:00-04:00" },
 ];
 
 export const mockProfitTargets: ProfitTarget[] = [

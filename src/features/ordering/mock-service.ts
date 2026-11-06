@@ -54,7 +54,7 @@ async function assertSessionOrderable(sessionId: string | undefined): Promise<vo
   const session = await mockGuestsService.getSession(sessionId);
   if (!session) return;
   if (session.status === "closure-requested") {
-    throw new Error("Your tab is being closed — ordering is paused until the host settles it.");
+    throw new Error("Your tab is being closed. Ordering is paused until the host settles it.");
   }
   if (session.status === "closed") {
     throw new Error("This tab is closed. Scan the table QR code to start a new session.");
@@ -68,10 +68,10 @@ async function assertSessionOrderable(sessionId: string | undefined): Promise<vo
     const venue = await mockVenueService.getVenueSnapshot();
     const policy = venue.lastCallPolicy ?? "block-all";
     if (policy === "block-all") {
-      throw new Error("Last call — no new orders are being accepted.");
+      throw new Error("Last call: no new orders are being accepted.");
     }
     if (policy === "allow-last-round" && session.lastCallOrderPlaced) {
-      throw new Error("Last call — your final round has already been placed.");
+      throw new Error("Last call. Your final round has already been placed.");
     }
   }
 }
@@ -424,7 +424,7 @@ export const mockOrdersService = {
     // same order total — a whole-order comp must see the item comps already taken.
     const prior = adjustments.filter((a) => a.orderId === input.orderId && !a.reversedByAdjustmentId);
     if (!isAdjustmentAmountValid(amountCents, orderTotalCents(order), prior)) {
-      throw new Error("This would adjust more than remains on that order — check for a prior adjustment.");
+      throw new Error("This would adjust more than remains on that order. Check for a prior adjustment.");
     }
 
     const adjustment: TabAdjustment = {
@@ -453,7 +453,7 @@ export const mockOrdersService = {
       action: `tab:${input.kind}`,
       targetType: "order",
       targetId: order.id,
-      summary: `${input.kind[0].toUpperCase()}${input.kind.slice(1)}ed ${label} — ${input.reasonCode}`,
+      summary: `${input.kind[0].toUpperCase()}${input.kind.slice(1)}ed ${label}: ${input.reasonCode}`,
       metadata: { sessionId: order.sessionId, amountCents, reasonCode: input.reasonCode, note: input.note },
     });
 
@@ -464,7 +464,7 @@ export const mockOrdersService = {
       const lines = item
         ? [{ menuItemId: item.menuItemId, quantity: voidQty! }]
         : order.items.map((oi) => ({ menuItemId: oi.menuItemId, quantity: oi.quantity }));
-      await restoreSale(lines, `Void — ${input.reasonCode}`, adjustment.id);
+      await restoreSale(lines, `Void: ${input.reasonCode}`, adjustment.id);
     }
 
     return clone(adjustment);

@@ -139,7 +139,7 @@ export default function GuestOrdersPage() {
     },
     onSuccess: () => {
       setClosureStatus("requested");
-      toast.success("Closure requested — your host will confirm shortly.");
+      toast.success("Closure requested. Your host will confirm shortly.");
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : "Could not request tab closure");

@@ -202,7 +202,7 @@ function PromotionsContent() {
           )}
           {testResult && (
             <span className="text-sm text-emerald-600 dark:text-emerald-400">
-              {testResult.name} — {testResult.type === "percentage" ? `−${testResult.value}%` : `−${testResult.value}$`}
+              {testResult.name}: {testResult.type === "percentage" ? `−${testResult.value}%` : `−${testResult.value}$`}
             </span>
           )}
         </CardContent>

@@ -74,7 +74,7 @@ export const mockDoorService = {
       mockNotificationService.dispatchPush(
         "capacity-warning",
         `Occupancy at ${Math.round((newCurrent / venue.legalCapacity) * 100)}%`,
-        `${newCurrent}/${venue.legalCapacity} guests in the venue — consider slowing admissions.`,
+        `${newCurrent}/${venue.legalCapacity} guests in the venue. Consider slowing admissions.`,
         ["security"],
       );
     }
@@ -128,7 +128,7 @@ export const mockDoorService = {
       const denial = checkAgeOnAdmission(yearOfBirth, venueSnapshot.legalDrinkingAge, undefined);
       if (denial === "underage") {
         throw new Error(
-          `Guest is under the legal drinking age of ${venueSnapshot.legalDrinkingAge}. Admission blocked — this cannot be overridden.`,
+          `Guest is under the legal drinking age of ${venueSnapshot.legalDrinkingAge}. Admission blocked. This cannot be overridden.`,
         );
       }
     }
@@ -221,7 +221,7 @@ export const mockDoorService = {
       action: "door:admit-banned-override",
       targetType: "guest-profile",
       targetId: input.guestProfileId,
-      summary: `Overrode a ban to admit a guest — ${input.reason}`,
+      summary: `Overrode a ban to admit a guest: ${input.reason}`,
       metadata: { admissionId: admission.id },
     });
     return admission;
@@ -336,7 +336,7 @@ export const mockDoorService = {
       action: "emergency:evacuate",
       targetType: "occupancy",
       targetId: event.id,
-      summary: `Emergency evacuation — occupancy zeroed from ${current} to 0`,
+      summary: `Emergency evacuation, occupancy zeroed from ${current} to 0`,
       metadata: { headcountAtEvacuation: current },
     });
     return { headcount: current };
@@ -365,7 +365,7 @@ export const mockDoorService = {
       action: "emergency:resume",
       targetType: "occupancy",
       targetId: event.id,
-      summary: `Emergency evacuation ended — operations resumed at headcount ${headcountAtEvacuation}`,
+      summary: `Emergency evacuation ended. Operations resumed at headcount ${headcountAtEvacuation}`,
     });
   },
 
@@ -461,7 +461,7 @@ export const mockDoorService = {
       action: "door:admit-capacity-override",
       targetType: "admission",
       targetId: admission.id,
-      summary: `Capacity override — admitted party of ${input.partySize} past legal capacity: ${input.reason}`,
+      summary: `Capacity override, admitted party of ${input.partySize} past legal capacity: ${input.reason}`,
       metadata: { admissionId: admission.id },
     });
     return admission;

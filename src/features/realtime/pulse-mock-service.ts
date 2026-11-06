@@ -64,7 +64,7 @@ export const mockPulseService = {
       CHANNELS.map((channel) =>
         mockStaffService.sendMessage({
           channel,
-          body: `${sentBy} started last call — no new orders are being accepted.`,
+          body: `${sentBy} started last call. No new orders are being accepted.`,
           author: managerAuthor(sentBy),
         }),
       ),

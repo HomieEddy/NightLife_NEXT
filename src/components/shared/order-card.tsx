@@ -42,7 +42,7 @@ export function OrderCard({
             )}
             {order.giftToTableCode && (
               <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-primary">
-                <Gift className="size-3" /> Deliver to {order.giftToTableCode} — anonymous gift
+                <Gift className="size-3" /> Deliver to {order.giftToTableCode}: anonymous gift
               </p>
             )}
           </div>

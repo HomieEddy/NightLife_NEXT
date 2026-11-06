@@ -8,7 +8,7 @@ import { logger } from "@/features/shared/logger";
 const SMS_DRIVER = process.env.SMS_DRIVER === "twilio" ? "twilio" : "log";
 
 function getTwilio(): Twilio {
-  if (SMS_DRIVER !== "twilio") throw new Error("Twilio is not configured — set SMS_DRIVER=twilio and TWILIO_* vars");
+  if (SMS_DRIVER !== "twilio") throw new Error("Twilio is not configured. Set SMS_DRIVER=twilio and TWILIO_* vars");
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   if (!sid || !token) throw new Error("TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are required when SMS_DRIVER=twilio");

@@ -47,7 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {offline && (
         <div className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground">
           <WifiOff className="size-3.5" />
-          You&apos;re offline — some actions are unavailable
+          You&apos;re offline. Some actions are unavailable
         </div>
       )}
       {children}

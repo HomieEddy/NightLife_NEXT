@@ -63,7 +63,7 @@ function DemoExplainCard() {
           <div className="text-sm text-muted-foreground">
             Push notifications and notification preferences are available in the
             live build. Staff and managers can choose which events trigger push,
-            email, or SMS alerts — per event type, per channel.
+            email, or SMS alerts, per event type and per channel.
           </div>
         </div>
         <div className="space-y-3">

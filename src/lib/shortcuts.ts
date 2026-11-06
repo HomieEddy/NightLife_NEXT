@@ -9,7 +9,7 @@ export interface Shortcut {
 }
 
 export const MANAGER_SHORTCUTS: Shortcut[] = [
-  { keys: "⌘K", label: "Command palette — search orders, tables, pages, and actions", global: true },
+  { keys: "⌘K", label: "Command palette: search orders, tables, pages, and actions", global: true },
   { keys: "/", label: "Focus the current page's search input" },
   { keys: "?", label: "Show this shortcut list", global: true },
   { keys: "g d", label: "Jump to Dashboard" },

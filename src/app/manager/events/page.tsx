@@ -194,7 +194,7 @@ function EventsContent() {
     addGuestMutation.mutate({ eventId, name: newGuestName.trim() });
   }
 
-  const zoneName = (id?: string) => zones.find((z) => z.id === id)?.name ?? "—";
+  const zoneName = (id?: string) => zones.find((z) => z.id === id)?.name ?? "-";
 
   function openCreate() {
     setEditingId(null);

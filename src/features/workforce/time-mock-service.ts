@@ -22,7 +22,7 @@ export const mockTimeService = {
   async clockIn(staffId: string, shiftId?: string): Promise<TimeEntry> {
     await delay(300);
     const open = entries.find((e) => e.staffId === staffId && !e.clockOutAt);
-    if (open) throw new Error("Already clocked in — clock out first.");
+    if (open) throw new Error("Already clocked in. Clock out first.");
     const entry: TimeEntry = {
       id: uid("te"),
       venueId: "venue-1",
@@ -40,7 +40,7 @@ export const mockTimeService = {
   async clockOut(staffId: string): Promise<TimeEntry> {
     await delay(300);
     const idx = entries.findIndex((e) => e.staffId === staffId && !e.clockOutAt);
-    if (idx === -1) throw new Error("No open clock-in found — clock in first.");
+    if (idx === -1) throw new Error("No open clock-in found. Clock in first.");
     const now = new Date().toISOString();
     const start = new Date(entries[idx].clockInAt!).getTime();
     const end = Date.now();

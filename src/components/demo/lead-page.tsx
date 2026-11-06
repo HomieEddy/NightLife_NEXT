@@ -85,7 +85,7 @@ export default function LeadPage() {
       <div className="text-center">
         <h1 className="text-display text-3xl">Request a demo</h1>
         <p className="text-voice mt-2 text-lg text-muted-foreground">
-          Tell us about your venue — we&apos;ll tailor the walkthrough to your floor plan.
+          Tell us about your venue, and we&apos;ll tailor the walkthrough to your floor plan.
         </p>
       </div>
 

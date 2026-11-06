@@ -11,7 +11,7 @@ export function reservationConfirmationSms(venueName: string, guestName: string,
 }
 
 export function reservationReminderSms(venueName: string, guestName: string, time: string): string {
-  return `${venueName}: Reminder — your table is held until ${time}.`;
+  return `${venueName}: Reminder: your table is held until ${time}.`;
 }
 
 // ── French (Québécois) ─────────────────────────────────────────
@@ -25,5 +25,5 @@ export function reservationConfirmationSmsFr(venueName: string, guestName: strin
 }
 
 export function reservationReminderSmsFr(venueName: string, guestName: string, time: string): string {
-  return `${venueName}: Rappel — votre table est réservée jusqu'à ${time}.`;
+  return `${venueName}: Rappel : votre table est réservée jusqu'à ${time}.`;
 }

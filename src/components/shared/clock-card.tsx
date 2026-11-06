@@ -58,7 +58,7 @@ export function ClockCard({ staffId }: { staffId: string }) {
     try {
       const e = await timeService.clockOut(staffId);
       setEntry(e);
-      toast.success(`Clocked out — ${e.minutesWorked} min`);
+      toast.success(`Clocked out, ${e.minutesWorked} min`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not clock out");
     } finally {
